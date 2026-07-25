@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -64,6 +66,30 @@ fun pageContentPadding(
 @Composable
 fun rememberBlurBackdrop(): LayerBackdrop? {
     if (!isRuntimeShaderSupported()) return null
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val prefs = remember { context.getSharedPreferences(com.lidesheng.hyperlyric.common.UIConstants.PREF_NAME, android.content.Context.MODE_PRIVATE) }
+    
+    var isBlurEnabled by remember { 
+        androidx.compose.runtime.mutableStateOf(prefs.getBoolean(com.lidesheng.hyperlyric.common.UIConstants.KEY_ENABLE_BLUR, com.lidesheng.hyperlyric.common.UIConstants.DEFAULT_ENABLE_BLUR)) 
+    }
+
+    val listener = remember {
+        android.content.SharedPreferences.OnSharedPreferenceChangeListener { p, key ->
+            if (key == com.lidesheng.hyperlyric.common.UIConstants.KEY_ENABLE_BLUR) {
+                isBlurEnabled = p.getBoolean(key, com.lidesheng.hyperlyric.common.UIConstants.DEFAULT_ENABLE_BLUR)
+            }
+        }
+    }
+
+    androidx.compose.runtime.DisposableEffect(prefs) {
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose {
+            prefs.unregisterOnSharedPreferenceChangeListener(listener)
+        }
+    }
+
+    if (!isBlurEnabled) return null
+
     val surfaceColor = MiuixTheme.colorScheme.surface
     return rememberLayerBackdrop {
         drawRect(surfaceColor)

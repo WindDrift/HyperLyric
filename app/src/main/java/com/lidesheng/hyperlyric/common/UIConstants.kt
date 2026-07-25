@@ -12,6 +12,7 @@ object UIConstants {
     const val KEY_PREDICTIVE_BACK_GESTURE = "key_predictive_back_gesture"
     const val KEY_FLOATING_NAV_BAR = "key_floating_nav_bar"
     const val KEY_EXCLUDE_FROM_RECENTS = "key_exclude_from_recents"
+    const val KEY_ENABLE_BLUR = "key_enable_blur"
     const val KEY_LOG_LEVEL = "key_log_level"
     const val KEY_LAST_SEEN_VERSION = "key_last_seen_version"
 
@@ -24,5 +25,6 @@ object UIConstants {
     const val DEFAULT_PREDICTIVE_BACK_GESTURE = false
     const val DEFAULT_FLOATING_NAV_BAR = false
     const val DEFAULT_EXCLUDE_FROM_RECENTS = false
+    const val DEFAULT_ENABLE_BLUR = true
     const val DEFAULT_LOG_LEVEL = 0 // 0=一般日志(I+W+E), 1=调试日志(D+I+W+E)
 }

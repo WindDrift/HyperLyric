@@ -141,6 +141,13 @@ private fun LazyListScope.settingsSections(
                     val monetOptions = listOf(stringResource(R.string.monet_default), stringResource(R.string.monet_blue), stringResource(R.string.monet_green), stringResource(R.string.monet_red), stringResource(R.string.monet_yellow), stringResource(R.string.monet_orange), stringResource(R.string.monet_purple), stringResource(R.string.monet_pink))
                     WindowDropdownPreference(title = stringResource(R.string.title_monet), items = monetOptions, selectedIndex = monetColorIndex, onSelectedIndexChange = { monetColorIndex = it; prefs.edit { putInt(UIConstants.KEY_MONET_COLOR, it) } })
                 }
+                var enableBlur by remember { mutableStateOf(prefs.getBoolean(UIConstants.KEY_ENABLE_BLUR, UIConstants.DEFAULT_ENABLE_BLUR)) }
+                SwitchPreference(
+                    title = stringResource(R.string.title_enable_blur),
+                    summary = stringResource(R.string.summary_enable_blur),
+                    checked = enableBlur,
+                    onCheckedChange = { enableBlur = it; prefs.edit { putBoolean(UIConstants.KEY_ENABLE_BLUR, it) } }
+                )
                 var predictiveBackGestureEnabled by remember { mutableStateOf(prefs.getBoolean(UIConstants.KEY_PREDICTIVE_BACK_GESTURE, UIConstants.DEFAULT_PREDICTIVE_BACK_GESTURE)) }
                 SwitchPreference(title = stringResource(R.string.title_predictive_back), checked = predictiveBackGestureEnabled, onCheckedChange = {
                     predictiveBackGestureEnabled = it; prefs.edit { putBoolean(UIConstants.KEY_PREDICTIVE_BACK_GESTURE, it) }
