@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.lidesheng.hyperlyric.BuildConfig
 import com.lidesheng.hyperlyric.R
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.SmallTitle
@@ -112,7 +113,7 @@ fun LazyListScope.translationSections(
                     )
                 }
             }
-            if (lyricSource == "lyricon" || lyricSource == "lyricinfo") {
+            if (BuildConfig.ONLINE_FEATURES_ENABLED && (lyricSource == "lyricon" || lyricSource == "lyricinfo")) {
                 Card(
                     modifier = Modifier
                         .padding(horizontal = 12.dp)

@@ -21,7 +21,8 @@ import com.lidesheng.hyperlyric.root.source.LyriconSource
 import com.lidesheng.hyperlyric.root.source.LyricInfoSource
 import com.lidesheng.hyperlyric.root.source.RootLyricSink
 import com.lidesheng.hyperlyric.root.source.SuperLyricSource
-import com.lidesheng.hyperlyric.root.aitrans.AITranslator
+import com.lidesheng.hyperlyric.root.aitrans.AiTranslationGateway
+import com.lidesheng.hyperlyric.root.aitrans.AiTranslationGatewayImpl
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.common.UIConstants
@@ -274,7 +275,8 @@ class HookEntry : XposedModule() {
             superLyricSource.initialize(app)
             lyricInfoSource = LyricInfoSource(app)
 
-            AITranslator.init(app)
+            AiTranslationGatewayImpl()
+            AiTranslationGateway.init(app)
 
             sourceManager = SourceManager(
                 sources = listOf(lyriconSource, superLyricSource, lyricInfoSource!!),
@@ -419,7 +421,7 @@ class HookEntry : XposedModule() {
             sourceManager?.start()
         } else {
             sourceManager?.stop()
-            AITranslator.cancelActiveRequests()
+            AiTranslationGateway.cancelActiveRequests()
             LyriconDataBridge.clearState()
             BaseIslandRenderer.clearAllViews()
             IslandProgressGlowController.clearAll()
@@ -448,7 +450,7 @@ class HookEntry : XposedModule() {
         }
         prefListener = null
         runCatching { sourceManager?.stop() }
-        AITranslator.cancelActiveRequests()
+        AiTranslationGateway.cancelActiveRequests()
         sourceManager = null
         lyricInfoSource = null
         runtimeApp = null

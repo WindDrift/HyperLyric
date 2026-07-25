@@ -9,6 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import com.lidesheng.hyperlyric.BuildConfig
 import com.lidesheng.hyperlyric.R
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.ui.component.TextInputDialog
@@ -156,57 +157,59 @@ fun LyricTranslationPage() {
     var showTargetLangDialog by remember { mutableStateOf(false) }
     var showPromptDialog by remember { mutableStateOf(false) }
 
-    TextInputDialog(
-        show = showApiKeyDialog,
-        title = stringResource(id = R.string.label_ai_trans_api_key),
-        initialValue = apiKey,
-        onDismiss = { showApiKeyDialog = false },
-        onConfirm = {
-            apiKey = it
-            saveConfig(RootConstants.KEY_HOOK_AI_TRANS_API_KEY, it)
-        }
-    )
-    TextInputDialog(
-        show = showModelDialog,
-        title = stringResource(id = R.string.label_ai_trans_model),
-        initialValue = model,
-        onDismiss = { showModelDialog = false },
-        onConfirm = {
-            model = it
-            saveConfig(RootConstants.KEY_HOOK_AI_TRANS_MODEL, it)
-        }
-    )
-    TextInputDialog(
-        show = showBaseUrlDialog,
-        title = stringResource(id = R.string.label_ai_trans_base_url),
-        initialValue = baseUrl,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-        onDismiss = { showBaseUrlDialog = false },
-        onConfirm = {
-            baseUrl = it
-            saveConfig(RootConstants.KEY_HOOK_AI_TRANS_BASE_URL, it)
-        }
-    )
-    TextInputDialog(
-        show = showTargetLangDialog,
-        title = stringResource(id = R.string.label_ai_trans_target_lang),
-        initialValue = targetLang,
-        onDismiss = { showTargetLangDialog = false },
-        onConfirm = {
-            targetLang = it
-            saveConfig(RootConstants.KEY_HOOK_AI_TRANS_TARGET_LANG, it)
-        }
-    )
-    TextInputDialog(
-        show = showPromptDialog,
-        title = stringResource(R.string.title_custom_prompt),
-        initialValue = prompt,
-        onDismiss = { showPromptDialog = false },
-        onConfirm = {
-            prompt = it
-            saveConfig(RootConstants.KEY_HOOK_AI_TRANS_PROMPT, it)
-        }
-    )
+    if (BuildConfig.ONLINE_FEATURES_ENABLED) {
+        TextInputDialog(
+            show = showApiKeyDialog,
+            title = stringResource(id = R.string.label_ai_trans_api_key),
+            initialValue = apiKey,
+            onDismiss = { showApiKeyDialog = false },
+            onConfirm = {
+                apiKey = it
+                saveConfig(RootConstants.KEY_HOOK_AI_TRANS_API_KEY, it)
+            }
+        )
+        TextInputDialog(
+            show = showModelDialog,
+            title = stringResource(id = R.string.label_ai_trans_model),
+            initialValue = model,
+            onDismiss = { showModelDialog = false },
+            onConfirm = {
+                model = it
+                saveConfig(RootConstants.KEY_HOOK_AI_TRANS_MODEL, it)
+            }
+        )
+        TextInputDialog(
+            show = showBaseUrlDialog,
+            title = stringResource(id = R.string.label_ai_trans_base_url),
+            initialValue = baseUrl,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+            onDismiss = { showBaseUrlDialog = false },
+            onConfirm = {
+                baseUrl = it
+                saveConfig(RootConstants.KEY_HOOK_AI_TRANS_BASE_URL, it)
+            }
+        )
+        TextInputDialog(
+            show = showTargetLangDialog,
+            title = stringResource(id = R.string.label_ai_trans_target_lang),
+            initialValue = targetLang,
+            onDismiss = { showTargetLangDialog = false },
+            onConfirm = {
+                targetLang = it
+                saveConfig(RootConstants.KEY_HOOK_AI_TRANS_TARGET_LANG, it)
+            }
+        )
+        TextInputDialog(
+            show = showPromptDialog,
+            title = stringResource(R.string.title_custom_prompt),
+            initialValue = prompt,
+            onDismiss = { showPromptDialog = false },
+            onConfirm = {
+                prompt = it
+                saveConfig(RootConstants.KEY_HOOK_AI_TRANS_PROMPT, it)
+            }
+        )
+    }
 
     XposedLyricSettingPage(title = stringResource(id = R.string.title_translation)) {
         translationSections(
