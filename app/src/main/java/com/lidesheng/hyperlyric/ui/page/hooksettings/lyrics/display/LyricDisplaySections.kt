@@ -39,7 +39,12 @@ fun LazyListScope.lyricDisplaySections(
     item(key = "lyric_display") {
         Column {
             SmallTitle(text = stringResource(id = R.string.title_text))
-            Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).fillMaxWidth()) {
+            Card(
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 12.dp)
+                    .fillMaxWidth()
+            ) {
                 Column {
                     ArrowPreference(
                         title = stringResource(id = R.string.title_size),
@@ -56,7 +61,10 @@ fun LazyListScope.lyricDisplaySections(
                         title = stringResource(id = R.string.title_text_size_ratio),
                         endActions = {
                             Text(
-                                stringResource(id = R.string.format_percent, (textSizeRatio * 100).toInt()),
+                                stringResource(
+                                    id = R.string.format_percent,
+                                    (textSizeRatio * 100).toInt()
+                                ),
                                 fontSize = MiuixTheme.textStyles.body2.fontSize,
                                 color = MiuixTheme.colorScheme.onSurfaceVariantActions
                             )
@@ -81,7 +89,12 @@ fun LazyListScope.lyricDisplaySections(
                     )
                 }
             }
-            Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).fillMaxWidth()) {
+            Card(
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 12.dp)
+                    .fillMaxWidth()
+            ) {
                 Column {
                     SwitchPreference(
                         title = stringResource(id = R.string.title_extract_cover_color),
@@ -99,7 +112,12 @@ fun LazyListScope.lyricDisplaySections(
                     }
                 }
             }
-            Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).fillMaxWidth()) {
+            Card(
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 12.dp)
+                    .fillMaxWidth()
+            ) {
                 Column {
                     ArrowPreference(
                         title = stringResource(id = R.string.title_custom_font),

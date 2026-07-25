@@ -2,7 +2,6 @@
 
 import android.content.Context
 import android.util.Base64
-import com.lidesheng.hyperlyric.utils.LogManager
 import androidx.core.content.edit
 import com.lidesheng.hyperlyric.online.model.LyricsResult
 import com.lidesheng.hyperlyric.online.model.SearchSource
@@ -10,11 +9,11 @@ import com.lidesheng.hyperlyric.online.model.SongSearchResult
 import com.lidesheng.hyperlyric.online.model.Source
 import com.lidesheng.hyperlyric.online.utils.NeCryptoUtils
 import com.lidesheng.hyperlyric.online.utils.YrcParser
+import com.lidesheng.hyperlyric.utils.LogManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -37,7 +36,7 @@ class NeSource(
     private val api: NeApi,
     private val json: Json,
     private val context: Context
-): SearchSource {
+) : SearchSource {
     override val sourceType = Source.NE
 
 
@@ -81,7 +80,9 @@ class NeSource(
                 cookieMap.putAll(map)
                 userId = savedUserId
                 true
-            } catch (_: Exception) { false }
+            } catch (_: Exception) {
+                false
+            }
         } else false
     }
 
@@ -155,7 +156,11 @@ class NeSource(
                 )
                 val requestBody = buildBody(params, preCookies)
 
-                val response = api.request("https://interface.music.163.com/eapi/register/anonimous", headers, requestBody)
+                val response = api.request(
+                    "https://interface.music.163.com/eapi/register/anonimous",
+                    headers,
+                    requestBody
+                )
 
                 if (response.isSuccessful) {
                     val setCookieHeaders = response.headers().values("Set-Cookie")
@@ -173,7 +178,9 @@ class NeSource(
                     responseCookies["NMTID"]?.let { cookieMap["NMTID"] = it }
                     responseCookies["__csrf"]?.let { cookieMap["__csrf"] = it }
 
-                    val wnmcid = "${(1..6).map { ('a'..'z').random() }.joinToString("")}.${System.currentTimeMillis()}.01.0"
+                    val wnmcid = "${
+                        (1..6).map { ('a'..'z').random() }.joinToString("")
+                    }.${System.currentTimeMillis()}.01.0"
                     cookieMap["WNMCID"] = wnmcid
 
                     val responseBodyBytes = response.body()?.bytes() ?: byteArrayOf()
@@ -286,8 +293,14 @@ class NeSource(
         }
     }
 
-    override suspend fun search(keyword: String, page: Int, separator: String, pageSize: Int): List<SongSearchResult> = withContext(
-        Dispatchers.IO) {
+    override suspend fun search(
+        keyword: String,
+        page: Int,
+        separator: String,
+        pageSize: Int
+    ): List<SongSearchResult> = withContext(
+        Dispatchers.IO
+    ) {
         ensureInit()
 
         val path = "/eapi/search/song/list/page"
@@ -330,31 +343,34 @@ class NeSource(
         }
     }
 
-    override suspend fun getLyrics(song: SongSearchResult): LyricsResult? = withContext(Dispatchers.IO) {
-        ensureInit()
-        val path = "/eapi/song/lyric/v1"
-        val params = buildJsonObject {
-            put("id", song.id.toLongOrNull() ?: 0)
-            put("lv", "-1")
-            put("tv", "-1")
-            put("rv", "-1")
-            put("yv", "-1")
+    override suspend fun getLyrics(song: SongSearchResult): LyricsResult? =
+        withContext(Dispatchers.IO) {
+            ensureInit()
+            val path = "/eapi/song/lyric/v1"
+            val params = buildJsonObject {
+                put("id", song.id.toLongOrNull() ?: 0)
+                put("lv", "-1")
+                put("tv", "-1")
+                put("rv", "-1")
+                put("yv", "-1")
+            }
+            val rawJson = doRequest(path, params)
+            val resp = try {
+                json.decodeFromString<NeLyricResponse>(rawJson)
+            } catch (_: Exception) {
+                return@withContext null
+            }
+            LogManager.d("NeSource", "Lyric lrc result: ${resp.lrc}")
+            LogManager.d("NeSource", "Lyric yrc result: ${resp.yrc}")
+            LogManager.d("NeSource", "Lyric translation result: ${resp.tlyric}")
+            LogManager.d("NeSource", "Lyric romanization result: ${resp.romalrc}")
+            return@withContext YrcParser.parse(
+                yrc = resp.yrc?.lyric,
+                lrc = resp.lrc?.lyric,
+                tlyric = resp.tlyric?.lyric,
+                romalrc = resp.romalrc?.lyric
+            )
         }
-        val rawJson = doRequest(path, params)
-        val resp = try {
-            json.decodeFromString<NeLyricResponse>(rawJson)
-        } catch (_: Exception) { return@withContext null }
-        LogManager.d("NeSource", "Lyric lrc result: ${resp.lrc}")
-        LogManager.d("NeSource", "Lyric yrc result: ${resp.yrc}")
-        LogManager.d("NeSource", "Lyric translation result: ${resp.tlyric}")
-        LogManager.d("NeSource", "Lyric romanization result: ${resp.romalrc}")
-        return@withContext YrcParser.parse(
-            yrc = resp.yrc?.lyric,
-            lrc = resp.lrc?.lyric,
-            tlyric = resp.tlyric?.lyric,
-            romalrc = resp.romalrc?.lyric
-        )
-    }
 
     fun getAnonimousUsername(deviceId: String): String {
         val keyLength = DEVICEID_XOR_KEY.length
@@ -375,6 +391,7 @@ class NeSource(
 
         return Base64.encodeToString(combinedStr.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
     }
+
     private fun formatMillisToDate(millis: Long): String {
         if (millis <= 0L) return ""
 

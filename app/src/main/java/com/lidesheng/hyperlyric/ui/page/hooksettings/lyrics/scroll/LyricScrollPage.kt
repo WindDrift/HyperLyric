@@ -19,18 +19,102 @@ fun LyricScrollPage() {
     val prefs = rememberHookPrefs()
     val saveConfig = rememberHookConfigSaver(prefs)
 
-    val lyricMode by remember { mutableIntStateOf(prefs.getInt(RootConstants.KEY_HOOK_LYRIC_MODE, RootConstants.DEFAULT_HOOK_LYRIC_MODE)) }
-    var marqueeMode by remember { mutableStateOf(prefs.getBoolean(RootConstants.KEY_HOOK_MARQUEE_MODE, RootConstants.DEFAULT_HOOK_MARQUEE_MODE)) }
-    var marqueeSpeed by remember { mutableIntStateOf(prefs.getInt(RootConstants.KEY_HOOK_MARQUEE_SPEED, RootConstants.DEFAULT_HOOK_MARQUEE_SPEED)) }
-    var marqueeDelay by remember { mutableIntStateOf(prefs.getInt(RootConstants.KEY_HOOK_MARQUEE_DELAY, RootConstants.DEFAULT_HOOK_MARQUEE_DELAY)) }
-    var marqueeInfinite by remember { mutableStateOf(prefs.getBoolean(RootConstants.KEY_HOOK_MARQUEE_INFINITE, RootConstants.DEFAULT_HOOK_MARQUEE_INFINITE)) }
-    var marqueeLoop by remember { mutableIntStateOf(prefs.getInt(RootConstants.KEY_HOOK_MARQUEE_LOOP_DELAY, RootConstants.DEFAULT_HOOK_MARQUEE_LOOP_DELAY)) }
-    var marqueeStopEnd by remember { mutableStateOf(prefs.getBoolean(RootConstants.KEY_HOOK_MARQUEE_STOP_END, RootConstants.DEFAULT_HOOK_MARQUEE_STOP_END)) }
-    var marqueeMetadataMode by remember { mutableStateOf(prefs.getBoolean(RootConstants.KEY_HOOK_MARQUEE_METADATA_MODE, RootConstants.DEFAULT_HOOK_MARQUEE_METADATA_MODE)) }
-    var marqueeMetadataSpeed by remember { mutableIntStateOf(prefs.getInt(RootConstants.KEY_HOOK_MARQUEE_METADATA_SPEED, RootConstants.DEFAULT_HOOK_MARQUEE_METADATA_SPEED)) }
-    var marqueeMetadataDelay by remember { mutableIntStateOf(prefs.getInt(RootConstants.KEY_HOOK_MARQUEE_METADATA_DELAY, RootConstants.DEFAULT_HOOK_MARQUEE_METADATA_DELAY)) }
-    var marqueeMetadataInfinite by remember { mutableStateOf(prefs.getBoolean(RootConstants.KEY_HOOK_MARQUEE_METADATA_INFINITE, RootConstants.DEFAULT_HOOK_MARQUEE_METADATA_INFINITE)) }
-    var marqueeMetadataLoopDelay by remember { mutableIntStateOf(prefs.getInt(RootConstants.KEY_HOOK_MARQUEE_METADATA_LOOP_DELAY, RootConstants.DEFAULT_HOOK_MARQUEE_METADATA_LOOP_DELAY)) }
+    val lyricMode by remember {
+        mutableIntStateOf(
+            prefs.getInt(
+                RootConstants.KEY_HOOK_LYRIC_MODE,
+                RootConstants.DEFAULT_HOOK_LYRIC_MODE
+            )
+        )
+    }
+    var marqueeMode by remember {
+        mutableStateOf(
+            prefs.getBoolean(
+                RootConstants.KEY_HOOK_MARQUEE_MODE,
+                RootConstants.DEFAULT_HOOK_MARQUEE_MODE
+            )
+        )
+    }
+    var marqueeSpeed by remember {
+        mutableIntStateOf(
+            prefs.getInt(
+                RootConstants.KEY_HOOK_MARQUEE_SPEED,
+                RootConstants.DEFAULT_HOOK_MARQUEE_SPEED
+            )
+        )
+    }
+    var marqueeDelay by remember {
+        mutableIntStateOf(
+            prefs.getInt(
+                RootConstants.KEY_HOOK_MARQUEE_DELAY,
+                RootConstants.DEFAULT_HOOK_MARQUEE_DELAY
+            )
+        )
+    }
+    var marqueeInfinite by remember {
+        mutableStateOf(
+            prefs.getBoolean(
+                RootConstants.KEY_HOOK_MARQUEE_INFINITE,
+                RootConstants.DEFAULT_HOOK_MARQUEE_INFINITE
+            )
+        )
+    }
+    var marqueeLoop by remember {
+        mutableIntStateOf(
+            prefs.getInt(
+                RootConstants.KEY_HOOK_MARQUEE_LOOP_DELAY,
+                RootConstants.DEFAULT_HOOK_MARQUEE_LOOP_DELAY
+            )
+        )
+    }
+    var marqueeStopEnd by remember {
+        mutableStateOf(
+            prefs.getBoolean(
+                RootConstants.KEY_HOOK_MARQUEE_STOP_END,
+                RootConstants.DEFAULT_HOOK_MARQUEE_STOP_END
+            )
+        )
+    }
+    var marqueeMetadataMode by remember {
+        mutableStateOf(
+            prefs.getBoolean(
+                RootConstants.KEY_HOOK_MARQUEE_METADATA_MODE,
+                RootConstants.DEFAULT_HOOK_MARQUEE_METADATA_MODE
+            )
+        )
+    }
+    var marqueeMetadataSpeed by remember {
+        mutableIntStateOf(
+            prefs.getInt(
+                RootConstants.KEY_HOOK_MARQUEE_METADATA_SPEED,
+                RootConstants.DEFAULT_HOOK_MARQUEE_METADATA_SPEED
+            )
+        )
+    }
+    var marqueeMetadataDelay by remember {
+        mutableIntStateOf(
+            prefs.getInt(
+                RootConstants.KEY_HOOK_MARQUEE_METADATA_DELAY,
+                RootConstants.DEFAULT_HOOK_MARQUEE_METADATA_DELAY
+            )
+        )
+    }
+    var marqueeMetadataInfinite by remember {
+        mutableStateOf(
+            prefs.getBoolean(
+                RootConstants.KEY_HOOK_MARQUEE_METADATA_INFINITE,
+                RootConstants.DEFAULT_HOOK_MARQUEE_METADATA_INFINITE
+            )
+        )
+    }
+    var marqueeMetadataLoopDelay by remember {
+        mutableIntStateOf(
+            prefs.getInt(
+                RootConstants.KEY_HOOK_MARQUEE_METADATA_LOOP_DELAY,
+                RootConstants.DEFAULT_HOOK_MARQUEE_METADATA_LOOP_DELAY
+            )
+        )
+    }
 
     var showMarqueeSpeedDialog by remember { mutableStateOf(false) }
     var showMarqueeDelayDialog by remember { mutableStateOf(false) }

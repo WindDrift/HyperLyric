@@ -26,12 +26,12 @@ internal object RealIslandHooker {
                         if (IslandLyricTextInjector.restoreExistingSlotsLightweight(contentView)) {
                             IslandLyricTextInjector.refreshCurrentContent(contentView)
                             IslandHostFacade.triggerSystemRelayout(contentView)
-                HookLogger.d(TAG, "updateBigIslandView 前已轻量恢复歌词视图并重新布局")
+                            HookLogger.d(TAG, "updateBigIslandView 前已轻量恢复歌词视图并重新布局")
                         }
                     }
                 }
             }.onFailure { e ->
-            HookLogger.e(TAG, "预恢复歌词视图失败", e)
+                HookLogger.e(TAG, "预恢复歌词视图失败", e)
             }
 
             val result = chain.proceed()
@@ -39,7 +39,11 @@ internal object RealIslandHooker {
             runCatching {
                 val contentView = chain.thisObject as? ViewGroup ?: return@runCatching
                 val prefs = HookEntry.instance?.prefs ?: return@runCatching
-                if (!prefs.getBoolean(RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND, RootConstants.DEFAULT_HOOK_ENABLE_SUPER_ISLAND)) {
+                if (!prefs.getBoolean(
+                        RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND,
+                        RootConstants.DEFAULT_HOOK_ENABLE_SUPER_ISLAND
+                    )
+                ) {
                     return@runCatching
                 }
 
@@ -54,7 +58,10 @@ internal object RealIslandHooker {
                 IslandViewRegistry.register(contentView, info.packageName)
 
                 if (!IslandTextHookerSupport.isCurrentLyricIsland(info)) {
-                    IslandTextHookerSupport.clearOnlyWhenPackageIsDefinitelyDifferent(contentView, info)
+                    IslandTextHookerSupport.clearOnlyWhenPackageIsDefinitelyDifferent(
+                        contentView,
+                        info
+                    )
                     return@runCatching
                 }
 
@@ -70,7 +77,7 @@ internal object RealIslandHooker {
 
                 IslandHostFacade.injectHostGlow(contentView, data, prefs)
             }.onFailure { e ->
-            HookLogger.e(TAG, "注入歌词视图失败", e)
+                HookLogger.e(TAG, "注入歌词视图失败", e)
             }
 
             return result
@@ -87,10 +94,14 @@ internal object RealIslandHooker {
                 val contentView = chain.thisObject as? ViewGroup ?: return@runCatching
                 if (!IslandProbeUtils.isSuperIslandEnabled()) return@runCatching
                 val currentData = IslandProbeUtils.getCurrentIslandData(contentView)
-                val mediaInfo = IslandProbeUtils.extractMediaIslandInfo(currentData) ?: return@runCatching
+                val mediaInfo =
+                    IslandProbeUtils.extractMediaIslandInfo(currentData) ?: return@runCatching
 
                 if (!IslandTextHookerSupport.isCurrentLyricIsland(mediaInfo)) {
-                    IslandTextHookerSupport.clearOnlyWhenPackageIsDefinitelyDifferent(contentView, mediaInfo)
+                    IslandTextHookerSupport.clearOnlyWhenPackageIsDefinitelyDifferent(
+                        contentView,
+                        mediaInfo
+                    )
                     return@runCatching
                 }
                 if (!IslandTextHookerSupport.shouldRenderInjectedIsland()) {
@@ -101,10 +112,10 @@ internal object RealIslandHooker {
                 if (IslandLyricTextInjector.restoreExistingSlotsLightweight(contentView)) {
                     IslandLyricTextInjector.refreshCurrentContent(contentView)
                     IslandHostFacade.triggerSystemRelayout(contentView)
-                HookLogger.d(TAG, "$eventName 后已轻量恢复歌词视图并重新布局")
+                    HookLogger.d(TAG, "$eventName 后已轻量恢复歌词视图并重新布局")
                 }
             }.onFailure { e ->
-            HookLogger.e(TAG, "$eventName 后恢复歌词视图失败", e)
+                HookLogger.e(TAG, "$eventName 后恢复歌词视图失败", e)
             }
 
             return result

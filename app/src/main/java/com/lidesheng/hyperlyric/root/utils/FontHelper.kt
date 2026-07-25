@@ -1,8 +1,8 @@
 package com.lidesheng.hyperlyric.root.utils
 
 import android.content.SharedPreferences
-import com.lidesheng.hyperlyric.common.RootConstants
 import android.graphics.Typeface
+import com.lidesheng.hyperlyric.common.RootConstants
 import java.io.File
 
 object FontHelper {
@@ -10,8 +10,12 @@ object FontHelper {
     private val loggedFontFailures = mutableSetOf<String>()
 
     fun loadTypeface(prefs: SharedPreferences): Typeface {
-        val fontWeight = prefs.getInt(RootConstants.KEY_HOOK_FONT_WEIGHT, RootConstants.DEFAULT_HOOK_FONT_WEIGHT)
-        val fontItalic = prefs.getBoolean(RootConstants.KEY_HOOK_FONT_ITALIC, RootConstants.DEFAULT_HOOK_FONT_ITALIC)
+        val fontWeight =
+            prefs.getInt(RootConstants.KEY_HOOK_FONT_WEIGHT, RootConstants.DEFAULT_HOOK_FONT_WEIGHT)
+        val fontItalic = prefs.getBoolean(
+            RootConstants.KEY_HOOK_FONT_ITALIC,
+            RootConstants.DEFAULT_HOOK_FONT_ITALIC
+        )
 
         val customFontPath = prefs.getString(RootConstants.KEY_HOOK_CUSTOM_FONT_PATH, null)
         var baseTf: Typeface? = null
@@ -24,12 +28,18 @@ object FontHelper {
                     HookLogger.d("FontHelper", "自定义字体加载成功：$customFontPath")
                 } else {
                     if (loggedFontFailures.add(customFontPath)) {
-                        HookLogger.w("FontHelper", "自定义字体文件不存在或无法读取：$customFontPath (存在: ${file.exists()}, 可读: ${file.canRead()})")
+                        HookLogger.w(
+                            "FontHelper",
+                            "自定义字体文件不存在或无法读取：$customFontPath (存在: ${file.exists()}, 可读: ${file.canRead()})"
+                        )
                     }
                 }
             } catch (e: Exception) {
                 if (loggedFontFailures.add(customFontPath)) {
-                    HookLogger.w("FontHelper", "无法从文件创建字体：$customFontPath，原因: ${e.message}")
+                    HookLogger.w(
+                        "FontHelper",
+                        "无法从文件创建字体：$customFontPath，原因: ${e.message}"
+                    )
                 }
             }
         }

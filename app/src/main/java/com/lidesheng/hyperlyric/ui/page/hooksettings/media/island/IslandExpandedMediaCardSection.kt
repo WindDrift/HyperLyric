@@ -114,7 +114,7 @@ fun LazyListScope.islandExpandedMediaCardSection(
                 }
             )
             val customBackground = backgroundStyle !=
-                RootConstants.ISLAND_EXPANDED_MEDIA_BACKGROUND_STYLE_DEFAULT
+                    RootConstants.ISLAND_EXPANDED_MEDIA_BACKGROUND_STYLE_DEFAULT
             AnimatedVisibility(visible = !customBackground) {
                 Column {
                     val themeValues = listOf(
@@ -135,18 +135,18 @@ fun LazyListScope.islandExpandedMediaCardSection(
                         }
                     )
                     val modeValues = listOf(
-                      RootConstants.ISLAND_EXPANDED_MEDIA_AMBIENT_FLOW_MODE_DEFAULT,
-                      RootConstants.ISLAND_EXPANDED_MEDIA_AMBIENT_FLOW_MODE_COVER_COLOR,
-                      RootConstants.ISLAND_EXPANDED_MEDIA_AMBIENT_FLOW_MODE_CUSTOM_FULL,
-                      RootConstants.ISLAND_EXPANDED_MEDIA_AMBIENT_FLOW_MODE_DISABLED
+                        RootConstants.ISLAND_EXPANDED_MEDIA_AMBIENT_FLOW_MODE_DEFAULT,
+                        RootConstants.ISLAND_EXPANDED_MEDIA_AMBIENT_FLOW_MODE_COVER_COLOR,
+                        RootConstants.ISLAND_EXPANDED_MEDIA_AMBIENT_FLOW_MODE_CUSTOM_FULL,
+                        RootConstants.ISLAND_EXPANDED_MEDIA_AMBIENT_FLOW_MODE_DISABLED
                     )
                     OverlayDropdownPreference(
                         title = stringResource(R.string.title_island_media_ambient_flow_mode),
                         items = listOf(
-                          stringResource(R.string.option_island_media_ambient_flow_default),
-                          stringResource(R.string.option_island_media_ambient_flow_cover_color),
-                          stringResource(R.string.option_media_ambient_flow_custom_full),
-                          stringResource(R.string.option_island_media_ambient_flow_disabled)
+                            stringResource(R.string.option_island_media_ambient_flow_default),
+                            stringResource(R.string.option_island_media_ambient_flow_cover_color),
+                            stringResource(R.string.option_media_ambient_flow_custom_full),
+                            stringResource(R.string.option_island_media_ambient_flow_disabled)
                         ),
                         selectedIndex = modeValues.indexOf(ambientFlowMode).coerceAtLeast(0),
                         onSelectedIndexChange = { index ->
@@ -159,7 +159,7 @@ fun LazyListScope.islandExpandedMediaCardSection(
                 Column {
                     AnimatedVisibility(
                         visible = backgroundStyle ==
-                            RootConstants.ISLAND_EXPANDED_MEDIA_BACKGROUND_STYLE_SOFT_COVER
+                                RootConstants.ISLAND_EXPANDED_MEDIA_BACKGROUND_STYLE_SOFT_COVER
                     ) {
                         Column {
                             val toneValues = listOf(
@@ -188,7 +188,7 @@ fun LazyListScope.islandExpandedMediaCardSection(
                     )
                     AnimatedVisibility(
                         visible = backgroundStyle ==
-                            RootConstants.ISLAND_EXPANDED_MEDIA_BACKGROUND_STYLE_BLURRED_COVER
+                                RootConstants.ISLAND_EXPANDED_MEDIA_BACKGROUND_STYLE_BLURRED_COVER
                     ) {
                         Column {
                             var sliderValue by remember(backgroundBlur) {
@@ -223,7 +223,7 @@ fun LazyListScope.islandExpandedMediaCardSection(
                     }
                     AnimatedVisibility(
                         visible = backgroundStyle ==
-                            RootConstants.ISLAND_EXPANDED_MEDIA_BACKGROUND_STYLE_LINEAR_GRADIENT
+                                RootConstants.ISLAND_EXPANDED_MEDIA_BACKGROUND_STYLE_LINEAR_GRADIENT
                     ) {
                         Column {
                             SwitchPreference(

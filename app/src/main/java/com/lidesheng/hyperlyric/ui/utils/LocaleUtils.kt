@@ -43,14 +43,15 @@ object LocaleUtils {
         }
 
         DisposableEffect(prefs) {
-            val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { sharedPrefs, key ->
-                if (key == UIConstants.KEY_APP_LANGUAGE) {
-                    languageMode = sharedPrefs.getInt(
-                        UIConstants.KEY_APP_LANGUAGE,
-                        UIConstants.DEFAULT_APP_LANGUAGE
-                    )
+            val listener =
+                android.content.SharedPreferences.OnSharedPreferenceChangeListener { sharedPrefs, key ->
+                    if (key == UIConstants.KEY_APP_LANGUAGE) {
+                        languageMode = sharedPrefs.getInt(
+                            UIConstants.KEY_APP_LANGUAGE,
+                            UIConstants.DEFAULT_APP_LANGUAGE
+                        )
+                    }
                 }
-            }
             prefs.registerOnSharedPreferenceChangeListener(listener)
             onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
         }

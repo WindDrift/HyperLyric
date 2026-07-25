@@ -45,7 +45,7 @@ object ShellUtils {
                 exit 1
             fi
         """.trimIndent()
-        
+
         return execRootScriptSilent("nsenter --mount=/proc/1/ns/mnt -- sh", script)
     }
 
@@ -66,7 +66,10 @@ object ShellUtils {
             } catch (_: Exception) {
                 return@withContext false
             } finally {
-                try { os?.close() } catch (_: Exception) {}
+                try {
+                    os?.close()
+                } catch (_: Exception) {
+                }
                 process?.destroy()
             }
         }

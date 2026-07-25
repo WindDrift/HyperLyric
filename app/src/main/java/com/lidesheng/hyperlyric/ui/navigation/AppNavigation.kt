@@ -6,29 +6,29 @@ import androidx.compose.runtime.remember
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberDecoratedNavEntries
-import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
-import com.lidesheng.hyperlyric.ui.page.MainPage
-import com.lidesheng.hyperlyric.ui.page.SetupPage
+import com.lidesheng.hyperlyric.ui.page.ChangelogPage
+import com.lidesheng.hyperlyric.ui.page.ContributorsPage
+import com.lidesheng.hyperlyric.ui.page.DynamicIslandNotificationPage
+import com.lidesheng.hyperlyric.ui.page.HelpPage
+import com.lidesheng.hyperlyric.ui.page.HookSettingsPage
 import com.lidesheng.hyperlyric.ui.page.LicensesPage
 import com.lidesheng.hyperlyric.ui.page.LogPage
-import com.lidesheng.hyperlyric.ui.page.SettingsPage
+import com.lidesheng.hyperlyric.ui.page.MainPage
 import com.lidesheng.hyperlyric.ui.page.PoetryPage
-import com.lidesheng.hyperlyric.ui.page.HookSettingsPage
-import com.lidesheng.hyperlyric.ui.page.hooksettings.LyricProviderPage
+import com.lidesheng.hyperlyric.ui.page.SettingsPage
+import com.lidesheng.hyperlyric.ui.page.SetupPage
 import com.lidesheng.hyperlyric.ui.page.hooksettings.LyricAnimationPage
+import com.lidesheng.hyperlyric.ui.page.hooksettings.LyricProviderPage
 import com.lidesheng.hyperlyric.ui.page.hooksettings.LyricSettingsPage
 import com.lidesheng.hyperlyric.ui.page.hooksettings.SuperIslandSettingsPage
-import com.lidesheng.hyperlyric.ui.page.hooksettings.media.MediaCardSettingsPage
 import com.lidesheng.hyperlyric.ui.page.hooksettings.lyrics.display.LyricDisplayPage
 import com.lidesheng.hyperlyric.ui.page.hooksettings.lyrics.scroll.LyricScrollPage
 import com.lidesheng.hyperlyric.ui.page.hooksettings.lyrics.translation.LyricTranslationPage
 import com.lidesheng.hyperlyric.ui.page.hooksettings.lyrics.verbatim.VerbatimLyricPage
-import com.lidesheng.hyperlyric.ui.page.DynamicIslandNotificationPage
-import com.lidesheng.hyperlyric.ui.page.HelpPage
-import com.lidesheng.hyperlyric.ui.page.ChangelogPage
-import com.lidesheng.hyperlyric.ui.page.ContributorsPage
+import com.lidesheng.hyperlyric.ui.page.hooksettings.media.MediaCardSettingsPage
 
 @Composable
 fun AppNavigation(startRoute: Route) {
@@ -45,7 +45,7 @@ fun AppNavigation(startRoute: Route) {
                     })
                 }
                 entry<Route.Main> { MainPage() }
-                
+
                 entry<Route.Settings> { SettingsPage() }
                 entry<Route.HookSettings> { HookSettingsPage() }
                 entry<Route.LyricProvider> { LyricProviderPage() }
@@ -67,11 +67,11 @@ fun AppNavigation(startRoute: Route) {
             }
         }
         val entries = rememberDecoratedNavEntries(
-            backStack = backStack, 
+            backStack = backStack,
             entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator()),
             entryProvider = entryProvider
         )
-        
+
         NavDisplay(
             entries = entries,
             onBack = { navigator.pop() }

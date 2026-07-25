@@ -95,7 +95,12 @@ internal fun XposedLyricSettingPage(
         val topPadding = padding.calculateTopPadding()
         val bottomPadding = padding.calculateBottomPadding()
         val contentPadding = remember(topPadding, bottomPadding) {
-            PaddingValues(top = topPadding, start = 0.dp, end = 0.dp, bottom = bottomPadding + 16.dp)
+            PaddingValues(
+                top = topPadding,
+                start = 0.dp,
+                end = 0.dp,
+                bottom = bottomPadding + 16.dp
+            )
         }
         val lazyListState = rememberLazyListState()
 

@@ -24,7 +24,8 @@ object DynamicFinder {
             val pathList = pathListField.get(loader)
 
             // 获取 DexPathList 的 dexElements
-            val dexElementsField = findFieldInHierarchy(pathList.javaClass, "dexElements") ?: return null
+            val dexElementsField =
+                findFieldInHierarchy(pathList.javaClass, "dexElements") ?: return null
             dexElementsField.isAccessible = true
             val dexElements = dexElementsField.get(pathList) as Array<*>
 
@@ -62,7 +63,11 @@ object DynamicFinder {
                 }
             }
         } catch (e: Exception) {
-            HookLogger.w("DynamicFinder", "扫描 Dex 寻找特征字符串时跳过异常 ClassLoader: $targetString", e)
+            HookLogger.w(
+                "DynamicFinder",
+                "扫描 Dex 寻找特征字符串时跳过异常 ClassLoader: $targetString",
+                e
+            )
         }
         return null
     }

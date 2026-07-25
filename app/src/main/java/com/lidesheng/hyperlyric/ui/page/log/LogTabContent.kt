@@ -19,8 +19,8 @@ import androidx.compose.ui.unit.dp
 import com.lidesheng.hyperlyric.R
 import com.lidesheng.hyperlyric.ui.utils.pageScrollModifiers
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
-import top.yukonga.miuix.kmp.basic.ScrollBehavior
 import top.yukonga.miuix.kmp.basic.PullToRefresh
+import top.yukonga.miuix.kmp.basic.ScrollBehavior
 import top.yukonga.miuix.kmp.basic.SnackbarHostState
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.VerticalScrollBar
@@ -68,14 +68,23 @@ fun LogTabContent(
             ) {
                 if (isLoading) {
                     item {
-                        Box(modifier = Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
+                        Box(
+                            modifier = Modifier.fillParentMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
                             CircularProgressIndicator()
                         }
                     }
                 } else if (logs.isEmpty()) {
                     item {
-                        Box(modifier = Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(stringResource(R.string.no_logs_found), color = MiuixTheme.colorScheme.onSurfaceSecondary)
+                        Box(
+                            modifier = Modifier.fillParentMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                stringResource(R.string.no_logs_found),
+                                color = MiuixTheme.colorScheme.onSurfaceSecondary
+                            )
                         }
                     }
                 } else {
@@ -85,14 +94,20 @@ fun LogTabContent(
                             entry.id.ifEmpty { "log_fallback_${index}_${entry.timestamp}_${entry.level}_${entry.tag}" }
                         }
                     ) { _, entry ->
-                        LogItem(entry = entry, copiedMsg = copiedMsg, snackbarHostState = snackbarHostState)
+                        LogItem(
+                            entry = entry,
+                            copiedMsg = copiedMsg,
+                            snackbarHostState = snackbarHostState
+                        )
                     }
                 }
                 item { Spacer(Modifier.height(16.dp)) }
             }
             VerticalScrollBar(
                 adapter = rememberScrollBarAdapter(lazyListState),
-                modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .fillMaxHeight(),
                 trackPadding = contentPadding,
             )
         }

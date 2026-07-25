@@ -10,7 +10,7 @@ import com.lidesheng.hyperlyric.utils.LogManager
 object ChineseUtils {
     @Volatile
     private var initialized = false
-    
+
     private val phraseMap = HashMap<String, String>()
     private val charMap = HashMap<Char, Char>()
     private var maxPhraseLength = 1
@@ -19,7 +19,7 @@ object ChineseUtils {
         if (initialized) return
         synchronized(this) {
             if (initialized) return
-            
+
             try {
                 // 加载词组映射 (TSPhrases.txt)
                 context.assets.open("dictionary/TSPhrases.txt").bufferedReader().useLines { lines ->
@@ -35,24 +35,25 @@ object ChineseUtils {
                         }
                     }
                 }
-                
+
                 // 加载单字映射 (TSCharacters.txt)
-                context.assets.open("dictionary/TSCharacters.txt").bufferedReader().useLines { lines ->
-                    lines.forEach { line ->
-                        val parts = line.trim().split(Regex("\\s+"))
-                        if (parts.size >= 2) {
-                            val key = parts[0]
-                            val value = parts[1]
-                            if (key.isNotEmpty() && value.isNotEmpty()) {
-                                charMap[key[0]] = value[0]
+                context.assets.open("dictionary/TSCharacters.txt").bufferedReader()
+                    .useLines { lines ->
+                        lines.forEach { line ->
+                            val parts = line.trim().split(Regex("\\s+"))
+                            if (parts.size >= 2) {
+                                val key = parts[0]
+                                val value = parts[1]
+                                if (key.isNotEmpty() && value.isNotEmpty()) {
+                                    charMap[key[0]] = value[0]
+                                }
                             }
                         }
                     }
-                }
             } catch (e: Exception) {
                 LogManager.e("ChineseUtils", "字典加载失败", e)
             }
-            
+
             initialized = true
         }
     }
@@ -63,7 +64,7 @@ object ChineseUtils {
     fun toSimplified(context: Context, text: String): String {
         if (text.isEmpty()) return text
         ensureLoaded(context)
-        
+
         val result = StringBuilder(text.length)
         var i = 0
         while (i < text.length) {

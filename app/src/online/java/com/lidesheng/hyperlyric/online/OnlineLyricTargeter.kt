@@ -14,9 +14,9 @@ object OnlineLyricTargeter {
 
     suspend fun fetchBestLyric(
         context: Context,
-        pkgName: String, 
-        title: String, 
-        artist: String, 
+        pkgName: String,
+        title: String,
+        artist: String,
         durationMs: Long
     ): List<LrcLine>? {
         val ne = LyricApiProvider.getNeSource(context)
@@ -29,13 +29,16 @@ object OnlineLyricTargeter {
         }
 
         val keyword = "$title $artist"
-        LogManager.d("OnlineTargeter", "正在搜索: 关键词=\"$keyword\", 源顺序=${sources.joinToString { it.javaClass.simpleName }}")
+        LogManager.d(
+            "OnlineTargeter",
+            "正在搜索: 关键词=\"$keyword\", 源顺序=${sources.joinToString { it.javaClass.simpleName }}"
+        )
 
         val cleanLocalTitle = cleanString(context, title)
         val localArtists = artist.split("&", ",", "，", "、").map { cleanString(context, it) }
         val featureKeywords = listOf("live", "remastered", "翻唱", "cover")
         val localFeatures = featureKeywords.filter { title.lowercase().contains(it) }
-        
+
         var bestScore = -1
 
         for (source in sources) {
@@ -43,7 +46,10 @@ object OnlineLyricTargeter {
                 try {
                     source.search(keyword, 1, "/", 20)
                 } catch (e: Exception) {
-                    LogManager.w("OnlineTargeter", "搜索异常: 源=${source.javaClass.simpleName}, ${e.message}")
+                    LogManager.w(
+                        "OnlineTargeter",
+                        "搜索异常: 源=${source.javaClass.simpleName}, ${e.message}"
+                    )
                     null
                 }
             }
@@ -51,13 +57,23 @@ object OnlineLyricTargeter {
                 LogManager.d("OnlineTargeter", "搜索结果为空: 源=${source.javaClass.simpleName}")
                 continue
             }
-            LogManager.d("OnlineTargeter", "搜索结果: 源=${source.javaClass.simpleName}, 数量=${results.size}")
+            LogManager.d(
+                "OnlineTargeter",
+                "搜索结果: 源=${source.javaClass.simpleName}, 数量=${results.size}"
+            )
 
             var localBestScore = -1
             var bestSong: SongSearchResult? = null
 
             for (song in results) {
-                val score = calculateScore(context, song, cleanLocalTitle, localArtists, localFeatures, durationMs)
+                val score = calculateScore(
+                    context,
+                    song,
+                    cleanLocalTitle,
+                    localArtists,
+                    localFeatures,
+                    durationMs
+                )
                 if (score > localBestScore) {
                     localBestScore = score
                     bestSong = song
@@ -65,22 +81,28 @@ object OnlineLyricTargeter {
             }
 
             if (localBestScore > bestScore) bestScore = localBestScore
-            LogManager.d("OnlineTargeter", "评分: \"${bestSong?.title}\" - \"${bestSong?.artist}\", 得分=$localBestScore, 阈值=$PASS_SCORE, 通过=${localBestScore >= PASS_SCORE}")
+            LogManager.d(
+                "OnlineTargeter",
+                "评分: \"${bestSong?.title}\" - \"${bestSong?.artist}\", 得分=$localBestScore, 阈值=$PASS_SCORE, 通过=${localBestScore >= PASS_SCORE}"
+            )
 
             if (bestScore >= PASS_SCORE && bestSong != null) {
                 val lyricsResult = withTimeoutOrNull(TIMEOUT_MS) {
                     try {
                         source.getLyrics(bestSong)
                     } catch (e: Exception) {
-                        LogManager.w("OnlineTargeter", "获取歌词异常: 源=${source.javaClass.simpleName}, ${e.message}")
+                        LogManager.w(
+                            "OnlineTargeter",
+                            "获取歌词异常: 源=${source.javaClass.simpleName}, ${e.message}"
+                        )
                         null
                     }
                 }
-                
+
                 if (lyricsResult != null && (lyricsResult.original.isNotEmpty() || !lyricsResult.translated.isNullOrEmpty())) {
                     val validOriginal = lyricsResult.original
                     if (validOriginal.isEmpty()) continue
-                    
+
                     val list = mutableListOf<LrcLine>()
                     validOriginal.forEach { line ->
                         val content = line.words.joinToString("") { w -> w.text }.trim()
@@ -89,7 +111,10 @@ object OnlineLyricTargeter {
                         }
                     }
                     if (list.isNotEmpty()) {
-                        LogManager.d("OnlineTargeter", "歌词命中: 源=${source.javaClass.simpleName}, 得分=$bestScore, 行数=${list.size}")
+                        LogManager.d(
+                            "OnlineTargeter",
+                            "歌词命中: 源=${source.javaClass.simpleName}, 得分=$bestScore, 行数=${list.size}"
+                        )
                         return list
                     }
                 }
@@ -120,19 +145,28 @@ object OnlineLyricTargeter {
 
         val cleanSongTitle = cleanString(context, song.title)
 
-        if (cleanLocalTitle == cleanSongTitle || cleanSongTitle.contains(cleanLocalTitle) || cleanLocalTitle.contains(cleanSongTitle)) {
+        if (cleanLocalTitle == cleanSongTitle || cleanSongTitle.contains(cleanLocalTitle) || cleanLocalTitle.contains(
+                cleanSongTitle
+            )
+        ) {
             score += 50
         }
 
         val songArtists = song.artist.split("&", ",", "，", "、").map { cleanString(context, it) }
-        
-        val hasCommonArtist = localArtists.any { lArtist -> songArtists.any { sArtist -> lArtist == sArtist || sArtist.contains(lArtist) || lArtist.contains(sArtist) } }
+
+        val hasCommonArtist = localArtists.any { lArtist ->
+            songArtists.any { sArtist ->
+                lArtist == sArtist || sArtist.contains(lArtist) || lArtist.contains(sArtist)
+            }
+        }
         if (hasCommonArtist) {
             score += 30
         }
 
-        val songFeatures = listOf("live", "remastered", "翻唱", "cover").filter { song.title.lowercase().contains(it) }
-        
+        val songFeatures = listOf("live", "remastered", "翻唱", "cover").filter {
+            song.title.lowercase().contains(it)
+        }
+
         if (localFeatures.isNotEmpty() && songFeatures.isNotEmpty()) {
             val commonFeatures = localFeatures.intersect(songFeatures.toSet())
             if (commonFeatures.isNotEmpty()) {

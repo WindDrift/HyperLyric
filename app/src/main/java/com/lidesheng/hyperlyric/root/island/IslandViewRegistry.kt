@@ -84,6 +84,7 @@ internal object IslandViewRegistry {
         when (view) {
             is RichLyricLineView,
             is SpaceGateRichLyricLineView -> result[view] = Unit
+
             is ViewGroup -> {
                 for (index in 0 until view.childCount) {
                     collectInjectedViews(view.getChildAt(index), result)

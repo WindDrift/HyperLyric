@@ -3,30 +3,38 @@
 package com.lidesheng.hyperlyric.ui.page
 
 import android.content.Intent
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import com.lidesheng.hyperlyric.R
 import com.lidesheng.hyperlyric.ui.navigation.LocalNavigator
 import com.lidesheng.hyperlyric.ui.utils.BlurredBar
 import com.lidesheng.hyperlyric.ui.utils.ContributorsProvider
 import com.lidesheng.hyperlyric.ui.utils.pageScrollModifiers
 import com.lidesheng.hyperlyric.ui.utils.rememberBlurBackdrop
+import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
@@ -39,18 +47,8 @@ import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.interfaces.ExperimentalScrollBarApi
-import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.preference.ArrowPreference
-import androidx.compose.ui.platform.LocalContext
-import androidx.core.net.toUri
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.background
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.painterResource
-import androidx.compose.foundation.layout.size
-import androidx.compose.ui.layout.ContentScale
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 
 @Composable
@@ -69,7 +67,10 @@ fun ContributorsPage() {
                     scrollBehavior = topAppBarScrollBehavior,
                     navigationIcon = {
                         IconButton(onClick = { navigator.pop() }) {
-                            Icon(imageVector = MiuixIcons.Back, contentDescription = stringResource(R.string.back))
+                            Icon(
+                                imageVector = MiuixIcons.Back,
+                                contentDescription = stringResource(R.string.back)
+                            )
                         }
                     }
                 )
@@ -97,7 +98,9 @@ fun ContributorsPage() {
             }
             VerticalScrollBar(
                 adapter = rememberScrollBarAdapter(lazyListState),
-                modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .fillMaxHeight(),
                 trackPadding = contentPadding,
             )
         }
@@ -106,7 +109,12 @@ fun ContributorsPage() {
 
 private fun LazyListScope.contributorsPageSections() {
     item(key = "acknowledgments_card") {
-        Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).fillMaxWidth()) {
+        Card(
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp)
+                .fillMaxWidth()
+        ) {
             Column {
                 BasicComponent(
                     summary = stringResource(R.string.summary_acknowledgments)
@@ -119,7 +127,12 @@ private fun LazyListScope.contributorsPageSections() {
     }
     item(key = "contributors_card") {
         val context = LocalContext.current
-        Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).fillMaxWidth()) {
+        Card(
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp)
+                .fillMaxWidth()
+        ) {
             Column {
                 ContributorsProvider.list.forEach { contributor ->
                     ArrowPreference(
@@ -139,7 +152,8 @@ private fun LazyListScope.contributorsPageSections() {
                         },
                         onClick = {
                             if (contributor.githubUrl.isNotEmpty()) {
-                                val intent = Intent(Intent.ACTION_VIEW, contributor.githubUrl.toUri())
+                                val intent =
+                                    Intent(Intent.ACTION_VIEW, contributor.githubUrl.toUri())
                                 context.startActivity(intent)
                             }
                         }

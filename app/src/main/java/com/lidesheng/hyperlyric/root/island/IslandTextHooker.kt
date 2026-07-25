@@ -13,14 +13,18 @@ import io.github.libxposed.api.XposedModule
 internal object IslandTextHooker {
 
     private const val TAG = IslandTextHookerSupport.TAG
-    private const val CONTENT_VIEW_CLASS = "miui.systemui.dynamicisland.window.content.DynamicIslandContentView"
-    private const val FAKE_CONTENT_VIEW_CLASS = "miui.systemui.dynamicisland.window.content.DynamicIslandContentFakeView"
+    private const val CONTENT_VIEW_CLASS =
+        "miui.systemui.dynamicisland.window.content.DynamicIslandContentView"
+    private const val FAKE_CONTENT_VIEW_CLASS =
+        "miui.systemui.dynamicisland.window.content.DynamicIslandContentFakeView"
     private const val BASE_CONTENT_VIEW_CLASS =
         "miui.systemui.dynamicisland.window.content.DynamicIslandBaseContentView"
     private const val EXPANDED_VIEW_CLASS =
         "miui.systemui.dynamicisland.view.DynamicIslandExpandedView"
-    private const val TEMPLATE_BUILDER_CLASS = "miui.systemui.dynamicisland.template.IslandTemplateBuilder"
-    private const val ADAPTER_CLASS = "miui.systemui.dynamicisland.module.IslandModuleViewHolderAdapter"
+    private const val TEMPLATE_BUILDER_CLASS =
+        "miui.systemui.dynamicisland.template.IslandTemplateBuilder"
+    private const val ADAPTER_CLASS =
+        "miui.systemui.dynamicisland.module.IslandModuleViewHolderAdapter"
 
     fun hook(module: XposedModule, cl: ClassLoader, includeMediaHooks: Boolean = true) {
         installFeature("真实岛") {
@@ -37,7 +41,8 @@ internal object IslandTextHooker {
                 .filter { it.parameterTypes.isEmpty() }
                 .forEach { method ->
                     module.deoptimize(method)
-                    module.hook(method).intercept(RealIslandHooker.LayoutVisibilityHook(method.name))
+                    module.hook(method)
+                        .intercept(RealIslandHooker.LayoutVisibilityHook(method.name))
                     HookLogger.d(TAG, "已 Hook ${method.name}: $method")
                 }
 
@@ -65,8 +70,8 @@ internal object IslandTextHooker {
             fakeViewClass.methods
                 .filter {
                     it.name == "setVisibility" &&
-                        it.parameterTypes.size == 1 &&
-                        it.declaringClass.name == FAKE_CONTENT_VIEW_CLASS
+                            it.parameterTypes.size == 1 &&
+                            it.declaringClass.name == FAKE_CONTENT_VIEW_CLASS
                 }
                 .forEach { method ->
                     module.deoptimize(method)
@@ -126,9 +131,9 @@ internal object IslandTextHooker {
     internal fun installBackgroundUpdateHook(module: XposedModule, cl: ClassLoader) {
         val method = cl.loadClass(BASE_CONTENT_VIEW_CLASS).declaredMethods.single {
             it.name == "updateBackgroundBg" &&
-                it.parameterCount == 2 &&
-                it.parameterTypes[0] == android.view.View::class.java &&
-                it.parameterTypes[1] == java.lang.Boolean.TYPE
+                    it.parameterCount == 2 &&
+                    it.parameterTypes[0] == android.view.View::class.java &&
+                    it.parameterTypes[1] == java.lang.Boolean.TYPE
         }.apply { isAccessible = true }
         module.deoptimize(method)
         module.hook(method).intercept(

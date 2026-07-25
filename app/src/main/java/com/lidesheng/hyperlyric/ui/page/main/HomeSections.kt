@@ -37,7 +37,9 @@ fun LazyListScope.homePageSections(
 ) {
     item(key = "quote") {
         Card(
-            modifier = Modifier.padding(horizontal = 12.dp).fillMaxWidth(),
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .fillMaxWidth(),
             onClick = onQuoteClick,
             onLongPress = onQuoteLongPress,
         ) {
@@ -58,7 +60,12 @@ fun LazyListScope.homePageSections(
     }
 
     item(key = "basic_features_content_super_island") {
-        Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).fillMaxWidth()) {
+        Card(
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp)
+                .fillMaxWidth()
+        ) {
             Column {
                 SwitchPreference(
                     title = stringResource(R.string.title_miui_systemui_enhancement),
@@ -83,7 +90,12 @@ fun LazyListScope.homePageSections(
     }
 
     item(key = "basic_features_content_dynamic_island") {
-        Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).fillMaxWidth()) {
+        Card(
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp)
+                .fillMaxWidth()
+        ) {
             Column {
                 SwitchPreference(
                     title = stringResource(R.string.title_dynamic_island_lyrics),
@@ -108,7 +120,12 @@ fun LazyListScope.homePageSections(
     }
 
     item(key = "special_features_content") {
-        Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).fillMaxWidth()) {
+        Card(
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp)
+                .fillMaxWidth()
+        ) {
             Column {
                 ArrowPreference(
                     title = stringResource(R.string.title_restart_ui),
@@ -130,7 +147,12 @@ fun LazyListScope.homePageSections(
     }
 
     item(key = "app_settings") {
-        Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).fillMaxWidth()) {
+        Card(
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp)
+                .fillMaxWidth()
+        ) {
             ArrowPreference(
                 title = stringResource(R.string.title_app_settings),
                 summary = stringResource(R.string.summary_app_settings),

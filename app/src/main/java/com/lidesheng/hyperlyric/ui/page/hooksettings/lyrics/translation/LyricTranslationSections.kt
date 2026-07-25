@@ -49,8 +49,10 @@ fun LazyListScope.translationSections(
     onPromptClick: () -> Unit
 ) {
     item(key = "translation") {
-        val supportsNextLyricLine = (lyricSource == "lyricon" || lyricSource == "lyricinfo") && lyricMode == 0
-        val translationControlsEnabled = !supportsNextLyricLine || !nextLyricLine || autoSwitchTranslation
+        val supportsNextLyricLine =
+            (lyricSource == "lyricon" || lyricSource == "lyricinfo") && lyricMode == 0
+        val translationControlsEnabled =
+            !supportsNextLyricLine || !nextLyricLine || autoSwitchTranslation
         val translationActionColor = if (translationControlsEnabled) {
             MiuixTheme.colorScheme.onSurfaceVariantActions
         } else {
@@ -60,7 +62,12 @@ fun LazyListScope.translationSections(
         Column {
             SmallTitle(text = stringResource(id = R.string.title_translation))
             if (supportsNextLyricLine) {
-                Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).fillMaxWidth()) {
+                Card(
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 12.dp)
+                        .fillMaxWidth()
+                ) {
                     Column {
                         SwitchPreference(
                             title = stringResource(id = R.string.title_next_lyric_line),
@@ -78,7 +85,12 @@ fun LazyListScope.translationSections(
                     }
                 }
             }
-            Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).fillMaxWidth()) {
+            Card(
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 12.dp)
+                    .fillMaxWidth()
+            ) {
                 Column {
                     SwitchPreference(
                         title = stringResource(id = R.string.title_disable_translation),
@@ -101,7 +113,12 @@ fun LazyListScope.translationSections(
                 }
             }
             if (lyricSource == "lyricon" || lyricSource == "lyricinfo") {
-                Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).fillMaxWidth()) {
+                Card(
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 12.dp)
+                        .fillMaxWidth()
+                ) {
                     Column {
                         SwitchPreference(
                             title = stringResource(id = R.string.title_ai_translation),
@@ -147,7 +164,9 @@ fun LazyListScope.translationSections(
                                         title = stringResource(id = R.string.label_ai_trans_api_key),
                                         endActions = {
                                             Text(
-                                                if (apiKey.isNotEmpty()) "***************" else stringResource(id = R.string.summary_not_configured),
+                                                if (apiKey.isNotEmpty()) "***************" else stringResource(
+                                                    id = R.string.summary_not_configured
+                                                ),
                                                 fontSize = MiuixTheme.textStyles.body2.fontSize,
                                                 color = translationActionColor
                                             )

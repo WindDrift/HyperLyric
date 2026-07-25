@@ -2,7 +2,6 @@ package com.lidesheng.hyperlyric.ui.page
 
 import android.content.Context
 import android.content.pm.PackageManager
-
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -12,13 +11,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -31,7 +28,6 @@ import com.lidesheng.hyperlyric.common.UIConstants
 import com.lidesheng.hyperlyric.ui.navigation.LocalNavigator
 import com.lidesheng.hyperlyric.ui.navigation.Route
 import com.lidesheng.hyperlyric.ui.utils.BlurredBar
-import com.lidesheng.hyperlyric.ui.utils.LocaleUtils
 import com.lidesheng.hyperlyric.ui.utils.pageScrollModifiers
 import com.lidesheng.hyperlyric.ui.utils.rememberBlurBackdrop
 import top.yukonga.miuix.kmp.basic.Card
@@ -47,15 +43,16 @@ import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private fun setExcludeFromRecents(context: Context, exclude: Boolean) {
     try {
         val am = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
         am.appTasks?.forEach { it.setExcludeFromRecents(exclude) }
-    } catch (_: Exception) { }
+    } catch (_: Exception) {
+    }
 }
 
 @Composable
@@ -67,7 +64,8 @@ fun SettingsPage() {
     val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
     val topAppBarScrollBehavior = MiuixScrollBehavior()
     val snackbarHostState = remember { SnackbarHostState() }
-    val backupRestoreHelper = com.lidesheng.hyperlyric.utils.rememberBackupRestoreHelper(snackbarHostState)
+    val backupRestoreHelper =
+        com.lidesheng.hyperlyric.utils.rememberBackupRestoreHelper(snackbarHostState)
 
     Scaffold(
         snackbarHost = { SnackbarHost(state = snackbarHostState) },
@@ -79,7 +77,10 @@ fun SettingsPage() {
                     scrollBehavior = topAppBarScrollBehavior,
                     navigationIcon = {
                         IconButton(onClick = { navigator.pop() }) {
-                            Icon(imageVector = MiuixIcons.Back, contentDescription = stringResource(R.string.back))
+                            Icon(
+                                imageVector = MiuixIcons.Back,
+                                contentDescription = stringResource(R.string.back)
+                            )
                         }
                     }
                 )
@@ -117,15 +118,52 @@ private fun LazyListScope.settingsSections(
     item(key = "personalization_content") {
         val context = LocalContext.current
         val activity = androidx.activity.compose.LocalActivity.current
-        val prefs = remember { context.getSharedPreferences(UIConstants.PREF_NAME, Context.MODE_PRIVATE) }
-        var themeMode by remember { mutableIntStateOf(prefs.getInt(UIConstants.KEY_THEME_MODE, UIConstants.DEFAULT_THEME_MODE)) }
-        val themeOptions = listOf(stringResource(R.string.theme_system), stringResource(R.string.theme_light), stringResource(R.string.theme_dark), stringResource(R.string.theme_system_monet), stringResource(R.string.theme_light_monet), stringResource(R.string.theme_dark_monet))
-        var appLanguage by remember { mutableIntStateOf(prefs.getInt(UIConstants.KEY_APP_LANGUAGE, UIConstants.DEFAULT_APP_LANGUAGE)) }
-        val languageOptions = listOf(stringResource(R.string.language_system), stringResource(R.string.language_simplified_chinese), stringResource(R.string.language_english))
+        val prefs =
+            remember { context.getSharedPreferences(UIConstants.PREF_NAME, Context.MODE_PRIVATE) }
+        var themeMode by remember {
+            mutableIntStateOf(
+                prefs.getInt(
+                    UIConstants.KEY_THEME_MODE,
+                    UIConstants.DEFAULT_THEME_MODE
+                )
+            )
+        }
+        val themeOptions = listOf(
+            stringResource(R.string.theme_system),
+            stringResource(R.string.theme_light),
+            stringResource(R.string.theme_dark),
+            stringResource(R.string.theme_system_monet),
+            stringResource(R.string.theme_light_monet),
+            stringResource(R.string.theme_dark_monet)
+        )
+        var appLanguage by remember {
+            mutableIntStateOf(
+                prefs.getInt(
+                    UIConstants.KEY_APP_LANGUAGE,
+                    UIConstants.DEFAULT_APP_LANGUAGE
+                )
+            )
+        }
+        val languageOptions = listOf(
+            stringResource(R.string.language_system),
+            stringResource(R.string.language_simplified_chinese),
+            stringResource(R.string.language_english)
+        )
 
-        Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).fillMaxWidth()) {
+        Card(
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp)
+                .fillMaxWidth()
+        ) {
             Column {
-                WindowDropdownPreference(title = stringResource(R.string.title_theme), items = themeOptions, selectedIndex = themeMode, onSelectedIndexChange = { themeMode = it; prefs.edit { putInt(UIConstants.KEY_THEME_MODE, it) } })
+                WindowDropdownPreference(
+                    title = stringResource(R.string.title_theme),
+                    items = themeOptions,
+                    selectedIndex = themeMode,
+                    onSelectedIndexChange = {
+                        themeMode = it; prefs.edit { putInt(UIConstants.KEY_THEME_MODE, it) }
+                    })
                 WindowDropdownPreference(
                     title = stringResource(R.string.title_app_language),
                     items = languageOptions,
@@ -137,31 +175,130 @@ private fun LazyListScope.settingsSections(
                     }
                 )
                 if (themeMode >= 3) {
-                    var monetColorIndex by remember { mutableIntStateOf(prefs.getInt(UIConstants.KEY_MONET_COLOR, UIConstants.DEFAULT_MONET_COLOR)) }
-                    val monetOptions = listOf(stringResource(R.string.monet_default), stringResource(R.string.monet_blue), stringResource(R.string.monet_green), stringResource(R.string.monet_red), stringResource(R.string.monet_yellow), stringResource(R.string.monet_orange), stringResource(R.string.monet_purple), stringResource(R.string.monet_pink))
-                    WindowDropdownPreference(title = stringResource(R.string.title_monet), items = monetOptions, selectedIndex = monetColorIndex, onSelectedIndexChange = { monetColorIndex = it; prefs.edit { putInt(UIConstants.KEY_MONET_COLOR, it) } })
+                    var monetColorIndex by remember {
+                        mutableIntStateOf(
+                            prefs.getInt(
+                                UIConstants.KEY_MONET_COLOR,
+                                UIConstants.DEFAULT_MONET_COLOR
+                            )
+                        )
+                    }
+                    val monetOptions = listOf(
+                        stringResource(R.string.monet_default),
+                        stringResource(R.string.monet_blue),
+                        stringResource(R.string.monet_green),
+                        stringResource(R.string.monet_red),
+                        stringResource(R.string.monet_yellow),
+                        stringResource(R.string.monet_orange),
+                        stringResource(R.string.monet_purple),
+                        stringResource(R.string.monet_pink)
+                    )
+                    WindowDropdownPreference(
+                        title = stringResource(R.string.title_monet),
+                        items = monetOptions,
+                        selectedIndex = monetColorIndex,
+                        onSelectedIndexChange = {
+                            monetColorIndex = it; prefs.edit {
+                            putInt(
+                                UIConstants.KEY_MONET_COLOR,
+                                it
+                            )
+                        }
+                        })
                 }
-                var enableBlur by remember { mutableStateOf(prefs.getBoolean(UIConstants.KEY_ENABLE_BLUR, UIConstants.DEFAULT_ENABLE_BLUR)) }
+                var enableBlur by remember {
+                    mutableStateOf(
+                        prefs.getBoolean(
+                            UIConstants.KEY_ENABLE_BLUR,
+                            UIConstants.DEFAULT_ENABLE_BLUR
+                        )
+                    )
+                }
                 SwitchPreference(
                     title = stringResource(R.string.title_enable_blur),
                     summary = stringResource(R.string.summary_enable_blur),
                     checked = enableBlur,
-                    onCheckedChange = { enableBlur = it; prefs.edit { putBoolean(UIConstants.KEY_ENABLE_BLUR, it) } }
+                    onCheckedChange = {
+                        enableBlur = it; prefs.edit { putBoolean(UIConstants.KEY_ENABLE_BLUR, it) }
+                    }
                 )
-                var predictiveBackGestureEnabled by remember { mutableStateOf(prefs.getBoolean(UIConstants.KEY_PREDICTIVE_BACK_GESTURE, UIConstants.DEFAULT_PREDICTIVE_BACK_GESTURE)) }
-                SwitchPreference(title = stringResource(R.string.title_predictive_back), checked = predictiveBackGestureEnabled, onCheckedChange = {
-                    predictiveBackGestureEnabled = it; prefs.edit { putBoolean(UIConstants.KEY_PREDICTIVE_BACK_GESTURE, it) }
-                    runCatching { org.lsposed.hiddenapibypass.HiddenApiBypass.addHiddenApiExemptions("Landroid/content/pm/ApplicationInfo;->setEnableOnBackInvokedCallback"); val m = android.content.pm.ApplicationInfo::class.java.getDeclaredMethod("setEnableOnBackInvokedCallback", Boolean::class.javaPrimitiveType); m.isAccessible = true; m.invoke(context.applicationInfo, it) }
-                    activity?.recreate()
-                })
-                var floatingNavBarEnabled by remember { mutableStateOf(prefs.getBoolean(UIConstants.KEY_FLOATING_NAV_BAR, UIConstants.DEFAULT_FLOATING_NAV_BAR)) }
-                SwitchPreference(title = stringResource(R.string.title_floating_nav), checked = floatingNavBarEnabled, onCheckedChange = { floatingNavBarEnabled = it; prefs.edit { putBoolean(UIConstants.KEY_FLOATING_NAV_BAR, it) } })
-                var excludeFromRecents by remember { mutableStateOf(prefs.getBoolean(UIConstants.KEY_EXCLUDE_FROM_RECENTS, UIConstants.DEFAULT_EXCLUDE_FROM_RECENTS)) }
-                SwitchPreference(title = stringResource(R.string.title_exclude_from_recents), checked = excludeFromRecents, onCheckedChange = { excludeFromRecents = it; prefs.edit { putBoolean(UIConstants.KEY_EXCLUDE_FROM_RECENTS, it) }; setExcludeFromRecents(context, it) })
-                var hideLauncherIcon by remember { 
+                var predictiveBackGestureEnabled by remember {
                     mutableStateOf(
-                        context.packageManager.getComponentEnabledSetting(android.content.ComponentName(context, "${com.lidesheng.hyperlyric.BuildConfig.APPLICATION_ID}.launcher")) == PackageManager.COMPONENT_ENABLED_STATE_DISABLED
-                    ) 
+                        prefs.getBoolean(
+                            UIConstants.KEY_PREDICTIVE_BACK_GESTURE,
+                            UIConstants.DEFAULT_PREDICTIVE_BACK_GESTURE
+                        )
+                    )
+                }
+                SwitchPreference(
+                    title = stringResource(R.string.title_predictive_back),
+                    checked = predictiveBackGestureEnabled,
+                    onCheckedChange = {
+                        predictiveBackGestureEnabled = it; prefs.edit {
+                        putBoolean(
+                            UIConstants.KEY_PREDICTIVE_BACK_GESTURE,
+                            it
+                        )
+                    }
+                        runCatching {
+                            org.lsposed.hiddenapibypass.HiddenApiBypass.addHiddenApiExemptions(
+                                "Landroid/content/pm/ApplicationInfo;->setEnableOnBackInvokedCallback"
+                            )
+                            val m =
+                                android.content.pm.ApplicationInfo::class.java.getDeclaredMethod(
+                                    "setEnableOnBackInvokedCallback",
+                                    Boolean::class.javaPrimitiveType
+                                ); m.isAccessible = true; m.invoke(context.applicationInfo, it)
+                        }
+                        activity?.recreate()
+                    })
+                var floatingNavBarEnabled by remember {
+                    mutableStateOf(
+                        prefs.getBoolean(
+                            UIConstants.KEY_FLOATING_NAV_BAR,
+                            UIConstants.DEFAULT_FLOATING_NAV_BAR
+                        )
+                    )
+                }
+                SwitchPreference(
+                    title = stringResource(R.string.title_floating_nav),
+                    checked = floatingNavBarEnabled,
+                    onCheckedChange = {
+                        floatingNavBarEnabled = it; prefs.edit {
+                        putBoolean(
+                            UIConstants.KEY_FLOATING_NAV_BAR,
+                            it
+                        )
+                    }
+                    })
+                var excludeFromRecents by remember {
+                    mutableStateOf(
+                        prefs.getBoolean(
+                            UIConstants.KEY_EXCLUDE_FROM_RECENTS,
+                            UIConstants.DEFAULT_EXCLUDE_FROM_RECENTS
+                        )
+                    )
+                }
+                SwitchPreference(
+                    title = stringResource(R.string.title_exclude_from_recents),
+                    checked = excludeFromRecents,
+                    onCheckedChange = {
+                        excludeFromRecents = it; prefs.edit {
+                        putBoolean(
+                            UIConstants.KEY_EXCLUDE_FROM_RECENTS,
+                            it
+                        )
+                    }; setExcludeFromRecents(context, it)
+                    })
+                var hideLauncherIcon by remember {
+                    mutableStateOf(
+                        context.packageManager.getComponentEnabledSetting(
+                            android.content.ComponentName(
+                                context,
+                                "${com.lidesheng.hyperlyric.BuildConfig.APPLICATION_ID}.launcher"
+                            )
+                        ) == PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+                    )
                 }
                 SwitchPreference(
                     title = stringResource(R.string.title_hide_launcher_icon),
@@ -169,7 +306,10 @@ private fun LazyListScope.settingsSections(
                     onCheckedChange = { isHidden ->
                         hideLauncherIcon = isHidden
                         context.packageManager.setComponentEnabledSetting(
-                            android.content.ComponentName(context, "${com.lidesheng.hyperlyric.BuildConfig.APPLICATION_ID}.launcher"),
+                            android.content.ComponentName(
+                                context,
+                                "${com.lidesheng.hyperlyric.BuildConfig.APPLICATION_ID}.launcher"
+                            ),
                             if (isHidden) PackageManager.COMPONENT_ENABLED_STATE_DISABLED else PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
                             PackageManager.DONT_KILL_APP
                         )
@@ -182,10 +322,19 @@ private fun LazyListScope.settingsSections(
         SmallTitle(text = stringResource(R.string.title_config_management))
     }
     item(key = "config_management_content") {
-        Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).fillMaxWidth()) {
+        Card(
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp)
+                .fillMaxWidth()
+        ) {
             Column {
-                ArrowPreference(title = stringResource(R.string.title_backup), onClick = { backupRestoreHelper.launchBackup() })
-                ArrowPreference(title = stringResource(R.string.title_restore), onClick = { backupRestoreHelper.launchRestore() })
+                ArrowPreference(
+                    title = stringResource(R.string.title_backup),
+                    onClick = { backupRestoreHelper.launchBackup() })
+                ArrowPreference(
+                    title = stringResource(R.string.title_restore),
+                    onClick = { backupRestoreHelper.launchRestore() })
             }
         }
     }
@@ -195,25 +344,41 @@ private fun LazyListScope.settingsSections(
     item(key = "debug_info_content") {
         val navigator = LocalNavigator.current
         val context = LocalContext.current
-        val prefs = remember { context.getSharedPreferences(UIConstants.PREF_NAME, Context.MODE_PRIVATE) }
-        var logLevel by remember { mutableIntStateOf(prefs.getInt(UIConstants.KEY_LOG_LEVEL, UIConstants.DEFAULT_LOG_LEVEL)) }
-        val logLevelOptions = listOf(stringResource(R.string.log_level_normal), stringResource(R.string.log_level_verbose))
-        Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).fillMaxWidth()) {
+        val prefs =
+            remember { context.getSharedPreferences(UIConstants.PREF_NAME, Context.MODE_PRIVATE) }
+        var logLevel by remember {
+            mutableIntStateOf(
+                prefs.getInt(
+                    UIConstants.KEY_LOG_LEVEL,
+                    UIConstants.DEFAULT_LOG_LEVEL
+                )
+            )
+        }
+        val logLevelOptions = listOf(
+            stringResource(R.string.log_level_normal),
+            stringResource(R.string.log_level_verbose)
+        )
+        Card(
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp)
+                .fillMaxWidth()
+        ) {
             Column {
                 WindowDropdownPreference(
-                    title = stringResource(R.string.title_log_level), 
-                    items = logLevelOptions, 
-                    selectedIndex = logLevel, 
-                    onSelectedIndexChange = { 
-                        logLevel = it; 
-                        prefs.edit { putInt(UIConstants.KEY_LOG_LEVEL, it) }; 
-                        PrefsBridge.putInt(UIConstants.KEY_LOG_LEVEL, it) 
-                        }
+                    title = stringResource(R.string.title_log_level),
+                    items = logLevelOptions,
+                    selectedIndex = logLevel,
+                    onSelectedIndexChange = {
+                        logLevel = it
+                        prefs.edit { putInt(UIConstants.KEY_LOG_LEVEL, it) }
+                        PrefsBridge.putInt(UIConstants.KEY_LOG_LEVEL, it)
+                    }
                 )
                 ArrowPreference(
-                    title = stringResource(R.string.title_view_logs), 
-                    onClick = { 
-                        navigator.navigate(Route.Log) 
+                    title = stringResource(R.string.title_view_logs),
+                    onClick = {
+                        navigator.navigate(Route.Log)
                     }
                 )
             }

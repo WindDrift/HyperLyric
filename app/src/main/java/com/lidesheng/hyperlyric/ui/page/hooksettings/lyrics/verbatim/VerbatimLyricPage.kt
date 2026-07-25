@@ -19,14 +19,70 @@ fun VerbatimLyricPage() {
     val prefs = rememberHookPrefs()
     val saveConfig = rememberHookConfigSaver(prefs)
 
-    var gradientStyle by remember { mutableStateOf(prefs.getBoolean(RootConstants.KEY_HOOK_GRADIENT_PROGRESS, RootConstants.DEFAULT_HOOK_GRADIENT_PROGRESS)) }
-    var syllableRelative by remember { mutableStateOf(prefs.getBoolean(RootConstants.KEY_HOOK_SYLLABLE_RELATIVE, RootConstants.DEFAULT_HOOK_SYLLABLE_RELATIVE)) }
-    var syllableHighlight by remember { mutableStateOf(prefs.getBoolean(RootConstants.KEY_HOOK_SYLLABLE_HIGHLIGHT, RootConstants.DEFAULT_HOOK_SYLLABLE_HIGHLIGHT)) }
-    var wordMotionEnabled by remember { mutableStateOf(prefs.getBoolean(RootConstants.KEY_HOOK_WORD_MOTION_ENABLED, RootConstants.DEFAULT_HOOK_WORD_MOTION_ENABLED)) }
-    var wordMotionCjkLift by remember { mutableFloatStateOf(prefs.getFloat(RootConstants.KEY_HOOK_WORD_MOTION_CJK_LIFT, RootConstants.DEFAULT_HOOK_WORD_MOTION_CJK_LIFT)) }
-    var wordMotionCjkWave by remember { mutableFloatStateOf(prefs.getFloat(RootConstants.KEY_HOOK_WORD_MOTION_CJK_WAVE, RootConstants.DEFAULT_HOOK_WORD_MOTION_CJK_WAVE)) }
-    var wordMotionLatinLift by remember { mutableFloatStateOf(prefs.getFloat(RootConstants.KEY_HOOK_WORD_MOTION_LATIN_LIFT, RootConstants.DEFAULT_HOOK_WORD_MOTION_LATIN_LIFT)) }
-    var wordMotionLatinWave by remember { mutableFloatStateOf(prefs.getFloat(RootConstants.KEY_HOOK_WORD_MOTION_LATIN_WAVE, RootConstants.DEFAULT_HOOK_WORD_MOTION_LATIN_WAVE)) }
+    var gradientStyle by remember {
+        mutableStateOf(
+            prefs.getBoolean(
+                RootConstants.KEY_HOOK_GRADIENT_PROGRESS,
+                RootConstants.DEFAULT_HOOK_GRADIENT_PROGRESS
+            )
+        )
+    }
+    var syllableRelative by remember {
+        mutableStateOf(
+            prefs.getBoolean(
+                RootConstants.KEY_HOOK_SYLLABLE_RELATIVE,
+                RootConstants.DEFAULT_HOOK_SYLLABLE_RELATIVE
+            )
+        )
+    }
+    var syllableHighlight by remember {
+        mutableStateOf(
+            prefs.getBoolean(
+                RootConstants.KEY_HOOK_SYLLABLE_HIGHLIGHT,
+                RootConstants.DEFAULT_HOOK_SYLLABLE_HIGHLIGHT
+            )
+        )
+    }
+    var wordMotionEnabled by remember {
+        mutableStateOf(
+            prefs.getBoolean(
+                RootConstants.KEY_HOOK_WORD_MOTION_ENABLED,
+                RootConstants.DEFAULT_HOOK_WORD_MOTION_ENABLED
+            )
+        )
+    }
+    var wordMotionCjkLift by remember {
+        mutableFloatStateOf(
+            prefs.getFloat(
+                RootConstants.KEY_HOOK_WORD_MOTION_CJK_LIFT,
+                RootConstants.DEFAULT_HOOK_WORD_MOTION_CJK_LIFT
+            )
+        )
+    }
+    var wordMotionCjkWave by remember {
+        mutableFloatStateOf(
+            prefs.getFloat(
+                RootConstants.KEY_HOOK_WORD_MOTION_CJK_WAVE,
+                RootConstants.DEFAULT_HOOK_WORD_MOTION_CJK_WAVE
+            )
+        )
+    }
+    var wordMotionLatinLift by remember {
+        mutableFloatStateOf(
+            prefs.getFloat(
+                RootConstants.KEY_HOOK_WORD_MOTION_LATIN_LIFT,
+                RootConstants.DEFAULT_HOOK_WORD_MOTION_LATIN_LIFT
+            )
+        )
+    }
+    var wordMotionLatinWave by remember {
+        mutableFloatStateOf(
+            prefs.getFloat(
+                RootConstants.KEY_HOOK_WORD_MOTION_LATIN_WAVE,
+                RootConstants.DEFAULT_HOOK_WORD_MOTION_LATIN_WAVE
+            )
+        )
+    }
 
     var showWordMotionCjkLiftDialog by remember { mutableStateOf(false) }
     var showWordMotionCjkWaveDialog by remember { mutableStateOf(false) }

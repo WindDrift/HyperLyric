@@ -37,7 +37,12 @@ fun LazyListScope.verbatimLyricSections(
     item(key = "verbatim_lyric") {
         Column {
             SmallTitle(text = stringResource(id = R.string.title_verbatim_lyric))
-            Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).fillMaxWidth()) {
+            Card(
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 12.dp)
+                    .fillMaxWidth()
+            ) {
                 Column {
                     SwitchPreference(
                         title = stringResource(id = R.string.title_gradient_progress),
@@ -57,7 +62,12 @@ fun LazyListScope.verbatimLyricSections(
                     )
                 }
             }
-            Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).fillMaxWidth()) {
+            Card(
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 12.dp)
+                    .fillMaxWidth()
+            ) {
                 Column {
                     SwitchPreference(
                         title = stringResource(id = R.string.title_word_motion),

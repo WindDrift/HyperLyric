@@ -26,7 +26,11 @@ object SystemUIHookRegistry {
 
         runCatching {
             cl.loadClass("$islandPkg.template.IslandTemplateBuilder")
-        }.getOrNull() ?: DynamicFinder.findClassByConstantString(cl, "$islandPkg.template", "IslandTemplateBuilder") ?: return
+        }.getOrNull() ?: DynamicFinder.findClassByConstantString(
+            cl,
+            "$islandPkg.template",
+            "IslandTemplateBuilder"
+        ) ?: return
 
         if (!hookedClassLoaders.add(cl)) return
         module = xposedModule

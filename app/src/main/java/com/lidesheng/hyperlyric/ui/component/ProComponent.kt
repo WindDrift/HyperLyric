@@ -173,7 +173,8 @@ fun ProComponent(
                 val endActualWidth = endPlaceable?.width ?: 0
                 val endSpacerWidth = if (endActualWidth > 0) spacerPx else 0
 
-                val widthForCenter = (widthAfterStart - endActualWidth - endSpacerWidth).coerceAtLeast(0)
+                val widthForCenter =
+                    (widthAfterStart - endActualWidth - endSpacerWidth).coerceAtLeast(0)
                 val centerPlaceable = centerMeasurable.measure(
                     looseConstraints.copy(maxWidth = widthForCenter),
                 )
@@ -182,7 +183,9 @@ fun ProComponent(
                 val endHeight = endPlaceable?.height ?: 0
                 val rowHeight = maxOf(startHeight, centerPlaceable.height, endHeight)
                 val layoutHeight = rowHeight
-                    .coerceIn(constraints.minHeight, maxHeight.takeIf { it != Constraints.Infinity } ?: rowHeight)
+                    .coerceIn(
+                        constraints.minHeight,
+                        maxHeight.takeIf { it != Constraints.Infinity } ?: rowHeight)
 
                 layout(width = maxWidth, height = layoutHeight) {
                     val startTop = (rowHeight - startHeight).coerceAtLeast(0) / 2

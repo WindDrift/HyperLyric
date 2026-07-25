@@ -73,7 +73,10 @@ object QmCryptoUtils {
             val decryptedBytes = TripleDesCustom.tripleDesCrypt(encryptedBytes, schedules)
 
             if (decryptedBytes.isNotEmpty()) {
-                LogManager.d(TAG, "Decrypted Header: %02X %02X".format(decryptedBytes[0], decryptedBytes[1]))
+                LogManager.d(
+                    TAG,
+                    "Decrypted Header: %02X %02X".format(decryptedBytes[0], decryptedBytes[1])
+                )
             }
 
             return decompress(decryptedBytes)
@@ -91,7 +94,9 @@ object QmCryptoUtils {
         while (i < len) {
             val h = Character.digit(s[i], 16)
             val l = Character.digit(s[i + 1], 16)
-            if (h == -1 || l == -1) { i += 2; continue }
+            if (h == -1 || l == -1) {
+                i += 2; continue
+            }
             data[i / 2] = ((h shl 4) + l).toByte()
             i += 2
         }

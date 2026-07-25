@@ -56,7 +56,10 @@ fun ChangelogPage() {
                     scrollBehavior = topAppBarScrollBehavior,
                     navigationIcon = {
                         IconButton(onClick = { navigator.pop() }) {
-                            Icon(imageVector = MiuixIcons.Back, contentDescription = stringResource(R.string.back))
+                            Icon(
+                                imageVector = MiuixIcons.Back,
+                                contentDescription = stringResource(R.string.back)
+                            )
                         }
                     }
                 )
@@ -88,7 +91,9 @@ fun ChangelogPage() {
             }
             VerticalScrollBar(
                 adapter = rememberScrollBarAdapter(lazyListState),
-                modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .fillMaxHeight(),
                 trackPadding = contentPadding,
             )
         }
@@ -104,7 +109,10 @@ private fun LazyListScope.changelogPageSections(changelogs: List<com.lidesheng.h
         }
         item(key = "content_${item.version}_${item.title}_$index") {
             SuperComponent(
-                modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).fillMaxWidth(),
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 12.dp)
+                    .fillMaxWidth(),
                 title = item.title,
                 summary = item.summary
             )

@@ -59,9 +59,9 @@ object LyricApiProvider {
     }
 
     val qmSource: SearchSource by lazy { QmSource(qmApi) }
-    
+
     private var _neSource: SearchSource? = null
-    
+
     fun getNeSource(context: Context): SearchSource {
         if (_neSource == null) {
             _neSource = NeSource(neApi, json, context.applicationContext)

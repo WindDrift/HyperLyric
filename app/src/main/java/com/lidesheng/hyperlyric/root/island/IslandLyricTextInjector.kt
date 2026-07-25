@@ -22,21 +22,43 @@ import com.lidesheng.hyperlyric.root.utils.HookLogger
 internal object IslandLyricTextInjector {
     private const val TAG = "IslandLyricTextInjector"
 
-    fun injectSlots(rootView: ViewGroup, reconfigureExisting: Boolean = true, suppressAnimation: Boolean = false): Boolean {
+    fun injectSlots(
+        rootView: ViewGroup,
+        reconfigureExisting: Boolean = true,
+        suppressAnimation: Boolean = false
+    ): Boolean {
         val prefs = HookEntry.instance?.prefs ?: return false
         val config = IslandSlotRuntimeConfig.from(prefs)
 
         var changed = false
         if (config.leftMode != 0) {
-            changed = injectSlot(rootView, IslandProbeUtils.LEFT_PARENT_NAME, IslandProbeUtils.LEFT_TEST_VIEW_TAG, config.leftMode, reconfigureExisting, config, suppressAnimation) || changed
+            changed = injectSlot(
+                rootView,
+                IslandProbeUtils.LEFT_PARENT_NAME,
+                IslandProbeUtils.LEFT_TEST_VIEW_TAG,
+                config.leftMode,
+                reconfigureExisting,
+                config,
+                suppressAnimation
+            ) || changed
         } else {
-            rootView.findViewWithTag<View>(IslandProbeUtils.LEFT_TEST_WRAPPER_TAG)?.let { (it.parent as? ViewGroup)?.removeView(it) }
+            rootView.findViewWithTag<View>(IslandProbeUtils.LEFT_TEST_WRAPPER_TAG)
+                ?.let { (it.parent as? ViewGroup)?.removeView(it) }
         }
 
         if (config.rightMode != 0) {
-            changed = injectSlot(rootView, IslandProbeUtils.RIGHT_PARENT_NAME, IslandProbeUtils.RIGHT_TEST_VIEW_TAG, config.rightMode, reconfigureExisting, config, suppressAnimation) || changed
+            changed = injectSlot(
+                rootView,
+                IslandProbeUtils.RIGHT_PARENT_NAME,
+                IslandProbeUtils.RIGHT_TEST_VIEW_TAG,
+                config.rightMode,
+                reconfigureExisting,
+                config,
+                suppressAnimation
+            ) || changed
         } else {
-            rootView.findViewWithTag<View>(IslandProbeUtils.RIGHT_TEST_WRAPPER_TAG)?.let { (it.parent as? ViewGroup)?.removeView(it) }
+            rootView.findViewWithTag<View>(IslandProbeUtils.RIGHT_TEST_WRAPPER_TAG)
+                ?.let { (it.parent as? ViewGroup)?.removeView(it) }
         }
 
         if (config.isSplitMode) {
@@ -54,10 +76,18 @@ internal object IslandLyricTextInjector {
 
         var changed = false
         if (config.leftMode != 0) {
-            changed = restoreExistingSlotLightweight(rootView, IslandProbeUtils.LEFT_PARENT_NAME, IslandProbeUtils.LEFT_TEST_VIEW_TAG) || changed
+            changed = restoreExistingSlotLightweight(
+                rootView,
+                IslandProbeUtils.LEFT_PARENT_NAME,
+                IslandProbeUtils.LEFT_TEST_VIEW_TAG
+            ) || changed
         }
         if (config.rightMode != 0) {
-            changed = restoreExistingSlotLightweight(rootView, IslandProbeUtils.RIGHT_PARENT_NAME, IslandProbeUtils.RIGHT_TEST_VIEW_TAG) || changed
+            changed = restoreExistingSlotLightweight(
+                rootView,
+                IslandProbeUtils.RIGHT_PARENT_NAME,
+                IslandProbeUtils.RIGHT_TEST_VIEW_TAG
+            ) || changed
         }
         IslandHostFacade.applyHostSettings(rootView, prefs)
         IslandViewRegistry.refreshInjectedViews(rootView)
@@ -70,17 +100,29 @@ internal object IslandLyricTextInjector {
 
         var changed = false
         if (config.leftMode != 0 && (moduleType == null || moduleType.endsWith("_1"))) {
-            changed = restoreExistingSlotByTagLightweight(rootView, IslandProbeUtils.LEFT_TEST_VIEW_TAG) || changed
+            changed = restoreExistingSlotByTagLightweight(
+                rootView,
+                IslandProbeUtils.LEFT_TEST_VIEW_TAG
+            ) || changed
         }
         if (config.rightMode != 0 && (moduleType == null || moduleType.endsWith("_2"))) {
-            changed = restoreExistingSlotByTagLightweight(rootView, IslandProbeUtils.RIGHT_TEST_VIEW_TAG) || changed
+            changed = restoreExistingSlotByTagLightweight(
+                rootView,
+                IslandProbeUtils.RIGHT_TEST_VIEW_TAG
+            ) || changed
         }
         if (!changed && moduleType != null && !moduleType.endsWith("_1") && !moduleType.endsWith("_2")) {
             if (config.leftMode != 0) {
-                changed = restoreExistingSlotByTagLightweight(rootView, IslandProbeUtils.LEFT_TEST_VIEW_TAG) || changed
+                changed = restoreExistingSlotByTagLightweight(
+                    rootView,
+                    IslandProbeUtils.LEFT_TEST_VIEW_TAG
+                ) || changed
             }
             if (config.rightMode != 0) {
-                changed = restoreExistingSlotByTagLightweight(rootView, IslandProbeUtils.RIGHT_TEST_VIEW_TAG) || changed
+                changed = restoreExistingSlotByTagLightweight(
+                    rootView,
+                    IslandProbeUtils.RIGHT_TEST_VIEW_TAG
+                ) || changed
             }
         }
 
@@ -91,12 +133,17 @@ internal object IslandLyricTextInjector {
 
     fun hasInjectedLyricText(rootView: ViewGroup): Boolean {
         return rootView.findViewWithTag<View>(IslandProbeUtils.LEFT_TEST_WRAPPER_TAG) != null ||
-            rootView.findViewWithTag<View>(IslandProbeUtils.RIGHT_TEST_WRAPPER_TAG) != null ||
-            rootView.findViewWithTag<View>(IslandProbeUtils.LEFT_TEST_VIEW_TAG) != null ||
-            rootView.findViewWithTag<View>(IslandProbeUtils.RIGHT_TEST_VIEW_TAG) != null
+                rootView.findViewWithTag<View>(IslandProbeUtils.RIGHT_TEST_WRAPPER_TAG) != null ||
+                rootView.findViewWithTag<View>(IslandProbeUtils.LEFT_TEST_VIEW_TAG) != null ||
+                rootView.findViewWithTag<View>(IslandProbeUtils.RIGHT_TEST_VIEW_TAG) != null
     }
 
-    fun refreshCurrentContent(rootView: ViewGroup, includeLyricSlots: Boolean = true, force: Boolean = false, suppressAnimation: Boolean = false): Boolean {
+    fun refreshCurrentContent(
+        rootView: ViewGroup,
+        includeLyricSlots: Boolean = true,
+        force: Boolean = false,
+        suppressAnimation: Boolean = false
+    ): Boolean {
         val prefs = HookEntry.instance?.prefs ?: return false
         val config = IslandSlotRuntimeConfig.from(prefs)
         val packageName = LyriconDataBridge.currentLyricPackageName.orEmpty()
@@ -104,10 +151,28 @@ internal object IslandLyricTextInjector {
 
         var changed = false
         if (config.leftMode != 0 && (includeLyricSlots || config.leftMode != 7)) {
-            changed = refreshSlotContent(rootView, IslandProbeUtils.LEFT_TEST_VIEW_TAG, config.leftMode, prefs, config, force, suppressAnimation, mediaInfo) || changed
+            changed = refreshSlotContent(
+                rootView,
+                IslandProbeUtils.LEFT_TEST_VIEW_TAG,
+                config.leftMode,
+                prefs,
+                config,
+                force,
+                suppressAnimation,
+                mediaInfo
+            ) || changed
         }
         if (config.rightMode != 0 && (includeLyricSlots || config.rightMode != 7)) {
-            changed = refreshSlotContent(rootView, IslandProbeUtils.RIGHT_TEST_VIEW_TAG, config.rightMode, prefs, config, force, suppressAnimation, mediaInfo) || changed
+            changed = refreshSlotContent(
+                rootView,
+                IslandProbeUtils.RIGHT_TEST_VIEW_TAG,
+                config.rightMode,
+                prefs,
+                config,
+                force,
+                suppressAnimation,
+                mediaInfo
+            ) || changed
         }
 
         if (config.isSplitMode) {
@@ -124,7 +189,10 @@ internal object IslandLyricTextInjector {
             freezeLyricView(rootView.findViewWithTag(IslandProbeUtils.LEFT_TEST_VIEW_TAG), position)
         }
         if (config.rightMode == 7) {
-            freezeLyricView(rootView.findViewWithTag(IslandProbeUtils.RIGHT_TEST_VIEW_TAG), position)
+            freezeLyricView(
+                rootView.findViewWithTag(IslandProbeUtils.RIGHT_TEST_VIEW_TAG),
+                position
+            )
         }
     }
 
@@ -135,6 +203,7 @@ internal object IslandLyricTextInjector {
                 view.setPosition(position)
                 view.setPlaybackActive(false)
             }
+
             is SpaceGateRichLyricLineView -> {
                 view.setPlaybackActive(false)
                 view.setPosition(position)
@@ -143,11 +212,23 @@ internal object IslandLyricTextInjector {
         }
     }
 
-    private fun injectSlot(rootView: ViewGroup, parentName: String, viewTag: String, mode: Int, reconfigureExisting: Boolean, config: IslandSlotRuntimeConfig, suppressAnimation: Boolean): Boolean {
+    private fun injectSlot(
+        rootView: ViewGroup,
+        parentName: String,
+        viewTag: String,
+        mode: Int,
+        reconfigureExisting: Boolean,
+        config: IslandSlotRuntimeConfig,
+        suppressAnimation: Boolean
+    ): Boolean {
         val widthPx = config.widthPx(rootView, parentName) ?: return false
 
-        val parent = IslandViewHelper.findViewByName(rootView, parentName) as? ViewGroup ?: return false
-        val container = IslandViewHelper.findViewByName(parent, IslandProbeUtils.TEXT_CONTAINER_NAME) as? ViewGroup ?: return false
+        val parent =
+            IslandViewHelper.findViewByName(rootView, parentName) as? ViewGroup ?: return false
+        val container = IslandViewHelper.findViewByName(
+            parent,
+            IslandProbeUtils.TEXT_CONTAINER_NAME
+        ) as? ViewGroup ?: return false
 
         val wrapperTag = "${viewTag}_WRAPPER"
 
@@ -167,15 +248,37 @@ internal object IslandLyricTextInjector {
             val targetView = existingWrapper.findViewWithTag<View>(viewTag)
 
             if (targetView == null) {
-                existingWrapper.addView(createLyricView(rootView, viewTag, config, mode, suppressAnimation), createLyricTextLayoutParams())
+                existingWrapper.addView(
+                    createLyricView(
+                        rootView,
+                        viewTag,
+                        config,
+                        mode,
+                        suppressAnimation
+                    ), createLyricTextLayoutParams()
+                )
                 changed = true
             } else if (!isViewTypeCorrect(targetView, config.activeMode)) {
                 existingWrapper.removeView(targetView)
                 IslandSlotContentAssembler.invalidate(targetView)
-                existingWrapper.addView(createLyricView(rootView, viewTag, config, mode, suppressAnimation), createLyricTextLayoutParams())
+                existingWrapper.addView(
+                    createLyricView(
+                        rootView,
+                        viewTag,
+                        config,
+                        mode,
+                        suppressAnimation
+                    ), createLyricTextLayoutParams()
+                )
                 changed = true
             } else {
-                changed = restoreTargetView(targetView, config, mode, reconfigureExisting, suppressAnimation) || changed
+                changed = restoreTargetView(
+                    targetView,
+                    config,
+                    mode,
+                    reconfigureExisting,
+                    suppressAnimation
+                ) || changed
             }
 
             if (existingWrapper.visibility != View.VISIBLE) {
@@ -194,22 +297,41 @@ internal object IslandLyricTextInjector {
             keepVisible = true
         }
         updateWrapper(wrapperView, widthPx, config, parentName)
-        wrapperView.addView(createLyricView(rootView, viewTag, config, mode, suppressAnimation), createLyricTextLayoutParams())
+        wrapperView.addView(
+            createLyricView(rootView, viewTag, config, mode, suppressAnimation),
+            createLyricTextLayoutParams()
+        )
 
-        container.addView(wrapperView, FrameLayout.LayoutParams(wrapperLayoutWidth(config), FrameLayout.LayoutParams.MATCH_PARENT).apply {
-            gravity = Gravity.CENTER_VERTICAL
-        })
+        container.addView(
+            wrapperView,
+            FrameLayout.LayoutParams(
+                wrapperLayoutWidth(config),
+                FrameLayout.LayoutParams.MATCH_PARENT
+            ).apply {
+                gravity = Gravity.CENTER_VERTICAL
+            })
         IslandViewHelper.hideNativeChildren(container, wrapperView)
 
         forceWrapperLayout(wrapperView, container, widthPx)
 
-        HookLogger.d(TAG, "已注入歌词视图: tag=$viewTag，激活模式=${config.activeMode}，内容模式=$mode，宽度=${widthPx}px")
+        HookLogger.d(
+            TAG,
+            "已注入歌词视图: tag=$viewTag，激活模式=${config.activeMode}，内容模式=$mode，宽度=${widthPx}px"
+        )
         return true
     }
 
-    private fun restoreExistingSlotLightweight(rootView: ViewGroup, parentName: String, viewTag: String): Boolean {
-        val parent = IslandViewHelper.findViewByName(rootView, parentName) as? ViewGroup ?: return false
-        val container = IslandViewHelper.findViewByName(parent, IslandProbeUtils.TEXT_CONTAINER_NAME) as? ViewGroup ?: return false
+    private fun restoreExistingSlotLightweight(
+        rootView: ViewGroup,
+        parentName: String,
+        viewTag: String
+    ): Boolean {
+        val parent =
+            IslandViewHelper.findViewByName(rootView, parentName) as? ViewGroup ?: return false
+        val container = IslandViewHelper.findViewByName(
+            parent,
+            IslandProbeUtils.TEXT_CONTAINER_NAME
+        ) as? ViewGroup ?: return false
         val wrapper = container.findViewWithTag<View>("${viewTag}_WRAPPER") as? MaxWidthFrameLayout
             ?: return false
         val targetView = wrapper.findViewWithTag<View>(viewTag) ?: return false
@@ -256,7 +378,12 @@ internal object IslandLyricTextInjector {
         return changed
     }
 
-    private fun updateWrapper(wrapper: MaxWidthFrameLayout, widthPx: Int, config: IslandSlotRuntimeConfig, parentName: String): Boolean {
+    private fun updateWrapper(
+        wrapper: MaxWidthFrameLayout,
+        widthPx: Int,
+        config: IslandSlotRuntimeConfig,
+        parentName: String
+    ): Boolean {
         var changed = false
         val paddingLeft = config.paddingLeftPx(wrapper, parentName)
         val paddingRight = config.paddingRightPx(wrapper, parentName)
@@ -292,12 +419,18 @@ internal object IslandLyricTextInjector {
         }
     }
 
-    private fun restoreTargetView(targetView: View, config: IslandSlotRuntimeConfig, mode: Int, reconfigure: Boolean, suppressAnimation: Boolean = false): Boolean {
+    private fun restoreTargetView(
+        targetView: View,
+        config: IslandSlotRuntimeConfig,
+        mode: Int,
+        reconfigure: Boolean,
+        suppressAnimation: Boolean = false
+    ): Boolean {
         var changed = false
         val layoutParams = targetView.layoutParams
         if (layoutParams != null &&
             (layoutParams.width != FrameLayout.LayoutParams.MATCH_PARENT ||
-                layoutParams.height != FrameLayout.LayoutParams.MATCH_PARENT)
+                    layoutParams.height != FrameLayout.LayoutParams.MATCH_PARENT)
         ) {
             layoutParams.width = FrameLayout.LayoutParams.MATCH_PARENT
             layoutParams.height = FrameLayout.LayoutParams.MATCH_PARENT
@@ -323,7 +456,11 @@ internal object IslandLyricTextInjector {
         return changed
     }
 
-    private fun forceWrapperLayout(wrapper: MaxWidthFrameLayout, container: ViewGroup, widthPx: Int): Boolean {
+    private fun forceWrapperLayout(
+        wrapper: MaxWidthFrameLayout,
+        container: ViewGroup,
+        widthPx: Int
+    ): Boolean {
         val wasZeroWidth = wrapper.width == 0 || wrapper.measuredWidth == 0
         if (!wasZeroWidth) {
             return false
@@ -357,7 +494,13 @@ internal object IslandLyricTextInjector {
         )
     }
 
-    private fun createLyricView(rootView: ViewGroup, tagValue: String, config: IslandSlotRuntimeConfig, mode: Int, suppressAnimation: Boolean = false): View {
+    private fun createLyricView(
+        rootView: ViewGroup,
+        tagValue: String,
+        config: IslandSlotRuntimeConfig,
+        mode: Int,
+        suppressAnimation: Boolean = false
+    ): View {
         val prefs = HookEntry.instance?.prefs
         val view = if (config.isSplitMode) {
             SpaceGateRichLyricLineView(rootView.context)
@@ -367,7 +510,14 @@ internal object IslandLyricTextInjector {
         view.tag = tagValue
 
         if (prefs != null) {
-            IslandSlotContentAssembler.applySlotContent(view, prefs, config, mode, force = true, suppressAnimation = true)
+            IslandSlotContentAssembler.applySlotContent(
+                view,
+                prefs,
+                config,
+                mode,
+                force = true,
+                suppressAnimation = true
+            )
         }
         return view
     }
@@ -395,8 +545,10 @@ internal object IslandLyricTextInjector {
     }
 
     fun linkViews(rootView: ViewGroup) {
-        val leftView = rootView.findViewWithTag<View>(IslandProbeUtils.LEFT_TEST_VIEW_TAG) as? SpaceGateRichLyricLineView
-        val rightView = rootView.findViewWithTag<View>(IslandProbeUtils.RIGHT_TEST_VIEW_TAG) as? SpaceGateRichLyricLineView
+        val leftView =
+            rootView.findViewWithTag<View>(IslandProbeUtils.LEFT_TEST_VIEW_TAG) as? SpaceGateRichLyricLineView
+        val rightView =
+            rootView.findViewWithTag<View>(IslandProbeUtils.RIGHT_TEST_VIEW_TAG) as? SpaceGateRichLyricLineView
 
         leftView?.main?.spaceGateEnabled = false
         leftView?.secondary?.spaceGateEnabled = false

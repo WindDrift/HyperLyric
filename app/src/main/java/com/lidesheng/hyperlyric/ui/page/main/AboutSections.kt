@@ -12,10 +12,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -30,11 +28,8 @@ import androidx.core.net.toUri
 import com.lidesheng.hyperlyric.R
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.basic.ArrowRight
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -95,11 +90,25 @@ fun LazyListScope.aboutPageSections(
     }
 
     item(key = "system_info_content") {
-        Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).fillMaxWidth()) {
+        Card(
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp)
+                .fillMaxWidth()
+        ) {
             Column {
-                BasicComponent(title = aboutDeviceModel, summary = stringResource(R.string.info_device_model))
-                BasicComponent(title = aboutOsVersion, summary = stringResource(R.string.info_os_version))
-                BasicComponent(title = aboutAndroidVersion, summary = stringResource(R.string.info_android_version))
+                BasicComponent(
+                    title = aboutDeviceModel,
+                    summary = stringResource(R.string.info_device_model)
+                )
+                BasicComponent(
+                    title = aboutOsVersion,
+                    summary = stringResource(R.string.info_os_version)
+                )
+                BasicComponent(
+                    title = aboutAndroidVersion,
+                    summary = stringResource(R.string.info_android_version)
+                )
             }
         }
     }
@@ -111,7 +120,12 @@ fun LazyListScope.aboutPageSections(
     }
 
     item(key = "help_content") {
-        Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).fillMaxWidth()) {
+        Card(
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp)
+                .fillMaxWidth()
+        ) {
             Column {
                 ArrowPreference(
                     title = stringResource(R.string.title_help),
@@ -127,7 +141,12 @@ fun LazyListScope.aboutPageSections(
 
     item(key = "developer_content") {
         val context = LocalContext.current
-        Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).fillMaxWidth()) {
+        Card(
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp)
+                .fillMaxWidth()
+        ) {
 
             ArrowPreference(
                 title = stringResource(R.string.title_contributors),

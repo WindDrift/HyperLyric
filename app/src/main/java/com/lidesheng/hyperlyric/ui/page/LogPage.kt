@@ -6,7 +6,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
@@ -28,15 +27,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.lidesheng.hyperlyric.R
 import com.lidesheng.hyperlyric.ui.component.SimpleDialog
-import com.lidesheng.hyperlyric.utils.LogManager
 import com.lidesheng.hyperlyric.ui.navigation.LocalNavigator
 import com.lidesheng.hyperlyric.ui.page.log.LogEntry
 import com.lidesheng.hyperlyric.ui.page.log.LogTabContent
 import com.lidesheng.hyperlyric.ui.utils.BlurredBar
 import com.lidesheng.hyperlyric.ui.utils.rememberBlurBackdrop
-import top.yukonga.miuix.kmp.blur.layerBackdrop
+import com.lidesheng.hyperlyric.utils.LogManager
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.DropdownEntry
@@ -53,11 +50,12 @@ import top.yukonga.miuix.kmp.basic.SnackbarHostState
 import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.basic.TabRowDefaults
 import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.More
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.interfaces.ExperimentalScrollBarApi
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.window.WindowCascadingListPopup
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -73,7 +71,8 @@ fun LogPage() {
     val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
     val snackbarHostState = remember { SnackbarHostState() }
 
-    val tabs = listOf(stringResource(R.string.title_app_logs), stringResource(R.string.title_module_logs))
+    val tabs =
+        listOf(stringResource(R.string.title_app_logs), stringResource(R.string.title_module_logs))
     val pagerState = rememberPagerState { tabs.size }
     val isAppTab = pagerState.currentPage == 0
 
@@ -153,9 +152,16 @@ fun LogPage() {
                 try {
                     val sb = StringBuilder()
                     sb.appendLine(exportHeader)
-                    sb.appendLine(String.format(exportTimeFormat, LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))))
+                    sb.appendLine(
+                        String.format(
+                            exportTimeFormat,
+                            LocalDateTime.now()
+                                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+                        )
+                    )
                     sb.appendLine()
-                    val logsToExport = if (isAppTab) filteredAppLogs.toList() else filteredModuleLogs.toList()
+                    val logsToExport =
+                        if (isAppTab) filteredAppLogs.toList() else filteredModuleLogs.toList()
                     logsToExport.forEach {
                         sb.appendLine(it.rawLog)
                         sb.appendLine()
@@ -196,7 +202,19 @@ fun LogPage() {
     val levelCrash = stringResource(R.string.level_crash)
 
     val currentSelectedLevel = if (isAppTab) appSelectedLevel else moduleSelectedLevel
-    val logEntries = remember(currentSelectedLevel, isAppTab, filterLabel, exportLabel, clearLabel, allLabel, levelDebug, levelInfo, levelWarn, levelError, levelCrash) {
+    val logEntries = remember(
+        currentSelectedLevel,
+        isAppTab,
+        filterLabel,
+        exportLabel,
+        clearLabel,
+        allLabel,
+        levelDebug,
+        levelInfo,
+        levelWarn,
+        levelError,
+        levelCrash
+    ) {
         val levels = listOf("ALL", "D", "I", "W", "E", "C")
         val levelNames = listOf(allLabel, levelDebug, levelInfo, levelWarn, levelError, levelCrash)
         listOf(
@@ -209,7 +227,8 @@ fun LogPage() {
                                 text = levelNames[index],
                                 selected = currentSelectedLevel == level,
                                 onClick = {
-                                    if (isAppTab) appSelectedLevel = level else moduleSelectedLevel = level
+                                    if (isAppTab) appSelectedLevel =
+                                        level else moduleSelectedLevel = level
                                 }
                             )
                         }
@@ -221,7 +240,8 @@ fun LogPage() {
                     DropdownItem(
                         text = exportLabel,
                         onClick = {
-                            val dateTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmm"))
+                            val dateTime = LocalDateTime.now()
+                                .format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmm"))
                             val prefix = if (isAppTab) "hyperlyric_app" else "hyperlyric_module"
                             exportLauncher.launch("${prefix}_logs_$dateTime.txt")
                         }
@@ -245,13 +265,22 @@ fun LogPage() {
                     scrollBehavior = topAppBarScrollBehavior,
                     navigationIcon = {
                         IconButton(onClick = { navigator.pop() }) {
-                            Icon(imageVector = MiuixIcons.Back, contentDescription = stringResource(R.string.back))
+                            Icon(
+                                imageVector = MiuixIcons.Back,
+                                contentDescription = stringResource(R.string.back)
+                            )
                         }
                     },
                     actions = {
                         Box {
-                            IconButton(onClick = { showMorePopup = true }, holdDownState = showMorePopup) {
-                                Icon(imageVector = MiuixIcons.More, contentDescription = stringResource(R.string.more))
+                            IconButton(
+                                onClick = { showMorePopup = true },
+                                holdDownState = showMorePopup
+                            ) {
+                                Icon(
+                                    imageVector = MiuixIcons.More,
+                                    contentDescription = stringResource(R.string.more)
+                                )
                             }
                             WindowCascadingListPopup(
                                 show = showMorePopup,

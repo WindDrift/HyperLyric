@@ -2,8 +2,8 @@ package com.lidesheng.hyperlyric.online.source.qm
 
 
 import android.util.Base64
-import com.lidesheng.hyperlyric.online.model.LyricsResult
 import com.lidesheng.hyperlyric.online.model.LyricsData
+import com.lidesheng.hyperlyric.online.model.LyricsResult
 import com.lidesheng.hyperlyric.online.model.SearchSource
 import com.lidesheng.hyperlyric.online.model.SongSearchResult
 import com.lidesheng.hyperlyric.online.model.Source
@@ -30,7 +30,12 @@ class QmSource(
         "nettype" to "NETWORK_WIFI"
     )
 
-    override suspend fun search(keyword: String, page: Int, separator: String, pageSize: Int): List<SongSearchResult> = withContext(Dispatchers.IO) {
+    override suspend fun search(
+        keyword: String,
+        page: Int,
+        separator: String,
+        pageSize: Int
+    ): List<SongSearchResult> = withContext(Dispatchers.IO) {
         val param = buildJsonObject {
             put("search_id", Random.nextLong(10000000000000000L, 90000000000000000L).toString())
             put("remoteplace", "search.android.keyboard")
@@ -81,58 +86,62 @@ class QmSource(
         }
     }
 
-    override suspend fun getLyrics(song: SongSearchResult): LyricsResult? = withContext(Dispatchers.IO) {
-        if (song.id == "0") return@withContext null
+    override suspend fun getLyrics(song: SongSearchResult): LyricsResult? =
+        withContext(Dispatchers.IO) {
+            if (song.id == "0") return@withContext null
 
-        val param = buildJsonObject {
-            put("songID", song.id.toLong())
-            put("songName", Base64.encodeToString(song.title.toByteArray(), Base64.NO_WRAP))
-            put("albumName", Base64.encodeToString(song.album.toByteArray(), Base64.NO_WRAP))
-            put("singerName", Base64.encodeToString(song.artist.toByteArray(), Base64.NO_WRAP))
-            put("crypt", 1)
-            put("qrc", 1)
-            put("trans", 1)
-            put("roma", 1)
-            put("cv", 2111)
-            put("ct", 19)
-            put("lrc_t", 0)
-            put("qrc_t", 0)
-            put("roma_t", 0)
-            put("trans_t", 0)
-            put("type", 0)
-            put("interval", song.duration / 1000)
-        }
-
-        val reqBody = QmRequestBody(
-            comm = comm,
-            req0 = QmRequestModule(
-                method = "GetPlayLyricInfo",
-                module = "music.musichallSong.PlayLyricInfo",
-                param = param
-            )
-        )
-
-        try {
-            val resp = api.getLyrics(reqBody)
-            val data = resp.req0.data ?: return@withContext null
-
-            val lyricsData = withContext(Dispatchers.Default) {
-                val qrcText = if (data.lyric.isNotEmpty()) QmCryptoUtils.decryptQrc(data.lyric) else ""
-                val transText = if (data.trans.isNotEmpty()) QmCryptoUtils.decryptQrc(data.trans) else null
-                val romaText = if (data.roma.isNotEmpty()) QmCryptoUtils.decryptQrc(data.roma) else null
-
-                LyricsData(
-                    original = qrcText.ifEmpty { null },
-                    translated = transText,
-                    type = if (qrcText.isNotEmpty()) "qrc" else "lrc",
-                    romanization = romaText
-                )
+            val param = buildJsonObject {
+                put("songID", song.id.toLong())
+                put("songName", Base64.encodeToString(song.title.toByteArray(), Base64.NO_WRAP))
+                put("albumName", Base64.encodeToString(song.album.toByteArray(), Base64.NO_WRAP))
+                put("singerName", Base64.encodeToString(song.artist.toByteArray(), Base64.NO_WRAP))
+                put("crypt", 1)
+                put("qrc", 1)
+                put("trans", 1)
+                put("roma", 1)
+                put("cv", 2111)
+                put("ct", 19)
+                put("lrc_t", 0)
+                put("qrc_t", 0)
+                put("roma_t", 0)
+                put("trans_t", 0)
+                put("type", 0)
+                put("interval", song.duration / 1000)
             }
 
-            QrcParser.parse(lyricsData)
+            val reqBody = QmRequestBody(
+                comm = comm,
+                req0 = QmRequestModule(
+                    method = "GetPlayLyricInfo",
+                    module = "music.musichallSong.PlayLyricInfo",
+                    param = param
+                )
+            )
 
-        } catch (_: Exception) {
-            null
+            try {
+                val resp = api.getLyrics(reqBody)
+                val data = resp.req0.data ?: return@withContext null
+
+                val lyricsData = withContext(Dispatchers.Default) {
+                    val qrcText =
+                        if (data.lyric.isNotEmpty()) QmCryptoUtils.decryptQrc(data.lyric) else ""
+                    val transText =
+                        if (data.trans.isNotEmpty()) QmCryptoUtils.decryptQrc(data.trans) else null
+                    val romaText =
+                        if (data.roma.isNotEmpty()) QmCryptoUtils.decryptQrc(data.roma) else null
+
+                    LyricsData(
+                        original = qrcText.ifEmpty { null },
+                        translated = transText,
+                        type = if (qrcText.isNotEmpty()) "qrc" else "lrc",
+                        romanization = romaText
+                    )
+                }
+
+                QrcParser.parse(lyricsData)
+
+            } catch (_: Exception) {
+                null
+            }
         }
-    }
 }

@@ -21,8 +21,8 @@ class MaxWidthFrameLayout(context: Context) : FrameLayout(context) {
     var keepVisible: Boolean = false
 
     override fun setVisibility(visibility: Int) {
-        if (keepVisible && visibility != View.VISIBLE) {
-            super.setVisibility(View.VISIBLE)
+        if (keepVisible && visibility != VISIBLE) {
+            super.setVisibility(VISIBLE)
             return
         }
         super.setVisibility(visibility)
@@ -30,8 +30,12 @@ class MaxWidthFrameLayout(context: Context) : FrameLayout(context) {
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val givenWidth = MeasureSpec.getSize(widthMeasureSpec)
-        val newWidth = if (maxWidthPx > 0 && (givenWidth == 0 || givenWidth > maxWidthPx)) maxWidthPx else givenWidth
-        super.onMeasure(MeasureSpec.makeMeasureSpec(newWidth, MeasureSpec.AT_MOST), heightMeasureSpec)
+        val newWidth =
+            if (maxWidthPx > 0 && (givenWidth == 0 || givenWidth > maxWidthPx)) maxWidthPx else givenWidth
+        super.onMeasure(
+            MeasureSpec.makeMeasureSpec(newWidth, MeasureSpec.AT_MOST),
+            heightMeasureSpec
+        )
         if (maxWidthPx > 0 && measuredWidth > maxWidthPx) {
             setMeasuredDimension(maxWidthPx, measuredHeight)
         }

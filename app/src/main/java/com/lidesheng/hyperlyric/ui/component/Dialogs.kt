@@ -42,14 +42,25 @@ fun NumberInputDialog(
         Column(modifier = Modifier.fillMaxWidth()) {
             TextField(
                 value = inputValue,
-                onValueChange = { newValue -> if (newValue.all { it.isDigit() }) inputValue = newValue },
+                onValueChange = { newValue ->
+                    if (newValue.all { it.isDigit() }) inputValue = newValue
+                },
                 label = label,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
                 maxLines = 1
             )
-            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                TextButton(text = stringResource(id = R.string.cancel), onClick = onDismiss, modifier = Modifier.weight(1f))
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                TextButton(
+                    text = stringResource(id = R.string.cancel),
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f)
+                )
                 Spacer(Modifier.width(20.dp))
                 TextButton(
                     text = stringResource(id = R.string.confirm),
@@ -88,11 +99,20 @@ fun TextInputDialog(
                 onValueChange = { inputValue = it },
                 label = label,
                 keyboardOptions = keyboardOptions,
-                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
                 maxLines = 15
             )
-            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                TextButton(text = stringResource(id = R.string.cancel), onClick = onDismiss, modifier = Modifier.weight(1f))
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                TextButton(
+                    text = stringResource(id = R.string.cancel),
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f)
+                )
                 Spacer(Modifier.width(20.dp))
                 TextButton(
                     text = confirmText,
@@ -157,14 +177,25 @@ fun FloatInputDialog(
         Column(modifier = Modifier.fillMaxWidth()) {
             TextField(
                 value = inputValue,
-                onValueChange = { newValue -> if (newValue.all { it.isDigit() || it == '.' }) inputValue = newValue },
+                onValueChange = { newValue ->
+                    if (newValue.all { it.isDigit() || it == '.' }) inputValue = newValue
+                },
                 label = label,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
                 maxLines = 1
             )
-            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                TextButton(text = stringResource(id = R.string.cancel), onClick = onDismiss, modifier = Modifier.weight(1f))
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                TextButton(
+                    text = stringResource(id = R.string.cancel),
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f)
+                )
                 Spacer(Modifier.width(20.dp))
                 TextButton(
                     text = stringResource(id = R.string.confirm),
@@ -219,8 +250,15 @@ fun PaddingInputDialog(
                 maxLines = 1
             )
             Spacer(modifier = Modifier.height(24.dp))
-            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                TextButton(text = stringResource(id = R.string.cancel), onClick = onDismiss, modifier = Modifier.weight(1f))
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                TextButton(
+                    text = stringResource(id = R.string.cancel),
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f)
+                )
                 Spacer(Modifier.width(20.dp))
                 TextButton(
                     text = stringResource(id = R.string.confirm),

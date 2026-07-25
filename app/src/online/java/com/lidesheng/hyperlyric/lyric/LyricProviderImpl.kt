@@ -12,12 +12,16 @@ class LyricProviderImpl(private val context: Context) : ILyricProvider {
 
     override suspend fun fetchLyrics(params: LyricSearchParams): List<LrcLine>? {
         return withContext(Dispatchers.IO) {
-            LogManager.d("LyricProvider", "正在获取歌词: 标题=${params.title}, 艺术家=${params.artist}, 专辑=${params.album}, pkg=${params.packageName}, 时长=${params.duration}ms")
+            LogManager.d(
+                "LyricProvider",
+                "正在获取歌词: 标题=${params.title}, 艺术家=${params.artist}, 专辑=${params.album}, pkg=${params.packageName}, 时长=${params.duration}ms"
+            )
 
             // 1. 尝试从缓存获取
-            var lines = LrcCacheManager.getLyricFromCache(context, params.title, params.artist)?.let {
-                LrcParser.parse(it)
-            }
+            var lines =
+                LrcCacheManager.getLyricFromCache(context, params.title, params.artist)?.let {
+                    LrcParser.parse(it)
+                }
 
             if (!lines.isNullOrEmpty()) {
                 LogManager.d("LyricProvider", "缓存命中: 行数=${lines.size}")

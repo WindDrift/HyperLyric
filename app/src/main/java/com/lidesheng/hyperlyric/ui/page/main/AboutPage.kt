@@ -2,26 +2,22 @@ package com.lidesheng.hyperlyric.ui.page.main
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.lidesheng.hyperlyric.R
+import com.lidesheng.hyperlyric.ui.utils.BlurredBar
+import com.lidesheng.hyperlyric.ui.utils.pageContentPadding
+import com.lidesheng.hyperlyric.ui.utils.pageScrollModifiers
+import com.lidesheng.hyperlyric.ui.utils.rememberBlurBackdrop
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import com.lidesheng.hyperlyric.ui.utils.BlurredBar
-import com.lidesheng.hyperlyric.ui.utils.pageContentPadding
-import com.lidesheng.hyperlyric.ui.utils.pageScrollModifiers
-import com.lidesheng.hyperlyric.ui.utils.rememberBlurBackdrop
 
 @Composable
 fun AboutPage(

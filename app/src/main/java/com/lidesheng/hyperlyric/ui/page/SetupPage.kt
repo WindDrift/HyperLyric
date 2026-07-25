@@ -3,7 +3,6 @@ package com.lidesheng.hyperlyric.ui.page
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -75,7 +74,8 @@ fun SetupPage(onNavigateToMain: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(pageCount = { 4 })
-    val prefs = remember { context.getSharedPreferences(UIConstants.PREF_NAME, Context.MODE_PRIVATE) }
+    val prefs =
+        remember { context.getSharedPreferences(UIConstants.PREF_NAME, Context.MODE_PRIVATE) }
     val snackbarHostState = remember { SnackbarHostState() }
     val msgXposedNotActive = stringResource(R.string.toast_xposed_module_not_active)
 
@@ -85,7 +85,12 @@ fun SetupPage(onNavigateToMain: () -> Unit) {
     }
 
     var selectedSource by remember {
-        mutableStateOf(prefs.getString(RootConstants.KEY_HOOK_LYRIC_SOURCE, RootConstants.DEFAULT_HOOK_LYRIC_SOURCE) ?: "lyricon")
+        mutableStateOf(
+            prefs.getString(
+                RootConstants.KEY_HOOK_LYRIC_SOURCE,
+                RootConstants.DEFAULT_HOOK_LYRIC_SOURCE
+            ) ?: "lyricon"
+        )
     }
 
     val onFinish = {
@@ -160,6 +165,7 @@ fun SetupPage(onNavigateToMain: () -> Unit) {
                         prefs.edit { putInt(UIConstants.KEY_WORK_MODE, it) }
                     }
                 )
+
                 1 -> if (workMode == 0) DisclaimerPage() else PermissionPage()
                 2 -> if (workMode == 0) LyricSourceSelectionPage(
                     selectedSource = selectedSource,
@@ -168,6 +174,7 @@ fun SetupPage(onNavigateToMain: () -> Unit) {
                         prefs.edit { putString(RootConstants.KEY_HOOK_LYRIC_SOURCE, source) }
                     }
                 ) else WhitelistPage()
+
                 3 -> CompletionPage(workMode = workMode, selectedSource = selectedSource)
             }
         }
@@ -176,7 +183,7 @@ fun SetupPage(onNavigateToMain: () -> Unit) {
 
 @Composable
 fun ModeSelectionPage(selectedMode: Int, onModeSelected: (Int) -> Unit) {
-    val isModuleActive = RootApplication.xposedService != null
+    RootApplication.xposedService != null
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -253,7 +260,9 @@ fun PermissionPage() {
 
     LaunchedEffect(Unit) {
         while (isActive) {
-            isNotificationGranted.value = NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
+            isNotificationGranted.value =
+                NotificationManagerCompat.getEnabledListenerPackages(context)
+                    .contains(context.packageName)
             delay(1000.milliseconds)
         }
     }
@@ -278,7 +287,9 @@ fun PermissionPage() {
                 Column {
                     ArrowPreference(
                         title = stringResource(R.string.title_permission_listener),
-                        summary = if (isNotificationGranted.value) stringResource(R.string.toast_permission_granted) else stringResource(R.string.summary_permission_listener),
+                        summary = if (isNotificationGranted.value) stringResource(R.string.toast_permission_granted) else stringResource(
+                            R.string.summary_permission_listener
+                        ),
                         onClick = {
                             context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                         }
@@ -310,7 +321,10 @@ fun WhitelistPage() {
 
     Scaffold(
         topBar = {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Text(
                     text = stringResource(R.string.title_add_whitelist),
                     fontSize = 24.sp,
@@ -355,7 +369,10 @@ fun WhitelistPage() {
                                         if (checked) {
                                             ConfigRepository.addPackageToWhitelist(context, pkg)
                                         } else {
-                                            ConfigRepository.removePackageFromWhitelist(context, pkg)
+                                            ConfigRepository.removePackageFromWhitelist(
+                                                context,
+                                                pkg
+                                            )
                                         }
                                     }
                                 )
@@ -413,33 +430,47 @@ fun LyricSourceSelectionPage(selectedSource: String, onSourceSelected: (String) 
                                 title = stringResource(R.string.setup_download_lyric_core),
                                 summary = stringResource(R.string.setup_download_lyric_core_summary),
                                 onClick = {
-                                    context.startActivity(Intent(Intent.ACTION_VIEW,
-                                        "https://github.com/tomakino/lyricon/releases/tag/core".toUri()))
+                                    context.startActivity(
+                                        Intent(
+                                            Intent.ACTION_VIEW,
+                                            "https://github.com/tomakino/lyricon/releases/tag/core".toUri()
+                                        )
+                                    )
                                 }
                             )
                             ArrowPreference(
                                 title = stringResource(R.string.setup_download_provider),
                                 summary = stringResource(R.string.setup_download_provider_summary),
                                 onClick = {
-                                    context.startActivity(Intent(Intent.ACTION_VIEW,
-                                        "https://github.com/proify/LyricProvider/releases".toUri()))
+                                    context.startActivity(
+                                        Intent(
+                                            Intent.ACTION_VIEW,
+                                            "https://github.com/proify/LyricProvider/releases".toUri()
+                                        )
+                                    )
                                 }
                             )
                         }
                     }
                 }
+
                 "superlyric" -> {
                     Card(modifier = Modifier.fillMaxWidth()) {
                         ArrowPreference(
                             title = stringResource(R.string.setup_download_superlyric),
                             summary = stringResource(R.string.setup_download_superlyric_summary),
                             onClick = {
-                                context.startActivity(Intent(Intent.ACTION_VIEW,
-                                    "https://github.com/HChenX/SuperLyric".toUri()))
+                                context.startActivity(
+                                    Intent(
+                                        Intent.ACTION_VIEW,
+                                        "https://github.com/HChenX/SuperLyric".toUri()
+                                    )
+                                )
                             }
                         )
                     }
                 }
+
                 "lyricinfo" -> {
                     Card(modifier = Modifier.fillMaxWidth()) {
                         BasicComponent(

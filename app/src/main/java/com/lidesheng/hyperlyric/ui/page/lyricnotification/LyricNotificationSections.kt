@@ -72,8 +72,10 @@ fun LazyListScope.configSections(
     // Notification Type
     item(key = "service_lyric_source_and_notification_type") {
         Card(
-            modifier = Modifier.padding(horizontal = 12.dp)
-                .padding(bottom = 12.dp).fillMaxWidth()
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp)
+                .fillMaxWidth()
         ) {
             Column {
                 val lyricSourceOptions = remember {
@@ -153,15 +155,26 @@ fun LazyListScope.configSections(
 
     item(key = "island_settings_content") {
         Card(
-            modifier = Modifier.padding(horizontal = 12.dp)
-                .padding(bottom = 12.dp).fillMaxWidth()
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp)
+                .fillMaxWidth()
         ) {
             Column {
                 val iconStyleOptions = remember(notificationType) {
                     if (notificationType == 1) {
-                        listOf(R.string.option_icon_style_note, R.string.option_icon_style_rounded, R.string.option_icon_style_circular, R.string.option_icon_style_none)
+                        listOf(
+                            R.string.option_icon_style_note,
+                            R.string.option_icon_style_rounded,
+                            R.string.option_icon_style_circular,
+                            R.string.option_icon_style_none
+                        )
                     } else {
-                        listOf(R.string.option_icon_style_note, R.string.option_icon_style_rounded, R.string.option_icon_style_circular)
+                        listOf(
+                            R.string.option_icon_style_note,
+                            R.string.option_icon_style_rounded,
+                            R.string.option_icon_style_circular
+                        )
                     }
                 }.map { stringResource(id = it) }
 
@@ -232,8 +245,10 @@ fun LazyListScope.configSections(
 
     item(key = "notification_settings_content") {
         Card(
-            modifier = Modifier.padding(horizontal = 12.dp)
-                .padding(bottom = 12.dp).fillMaxWidth()
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp)
+                .fillMaxWidth()
         ) {
             AnimatedVisibility(visible = notificationType == 1) {
                 Column {
@@ -246,7 +261,11 @@ fun LazyListScope.configSections(
                 }
             }
             val clickOptions = remember {
-                listOf(R.string.option_click_pause, R.string.option_click_open_app, R.string.option_click_open_media)
+                listOf(
+                    R.string.option_click_pause,
+                    R.string.option_click_open_app,
+                    R.string.option_click_open_media
+                )
             }.map { stringResource(id = it) }
             WindowDropdownPreference(
                 title = stringResource(R.string.title_notification_click),
@@ -290,7 +309,15 @@ fun LazyListScope.configSections(
             }
 
             val normalTitleOptions = remember {
-                listOf(R.string.option_info_none, R.string.option_info_title, R.string.option_info_artist, R.string.option_info_album, R.string.option_info_title_artist, R.string.option_info_artist_title, R.string.option_info_artist_album)
+                listOf(
+                    R.string.option_info_none,
+                    R.string.option_info_title,
+                    R.string.option_info_artist,
+                    R.string.option_info_album,
+                    R.string.option_info_title_artist,
+                    R.string.option_info_artist_title,
+                    R.string.option_info_artist_album
+                )
             }.map { stringResource(id = it) }
             WindowDropdownPreference(
                 title = stringResource(R.string.title_song_info),
@@ -316,8 +343,10 @@ fun LazyListScope.configSections(
 
     item(key = "advanced_features_content") {
         Card(
-            modifier = Modifier.padding(horizontal = 12.dp)
-                .padding(bottom = 12.dp).fillMaxWidth()
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp)
+                .fillMaxWidth()
         ) {
             Column {
                 ArrowPreference(
@@ -352,8 +381,10 @@ fun LazyListScope.whitelistSections(
 ) {
     item(key = "add_whitelist_button") {
         Card(
-            modifier = Modifier.padding(horizontal = 12.dp)
-                .padding(bottom = 12.dp).fillMaxWidth()
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp)
+                .fillMaxWidth()
         ) {
             ArrowPreference(
                 title = stringResource(R.string.title_add_whitelist),
@@ -372,8 +403,10 @@ fun LazyListScope.whitelistSections(
             item(key = packageName) {
                 val appName = commonMusicApps[packageName]
                 Card(
-                    modifier = Modifier.padding(horizontal = 12.dp)
-                        .padding(bottom = 12.dp).fillMaxWidth()
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 12.dp)
+                        .fillMaxWidth()
                 ) {
                     BasicComponent(
                         title = appName ?: packageName,
@@ -396,8 +429,10 @@ fun LazyListScope.whitelistSections(
     } else {
         item(key = "no_whitelist") {
             Card(
-                modifier = Modifier.padding(horizontal = 12.dp)
-                    .padding(bottom = 12.dp).fillMaxWidth()
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 12.dp)
+                    .fillMaxWidth()
             ) {
                 BasicComponent(
                     title = stringResource(R.string.title_no_whitelist),

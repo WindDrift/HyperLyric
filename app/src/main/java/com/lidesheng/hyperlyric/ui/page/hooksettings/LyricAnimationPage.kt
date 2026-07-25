@@ -21,14 +21,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
 import com.lidesheng.hyperlyric.R
+import com.lidesheng.hyperlyric.common.PrefsBridge
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.common.UIConstants
-import com.lidesheng.hyperlyric.common.PrefsBridge
+import com.lidesheng.hyperlyric.lyric.view.yoyo.YoYoPresets
 import com.lidesheng.hyperlyric.ui.navigation.LocalNavigator
 import com.lidesheng.hyperlyric.ui.utils.BlurredBar
 import com.lidesheng.hyperlyric.ui.utils.pageScrollModifiers
 import com.lidesheng.hyperlyric.ui.utils.rememberBlurBackdrop
-import com.lidesheng.hyperlyric.lyric.view.yoyo.YoYoPresets
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
@@ -72,7 +72,7 @@ private val animLabelResMap = mapOf(
 
 @Composable
 fun LyricAnimationPage() {
-    val context = LocalContext.current
+    LocalContext.current
     val navigator = LocalNavigator.current
 
     val backdrop = rememberBlurBackdrop()
@@ -88,7 +88,10 @@ fun LyricAnimationPage() {
                     scrollBehavior = topAppBarScrollBehavior,
                     navigationIcon = {
                         IconButton(onClick = { navigator.pop() }) {
-                            Icon(imageVector = MiuixIcons.Back, contentDescription = stringResource(id = R.string.back))
+                            Icon(
+                                imageVector = MiuixIcons.Back,
+                                contentDescription = stringResource(id = R.string.back)
+                            )
                         }
                     }
                 )
@@ -121,10 +124,25 @@ fun LyricAnimationPage() {
 private fun LazyListScope.animationPageSections() {
     item(key = "animation_options") {
         val context = LocalContext.current
-        val prefs = remember { context.getSharedPreferences(UIConstants.PREF_NAME, Context.MODE_PRIVATE) }
+        val prefs =
+            remember { context.getSharedPreferences(UIConstants.PREF_NAME, Context.MODE_PRIVATE) }
 
-        var animEnable by remember { mutableStateOf(prefs.getBoolean(RootConstants.KEY_HOOK_ANIM_ENABLE, RootConstants.DEFAULT_HOOK_ANIM_ENABLE)) }
-        var animId by remember { mutableStateOf(prefs.getString(RootConstants.KEY_HOOK_ANIM_ID, RootConstants.DEFAULT_HOOK_ANIM_ID) ?: RootConstants.DEFAULT_HOOK_ANIM_ID) }
+        var animEnable by remember {
+            mutableStateOf(
+                prefs.getBoolean(
+                    RootConstants.KEY_HOOK_ANIM_ENABLE,
+                    RootConstants.DEFAULT_HOOK_ANIM_ENABLE
+                )
+            )
+        }
+        var animId by remember {
+            mutableStateOf(
+                prefs.getString(
+                    RootConstants.KEY_HOOK_ANIM_ID,
+                    RootConstants.DEFAULT_HOOK_ANIM_ID
+                ) ?: RootConstants.DEFAULT_HOOK_ANIM_ID
+            )
+        }
 
         val saveConfig = remember {
             { key: String, value: Any ->
@@ -141,7 +159,9 @@ private fun LazyListScope.animationPageSections() {
             }
         }
 
-        Card(modifier = Modifier.padding(horizontal = 12.dp).fillMaxWidth()) {
+        Card(modifier = Modifier
+            .padding(horizontal = 12.dp)
+            .fillMaxWidth()) {
             Column {
                 RadioButtonPreference(
                     title = stringResource(id = R.string.option_anim_none),

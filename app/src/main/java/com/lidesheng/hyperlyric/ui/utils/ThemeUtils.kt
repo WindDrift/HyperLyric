@@ -14,9 +14,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import com.lidesheng.hyperlyric.common.UIConstants
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import com.lidesheng.hyperlyric.common.UIConstants
 import top.yukonga.miuix.kmp.theme.ThemeController
 
 object ThemeUtils {
@@ -24,22 +24,34 @@ object ThemeUtils {
     @Composable
     fun MiuixThemeWrapper(content: @Composable () -> Unit) {
         val context = LocalContext.current
-        val prefs = remember { context.getSharedPreferences(UIConstants.PREF_NAME, Context.MODE_PRIVATE) }
-        
-        var themeMode by remember { 
-            mutableIntStateOf(prefs.getInt(UIConstants.KEY_THEME_MODE, UIConstants.DEFAULT_THEME_MODE)) 
+        val prefs =
+            remember { context.getSharedPreferences(UIConstants.PREF_NAME, Context.MODE_PRIVATE) }
+
+        var themeMode by remember {
+            mutableIntStateOf(
+                prefs.getInt(
+                    UIConstants.KEY_THEME_MODE,
+                    UIConstants.DEFAULT_THEME_MODE
+                )
+            )
         }
-        var monetColorIndex by remember { 
-            mutableIntStateOf(prefs.getInt(UIConstants.KEY_MONET_COLOR, UIConstants.DEFAULT_MONET_COLOR)) 
+        var monetColorIndex by remember {
+            mutableIntStateOf(
+                prefs.getInt(
+                    UIConstants.KEY_MONET_COLOR,
+                    UIConstants.DEFAULT_MONET_COLOR
+                )
+            )
         }
 
-        val listener = remember { 
+        val listener = remember {
             SharedPreferences.OnSharedPreferenceChangeListener { p, key ->
                 if (key == UIConstants.KEY_THEME_MODE) {
                     themeMode = p.getInt(UIConstants.KEY_THEME_MODE, UIConstants.DEFAULT_THEME_MODE)
                 }
                 if (key == UIConstants.KEY_MONET_COLOR) {
-                    monetColorIndex = p.getInt(UIConstants.KEY_MONET_COLOR, UIConstants.DEFAULT_MONET_COLOR)
+                    monetColorIndex =
+                        p.getInt(UIConstants.KEY_MONET_COLOR, UIConstants.DEFAULT_MONET_COLOR)
                 }
             }
         }
@@ -77,7 +89,7 @@ object ThemeUtils {
 
         val view = LocalView.current
         val isSystemDark = isSystemInDarkTheme()
-        
+
         val isDark = when (themeMode) {
             1, 4 -> false
             2, 5 -> true
@@ -91,7 +103,7 @@ object ThemeUtils {
                     if (currentContext is Activity) break
                     currentContext = currentContext.baseContext
                 }
-                
+
                 val window = (currentContext as? Activity)?.window
                 if (window != null) {
                     val insetsController = WindowCompat.getInsetsController(window, view)

@@ -26,7 +26,7 @@ object IslandViewHelper {
         try {
             val res = root.resources
             val parent = findViewByName(root, parentName) as? ViewGroup
-            
+
             if (parent != null) {
                 for (pkg in SYSTEMUI_PKG_NAMES) {
                     val id = res.getIdentifier(containerName, "id", pkg)
@@ -49,11 +49,16 @@ object IslandViewHelper {
      * 清除超级岛文本容器的边距
      */
     @SuppressLint("DiscouragedApi")
-    fun clearTextContainerMargin(root: ViewGroup, parentName: String, clearStart: Boolean, clearEnd: Boolean) {
+    fun clearTextContainerMargin(
+        root: ViewGroup,
+        parentName: String,
+        clearStart: Boolean,
+        clearEnd: Boolean
+    ) {
         try {
             val res = root.resources
             val parent = findViewByName(root, parentName) as? ViewGroup
-            
+
             if (parent != null) {
                 for (pkg in SYSTEMUI_PKG_NAMES) {
                     val id = res.getIdentifier("island_container_module_text", "id", pkg)
@@ -91,27 +96,46 @@ object IslandViewHelper {
                 IslandProbeUtils.LEFT_TEST_WRAPPER_TAG,
                 IslandProbeUtils.LEFT_TEST_VIEW_TAG
             ) +
-                hideInjectedSlot(
-                    rootView,
-                    IslandProbeUtils.RIGHT_TEST_WRAPPER_TAG,
-                    IslandProbeUtils.RIGHT_TEST_VIEW_TAG
-                ) +
-                hideInjectedView(rootView, "HYPERLYRIC_TEST_VIEW_WRAPPER_LEFT") +
-                hideInjectedView(rootView, "HYPERLYRIC_TEST_VIEW_WRAPPER_RIGHT")
+                    hideInjectedSlot(
+                        rootView,
+                        IslandProbeUtils.RIGHT_TEST_WRAPPER_TAG,
+                        IslandProbeUtils.RIGHT_TEST_VIEW_TAG
+                    ) +
+                    hideInjectedView(rootView, "HYPERLYRIC_TEST_VIEW_WRAPPER_LEFT") +
+                    hideInjectedView(rootView, "HYPERLYRIC_TEST_VIEW_WRAPPER_RIGHT")
 
         if (!hasNativeState && hiddenCount == 0) return false
 
-        restoreContainerVisibility(rootView, IslandProbeUtils.LEFT_PARENT_NAME, "island_container_module_icon")
-        restoreContainerVisibility(rootView, IslandProbeUtils.RIGHT_PARENT_NAME, "island_container_module_icon")
-        restoreContainerVisibility(rootView, IslandProbeUtils.LEFT_PARENT_NAME, IslandProbeUtils.TEXT_CONTAINER_NAME)
-        restoreContainerVisibility(rootView, IslandProbeUtils.RIGHT_PARENT_NAME, IslandProbeUtils.TEXT_CONTAINER_NAME)
+        restoreContainerVisibility(
+            rootView,
+            IslandProbeUtils.LEFT_PARENT_NAME,
+            "island_container_module_icon"
+        )
+        restoreContainerVisibility(
+            rootView,
+            IslandProbeUtils.RIGHT_PARENT_NAME,
+            "island_container_module_icon"
+        )
+        restoreContainerVisibility(
+            rootView,
+            IslandProbeUtils.LEFT_PARENT_NAME,
+            IslandProbeUtils.TEXT_CONTAINER_NAME
+        )
+        restoreContainerVisibility(
+            rootView,
+            IslandProbeUtils.RIGHT_PARENT_NAME,
+            IslandProbeUtils.TEXT_CONTAINER_NAME
+        )
         restoreTextContainerMargins(rootView, "island_container_module_image_text_1")
         restoreTextContainerMargins(rootView, "island_container_module_image_text_2")
         showOriginalTexts(rootView, "island_container_module_image_text_1")
         showOriginalTexts(rootView, "island_container_module_image_text_2")
 
         if (hiddenCount > 0) {
-            HookLogger.d("IslandViewHelper", "已隐藏歌词注入视图并恢复原生媒体岛: 数量=$hiddenCount")
+            HookLogger.d(
+                "IslandViewHelper",
+                "已隐藏歌词注入视图并恢复原生媒体岛: 数量=$hiddenCount"
+            )
         }
         return true
     }
@@ -161,8 +185,9 @@ object IslandViewHelper {
     fun showOriginalTexts(rootView: ViewGroup, parentName: String) {
         try {
             val parent = findViewByName(rootView, parentName) as? ViewGroup ?: return
-            val container = findViewByName(parent, IslandProbeUtils.TEXT_CONTAINER_NAME) as? ViewGroup
-                ?: parent
+            val container =
+                findViewByName(parent, IslandProbeUtils.TEXT_CONTAINER_NAME) as? ViewGroup
+                    ?: parent
 
             for (i in 0 until container.childCount) {
                 val child = container.getChildAt(i)
@@ -184,18 +209,20 @@ object IslandViewHelper {
      */
     fun triggerSystemRelayout(islandView: ViewGroup) {
         if (isRelayouting.get() == true) return
-        HookLogger.d("IslandViewHelper","正在触发布局刷新")
+        HookLogger.d("IslandViewHelper", "正在触发布局刷新")
         isRelayouting.set(true)
         try {
             runCatching {
                 val viewClass = islandView.javaClass
                 // 优先尝试 updateBigIslandViewWidth
-                val updateWidthMethod = viewClass.methods.find { it.name == "updateBigIslandViewWidth" }
+                val updateWidthMethod =
+                    viewClass.methods.find { it.name == "updateBigIslandViewWidth" }
                 if (updateWidthMethod != null) {
                     updateWidthMethod.invoke(islandView)
                 } else {
                     // 兜底尝试 calculateBigIslandWidth
-                    viewClass.methods.find { it.name == "calculateBigIslandWidth" }?.invoke(islandView)
+                    viewClass.methods.find { it.name == "calculateBigIslandWidth" }
+                        ?.invoke(islandView)
                 }
             }.onFailure { e ->
                 HookLogger.e("IslandViewHelper", "超级岛布局刷新失败", e)
@@ -235,7 +262,11 @@ object IslandViewHelper {
         }
     }
 
-    private fun restoreContainerVisibility(rootView: ViewGroup, parentName: String, containerName: String) {
+    private fun restoreContainerVisibility(
+        rootView: ViewGroup,
+        parentName: String,
+        containerName: String
+    ) {
         val parent = findViewByName(rootView, parentName) as? ViewGroup ?: return
         val container = findViewByName(parent, containerName) ?: return
         restoreVisibility(container, View.VISIBLE)
@@ -260,7 +291,10 @@ object IslandViewHelper {
     }
 
     private fun hasRememberedNativeState(rootView: ViewGroup): Boolean {
-        for (parentName in arrayOf(IslandProbeUtils.LEFT_PARENT_NAME, IslandProbeUtils.RIGHT_PARENT_NAME)) {
+        for (parentName in arrayOf(
+            IslandProbeUtils.LEFT_PARENT_NAME,
+            IslandProbeUtils.RIGHT_PARENT_NAME
+        )) {
             val parent = findViewByName(rootView, parentName) as? ViewGroup ?: continue
             val icon = findViewByName(parent, "island_container_module_icon")
             val text = findViewByName(parent, IslandProbeUtils.TEXT_CONTAINER_NAME)

@@ -41,7 +41,11 @@ object BaseIslandRenderer : IslandRenderer {
      */
     fun shouldRenderInjectedIsland(): Boolean {
         val prefs = HookEntry.instance?.prefs ?: return false
-        if (!prefs.getBoolean(RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND, RootConstants.DEFAULT_HOOK_ENABLE_SUPER_ISLAND)) {
+        if (!prefs.getBoolean(
+                RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND,
+                RootConstants.DEFAULT_HOOK_ENABLE_SUPER_ISLAND
+            )
+        ) {
             return false
         }
         val behavior = prefs.getInt(
@@ -136,7 +140,11 @@ object BaseIslandRenderer : IslandRenderer {
 
     private fun performRefreshActiveIsland() {
         val prefs = HookEntry.instance?.prefs ?: return
-        if (!prefs.getBoolean(RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND, RootConstants.DEFAULT_HOOK_ENABLE_SUPER_ISLAND)) {
+        if (!prefs.getBoolean(
+                RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND,
+                RootConstants.DEFAULT_HOOK_ENABLE_SUPER_ISLAND
+            )
+        ) {
             clearAllViews()
             return
         }
@@ -145,7 +153,8 @@ object BaseIslandRenderer : IslandRenderer {
             return
         }
 
-        val lyricPkg = LyriconDataBridge.currentLyricPackageName?.takeIf { it.isNotEmpty() } ?: return
+        val lyricPkg =
+            LyriconDataBridge.currentLyricPackageName?.takeIf { it.isNotEmpty() } ?: return
 
         IslandSlotContentAssembler.invalidate()
 
@@ -166,7 +175,11 @@ object BaseIslandRenderer : IslandRenderer {
     }
 
     override fun updateLyricLine() {
-        if ((HookEntry.instance?.prefs?.getBoolean(RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND, RootConstants.DEFAULT_HOOK_ENABLE_SUPER_ISLAND)) != true) return
+        if ((HookEntry.instance?.prefs?.getBoolean(
+                RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND,
+                RootConstants.DEFAULT_HOOK_ENABLE_SUPER_ISLAND
+            )) != true
+        ) return
         if (!shouldRenderInjectedIsland()) return
         val lyricPkg = LyriconDataBridge.currentLyricPackageName
         if (lyricPkg.isNullOrEmpty()) return
@@ -184,7 +197,11 @@ object BaseIslandRenderer : IslandRenderer {
 
     override fun updatePosition(position: Long) {
         val prefs = HookEntry.instance?.prefs ?: return
-        if (!prefs.getBoolean(RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND, RootConstants.DEFAULT_HOOK_ENABLE_SUPER_ISLAND)) return
+        if (!prefs.getBoolean(
+                RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND,
+                RootConstants.DEFAULT_HOOK_ENABLE_SUPER_ISLAND
+            )
+        ) return
         if (!shouldRenderInjectedIsland()) return
         val lyricPkg = LyriconDataBridge.currentLyricPackageName ?: return
 
@@ -211,7 +228,11 @@ object BaseIslandRenderer : IslandRenderer {
 
     override fun onPlaybackStateChanged(isPlaying: Boolean) {
         val prefs = HookEntry.instance?.prefs ?: return
-        if (!prefs.getBoolean(RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND, RootConstants.DEFAULT_HOOK_ENABLE_SUPER_ISLAND)) {
+        if (!prefs.getBoolean(
+                RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND,
+                RootConstants.DEFAULT_HOOK_ENABLE_SUPER_ISLAND
+            )
+        ) {
             clearAllViews()
             return
         }
@@ -336,6 +357,7 @@ object BaseIslandRenderer : IslandRenderer {
         when (view) {
             is RichLyricLineView,
             is SpaceGateRichLyricLineView -> setPlaybackActive(view, isPlaying)
+
             is ViewGroup -> {
                 for (index in 0 until view.childCount) {
                     setPlaybackActiveRecursively(view.getChildAt(index), isPlaying)
@@ -365,8 +387,22 @@ object BaseIslandRenderer : IslandRenderer {
         val mediaInfo = MediaMetadataHelper.getMediaInfo(cv.context, packageName, HookLogger)
         IslandHostFacade.updateHostGlow(cv, mediaInfo.albumArt, prefs)
         IslandHostFacade.updateProgressGlow(cv, packageName, mediaInfo, prefs)
-        updateSlot(cv, IslandProbeUtils.LEFT_TEST_VIEW_TAG, config.leftMode, prefs, config, mediaInfo)
-        updateSlot(cv, IslandProbeUtils.RIGHT_TEST_VIEW_TAG, config.rightMode, prefs, config, mediaInfo)
+        updateSlot(
+            cv,
+            IslandProbeUtils.LEFT_TEST_VIEW_TAG,
+            config.leftMode,
+            prefs,
+            config,
+            mediaInfo
+        )
+        updateSlot(
+            cv,
+            IslandProbeUtils.RIGHT_TEST_VIEW_TAG,
+            config.rightMode,
+            prefs,
+            config,
+            mediaInfo
+        )
         IslandMusicWaveColorHooker.refresh()
     }
 

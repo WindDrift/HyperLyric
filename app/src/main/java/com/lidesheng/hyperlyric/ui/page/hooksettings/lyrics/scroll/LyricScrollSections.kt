@@ -43,7 +43,12 @@ fun LazyListScope.lyricScrollSections(
     item(key = "lyric_scroll") {
         Column {
             SmallTitle(text = stringResource(id = R.string.title_marquee))
-            Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).fillMaxWidth()) {
+            Card(
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 12.dp)
+                    .fillMaxWidth()
+            ) {
                 Column {
                     SwitchPreference(
                         title = stringResource(id = R.string.title_lyric_marquee),
@@ -102,7 +107,12 @@ fun LazyListScope.lyricScrollSections(
                 }
             }
             if (lyricMode == 0) {
-                Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).fillMaxWidth()) {
+                Card(
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 12.dp)
+                        .fillMaxWidth()
+                ) {
                     Column {
                         SwitchPreference(
                             title = stringResource(id = R.string.title_marquee_metadata_mode),
@@ -146,7 +156,10 @@ fun LazyListScope.lyricScrollSections(
                             enabled = marqueeMetadataMode,
                             endActions = {
                                 Text(
-                                    stringResource(id = R.string.format_ms, marqueeMetadataLoopDelay),
+                                    stringResource(
+                                        id = R.string.format_ms,
+                                        marqueeMetadataLoopDelay
+                                    ),
                                     fontSize = MiuixTheme.textStyles.body2.fontSize,
                                     color = if (marqueeMetadataMode) MiuixTheme.colorScheme.onSurfaceVariantActions else MiuixTheme.colorScheme.disabledOnSecondaryVariant
                                 )

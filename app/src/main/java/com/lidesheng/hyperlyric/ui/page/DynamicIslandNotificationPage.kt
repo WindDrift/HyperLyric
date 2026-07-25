@@ -5,9 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.os.PowerManager
 import android.provider.Settings
-import com.lidesheng.hyperlyric.ui.component.NumberInputDialog
-import com.lidesheng.hyperlyric.ui.component.SimpleDialog
-import com.lidesheng.hyperlyric.ui.component.TextInputDialog
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,33 +29,33 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
 import androidx.core.net.toUri
+import com.lidesheng.hyperlyric.R
 import com.lidesheng.hyperlyric.common.ServiceConstants
 import com.lidesheng.hyperlyric.common.UIConstants
 import com.lidesheng.hyperlyric.lyric.ConfigRepository
-import com.lidesheng.hyperlyric.lyric.DynamicLyricData
-import com.lidesheng.hyperlyric.R
+import com.lidesheng.hyperlyric.service.utils.shizuku.ShizukuManager
+import com.lidesheng.hyperlyric.ui.component.SimpleDialog
+import com.lidesheng.hyperlyric.ui.component.TextInputDialog
 import com.lidesheng.hyperlyric.ui.navigation.LocalNavigator
+import com.lidesheng.hyperlyric.ui.page.lyricnotification.LyricNotificationConfigTab
+import com.lidesheng.hyperlyric.ui.page.lyricnotification.LyricNotificationWhitelistTab
 import com.lidesheng.hyperlyric.ui.utils.BlurredBar
 import com.lidesheng.hyperlyric.ui.utils.rememberBlurBackdrop
-import top.yukonga.miuix.kmp.blur.layerBackdrop
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.TabRow
-import top.yukonga.miuix.kmp.basic.TabRowDefaults
 import top.yukonga.miuix.kmp.basic.SnackbarDuration
 import top.yukonga.miuix.kmp.basic.SnackbarHost
 import top.yukonga.miuix.kmp.basic.SnackbarHostState
+import top.yukonga.miuix.kmp.basic.TabRow
+import top.yukonga.miuix.kmp.basic.TabRowDefaults
 import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-
-import com.lidesheng.hyperlyric.ui.page.lyricnotification.LyricNotificationConfigTab
-import com.lidesheng.hyperlyric.ui.page.lyricnotification.LyricNotificationWhitelistTab
-import com.lidesheng.hyperlyric.service.utils.shizuku.ShizukuManager
 
 @SuppressLint("BatteryLife")
 @Composable
@@ -155,14 +152,15 @@ fun DynamicIslandNotificationPage() {
     }
 
     androidx.compose.runtime.DisposableEffect(prefs) {
-        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
-            if (key == ServiceConstants.KEY_BYPASS_FOCUS_NOTIFICATION_LIMIT) {
-                bypassFocusLimitEnabled = sharedPreferences.getBoolean(
-                    ServiceConstants.KEY_BYPASS_FOCUS_NOTIFICATION_LIMIT,
-                    ServiceConstants.DEFAULT_BYPASS_FOCUS_NOTIFICATION_LIMIT
-                )
+        val listener =
+            android.content.SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
+                if (key == ServiceConstants.KEY_BYPASS_FOCUS_NOTIFICATION_LIMIT) {
+                    bypassFocusLimitEnabled = sharedPreferences.getBoolean(
+                        ServiceConstants.KEY_BYPASS_FOCUS_NOTIFICATION_LIMIT,
+                        ServiceConstants.DEFAULT_BYPASS_FOCUS_NOTIFICATION_LIMIT
+                    )
+                }
             }
-        }
         prefs.registerOnSharedPreferenceChangeListener(listener)
         onDispose {
             prefs.unregisterOnSharedPreferenceChangeListener(listener)
@@ -366,115 +364,199 @@ fun DynamicIslandNotificationPage() {
                             contentPadding = contentPadding,
                             notificationType = notificationType,
                             onNotificationTypeChange = { index ->
-                                val oldTypeKey = if (notificationType == 1) ServiceConstants.KEY_ISLAND_LEFT_ICON_FOCUS else ServiceConstants.KEY_ISLAND_LEFT_ICON_NORMAL
+                                val oldTypeKey =
+                                    if (notificationType == 1) ServiceConstants.KEY_ISLAND_LEFT_ICON_FOCUS else ServiceConstants.KEY_ISLAND_LEFT_ICON_NORMAL
                                 prefs.edit { putInt(oldTypeKey, islandLeftIconStyle) }
                                 notificationType = index
                                 prefs.edit { putInt(ServiceConstants.KEY_NOTIFICATION_TYPE, index) }
-                                val newTypeKey = if (index == 1) ServiceConstants.KEY_ISLAND_LEFT_ICON_FOCUS else ServiceConstants.KEY_ISLAND_LEFT_ICON_NORMAL
-                                islandLeftIconStyle = prefs.getInt(newTypeKey, ServiceConstants.DEFAULT_ISLAND_LEFT_ICON)
-                                prefs.edit { putInt(ServiceConstants.KEY_ISLAND_LEFT_ICON, islandLeftIconStyle) }
+                                val newTypeKey =
+                                    if (index == 1) ServiceConstants.KEY_ISLAND_LEFT_ICON_FOCUS else ServiceConstants.KEY_ISLAND_LEFT_ICON_NORMAL
+                                islandLeftIconStyle = prefs.getInt(
+                                    newTypeKey,
+                                    ServiceConstants.DEFAULT_ISLAND_LEFT_ICON
+                                )
+                                prefs.edit {
+                                    putInt(
+                                        ServiceConstants.KEY_ISLAND_LEFT_ICON,
+                                        islandLeftIconStyle
+                                    )
+                                }
                             },
                             islandLeftIconStyle = islandLeftIconStyle,
                             onIslandLeftIconStyleChange = { index ->
                                 islandLeftIconStyle = index
                                 prefs.edit {
-                                    putInt(if (notificationType == 1) ServiceConstants.KEY_ISLAND_LEFT_ICON_FOCUS else ServiceConstants.KEY_ISLAND_LEFT_ICON_NORMAL, index)
+                                    putInt(
+                                        if (notificationType == 1) ServiceConstants.KEY_ISLAND_LEFT_ICON_FOCUS else ServiceConstants.KEY_ISLAND_LEFT_ICON_NORMAL,
+                                        index
+                                    )
                                     putInt(ServiceConstants.KEY_ISLAND_LEFT_ICON, index)
                                 }
                                 if (index !in 0..2) {
                                     disableLyricSplitEnabled = false
-                                    prefs.edit { putBoolean(ServiceConstants.KEY_NOTIFICATION_ISLAND_DISABLE_LYRIC_SPLIT, false) }
+                                    prefs.edit {
+                                        putBoolean(
+                                            ServiceConstants.KEY_NOTIFICATION_ISLAND_DISABLE_LYRIC_SPLIT,
+                                            false
+                                        )
+                                    }
                                 }
                             },
                             disableLyricSplitEnabled = disableLyricSplitEnabled,
                             onDisableLyricSplitToggle = { checked ->
                                 disableLyricSplitEnabled = checked
-                                prefs.edit { putBoolean(ServiceConstants.KEY_NOTIFICATION_ISLAND_DISABLE_LYRIC_SPLIT, checked) }
+                                prefs.edit {
+                                    putBoolean(
+                                        ServiceConstants.KEY_NOTIFICATION_ISLAND_DISABLE_LYRIC_SPLIT,
+                                        checked
+                                    )
+                                }
                             },
                             limitWidthEnabled = limitWidthEnabled,
                             onLimitWidthToggle = { checked ->
                                 limitWidthEnabled = checked
-                                prefs.edit { putBoolean(ServiceConstants.KEY_NOTIFICATION_ISLAND_LIMIT_WIDTH, checked) }
+                                prefs.edit {
+                                    putBoolean(
+                                        ServiceConstants.KEY_NOTIFICATION_ISLAND_LIMIT_WIDTH,
+                                        checked
+                                    )
+                                }
                             },
                             maxWidth = maxWidth,
                             onMaxWidthChange = { value ->
                                 maxWidth = value
-                                prefs.edit { putInt(ServiceConstants.KEY_NOTIFICATION_ISLAND_MAX_WIDTH, value) }
+                                prefs.edit {
+                                    putInt(
+                                        ServiceConstants.KEY_NOTIFICATION_ISLAND_MAX_WIDTH,
+                                        value
+                                    )
+                                }
                             },
                             notificationClickAction = notificationClickAction,
                             onNotificationClickActionChange = {
                                 notificationClickAction = it
-                                prefs.edit { putInt(ServiceConstants.KEY_NOTIFICATION_CLICK_ACTION, it) }
+                                prefs.edit {
+                                    putInt(
+                                        ServiceConstants.KEY_NOTIFICATION_CLICK_ACTION,
+                                        it
+                                    )
+                                }
                             },
                             showProgressEnabled = showProgressEnabled,
                             onShowProgressToggle = { checked ->
                                 showProgressEnabled = checked
-                                prefs.edit { putBoolean(ServiceConstants.KEY_NOTIFICATION_SHOW_PROGRESS, checked) }
+                                prefs.edit {
+                                    putBoolean(
+                                        ServiceConstants.KEY_NOTIFICATION_SHOW_PROGRESS,
+                                        checked
+                                    )
+                                }
                             },
                             progressColorEnabled = progressColorEnabled,
                             onProgressColorToggle = { checked ->
                                 progressColorEnabled = checked
-                                prefs.edit { putBoolean(ServiceConstants.KEY_NOTIFICATION_PROGRESS_COLOR, checked) }
+                                prefs.edit {
+                                    putBoolean(
+                                        ServiceConstants.KEY_NOTIFICATION_PROGRESS_COLOR,
+                                        checked
+                                    )
+                                }
                             },
                             showAlbumArtEnabled = showAlbumArtEnabled,
                             onShowAlbumArtToggle = { checked ->
                                 showAlbumArtEnabled = checked
-                                prefs.edit { putBoolean(ServiceConstants.KEY_NOTIFICATION_ALBUM, checked) }
+                                prefs.edit {
+                                    putBoolean(
+                                        ServiceConstants.KEY_NOTIFICATION_ALBUM,
+                                        checked
+                                    )
+                                }
                             },
                             focusNotificationType = focusNotificationType,
                             onFocusNotificationTypeChange = {
                                 focusNotificationType = it
-                                prefs.edit { putInt(ServiceConstants.KEY_NOTIFICATION_FOCUS_STYLE, it) }
+                                prefs.edit {
+                                    putInt(
+                                        ServiceConstants.KEY_NOTIFICATION_FOCUS_STYLE,
+                                        it
+                                    )
+                                }
                             },
                             focusShowNotificationEnabled = focusShowNotificationEnabled,
                             onFocusShowNotificationToggle = { checked ->
                                 focusShowNotificationEnabled = checked
-                                prefs.edit { putBoolean(ServiceConstants.KEY_NOTIFICATION_FOCUS_SHOW, checked) }
+                                prefs.edit {
+                                    putBoolean(
+                                        ServiceConstants.KEY_NOTIFICATION_FOCUS_SHOW,
+                                        checked
+                                    )
+                                }
                             },
                             normalNotificationTitleStyle = normalNotificationTitleStyle,
                             onNormalNotificationTitleStyleChange = {
                                 normalNotificationTitleStyle = it
-                                prefs.edit { putInt(ServiceConstants.KEY_NOTIFICATION_TITLE_STYLE, it) }
+                                prefs.edit {
+                                    putInt(
+                                        ServiceConstants.KEY_NOTIFICATION_TITLE_STYLE,
+                                        it
+                                    )
+                                }
                             },
                             onAutostartClick = {
                                 try {
                                     val intent = Intent().apply {
-                                        component = android.content.ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")
+                                        component = android.content.ComponentName(
+                                            "com.miui.securitycenter",
+                                            "com.miui.permcenter.autostart.AutoStartManagementActivity"
+                                        )
                                     }
                                     context.startActivity(intent)
                                 } catch (_: Exception) {
                                     try {
-                                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                            data = "package:${context.packageName}".toUri()
-                                        }
+                                        val intent =
+                                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                                data = "package:${context.packageName}".toUri()
+                                            }
                                         context.startActivity(intent)
                                     } catch (_: Exception) {
                                         coroutineScope.launch {
-                                            snackbarHostState.showSnackbar(message = msgAutostartFailed, duration = SnackbarDuration.Custom(2000L))
+                                            snackbarHostState.showSnackbar(
+                                                message = msgAutostartFailed,
+                                                duration = SnackbarDuration.Custom(2000L)
+                                            )
                                         }
                                     }
                                 }
                             },
                             onBatteryOptimizationClick = {
                                 try {
-                                    val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+                                    val pm =
+                                        context.getSystemService(Context.POWER_SERVICE) as PowerManager
                                     if (!pm.isIgnoringBatteryOptimizations(context.packageName)) {
-                                        val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                                            data = "package:${context.packageName}".toUri()
-                                        }
+                                        val intent =
+                                            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                                data = "package:${context.packageName}".toUri()
+                                            }
                                         context.startActivity(intent)
                                     } else {
                                         coroutineScope.launch {
-                                            snackbarHostState.showSnackbar(message = msgBatteryIgnored, duration = SnackbarDuration.Custom(2000L))
+                                            snackbarHostState.showSnackbar(
+                                                message = msgBatteryIgnored,
+                                                duration = SnackbarDuration.Custom(2000L)
+                                            )
                                         }
                                     }
                                 } catch (_: Exception) {
                                     try {
-                                        val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                                        val intent =
+                                            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
                                         context.startActivity(intent)
                                     } catch (_: Exception) {
                                         coroutineScope.launch {
-                                            snackbarHostState.showSnackbar(message = msgBatteryFailed, duration = SnackbarDuration.Custom(2000L))
+                                            snackbarHostState.showSnackbar(
+                                                message = msgBatteryFailed,
+                                                duration = SnackbarDuration.Custom(2000L)
+                                            )
                                         }
                                     }
                                 }
@@ -482,17 +564,32 @@ fun DynamicIslandNotificationPage() {
                             lyricSource = lyricSource,
                             onLyricSourceChange = { value ->
                                 lyricSource = value
-                                prefs.edit { putInt(ServiceConstants.KEY_SERVICE_LYRIC_SOURCE, value) }
+                                prefs.edit {
+                                    putInt(
+                                        ServiceConstants.KEY_SERVICE_LYRIC_SOURCE,
+                                        value
+                                    )
+                                }
                             },
                             highlightColorEnabled = highlightColorEnabled,
                             onHighlightColorToggle = { checked ->
                                 highlightColorEnabled = checked
-                                prefs.edit { putBoolean(ServiceConstants.KEY_NOTIFICATION_HIGHLIGHT_COLOR, checked) }
+                                prefs.edit {
+                                    putBoolean(
+                                        ServiceConstants.KEY_NOTIFICATION_HIGHLIGHT_COLOR,
+                                        checked
+                                    )
+                                }
                             },
                             songInfoHighlightColorEnabled = songInfoHighlightColorEnabled,
                             onSongInfoHighlightColorToggle = { checked ->
                                 songInfoHighlightColorEnabled = checked
-                                prefs.edit { putBoolean(ServiceConstants.KEY_NOTIFICATION_SONG_INFO_HIGHLIGHT_COLOR, checked) }
+                                prefs.edit {
+                                    putBoolean(
+                                        ServiceConstants.KEY_NOTIFICATION_SONG_INFO_HIGHLIGHT_COLOR,
+                                        checked
+                                    )
+                                }
                             },
                             bypassFocusLimitEnabled = bypassFocusLimitEnabled,
                             onBypassFocusLimitToggle = { checked ->
@@ -500,21 +597,36 @@ fun DynamicIslandNotificationPage() {
                                     coroutineScope.launch {
                                         if (!ShizukuManager.isShizukuServiceRunning()) {
                                             bypassFocusLimitEnabled = false
-                                            prefs.edit { putBoolean(ServiceConstants.KEY_BYPASS_FOCUS_NOTIFICATION_LIMIT, false) }
+                                            prefs.edit {
+                                                putBoolean(
+                                                    ServiceConstants.KEY_BYPASS_FOCUS_NOTIFICATION_LIMIT,
+                                                    false
+                                                )
+                                            }
                                             snackbarHostState.showSnackbar(
                                                 message = msgShizukuNotRunning,
                                                 duration = SnackbarDuration.Custom(2000L)
                                             )
                                             return@launch
                                         }
- 
+
                                         val hasPermission = ShizukuManager.checkShizukuPermission()
                                         if (hasPermission) {
                                             bypassFocusLimitEnabled = true
-                                            prefs.edit { putBoolean(ServiceConstants.KEY_BYPASS_FOCUS_NOTIFICATION_LIMIT, true) }
+                                            prefs.edit {
+                                                putBoolean(
+                                                    ServiceConstants.KEY_BYPASS_FOCUS_NOTIFICATION_LIMIT,
+                                                    true
+                                                )
+                                            }
                                         } else {
                                             bypassFocusLimitEnabled = false
-                                            prefs.edit { putBoolean(ServiceConstants.KEY_BYPASS_FOCUS_NOTIFICATION_LIMIT, false) }
+                                            prefs.edit {
+                                                putBoolean(
+                                                    ServiceConstants.KEY_BYPASS_FOCUS_NOTIFICATION_LIMIT,
+                                                    false
+                                                )
+                                            }
                                             snackbarHostState.showSnackbar(
                                                 message = msgShizukuPermissionRequired,
                                                 duration = SnackbarDuration.Custom(2000L)
@@ -523,7 +635,12 @@ fun DynamicIslandNotificationPage() {
                                     }
                                 } else {
                                     bypassFocusLimitEnabled = false
-                                    prefs.edit { putBoolean(ServiceConstants.KEY_BYPASS_FOCUS_NOTIFICATION_LIMIT, false) }
+                                    prefs.edit {
+                                        putBoolean(
+                                            ServiceConstants.KEY_BYPASS_FOCUS_NOTIFICATION_LIMIT,
+                                            false
+                                        )
+                                    }
                                 }
                             }
                         )

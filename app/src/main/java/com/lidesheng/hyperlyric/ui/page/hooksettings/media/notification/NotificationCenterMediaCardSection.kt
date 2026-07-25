@@ -164,7 +164,7 @@ fun LazyListScope.notificationCenterMediaCardSection(
                     Column {
                         AnimatedVisibility(
                             visible = backgroundStyle ==
-                                RootConstants.NOTIFICATION_MEDIA_BACKGROUND_STYLE_SOFT_COVER
+                                    RootConstants.NOTIFICATION_MEDIA_BACKGROUND_STYLE_SOFT_COVER
                         ) {
                             Column {
                                 val toneValues = listOf(
@@ -177,7 +177,8 @@ fun LazyListScope.notificationCenterMediaCardSection(
                                         stringResource(R.string.option_media_soft_cover_tone_light),
                                         stringResource(R.string.option_media_soft_cover_tone_dark)
                                     ),
-                                    selectedIndex = toneValues.indexOf(softCoverTone).coerceAtLeast(0),
+                                    selectedIndex = toneValues.indexOf(softCoverTone)
+                                        .coerceAtLeast(0),
                                     onSelectedIndexChange = { index ->
                                         onSoftCoverToneChange(toneValues[index])
                                     }
@@ -193,7 +194,7 @@ fun LazyListScope.notificationCenterMediaCardSection(
                         )
                         AnimatedVisibility(
                             visible = backgroundStyle ==
-                                RootConstants.NOTIFICATION_MEDIA_BACKGROUND_STYLE_BLURRED_COVER
+                                    RootConstants.NOTIFICATION_MEDIA_BACKGROUND_STYLE_BLURRED_COVER
                         ) {
                             Column {
                                 var sliderValue by remember(backgroundBlur) {
@@ -228,7 +229,7 @@ fun LazyListScope.notificationCenterMediaCardSection(
                         }
                         AnimatedVisibility(
                             visible = backgroundStyle ==
-                                RootConstants.NOTIFICATION_MEDIA_BACKGROUND_STYLE_LINEAR_GRADIENT
+                                    RootConstants.NOTIFICATION_MEDIA_BACKGROUND_STYLE_LINEAR_GRADIENT
                         ) {
                             Column {
                                 SwitchPreference(

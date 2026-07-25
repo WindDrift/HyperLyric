@@ -459,7 +459,7 @@
     <string name="channel_name_live">实时通知歌词</string>
     <string name="channel_name_focus">焦点通知歌词</string>
     <string name="title_center_lyric">居中显示</string>
-    
+
     <!-- Shizuku 绕过限制相关 -->
     <string name="title_bypass_focus_limit">绕过焦点通知限制</string>
     <string name="summary_bypass_focus_limit">实验性功能，谨慎启用</string>

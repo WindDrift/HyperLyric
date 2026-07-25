@@ -36,7 +36,11 @@ object CoverColorHelper {
         return mediaKey
     }
 
-    private fun isSameSessionAsActive(packageName: String, artist: String, duration: Long): Boolean {
+    private fun isSameSessionAsActive(
+        packageName: String,
+        artist: String,
+        duration: Long
+    ): Boolean {
         if (activeMediaKey == null) return false
         val pkgMatches = packageName.normalizeMediaText() == lastPackageName?.normalizeMediaText()
         val artistMatches = artist.normalizeMediaText() == lastArtist?.normalizeMediaText()
@@ -72,8 +76,8 @@ object CoverColorHelper {
         val lyricSong = LyriconDataBridge.currentSong?.takeIf {
             val lyricPackage = LyriconDataBridge.currentLyricPackageName
             (lyricPackage.isNullOrBlank() ||
-                lyricPackage.normalizeMediaText() == packageName.normalizeMediaText()) &&
-                isCompatibleMediaText(it.name, title)
+                    lyricPackage.normalizeMediaText() == packageName.normalizeMediaText()) &&
+                    isCompatibleMediaText(it.name, title)
         }
         val songId = lyricSong?.id
             ?.normalizeMediaText()
@@ -84,7 +88,7 @@ object CoverColorHelper {
         val resolvedArtist = lyricSong?.artist
             ?.takeIf { it.isNotBlank() }
             ?: artist
-        val resolvedDuration = lyricSong?.duration
+        lyricSong?.duration
             ?.takeIf { it > 0L }
             ?: duration.takeIf { it > 0L }
         val identity = songId?.let { "id:$it" } ?: listOf(
@@ -106,7 +110,11 @@ object CoverColorHelper {
      * Bitmap 实例/generationId 的变化不会使同一首歌重新取色。
      */
     @Synchronized
-    fun extractColors(bitmap: Bitmap, useGradient: Boolean, songKey: String? = null): Pair<IntArray, IntArray> {
+    fun extractColors(
+        bitmap: Bitmap,
+        useGradient: Boolean,
+        songKey: String? = null
+    ): Pair<IntArray, IntArray> {
         val key = songKey ?: activeMediaKey ?: bitmapFallbackKey(bitmap)
         val colors = keyedCache[key]?.colors ?: run {
             val result = ColorExtractor.extractThemePalette(bitmap, MAX_PALETTE_COLORS)
@@ -161,10 +169,10 @@ object CoverColorHelper {
         val lyric = lyricValue.orEmpty().normalizeMediaText()
         val media = mediaValue.normalizeMediaText()
         return lyric.isEmpty() ||
-            media.isEmpty() ||
-            lyric == media ||
-            lyric.contains(media) ||
-            media.contains(lyric)
+                media.isEmpty() ||
+                lyric == media ||
+                lyric.contains(media) ||
+                media.contains(lyric)
     }
 
     private fun bitmapFallbackKey(bitmap: Bitmap): String {

@@ -37,16 +37,46 @@ internal object IslandHostFacade {
             RootConstants.DEFAULT_HOOK_ISLAND_RIGHT_ICON
         )
 
-        IslandViewHelper.toggleContainer(rootView, IslandProbeUtils.LEFT_PARENT_NAME, "island_container_module_icon", showAlbum)
-        IslandViewHelper.toggleContainer(rootView, IslandProbeUtils.RIGHT_PARENT_NAME, "island_container_module_icon", showRhythm)
-        IslandViewHelper.toggleContainer(rootView, IslandProbeUtils.LEFT_PARENT_NAME, IslandProbeUtils.TEXT_CONTAINER_NAME, true)
-        IslandViewHelper.toggleContainer(rootView, IslandProbeUtils.RIGHT_PARENT_NAME, IslandProbeUtils.TEXT_CONTAINER_NAME, true)
+        IslandViewHelper.toggleContainer(
+            rootView,
+            IslandProbeUtils.LEFT_PARENT_NAME,
+            "island_container_module_icon",
+            showAlbum
+        )
+        IslandViewHelper.toggleContainer(
+            rootView,
+            IslandProbeUtils.RIGHT_PARENT_NAME,
+            "island_container_module_icon",
+            showRhythm
+        )
+        IslandViewHelper.toggleContainer(
+            rootView,
+            IslandProbeUtils.LEFT_PARENT_NAME,
+            IslandProbeUtils.TEXT_CONTAINER_NAME,
+            true
+        )
+        IslandViewHelper.toggleContainer(
+            rootView,
+            IslandProbeUtils.RIGHT_PARENT_NAME,
+            IslandProbeUtils.TEXT_CONTAINER_NAME,
+            true
+        )
 
         if (!showAlbum) {
-            IslandViewHelper.clearTextContainerMargin(rootView, IslandProbeUtils.LEFT_PARENT_NAME, clearStart = true, clearEnd = false)
+            IslandViewHelper.clearTextContainerMargin(
+                rootView,
+                IslandProbeUtils.LEFT_PARENT_NAME,
+                clearStart = true,
+                clearEnd = false
+            )
         }
         if (!showRhythm) {
-            IslandViewHelper.clearTextContainerMargin(rootView, IslandProbeUtils.RIGHT_PARENT_NAME, clearStart = false, clearEnd = true)
+            IslandViewHelper.clearTextContainerMargin(
+                rootView,
+                IslandProbeUtils.RIGHT_PARENT_NAME,
+                clearStart = false,
+                clearEnd = true
+            )
         }
     }
 

@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -55,7 +54,10 @@ fun HelpPage() {
     val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
     val topAppBarScrollBehavior = MiuixScrollBehavior()
 
-    val tabs = listOf(stringResource(R.string.title_super_island_lyrics), stringResource(R.string.title_dynamic_island_lyrics))
+    val tabs = listOf(
+        stringResource(R.string.title_super_island_lyrics),
+        stringResource(R.string.title_dynamic_island_lyrics)
+    )
     val pagerState = rememberPagerState { tabs.size }
     val coroutineScope = rememberCoroutineScope()
 
@@ -71,7 +73,10 @@ fun HelpPage() {
                     scrollBehavior = topAppBarScrollBehavior,
                     navigationIcon = {
                         IconButton(onClick = { navigator.pop() }) {
-                            Icon(imageVector = MiuixIcons.Back, contentDescription = stringResource(R.string.back))
+                            Icon(
+                                imageVector = MiuixIcons.Back,
+                                contentDescription = stringResource(R.string.back)
+                            )
                         }
                     },
                     bottomContent = {
@@ -93,7 +98,11 @@ fun HelpPage() {
         }
     ) { innerPadding ->
         Box(modifier = if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier) {
-            HorizontalPager(state = pagerState, verticalAlignment = Alignment.Top, beyondViewportPageCount = 1) { page ->
+            HorizontalPager(
+                state = pagerState,
+                verticalAlignment = Alignment.Top,
+                beyondViewportPageCount = 1
+            ) { page ->
                 val listState = if (page == 0) superIslandListState else dynamicIslandListState
                 val topPadding = innerPadding.calculateTopPadding()
                 val bottomPadding = innerPadding.calculateBottomPadding()
@@ -131,10 +140,18 @@ private fun LazyListScope.superIslandHelpSections() {
         SmallTitle(text = stringResource(R.string.title_help_config_steps))
     }
     item(key = "config_steps_content") {
-        Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).fillMaxWidth()) {
-            Column { BasicComponent(
-                title = stringResource(R.string.summary_help_supported_devices),
-                summary = stringResource(R.string.summary_help_prerequisites)) }
+        Card(
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp)
+                .fillMaxWidth()
+        ) {
+            Column {
+                BasicComponent(
+                    title = stringResource(R.string.summary_help_supported_devices),
+                    summary = stringResource(R.string.summary_help_prerequisites)
+                )
+            }
         }
     }
 
@@ -144,7 +161,12 @@ private fun LazyListScope.superIslandHelpSections() {
     }
     item(key = "source_lyricon") {
         val context = LocalContext.current
-        Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).fillMaxWidth()) {
+        Card(
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp)
+                .fillMaxWidth()
+        ) {
             Column {
                 BasicComponent(
                     title = "Lyricon",
@@ -157,13 +179,23 @@ private fun LazyListScope.superIslandHelpSections() {
                     TagComponent(
                         text = stringResource(R.string.tag_download_lyricon),
                         onClick = {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, "https://github.com/tomakino/lyricon/releases/tag/core".toUri()))
+                            context.startActivity(
+                                Intent(
+                                    Intent.ACTION_VIEW,
+                                    "https://github.com/tomakino/lyricon/releases/tag/core".toUri()
+                                )
+                            )
                         }
                     )
                     TagComponent(
                         text = stringResource(R.string.tag_download_providers),
                         onClick = {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, "https://github.com/proify/LyricProvider/releases".toUri()))
+                            context.startActivity(
+                                Intent(
+                                    Intent.ACTION_VIEW,
+                                    "https://github.com/proify/LyricProvider/releases".toUri()
+                                )
+                            )
                         }
                     )
                 }
@@ -172,7 +204,12 @@ private fun LazyListScope.superIslandHelpSections() {
     }
     item(key = "source_superlyric") {
         val context = LocalContext.current
-        Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).fillMaxWidth()) {
+        Card(
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp)
+                .fillMaxWidth()
+        ) {
             Column {
                 BasicComponent(
                     title = "SuperLyric",
@@ -185,7 +222,12 @@ private fun LazyListScope.superIslandHelpSections() {
                     TagComponent(
                         text = stringResource(R.string.tag_download_superlyric),
                         onClick = {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, "https://github.com/HChenX/SuperLyric".toUri()))
+                            context.startActivity(
+                                Intent(
+                                    Intent.ACTION_VIEW,
+                                    "https://github.com/HChenX/SuperLyric".toUri()
+                                )
+                            )
                         }
                     )
                 }
@@ -194,7 +236,12 @@ private fun LazyListScope.superIslandHelpSections() {
     }
     item(key = "source_lyricinfo") {
         val context = LocalContext.current
-        Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).fillMaxWidth()) {
+        Card(
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp)
+                .fillMaxWidth()
+        ) {
             Column {
                 BasicComponent(
                     title = "LyricInfo",
@@ -207,7 +254,12 @@ private fun LazyListScope.superIslandHelpSections() {
                     TagComponent(
                         text = stringResource(R.string.tag_download_lyricinfo),
                         onClick = {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, "https://github.com/limczhh/LyricInfo".toUri()))
+                            context.startActivity(
+                                Intent(
+                                    Intent.ACTION_VIEW,
+                                    "https://github.com/limczhh/LyricInfo".toUri()
+                                )
+                            )
                         }
                     )
                 }
@@ -221,7 +273,12 @@ private fun LazyListScope.dynamicIslandHelpSections() {
         SmallTitle(text = stringResource(R.string.title_help_usage_tips))
     }
     item(key = "dynamic_island_tips_content") {
-        Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).fillMaxWidth()) {
+        Card(
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp)
+                .fillMaxWidth()
+        ) {
             Column {
                 BasicComponent(
                     title = stringResource(R.string.summary_help_dynamic_island_hint),
@@ -234,7 +291,12 @@ private fun LazyListScope.dynamicIslandHelpSections() {
         SmallTitle(text = stringResource(R.string.title_help_config_steps))
     }
     item(key = "dynamic_island_steps_content") {
-        Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).fillMaxWidth()) {
+        Card(
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp)
+                .fillMaxWidth()
+        ) {
             Column { BasicComponent(summary = stringResource(R.string.summary_help_dynamic_island_steps)) }
         }
     }
@@ -242,7 +304,12 @@ private fun LazyListScope.dynamicIslandHelpSections() {
         SmallTitle(text = stringResource(R.string.title_help_warm_tips))
     }
     item(key = "dynamic_island_warm_tips_content") {
-        Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).fillMaxWidth()) {
+        Card(
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp)
+                .fillMaxWidth()
+        ) {
             Column { BasicComponent(summary = stringResource(R.string.summary_help_salt_player)) }
         }
     }

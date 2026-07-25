@@ -21,15 +21,78 @@ fun LyricDisplayPage() {
     val prefs = rememberHookPrefs()
     val saveConfig = rememberHookConfigSaver(prefs)
 
-    var textSize by remember { mutableIntStateOf(prefs.getInt(RootConstants.KEY_HOOK_TEXT_SIZE, RootConstants.DEFAULT_HOOK_TEXT_SIZE)) }
-    var textSizeRatio by remember { mutableFloatStateOf(prefs.getFloat(RootConstants.KEY_HOOK_TEXT_SIZE_RATIO, RootConstants.DEFAULT_HOOK_TEXT_SIZE_RATIO)) }
-    var fadingEdge by remember { mutableIntStateOf(prefs.getInt(RootConstants.KEY_HOOK_FADING_EDGE_LENGTH, RootConstants.DEFAULT_HOOK_FADING_EDGE_LENGTH)) }
-    var extractCoverColor by remember { mutableStateOf(prefs.getBoolean(RootConstants.KEY_HOOK_EXTRACT_COVER_TEXT_COLOR, RootConstants.DEFAULT_HOOK_EXTRACT_COVER_TEXT_COLOR)) }
-    var extractCoverGradient by remember { mutableStateOf(prefs.getBoolean(RootConstants.KEY_HOOK_EXTRACT_COVER_TEXT_GRADIENT, RootConstants.DEFAULT_HOOK_EXTRACT_COVER_TEXT_GRADIENT)) }
-    var customFontPath by remember { mutableStateOf(prefs.getString(RootConstants.KEY_HOOK_CUSTOM_FONT_PATH, null) ?: "") }
-    var fontWeight by remember { mutableIntStateOf(prefs.getInt(RootConstants.KEY_HOOK_FONT_WEIGHT, RootConstants.DEFAULT_HOOK_FONT_WEIGHT)) }
-    var fontItalic by remember { mutableStateOf(prefs.getBoolean(RootConstants.KEY_HOOK_FONT_ITALIC, RootConstants.DEFAULT_HOOK_FONT_ITALIC)) }
-    var centerLyric by remember { mutableStateOf(prefs.getBoolean(RootConstants.KEY_HOOK_CENTER_LYRIC, RootConstants.DEFAULT_HOOK_CENTER_LYRIC)) }
+    var textSize by remember {
+        mutableIntStateOf(
+            prefs.getInt(
+                RootConstants.KEY_HOOK_TEXT_SIZE,
+                RootConstants.DEFAULT_HOOK_TEXT_SIZE
+            )
+        )
+    }
+    var textSizeRatio by remember {
+        mutableFloatStateOf(
+            prefs.getFloat(
+                RootConstants.KEY_HOOK_TEXT_SIZE_RATIO,
+                RootConstants.DEFAULT_HOOK_TEXT_SIZE_RATIO
+            )
+        )
+    }
+    var fadingEdge by remember {
+        mutableIntStateOf(
+            prefs.getInt(
+                RootConstants.KEY_HOOK_FADING_EDGE_LENGTH,
+                RootConstants.DEFAULT_HOOK_FADING_EDGE_LENGTH
+            )
+        )
+    }
+    var extractCoverColor by remember {
+        mutableStateOf(
+            prefs.getBoolean(
+                RootConstants.KEY_HOOK_EXTRACT_COVER_TEXT_COLOR,
+                RootConstants.DEFAULT_HOOK_EXTRACT_COVER_TEXT_COLOR
+            )
+        )
+    }
+    var extractCoverGradient by remember {
+        mutableStateOf(
+            prefs.getBoolean(
+                RootConstants.KEY_HOOK_EXTRACT_COVER_TEXT_GRADIENT,
+                RootConstants.DEFAULT_HOOK_EXTRACT_COVER_TEXT_GRADIENT
+            )
+        )
+    }
+    var customFontPath by remember {
+        mutableStateOf(
+            prefs.getString(
+                RootConstants.KEY_HOOK_CUSTOM_FONT_PATH,
+                null
+            ) ?: ""
+        )
+    }
+    var fontWeight by remember {
+        mutableIntStateOf(
+            prefs.getInt(
+                RootConstants.KEY_HOOK_FONT_WEIGHT,
+                RootConstants.DEFAULT_HOOK_FONT_WEIGHT
+            )
+        )
+    }
+    var fontItalic by remember {
+        mutableStateOf(
+            prefs.getBoolean(
+                RootConstants.KEY_HOOK_FONT_ITALIC,
+                RootConstants.DEFAULT_HOOK_FONT_ITALIC
+            )
+        )
+    }
+    var centerLyric by remember {
+        mutableStateOf(
+            prefs.getBoolean(
+                RootConstants.KEY_HOOK_CENTER_LYRIC,
+                RootConstants.DEFAULT_HOOK_CENTER_LYRIC
+            )
+        )
+    }
 
     var showTextSizeDialog by remember { mutableStateOf(false) }
     var showTextSizeRatioDialog by remember { mutableStateOf(false) }

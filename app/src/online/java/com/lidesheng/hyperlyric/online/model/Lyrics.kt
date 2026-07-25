@@ -13,6 +13,7 @@ data class LyricsData(
     val type: String = "lrc",
     val romanization: String? = null
 ) : Parcelable
+
 @Parcelize
 data class LyricsWord(
     val start: Long,
@@ -41,11 +42,11 @@ data class LyricsResult(
 @Parcelize
 data class KrcLanguageRoot(
     val content: List<KrcLanguageItem>
-): Parcelable
+) : Parcelable
 
 @Serializable
 @Parcelize
 data class KrcLanguageItem(
     val type: Int,
     val lyricContent: List<List<String>>
-): Parcelable
+) : Parcelable

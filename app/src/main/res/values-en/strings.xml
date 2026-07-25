@@ -457,7 +457,7 @@
     <string name="channel_name_live">Live Update Notification Lyrics</string>
     <string name="channel_name_focus">Xiaomi Notification Spotlight Lyrics</string>
     <string name="title_center_lyric">Center Lyric</string>
-    
+
     <!-- Shizuku Bypass Limits -->
     <string name="title_bypass_focus_limit">Bypass focus notification limit</string>
     <string name="summary_bypass_focus_limit">Experimental feature, enable with caution</string>

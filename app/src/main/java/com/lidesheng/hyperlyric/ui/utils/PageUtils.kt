@@ -1,6 +1,5 @@
 package com.lidesheng.hyperlyric.ui.utils
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
@@ -9,10 +8,9 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Dp
@@ -49,7 +47,8 @@ fun pageContentPadding(
 ): PaddingValues {
     val topPadding = innerPadding.calculateTopPadding() + extraTop
     val bottomPadding = if (isWideScreen) {
-        WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + outerPadding.calculateBottomPadding()
+        WindowInsets.navigationBars.asPaddingValues()
+            .calculateBottomPadding() + outerPadding.calculateBottomPadding()
     } else {
         outerPadding.calculateBottomPadding()
     }
@@ -67,16 +66,29 @@ fun pageContentPadding(
 fun rememberBlurBackdrop(): LayerBackdrop? {
     if (!isRuntimeShaderSupported()) return null
     val context = androidx.compose.ui.platform.LocalContext.current
-    val prefs = remember { context.getSharedPreferences(com.lidesheng.hyperlyric.common.UIConstants.PREF_NAME, android.content.Context.MODE_PRIVATE) }
-    
-    var isBlurEnabled by remember { 
-        androidx.compose.runtime.mutableStateOf(prefs.getBoolean(com.lidesheng.hyperlyric.common.UIConstants.KEY_ENABLE_BLUR, com.lidesheng.hyperlyric.common.UIConstants.DEFAULT_ENABLE_BLUR)) 
+    val prefs = remember {
+        context.getSharedPreferences(
+            com.lidesheng.hyperlyric.common.UIConstants.PREF_NAME,
+            android.content.Context.MODE_PRIVATE
+        )
+    }
+
+    var isBlurEnabled by remember {
+        androidx.compose.runtime.mutableStateOf(
+            prefs.getBoolean(
+                com.lidesheng.hyperlyric.common.UIConstants.KEY_ENABLE_BLUR,
+                com.lidesheng.hyperlyric.common.UIConstants.DEFAULT_ENABLE_BLUR
+            )
+        )
     }
 
     val listener = remember {
         android.content.SharedPreferences.OnSharedPreferenceChangeListener { p, key ->
             if (key == com.lidesheng.hyperlyric.common.UIConstants.KEY_ENABLE_BLUR) {
-                isBlurEnabled = p.getBoolean(key, com.lidesheng.hyperlyric.common.UIConstants.DEFAULT_ENABLE_BLUR)
+                isBlurEnabled = p.getBoolean(
+                    key,
+                    com.lidesheng.hyperlyric.common.UIConstants.DEFAULT_ENABLE_BLUR
+                )
             }
         }
     }
