@@ -1,6 +1,7 @@
 package com.lidesheng.hyperlyric.ui.page
 
 import android.content.Context
+import android.content.pm.PackageManager
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -150,6 +151,23 @@ private fun LazyListScope.settingsSections(
                 SwitchPreference(title = stringResource(R.string.title_floating_nav), checked = floatingNavBarEnabled, onCheckedChange = { floatingNavBarEnabled = it; prefs.edit { putBoolean(UIConstants.KEY_FLOATING_NAV_BAR, it) } })
                 var excludeFromRecents by remember { mutableStateOf(prefs.getBoolean(UIConstants.KEY_EXCLUDE_FROM_RECENTS, UIConstants.DEFAULT_EXCLUDE_FROM_RECENTS)) }
                 SwitchPreference(title = stringResource(R.string.title_exclude_from_recents), checked = excludeFromRecents, onCheckedChange = { excludeFromRecents = it; prefs.edit { putBoolean(UIConstants.KEY_EXCLUDE_FROM_RECENTS, it) }; setExcludeFromRecents(context, it) })
+                var hideLauncherIcon by remember { 
+                    mutableStateOf(
+                        context.packageManager.getComponentEnabledSetting(android.content.ComponentName(context, "${com.lidesheng.hyperlyric.BuildConfig.APPLICATION_ID}.launcher")) == PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+                    ) 
+                }
+                SwitchPreference(
+                    title = stringResource(R.string.title_hide_launcher_icon),
+                    checked = hideLauncherIcon,
+                    onCheckedChange = { isHidden ->
+                        hideLauncherIcon = isHidden
+                        context.packageManager.setComponentEnabledSetting(
+                            android.content.ComponentName(context, "${com.lidesheng.hyperlyric.BuildConfig.APPLICATION_ID}.launcher"),
+                            if (isHidden) PackageManager.COMPONENT_ENABLED_STATE_DISABLED else PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                            PackageManager.DONT_KILL_APP
+                        )
+                    }
+                )
             }
         }
     }

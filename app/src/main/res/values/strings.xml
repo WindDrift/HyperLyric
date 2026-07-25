@@ -90,6 +90,7 @@
     <string name="title_predictive_back">预测性返回手势</string>
     <string name="title_floating_nav">悬浮底栏</string>
     <string name="title_exclude_from_recents">隐藏后台卡片</string>
+    <string name="title_hide_launcher_icon">隐藏桌面图标</string>
     <string name="title_config_management">配置管理</string>
     <string name="title_backup">备份</string>
     <string name="title_restore">恢复</string>
