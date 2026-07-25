@@ -38,6 +38,7 @@ class FocusNotificationBuilder(
             }
             paramV2.put("ticker", uiState.notificationTitleLeft)
             paramV2.put("tickerPic", "miui.focus.pic_album")
+            paramV2.put("tickerPicDark", "miui.focus.pic_album")
         } else {
             // OS3 标准模式
             if (showProgress) {
