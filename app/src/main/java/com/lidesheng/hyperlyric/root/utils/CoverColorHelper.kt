@@ -11,6 +11,9 @@ object CoverColorHelper {
     )
 
     private var activeMediaKey: String? = null
+    private var lastPackageName: String? = null
+    private var lastArtist: String? = null
+    private var lastDuration: Long = -1L
     private val keyedCache = LinkedHashMap<String, CacheEntry>()
 
     @Synchronized
@@ -21,9 +24,24 @@ object CoverColorHelper {
         album: String,
         duration: Long = -1L
     ): String {
+        if (isSameSessionAsActive(packageName, artist, duration)) {
+            return activeMediaKey ?: buildMediaKey(packageName, title, artist, album, duration)
+        }
+
         val mediaKey = buildMediaKey(packageName, title, artist, album, duration)
         activeMediaKey = mediaKey
+        lastPackageName = packageName
+        lastArtist = artist
+        lastDuration = duration
         return mediaKey
+    }
+
+    private fun isSameSessionAsActive(packageName: String, artist: String, duration: Long): Boolean {
+        if (activeMediaKey == null) return false
+        val pkgMatches = packageName.normalizeMediaText() == lastPackageName?.normalizeMediaText()
+        val artistMatches = artist.normalizeMediaText() == lastArtist?.normalizeMediaText()
+        val durationMatches = duration > 0L && duration == lastDuration
+        return pkgMatches && artistMatches && durationMatches
     }
 
     /**
@@ -38,6 +56,9 @@ object CoverColorHelper {
         album: String,
         duration: Long = -1L
     ): String {
+        if (isSameSessionAsActive(packageName, artist, duration)) {
+            return activeMediaKey ?: buildMediaKey(packageName, title, artist, album, duration)
+        }
         return buildMediaKey(packageName, title, artist, album, duration)
     }
 
@@ -70,7 +91,6 @@ object CoverColorHelper {
             "meta",
             resolvedTitle.normalizeMediaText(),
             resolvedArtist.normalizeMediaText(),
-            resolvedDuration?.toString().orEmpty(),
             album.normalizeMediaText().takeIf {
                 resolvedTitle.isBlank() && resolvedArtist.isBlank()
             }.orEmpty()
