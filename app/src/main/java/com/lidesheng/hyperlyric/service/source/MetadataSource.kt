@@ -119,6 +119,7 @@ class MetadataSource(
                     dynamicTitle = "",
                     duration = 0L,
                     position = 0L,
+                    speed = 1.0f,
                     isPlaying = false,
                     currentPackageName = "",
                     isNewSong = true,
@@ -195,7 +196,8 @@ class MetadataSource(
         val album = metadata.getString(MediaMetadata.METADATA_KEY_ALBUM) ?: ""
         val duration = metadata.getLong(MediaMetadata.METADATA_KEY_DURATION)
         val position = playbackState.position
-        val isPlaying = playbackState.state == PlaybackState.STATE_PLAYING
+        val speed = playbackState.playbackSpeed
+        val isPlaying = playbackState.state == PlaybackState.STATE_PLAYING && speed > 0f
 
         val lyricInfoRaw = try {
             metadata.description.extras?.getString("lyricInfo")
@@ -208,7 +210,7 @@ class MetadataSource(
         val lyricRaw = try { metadata.getString("android.media.metadata.LYRIC") } catch (_: Exception) { null }
 
         val newIdentifier = "$currentPackageName-$artist-$album-$duration"
-        val isNewSong = (newIdentifier != currentSongIdentifier) || DynamicLyricData.currentState.albumBitmap == null
+        val isNewSong = (newIdentifier != currentSongIdentifier)
         LogManager.d(TAG, "同步元数据: pkg=$currentPackageName, 标题=$rawTitle, 艺术家=$artist, 专辑=$album, 时长=${duration}ms, 新歌=$isNewSong")
 
         if (isNewSong) {
@@ -219,7 +221,8 @@ class MetadataSource(
             newSongFlow.tryEmit(Unit)
         }
 
-        val albumBitmap = if (isNewSong) {
+        val shouldFetchBitmap = isNewSong || DynamicLyricData.currentState.albumBitmap == null
+        val albumBitmap = if (shouldFetchBitmap) {
             val raw = metadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
                 ?: metadata.getBitmap(MediaMetadata.METADATA_KEY_ART)
             AlbumImageHelper.safeCopyBitmap(raw)
@@ -227,13 +230,13 @@ class MetadataSource(
             DynamicLyricData.currentState.albumBitmap
         }
 
-        val notificationAlbumBitmap = if (isNewSong) {
+        val notificationAlbumBitmap = if (shouldFetchBitmap) {
             albumBitmap?.let { AlbumImageHelper.processAlbumBitmap(it) }
         } else {
             DynamicLyricData.currentState.notificationAlbumBitmap
         }
 
-        val notificationAlbumBitmapCircular = if (isNewSong) {
+        val notificationAlbumBitmapCircular = if (shouldFetchBitmap) {
             albumBitmap?.let { AlbumImageHelper.processAlbumBitmapCircular(it) }
         } else {
             DynamicLyricData.currentState.notificationAlbumBitmapCircular
@@ -254,7 +257,7 @@ class MetadataSource(
         lyricUpdateFlow.tryEmit(
             SyncData(
                 identityTitle, identityArtist, album, rawTitle,
-                duration, position, isPlaying,
+                duration, position, speed, isPlaying,
                 currentPackageName, isNewSong, albumBitmap, notificationAlbumBitmap,
                 notificationAlbumBitmapCircular, newIdentifier,
                 lyricInfoRaw, lyricRaw

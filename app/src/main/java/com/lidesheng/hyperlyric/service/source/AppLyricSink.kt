@@ -49,13 +49,8 @@ class AppLyricSink(
         collectJob = scope.launch(Dispatchers.Default) {
             lyricUpdateFlow.conflate().collectLatest { data -> processSyncData(data) }
         }
-        scope.launch {
-            newSongFlow.collect {
-                fetchJob?.cancel()
-                fetchJob = null
-                lyricScheduler.stop()
-            }
-        }
+        // Removed concurrent newSongFlow collection to fix race conditions with fetchJob cancellation
+
     }
 
     fun stop() {
@@ -96,7 +91,7 @@ class AppLyricSink(
 
         if (pauseListening || !isWhitelisted) {
             isCurrentlyPlaying = false
-            DynamicLyricData.updateAnchor(data.position, false)
+            DynamicLyricData.updateAnchor(data.position, false, data.speed)
             DynamicLyricData.updateRightTitles(
                 islandText = " ",
                 notificationText = " ",
@@ -119,7 +114,7 @@ class AppLyricSink(
             return
         }
 
-        DynamicLyricData.updateAnchor(data.position, data.isPlaying)
+        DynamicLyricData.updateAnchor(data.position, data.isPlaying, data.speed)
 
         val isSongChanged = data.isNewSong || currentSongIdentifier != data.identifier
 
@@ -199,8 +194,9 @@ class AppLyricSink(
                         cachedLyricHash = currentRawHash
                         lastDispatchedLrc = ""
                         lyricScheduler.updateLyrics(rawLines, isSongChanged)
-                        lyricScheduler.updateSyncData(data)
-                        lyricScheduler.startSchedulers(isSongChanged, playStateChanged)
+                        val latestData = currentSyncData ?: data
+                        lyricScheduler.updateSyncData(latestData)
+                        lyricScheduler.startSchedulers(isSongChanged = true, playStateChanged = true)
                         notificationPresenter.updateState(DynamicLyricData.currentState, force = true)
                     } else {
                         // 歌词拉取完成但为空，代表“歌词源无数据”静态状态

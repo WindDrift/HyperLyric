@@ -9,6 +9,7 @@ data class SyncData(
     val dynamicTitle: String,
     val duration: Long,
     val position: Long,
+    val speed: Float,
     val isPlaying: Boolean,
     val currentPackageName: String,
     val isNewSong: Boolean,
