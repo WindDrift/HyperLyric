@@ -14,6 +14,7 @@ import com.lidesheng.hyperlyric.root.island.IslandModuleRestoreHooker
 import com.lidesheng.hyperlyric.root.island.IslandMusicWaveColorHooker
 import com.lidesheng.hyperlyric.root.island.IslandProgressGlowController
 import com.lidesheng.hyperlyric.root.island.RealIslandHooker
+import com.lidesheng.hyperlyric.root.island.StatusBarTextColorHooker
 import com.lidesheng.hyperlyric.root.island.SystemUIHookRegistry
 import com.lidesheng.hyperlyric.root.island.renderer.BaseIslandRenderer
 import com.lidesheng.hyperlyric.root.mediacard.MediaCardElementBehaviorHooker
@@ -42,6 +43,7 @@ class HookEntry : XposedModule() {
 
     companion object {
         private const val STATE_RUNTIME_READY = "runtimeReady"
+        private const val STATE_STATUS_BAR_TEXT_COLOR = "statusBarTextColor"
 
         @Volatile
         var activeMode = 0
@@ -96,6 +98,7 @@ class HookEntry : XposedModule() {
             RootConstants.KEY_HOOK_NEXT_LYRIC_LINE,
             RootConstants.KEY_HOOK_EXTRACT_COVER_TEXT_COLOR,
             RootConstants.KEY_HOOK_EXTRACT_COVER_TEXT_GRADIENT,
+            RootConstants.KEY_HOOK_FOLLOW_STATUS_BAR_TEXT_COLOR,
             RootConstants.KEY_HOOK_CUSTOM_FONT_PATH,
             RootConstants.KEY_HOOK_WORD_MOTION_ENABLED,
             RootConstants.KEY_HOOK_WORD_MOTION_CJK_LIFT,
@@ -131,7 +134,13 @@ class HookEntry : XposedModule() {
 
     override fun onHotReloading(param: HotReloadingParam): Boolean {
         param.setSavedInstanceState(
-            Bundle().apply { putBoolean(STATE_RUNTIME_READY, runtimeApp != null) }
+            Bundle().apply {
+                putBoolean(STATE_RUNTIME_READY, runtimeApp != null)
+                putInt(
+                    STATE_STATUS_BAR_TEXT_COLOR,
+                    StatusBarTextColorHooker.currentTextColor()
+                )
+            }
         )
         // The media-card hookers intentionally stay alive in the old generation. Their
         // configuration is restart-only, so replacing them here is both unnecessary and
@@ -167,6 +176,11 @@ class HookEntry : XposedModule() {
         }
 
         val state = param.savedInstanceState as? Bundle
+        if (state?.containsKey(STATE_STATUS_BAR_TEXT_COLOR) == true) {
+            StatusBarTextColorHooker.restoreTextColor(
+                state.getInt(STATE_STATUS_BAR_TEXT_COLOR)
+            )
+        }
         if (state?.getBoolean(STATE_RUNTIME_READY) == true) {
             findCurrentApplication()?.let { app ->
                 Handler(Looper.getMainLooper()).post { initializeSystemEnvironment(app) }
@@ -191,6 +205,7 @@ class HookEntry : XposedModule() {
         val packageName = param.packageName
 
         if (packageName == "com.android.systemui") {
+            StatusBarTextColorHooker.hook(this, param.defaultClassLoader)
             MediaCardRuntimeConfig.load(prefs)
             MediaCardElementBehaviorHooker.hook(this, param.defaultClassLoader)
             IslandExpandedMediaAmbientFlowHooker.hook(this, param.defaultClassLoader)
@@ -452,7 +467,7 @@ class HookEntry : XposedModule() {
             "updateTemplate" -> HookIslandGlow.UpdateTemplateHook()
                 .takeIf { owner.endsWith("DynamicIslandBaseContentView") }
 
-            else -> null
+            else -> StatusBarTextColorHooker.createReplacement(executable)
         }
     }
 

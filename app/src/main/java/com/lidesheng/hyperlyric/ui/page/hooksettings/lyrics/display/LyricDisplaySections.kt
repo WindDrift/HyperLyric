@@ -1,6 +1,5 @@
 package com.lidesheng.hyperlyric.ui.page.hooksettings.lyrics.display
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -27,6 +26,8 @@ fun LazyListScope.lyricDisplaySections(
     onExtractCoverColorChange: (Boolean) -> Unit,
     extractCoverGradient: Boolean,
     onExtractCoverGradientChange: (Boolean) -> Unit,
+    followStatusBarColor: Boolean,
+    onFollowStatusBarColorChange: (Boolean) -> Unit,
     customFontPath: String,
     onFontPathClick: () -> Unit,
     fontWeight: Int,
@@ -101,15 +102,17 @@ fun LazyListScope.lyricDisplaySections(
                         checked = extractCoverColor,
                         onCheckedChange = onExtractCoverColorChange
                     )
-                    AnimatedVisibility(visible = extractCoverColor) {
-                        Column {
-                            SwitchPreference(
-                                title = stringResource(id = R.string.title_extract_cover_gradient),
-                                checked = extractCoverGradient,
-                                onCheckedChange = onExtractCoverGradientChange
-                            )
-                        }
-                    }
+                    SwitchPreference(
+                        title = stringResource(id = R.string.title_extract_cover_gradient),
+                        checked = extractCoverGradient,
+                        onCheckedChange = onExtractCoverGradientChange,
+                        enabled = extractCoverColor
+                    )
+                    SwitchPreference(
+                        title = stringResource(id = R.string.title_follow_status_bar_color),
+                        checked = followStatusBarColor,
+                        onCheckedChange = onFollowStatusBarColorChange
+                    )
                 }
             }
             Card(

@@ -64,9 +64,15 @@ internal object IslandSlotContentAssembler {
                     !normalizeMediaText(lyricTitle).contains(normalizeMediaText(mediaInfo.title)) &&
                     !normalizeMediaText(mediaInfo.title).contains(normalizeMediaText(lyricTitle))
         }
+        val statusBarTextColor = if (config.followStatusBarTextColor) {
+            StatusBarTextColorHooker.currentTextColor()
+        } else {
+            null
+        }
         val signature = listOf(
             config.styleSignature,
             mode,
+            statusBarTextColor,
             mediaColorKey,
             mediaInfo.title,
             mediaInfo.artist,
@@ -80,7 +86,8 @@ internal object IslandSlotContentAssembler {
             res = view.resources,
             mode = mode,
             albumBitmap = albumBitmap,
-            mediaColorKey = mediaColorKey
+            mediaColorKey = mediaColorKey,
+            textColorOverride = statusBarTextColor
         )
         when (view) {
             is RichLyricLineView -> {

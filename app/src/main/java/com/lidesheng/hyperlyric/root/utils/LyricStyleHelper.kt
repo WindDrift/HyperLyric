@@ -27,7 +27,8 @@ object LyricStyleHelper {
         res: Resources,
         mode: Int,
         albumBitmap: Bitmap? = null,
-        mediaColorKey: String? = CoverColorHelper.currentMediaKey()
+        mediaColorKey: String? = CoverColorHelper.currentMediaKey(),
+        textColorOverride: Int? = null
     ): LyricViewStyle {
         val fontSize =
             prefs.getInt(RootConstants.KEY_HOOK_TEXT_SIZE, RootConstants.DEFAULT_HOOK_TEXT_SIZE)
@@ -127,7 +128,18 @@ object LyricStyleHelper {
         val bgColors: IntArray
         val hlColors: IntArray
 
-        if (useCoverColor) {
+        if (textColorOverride != null) {
+            primaryColors = intArrayOf(textColorOverride)
+            bgColors = intArrayOf(
+                Color.argb(
+                    128,
+                    Color.red(textColorOverride),
+                    Color.green(textColorOverride),
+                    Color.blue(textColorOverride)
+                )
+            )
+            hlColors = intArrayOf(textColorOverride)
+        } else if (useCoverColor) {
             if (albumBitmap != null) {
                 val (_, darkColors) = CoverColorHelper.extractColors(
                     albumBitmap,

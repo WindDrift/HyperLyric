@@ -1,6 +1,7 @@
 package com.lidesheng.hyperlyric.ui.page.hooksettings.lyrics.display
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -45,12 +46,18 @@ fun LyricDisplayPage() {
             )
         )
     }
+    val initialFollowStatusBarColor = remember(prefs) {
+        prefs.getBoolean(
+            RootConstants.KEY_HOOK_FOLLOW_STATUS_BAR_TEXT_COLOR,
+            RootConstants.DEFAULT_HOOK_FOLLOW_STATUS_BAR_TEXT_COLOR
+        )
+    }
     var extractCoverColor by remember {
         mutableStateOf(
             prefs.getBoolean(
                 RootConstants.KEY_HOOK_EXTRACT_COVER_TEXT_COLOR,
                 RootConstants.DEFAULT_HOOK_EXTRACT_COVER_TEXT_COLOR
-            )
+            ) && !initialFollowStatusBarColor
         )
     }
     var extractCoverGradient by remember {
@@ -60,6 +67,9 @@ fun LyricDisplayPage() {
                 RootConstants.DEFAULT_HOOK_EXTRACT_COVER_TEXT_GRADIENT
             )
         )
+    }
+    var followStatusBarColor by remember {
+        mutableStateOf(initialFollowStatusBarColor)
     }
     var customFontPath by remember {
         mutableStateOf(
@@ -99,6 +109,18 @@ fun LyricDisplayPage() {
     var showFadingEdgeDialog by remember { mutableStateOf(false) }
     var showFontPathDialog by remember { mutableStateOf(false) }
     var showFontWeightDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(initialFollowStatusBarColor) {
+        if (
+            initialFollowStatusBarColor &&
+            prefs.getBoolean(
+                RootConstants.KEY_HOOK_EXTRACT_COVER_TEXT_COLOR,
+                RootConstants.DEFAULT_HOOK_EXTRACT_COVER_TEXT_COLOR
+            )
+        ) {
+            saveConfig(RootConstants.KEY_HOOK_EXTRACT_COVER_TEXT_COLOR, false)
+        }
+    }
 
     NumberInputDialog(
         show = showTextSizeDialog,
@@ -173,14 +195,27 @@ fun LyricDisplayPage() {
             fadingEdge = fadingEdge,
             onFadingEdgeClick = { showFadingEdgeDialog = true },
             extractCoverColor = extractCoverColor,
-            onExtractCoverColorChange = {
-                extractCoverColor = it
-                saveConfig(RootConstants.KEY_HOOK_EXTRACT_COVER_TEXT_COLOR, it)
+            onExtractCoverColorChange = { enabled ->
+                if (enabled && followStatusBarColor) {
+                    followStatusBarColor = false
+                    saveConfig(RootConstants.KEY_HOOK_FOLLOW_STATUS_BAR_TEXT_COLOR, false)
+                }
+                extractCoverColor = enabled
+                saveConfig(RootConstants.KEY_HOOK_EXTRACT_COVER_TEXT_COLOR, enabled)
             },
             extractCoverGradient = extractCoverGradient,
             onExtractCoverGradientChange = {
                 extractCoverGradient = it
                 saveConfig(RootConstants.KEY_HOOK_EXTRACT_COVER_TEXT_GRADIENT, it)
+            },
+            followStatusBarColor = followStatusBarColor,
+            onFollowStatusBarColorChange = { enabled ->
+                if (enabled && extractCoverColor) {
+                    extractCoverColor = false
+                    saveConfig(RootConstants.KEY_HOOK_EXTRACT_COVER_TEXT_COLOR, false)
+                }
+                followStatusBarColor = enabled
+                saveConfig(RootConstants.KEY_HOOK_FOLLOW_STATUS_BAR_TEXT_COLOR, enabled)
             },
             customFontPath = customFontPath,
             onFontPathClick = { showFontPathDialog = true },

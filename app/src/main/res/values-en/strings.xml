@@ -319,6 +319,7 @@
     <string name="summary_auto_switch_translation">Show translation when available, otherwise next line</string>
     <string name="title_extract_cover_color">Extract Cover Color</string>
     <string name="title_extract_cover_gradient">Extract Cover Gradient</string>
+    <string name="title_follow_status_bar_color">Follow Status Bar Color</string>
     <string name="title_word_motion">Word Lift Animation</string>
     <string name="title_word_motion_cjk_lift">CJK Lift Coefficient</string>
     <string name="title_word_motion_cjk_wave">CJK Wavelength Coefficient</string>

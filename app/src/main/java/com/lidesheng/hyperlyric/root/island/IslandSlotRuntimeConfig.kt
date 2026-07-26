@@ -46,6 +46,7 @@ internal data class IslandSlotRuntimeConfig(
     val autoSwitchTranslation: Boolean,
     val extractCoverTextColor: Boolean,
     val extractCoverTextGradient: Boolean,
+    val followStatusBarTextColor: Boolean,
     val customFontPath: String,
     val wordMotionEnabled: Boolean,
     val wordMotionCjkLift: Float,
@@ -87,6 +88,7 @@ internal data class IslandSlotRuntimeConfig(
         autoSwitchTranslation,
         extractCoverTextColor,
         extractCoverTextGradient,
+        followStatusBarTextColor,
         customFontPath,
         wordMotionEnabled,
         wordMotionCjkLift,
@@ -302,6 +304,10 @@ internal data class IslandSlotRuntimeConfig(
                 extractCoverTextGradient = prefs.getBoolean(
                     RootConstants.KEY_HOOK_EXTRACT_COVER_TEXT_GRADIENT,
                     RootConstants.DEFAULT_HOOK_EXTRACT_COVER_TEXT_GRADIENT
+                ),
+                followStatusBarTextColor = prefs.getBoolean(
+                    RootConstants.KEY_HOOK_FOLLOW_STATUS_BAR_TEXT_COLOR,
+                    RootConstants.DEFAULT_HOOK_FOLLOW_STATUS_BAR_TEXT_COLOR
                 ),
                 customFontPath = prefs.getString(RootConstants.KEY_HOOK_CUSTOM_FONT_PATH, null)
                     .orEmpty(),

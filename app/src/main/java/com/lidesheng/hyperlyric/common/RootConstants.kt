@@ -176,6 +176,7 @@ object RootConstants {
     // ================= COLOR KEYS =================
     const val KEY_HOOK_EXTRACT_COVER_TEXT_COLOR = "key_hook_extract_cover_text_color"
     const val KEY_HOOK_EXTRACT_COVER_TEXT_GRADIENT = "key_hook_extract_cover_text_gradient"
+    const val KEY_HOOK_FOLLOW_STATUS_BAR_TEXT_COLOR = "key_hook_follow_status_bar_text_color"
     const val KEY_HOOK_ISLAND_GLOW_EXTRACT_COLOR = "key_hook_island_glow_extract_color"
     const val KEY_HOOK_ISLAND_PROGRESS_GLOW = "key_hook_island_progress_glow"
     const val KEY_HOOK_ISLAND_PROGRESS_STYLE = "key_hook_island_progress_style"
@@ -386,6 +387,7 @@ object RootConstants {
     const val DEFAULT_HOOK_AUTO_SWITCH_TRANSLATION = false
     const val DEFAULT_HOOK_EXTRACT_COVER_TEXT_COLOR = false
     const val DEFAULT_HOOK_EXTRACT_COVER_TEXT_GRADIENT = false
+    const val DEFAULT_HOOK_FOLLOW_STATUS_BAR_TEXT_COLOR = false
     const val DEFAULT_HOOK_ISLAND_GLOW_EXTRACT_COLOR = false
     const val DEFAULT_HOOK_ISLAND_PROGRESS_GLOW = false
     const val DEFAULT_HOOK_ISLAND_PROGRESS_GRADIENT = false
