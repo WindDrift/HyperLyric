@@ -1,33 +1,30 @@
 package com.lidesheng.hyperlyric.root.mediacard.island
 
 import android.content.Context
-import android.content.SharedPreferences
 import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.BlendMode
 import android.graphics.BlendModeColorFilter
-import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.ColorFilter
 import android.graphics.Paint
-import android.graphics.Rect
 import android.graphics.RuntimeShader
 import android.graphics.drawable.Drawable
+import android.graphics.drawable.Icon
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
-import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
 import com.lidesheng.hyperlyric.common.RootConstants
-import com.lidesheng.hyperlyric.root.HookEntry
-import com.lidesheng.hyperlyric.root.SystemUiEnhancementGate
 import com.lidesheng.hyperlyric.root.island.IslandAlbumCoverStyleHooker
 import com.lidesheng.hyperlyric.root.island.IslandProbeUtils
 import com.lidesheng.hyperlyric.root.mediacard.MediaAmbientFlowPalette
 import com.lidesheng.hyperlyric.root.mediacard.MediaAmbientFlowPaletteExtractor
 import com.lidesheng.hyperlyric.root.mediacard.MediaArtworkSampler
+import com.lidesheng.hyperlyric.root.mediacard.MediaCardRuntimeConfig
 import com.lidesheng.hyperlyric.root.mediacard.background.MediaFlowArtwork
 import com.lidesheng.hyperlyric.root.mediacard.background.MediaFlowBackgroundView
 import com.lidesheng.hyperlyric.root.mediacard.background.MediaFlowOverlayLayout
@@ -37,6 +34,7 @@ import com.lidesheng.hyperlyric.root.mediacard.island.background.IslandExpandedB
 import com.lidesheng.hyperlyric.root.mediacard.island.background.IslandExpandedMediaBackgroundApi
 import com.lidesheng.hyperlyric.root.mediacard.island.background.IslandExpandedMediaBackgroundController
 import com.lidesheng.hyperlyric.root.mediacard.island.background.IslandExpandedMediaBackgroundHost
+import com.lidesheng.hyperlyric.root.mediacard.island.background.IslandMediaBackgroundHostAdapter
 import com.lidesheng.hyperlyric.root.mediacard.notification.background.NotificationMediaColorConfig
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import io.github.libxposed.api.XposedInterface.Chain
@@ -55,6 +53,7 @@ object IslandExpandedMediaAmbientFlowHooker {
     private const val TAG = "IslandExpandedMediaAmbientFlowHooker"
     private const val BINDER_CLASS =
         "com.android.systemui.statusbar.notification.mediaisland.MiuiIslandMediaViewBinderImpl"
+    private const val MINI_BAR_EVENT_CLASS = "${BINDER_CLASS}\$attach\$4\$1"
     private const val MUSIC_BG_VIEW_CLASS = "com.mi.widget.view.MusicBgView"
     private const val SEEK_BAR_HEAD_ALPHA_LISTENER_CLASS =
         "miuix.miuixbasewidget.widget.HyperProgressSeekBar\$1"
@@ -67,8 +66,6 @@ object IslandExpandedMediaAmbientFlowHooker {
     private const val MI_BLUR_COMPAT_CLASS = "miui.systemui.util.MiBlurCompat"
     private const val ORIGINAL_ALPHA_TAG_KEY = 0x7e48594c
     private const val CUSTOM_FLOW_VIEW_TAG = "hyperlyric.island_expanded_media_custom_flow"
-    private const val CUSTOM_FAKE_FLOW_VIEW_TAG =
-        "hyperlyric.island_expanded_media_custom_fake_flow"
 
     private val hookedClassLoaders = Collections.synchronizedSet(
         Collections.newSetFromMap(WeakHashMap<ClassLoader, Boolean>())
@@ -78,11 +75,11 @@ object IslandExpandedMediaAmbientFlowHooker {
         Collections.newSetFromMap(WeakHashMap<Any, Boolean>())
     )
     private val themeStates = Collections.synchronizedMap(WeakHashMap<View, ViewThemeState>())
-    private val fakeFlowStates = Collections.synchronizedMap(
-        WeakHashMap<ViewGroup, FakeFlowState>()
-    )
     private val seekBarThemeStates = Collections.synchronizedMap(
         WeakHashMap<View, SeekBarThemeState>()
+    )
+    private val seekBarTrackStates = Collections.synchronizedMap(
+        WeakHashMap<View, SeekBarTrackState>()
     )
     private val restoringNativeForeground = ThreadLocal<Boolean>()
     private val bindingBinder = ThreadLocal<Any?>()
@@ -91,21 +88,9 @@ object IslandExpandedMediaAmbientFlowHooker {
     }
 
     @Volatile
-    private var module: XposedModule? = null
-
-    @Volatile
     private var nativeApi: NativeApi? = null
 
-    private val prefs: SharedPreferences?
-        get() = (module as? HookEntry)?.prefs
-
-    fun initialize(xposedModule: XposedModule) {
-        module = xposedModule
-        IslandExpandedMediaBackgroundController.initialize(xposedModule)
-    }
-
     fun hook(xposedModule: XposedModule, classLoader: ClassLoader) {
-        initialize(xposedModule)
         if (!hookedClassLoaders.add(classLoader)) return
 
         val api = resolveApi(classLoader) ?: run {
@@ -122,11 +107,11 @@ object IslandExpandedMediaAmbientFlowHooker {
                     ?: error("No hooker for ${method.declaringClass.name}.${method.name}")
                 installedHandles += xposedModule.hook(method).intercept(hooker)
             }.onFailure { error ->
-                    HookLogger.e(
-                        TAG,
-                        "安装展开态媒体 Hook 失败: method=${method.declaringClass.simpleName}.${method.name}",
-                        error
-                    )
+                HookLogger.e(
+                    TAG,
+                    "安装展开态媒体 Hook 失败: method=${method.declaringClass.simpleName}.${method.name}",
+                    error
+                )
             }
         }
 
@@ -135,7 +120,11 @@ object IslandExpandedMediaAmbientFlowHooker {
             hookedClassLoaders.remove(classLoader)
             HookLogger.w(TAG, "展开态媒体流光 Hook 不完整，已移除全部 Hook")
         } else {
-            HookLogger.i(TAG, "展开态媒体流光 Hook 已初始化: methods=${installedHandles.size}")
+            installMiniBarTrackingHook(xposedModule, classLoader)
+            HookLogger.i(
+                TAG,
+                "展开态媒体流光 Hook 已初始化: methods=${api.hookMethods.size}"
+            )
         }
     }
 
@@ -153,7 +142,7 @@ object IslandExpandedMediaAmbientFlowHooker {
 
             MUSIC_BG_VIEW_CLASS ->
                 (method.name == "start" || method.name == "resume") &&
-                    method.parameterCount == 0
+                        method.parameterCount == 0
 
             SEEK_BAR_HEAD_ALPHA_LISTENER_CLASS ->
                 method.name == "onUpdate" && method.parameterCount == 2
@@ -183,46 +172,23 @@ object IslandExpandedMediaAmbientFlowHooker {
         }
     }
 
-    fun releaseAll() {
-        IslandExpandedMediaBackgroundController.releaseAll()
-        val binders = synchronized(activeBinders) { activeBinders.toList() }
-        val cleanup = Runnable {
-            binders.forEach { binder ->
-                restoreCardTheme(binder)
-                restoreMediaElements(binder)
-                removeCustomFlow(binder)
-            }
-            val api = nativeApi
-            if (api != null) {
-                val trackedViews = synchronized(themeStates) { themeStates.keys.toList() }
-                trackedViews.forEach { view -> restoreTrackedTheme(view, api) }
-            }
-            IslandExpandedMediaElementController.cleanup()
-            synchronized(fakeFlowStates) { fakeFlowStates.keys.toList() }
-                .forEach(::removeCustomFakeFlow)
-            activeBinders.clear()
-            themeStates.clear()
-            fakeFlowStates.clear()
-            seekBarThemeStates.clear()
-        }
-        if (Looper.myLooper() == Looper.getMainLooper()) cleanup.run()
-        else Handler(Looper.getMainLooper()).post(cleanup)
-        binderStates.clear()
-        colorExecutor.shutdown()
-    }
-
     private enum class Action { ATTACH, BIND, DETACH, ALBUM, SEAMLESS }
 
     private class BinderHook(private val action: Action) : Hooker {
         override fun intercept(chain: Chain): Any? {
             val binder = chain.thisObject ?: return chain.proceed()
-            if (!SystemUiEnhancementGate.isEnabled()) {
+            if (!MediaCardRuntimeConfig.current.enabled) {
                 if (action == Action.DETACH) cleanupBinder(binder)
                 val result = chain.proceed()
                 if (action == Action.ATTACH || action == Action.BIND) {
                     activeBinders.add(binder)
                 }
                 return result
+            }
+            // Keep XiaomiHelper's timing exactly: intercept the native setter
+            // before it can restore this view on a fresh real/dummy holder.
+            if (action == Action.SEAMLESS && hideDeviceSwitch()) {
+                return null
             }
             if (action == Action.DETACH) cleanupBinder(binder)
             val nestedInBind = action != Action.BIND && bindingBinder.get() === binder
@@ -246,15 +212,25 @@ object IslandExpandedMediaAmbientFlowHooker {
                         applyAppearance(binder, allowCoverColor = false)
                         applyMediaElements(binder)
                     }
+
                     Action.BIND -> {
                         activeBinders.add(binder)
-                        applyAppearance(binder, allowCoverColor = true)
+                        applyAppearance(
+                            binder,
+                            allowCoverColor = true,
+                            mediaData = chain.args.firstOrNull()
+                        )
                         applyMediaElements(binder)
                     }
+
                     Action.ALBUM -> {
-                        applyAppearance(binder, allowCoverColor = true)
+                        applyMode(binder, allowCoverColor = true)
+                        if (!IslandExpandedMediaBackgroundController.isActive()) {
+                            applyCardTheme(binder)
+                        }
                         applyMediaElements(binder)
                     }
+
                     Action.SEAMLESS -> applyMediaElements(binder)
                     Action.DETACH -> Unit
                 }
@@ -272,13 +248,15 @@ object IslandExpandedMediaAmbientFlowHooker {
 
     private class PlaybackStartHook : Hooker {
         override fun intercept(chain: Chain): Any? {
-            if (!SystemUiEnhancementGate.isEnabled()) return chain.proceed()
+            if (!MediaCardRuntimeConfig.current.enabled) return chain.proceed()
             val view = chain.thisObject as? View ?: return chain.proceed()
-            if ((IslandExpandedMediaBackgroundController.isActive() ||
-                    currentMode() == RootConstants.ISLAND_EXPANDED_MEDIA_AMBIENT_FLOW_MODE_DISABLED ||
-                    isCustomMode(currentMode())) &&
-                isExpandedIslandView(view)
-            ) {
+            val suppressNativeFlow = if (IslandExpandedMediaBackgroundController.isActive()) {
+                IslandExpandedMediaBackgroundController.hasAppliedBackgroundForNativeFlow(view)
+            } else {
+                currentMode() == RootConstants.ISLAND_EXPANDED_MEDIA_AMBIENT_FLOW_MODE_DISABLED ||
+                        isCustomMode(currentMode())
+            }
+            if (suppressNativeFlow && isExpandedIslandView(view)) {
                 return null
             }
             return chain.proceed()
@@ -287,34 +265,38 @@ object IslandExpandedMediaAmbientFlowHooker {
 
     private class ForegroundColorsHook : Hooker {
         override fun intercept(chain: Chain): Any? {
-            if (!SystemUiEnhancementGate.isEnabled()) return chain.proceed()
+            if (!MediaCardRuntimeConfig.current.enabled) return chain.proceed()
             if (restoringNativeForeground.get() == true) return chain.proceed()
             val binder = chain.thisObject ?: return chain.proceed()
             val holder = chain.args.firstOrNull() ?: return chain.proceed()
             if (IslandExpandedMediaBackgroundController.isActive()) {
                 val api = nativeApi ?: return chain.proceed()
-                return runCatching {
-                    if (!IslandExpandedMediaBackgroundController.applyForeground(
+                val foregroundApplied = runCatching {
+                    val foregroundApplied =
+                        IslandExpandedMediaBackgroundController.applyForeground(
                             binder,
                             holder,
                             api
                         )
-                    ) {
-                        IslandExpandedMediaBackgroundController.apply(binder, api)
-                    }
-                    null
+                    syncMusicWave(binder, holder, api)
+                    foregroundApplied
                 }.getOrElse { error ->
                     HookLogger.e(TAG, "保持展开态媒体前景色失败", error)
-                    chain.proceed()
+                    false
                 }
+                return if (foregroundApplied) null else chain.proceed()
             }
-            if (!shouldUseLightTheme(binder)) return chain.proceed()
-
             val api = nativeApi ?: return chain.proceed()
+            if (!shouldUseLightTheme(binder)) {
+                val result = chain.proceed()
+                syncMusicWave(binder, holder, api)
+                return result
+            }
             return try {
                 val lightContext = api.getContext(binder)
                     .withNightMode(Configuration.UI_MODE_NIGHT_NO)
                 applyLightForeground(api, holder, CardColors.from(lightContext))
+                syncMusicWave(binder, holder, api)
                 null
             } catch (error: Throwable) {
                 HookLogger.e(TAG, "应用原生浅色前景失败", error)
@@ -326,7 +308,7 @@ object IslandExpandedMediaAmbientFlowHooker {
     private class HeadGlowUpdateHook : Hooker {
         override fun intercept(chain: Chain): Any? {
             val result = chain.proceed()
-            if (!SystemUiEnhancementGate.isEnabled()) return result
+            if (!MediaCardRuntimeConfig.current.enabled) return result
             val api = nativeApi ?: return result
             val listener = chain.thisObject ?: return result
             val seekBar = api.getHeadAlphaListenerSeekBar(listener)
@@ -337,253 +319,88 @@ object IslandExpandedMediaAmbientFlowHooker {
         }
     }
 
-    internal class BackgroundUpdateHook : Hooker {
-        override fun intercept(chain: Chain): Any? {
-            if (!SystemUiEnhancementGate.isEnabled()) return chain.proceed()
-            val view = chain.args.firstOrNull() as? View
-            return if (
-                view != null &&
-                IslandExpandedMediaBackgroundController.shouldSkipNativeBackgroundUpdate(view)
-            ) {
-                null
-            } else {
-                chain.proceed()
-            }
-        }
-    }
-
-    internal class ExpandedVisibilityHook : Hooker {
+    /**
+     * XiaomiHelper applies MiniBar expansion from the binder's collector, not
+     * from DynamicIslandContentFakeView.  Keeping this hook on the collector
+     * means SystemUI continues to own fake-card alpha and content animations.
+     */
+    private class MiniBarTrackingHook(
+        private val dummyHolderField: Field
+    ) : Hooker {
         override fun intercept(chain: Chain): Any? {
             val result = chain.proceed()
-            if (!SystemUiEnhancementGate.isEnabled()) return result
-            val visibility = (chain.args.getOrNull(1) as? Number)?.toInt()
-            val view = chain.thisObject as? View
-            if (visibility == View.VISIBLE && view?.isShown == true) {
-                IslandExpandedMediaBackgroundController.onExpandedViewShown(view)
-            }
-            return result
-        }
-    }
-
-    internal class ClosingToExpandedHook : Hooker {
-        override fun intercept(chain: Chain): Any? {
-            val result = chain.proceed()
-            if (!SystemUiEnhancementGate.isEnabled()) return result
-            if (chain.args.getOrNull(1) == true) {
-                (chain.thisObject as? ViewGroup)?.let(::restoreFakeTransitionTheme)
-            }
-            return result
-        }
-    }
-
-    internal class MiniBarUpdateHook : Hooker {
-        override fun intercept(chain: Chain): Any? {
-            val result = chain.proceed()
-            if (!SystemUiEnhancementGate.isEnabled()) return result
+            if (!MediaCardRuntimeConfig.current.enabled) return result
             runCatching {
-                val contentView = chain.thisObject as? View ?: return@runCatching
-                applyContentViewTheme(contentView)
+                val dummyHolder = dummyHolderField.get(chain.thisObject) ?: return@runCatching
+                val event = chain.args.firstOrNull() ?: return@runCatching
+                val action = eventComponent(event, "getFirst", "first") as? String
+                    ?: return@runCatching
+                val extras = eventComponent(event, "getSecond", "second") as? Bundle
+                nativeApi?.applyDummyMiniBarTracking(
+                    dummyHolder = dummyHolder,
+                    action = action,
+                    pullDownOffset = extras?.getFloat("pull_down_action_offset_y", 0f) ?: 0f
+                )
             }.onFailure { error ->
-                HookLogger.e(TAG, "恢复展开态 MiniBar 主题失败", error)
+                HookLogger.e(TAG, "同步展开态 MiniBar 背景失败", error)
             }
             return result
         }
     }
 
-    fun refreshCardTheme() {
-        val refresh = Runnable {
-            val snapshot = synchronized(activeBinders) { activeBinders.toList() }
-            snapshot.forEach { binder ->
-                runCatching { applyAppearance(binder, allowCoverColor = true) }
-                    .onFailure { HookLogger.e(TAG, "刷新展开态媒体主题失败", it) }
-            }
+    private fun installMiniBarTrackingHook(module: XposedModule, classLoader: ClassLoader) {
+        runCatching {
+            val eventClass = classLoader.loadClass(MINI_BAR_EVENT_CLASS)
+            // FlowCollector.emit is a suspend method on current HyperOS builds,
+            // therefore its JVM signature has the value plus Continuation.
+            // Keep the one-argument form for older/rewritten variants.
+            val emit = eventClass.declaredMethods
+                .filter { method -> method.name == "emit" && method.parameterCount in 1..2 }
+                .maxByOrNull { method -> method.parameterCount }
+                ?: return@runCatching
+            val dummyHolder = eventClass.declaredFields.singleOrNull { field ->
+                field.name == "\$dummyHolder"
+            } ?: return@runCatching
+            emit.isAccessible = true
+            dummyHolder.isAccessible = true
+            module.deoptimize(emit)
+            module.hook(emit).intercept(MiniBarTrackingHook(dummyHolder))
+            HookLogger.d(TAG, "已 Hook 展开态媒体 MiniBar collector: $emit")
+        }.onFailure { error ->
+            HookLogger.w(TAG, "跳过展开态媒体 MiniBar collector Hook: reason=${error.message}")
         }
-        if (Looper.myLooper() == Looper.getMainLooper()) refresh.run()
-        else Handler(Looper.getMainLooper()).post(refresh)
     }
 
-    fun refreshBackgroundStyle() {
-        val refresh = Runnable {
-            val snapshot = synchronized(activeBinders) { activeBinders.toList() }
-            snapshot.forEach { binder ->
-                runCatching { applyAppearance(binder, allowCoverColor = true) }
-                    .onFailure {
-                        HookLogger.e(TAG, "刷新展开态媒体背景失败", it)
-                    }
-            }
-        }
-        if (Looper.myLooper() == Looper.getMainLooper()) refresh.run()
-        else Handler(Looper.getMainLooper()).post(refresh)
+    private fun eventComponent(event: Any, getterName: String, fieldName: String): Any? {
+        return runCatching {
+            event.javaClass.methods.firstOrNull { method ->
+                method.name == getterName && method.parameterCount == 0
+            }?.invoke(event)
+                ?: event.javaClass.declaredFields.firstOrNull { field ->
+                    field.name == fieldName
+                }?.apply { isAccessible = true }?.get(event)
+        }.getOrNull()
     }
 
-    fun refreshAmbientFlow() {
-        val refresh = Runnable {
-            synchronized(activeBinders) { activeBinders.toList() }.forEach { binder ->
-                runCatching { applyMode(binder, allowCoverColor = true) }
-                    .onFailure { HookLogger.e(TAG, "刷新展开态媒体流光失败", it) }
-            }
-        }
-        if (Looper.myLooper() == Looper.getMainLooper()) refresh.run()
-        else Handler(Looper.getMainLooper()).post(refresh)
+    fun findFakeTransitionContent(fakeContentView: ViewGroup): View? {
+        return runCatching {
+            fakeContentView.javaClass.methods.firstOrNull {
+                it.name == "getFakeExpandedView" && it.parameterTypes.isEmpty()
+            }?.invoke(fakeContentView) as? View
+        }.getOrNull()
     }
 
-    fun applyFakeTransitionTheme(fakeContentView: ViewGroup) {
-        applyCustomFakeTransitionTheme(fakeContentView)
-    }
-
-    fun restoreFakeTransitionTheme(fakeContentView: ViewGroup) {
-        val dataOwner = fakeContentView.javaClass.getMethod("getRealView").invoke(fakeContentView)
-        if (!IslandProbeUtils.isMediaIsland(IslandProbeUtils.getCurrentIslandData(dataOwner))) return
-        val api = nativeApi ?: return
-        val target = api.findContentBackgroundTarget(fakeContentView) ?: return
-        restoreCustomFakeFlow(fakeContentView)
-        IslandExpandedMediaBackgroundController.restoreFakeTransition(target, api)
-    }
-
-    private fun applyCustomFakeTransitionTheme(fakeContentView: ViewGroup) {
-        val dataOwner = fakeContentView.javaClass.getMethod("getRealView").invoke(fakeContentView)
-        if (!IslandProbeUtils.isMediaIsland(IslandProbeUtils.getCurrentIslandData(dataOwner))) return
-        val api = nativeApi ?: return
-        val target = api.findContentBackgroundTarget(fakeContentView) ?: return
-        val binder = findBinderForContentOwner(dataOwner as? View, api)
-
-        if (
-            !IslandExpandedMediaBackgroundController.isActive() &&
-            isCustomMode(currentMode())
-        ) {
-            binder?.let {
-                applyMode(it, allowCoverColor = false)
-                applyCardTheme(it)
-                IslandExpandedMediaBackgroundController.restoreFakeTransition(target, api)
-                applyCustomFakeFlow(fakeContentView, it, target, api)
-            }
-            applyFakeMediaElements(fakeContentView, binder, api)
-            return
-        }
-        restoreCustomFakeFlow(fakeContentView)
-        if (
-            IslandExpandedMediaBackgroundController.applyFakeTransition(
-                target,
-                api.getMiniBar(target),
-                api
-            )
-        ) {
-            val binders = binder?.let(::listOf)
-                ?: synchronized(activeBinders) { activeBinders.toList() }
-            binders.forEach { activeBinder ->
-                api.getHolders(activeBinder).forEach { holder ->
-                    IslandExpandedMediaBackgroundController.applyForeground(
-                        activeBinder,
-                        holder,
-                        api,
-                        force = true
-                    )
-                }
-            }
-        }
-        applyFakeMediaElements(fakeContentView, binder, api)
-    }
-
-    private fun applyCustomFakeFlow(
+    fun applyFakeTransitionElements(
         fakeContentView: ViewGroup,
-        binder: Any,
-        target: IslandExpandedBackgroundTarget,
-        api: NativeApi
-    ) {
-        val binderState = binderStates[binder] ?: return
-        val artwork = binderState.customArtwork ?: return
-        val contentBounds = target.transitionContentBounds ?: return
-        val existing = fakeFlowStates[fakeContentView]
-        val state = if (
-            existing != null &&
-            existing.binder === binder &&
-            existing.target.customBackgroundView === target.customBackgroundView
-        ) {
-            existing
-        } else {
-            existing?.let { removeCustomFakeFlow(fakeContentView) }
-            val flowView = MediaFlowBackgroundView(
-                fakeContentView.context,
-                binderState.customTimeline
-            ).apply {
-                tag = CUSTOM_FAKE_FLOW_VIEW_TAG
-                visibility = View.GONE
-            }
-            fakeContentView.addView(
-                flowView,
-                0,
-                FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-                )
-            )
-            FakeFlowState(
-                binder = binder,
-                target = target,
-                api = api,
-                flowView = flowView
-            ).also { fakeFlowStates[fakeContentView] = it }
+        fakeExpandedView: View
+    ): Boolean {
+        val dataOwner = fakeContentView.javaClass.getMethod("getRealView").invoke(fakeContentView)
+        if (!IslandProbeUtils.isMediaIsland(IslandProbeUtils.getCurrentIslandData(dataOwner))) {
+            return false
         }
-
-        if (state.active) restoreCustomFakeFlowState(state)
-        state.target = target
-        state.api = api
-        state.originalTransitionBackground = fakeContentView.background
-        state.originalOccludingBackgrounds = target.transitionOccludingViews.map { view ->
-            view to view.background
-        }
-        state.hiddenHolderFlows = binderState.customViews.values.filter { view ->
-            view !== state.flowView && view.isDescendantOf(fakeContentView)
-        }
-
-        api.prepareCustomBackground(target)
-        fakeContentView.background = null
-        state.originalOccludingBackgrounds.forEach { (view, _) -> view.background = null }
-        state.hiddenHolderFlows.forEach { it.visibility = View.INVISIBLE }
-        state.flowView.apply {
-            setTransitionViewport(contentBounds)
-            visibility = View.VISIBLE
-            update(
-                artwork = artwork,
-                tone = if (shouldUseLightTheme(binder)) MediaFlowTone.LIGHT else MediaFlowTone.DARK,
-                playing = api.isPlaying(binder)
-            )
-        }
-        state.active = true
-    }
-
-    private fun restoreCustomFakeFlow(fakeContentView: ViewGroup) {
-        fakeFlowStates[fakeContentView]?.let(::restoreCustomFakeFlowState)
-    }
-
-    private fun restoreCustomFakeFlowState(state: FakeFlowState) {
-        if (!state.active) return
-        val root = state.flowView.parent as? ViewGroup
-        root?.background = state.originalTransitionBackground
-        state.originalOccludingBackgrounds.forEach { (view, background) ->
-            view.background = background
-        }
-        state.hiddenHolderFlows.forEach { it.visibility = View.VISIBLE }
-        state.flowView.visibility = View.GONE
-        state.api.restoreNativeBackground(state.target)
-        state.hiddenHolderFlows = emptyList()
-        state.originalOccludingBackgrounds = emptyList()
-        state.active = false
-    }
-
-    private fun removeCustomFakeFlow(fakeContentView: ViewGroup) {
-        val state = fakeFlowStates.remove(fakeContentView) ?: return
-        restoreCustomFakeFlowState(state)
-        (state.flowView.parent as? ViewGroup)?.removeView(state.flowView)
-    }
-
-    private fun View.isDescendantOf(ancestor: ViewGroup): Boolean {
-        var current = parent
-        while (current is View) {
-            if (current === ancestor) return true
-            current = current.parent
-        }
-        return false
+        val api = nativeApi ?: return false
+        val binder = findBinderForContentOwner(dataOwner as? View, api)
+        return applyFakeMediaElements(fakeExpandedView, binder, api)
     }
 
     private fun findBinderForContentOwner(owner: View?, api: NativeApi): Any? {
@@ -611,27 +428,12 @@ object IslandExpandedMediaAmbientFlowHooker {
         if (IslandExpandedMediaBackgroundController.isActive()) {
             return
         }
-        if (isFakeView) {
-            IslandExpandedMediaBackgroundController.restoreFakeTransition(target, api)
-        }
         if (!shouldUseLightTheme(contentView.context)) {
             restoreTrackedTheme(contentView, api)
             return
         }
 
         applyLightExpandedBackground(api, target)
-    }
-
-    fun refreshMediaElements() {
-        val refresh = Runnable {
-            val snapshot = synchronized(activeBinders) { activeBinders.toList() }
-            snapshot.forEach { binder ->
-                runCatching { applyMediaElements(binder) }
-                    .onFailure { HookLogger.e(TAG, "刷新展开态媒体元素失败", it) }
-            }
-        }
-        if (Looper.myLooper() == Looper.getMainLooper()) refresh.run()
-        else Handler(Looper.getMainLooper()).post(refresh)
     }
 
     private fun applyCardTheme(binder: Any) {
@@ -651,7 +453,7 @@ object IslandExpandedMediaAmbientFlowHooker {
                         runCatching {
                             applyLightExpandedBackground(api, player)
                         }.onFailure {
-                    HookLogger.e(TAG, "应用延后的实时通知背景失败", it)
+                            HookLogger.e(TAG, "应用延后的实时通知背景失败", it)
                         }
                     }
                 }
@@ -660,13 +462,22 @@ object IslandExpandedMediaAmbientFlowHooker {
         }
     }
 
-    private fun applyAppearance(binder: Any, allowCoverColor: Boolean) {
-        applyMode(binder, allowCoverColor)
+    private fun applyAppearance(
+        binder: Any,
+        allowCoverColor: Boolean,
+        mediaData: Any? = null
+    ) {
         val api = nativeApi ?: return
         if (IslandExpandedMediaBackgroundController.isActive()) {
-            if (allowCoverColor) IslandExpandedMediaBackgroundController.apply(binder, api)
+            if (mediaData != null) {
+                IslandExpandedMediaBackgroundController.bind(binder, mediaData, api)
+            } else {
+                IslandExpandedMediaBackgroundController.attach(binder, api)
+            }
+            applyMode(binder, allowCoverColor)
         } else {
             IslandExpandedMediaBackgroundController.restore(binder)
+            applyMode(binder, allowCoverColor)
             applyCardTheme(binder)
         }
     }
@@ -755,58 +566,101 @@ object IslandExpandedMediaAmbientFlowHooker {
     private fun applyMediaElements(binder: Any) {
         val api = nativeApi ?: return
         val coverStyle = currentCoverStyle()
+        // Hidden cover is now expressed exclusively by the shared ConstraintSet
+        // (the same lifecycle XiaomiHelper uses).  Applying the legacy View
+        // mutation afterwards derives margins from the real holder's transient
+        // height and makes RealView diverge from the dummy/FakeView.
+        val directCoverStyle = if (
+            coverStyle == RootConstants.ISLAND_EXPANDED_MEDIA_COVER_STYLE_HIDDEN
+        ) {
+            RootConstants.ISLAND_EXPANDED_MEDIA_COVER_STYLE_DEFAULT
+        } else {
+            coverStyle
+        }
         val hideCoverSource = hideCoverSource()
-        val hideDeviceSwitch = hideDeviceSwitch()
         val playbackActive = api.isPlaying(binder)
         api.getHolders(binder).forEach { holder ->
             IslandExpandedMediaElementController.apply(
                 elements = api.getMediaElements(holder),
-                coverStyle = coverStyle,
+                coverStyle = directCoverStyle,
                 hideCoverSource = hideCoverSource,
-                hideDeviceSwitch = hideDeviceSwitch,
+                // These visibility states live in ConstraintSet now, just like
+                // XiaomiHelper.  Do not race the initial dummy-player bind by
+                // setting the concrete View again here.
+                hideDeviceSwitch = false,
+                hideCustomActions = false,
+                hideTime = false,
+                keepAction4Slot = false,
                 playbackActive = playbackActive
             )
+            applySeekBarTrackOffset(api, holder)
+            syncMusicWave(binder, holder, api)
         }
+    }
+
+    private fun syncMusicWave(binder: Any, holder: Any, api: NativeApi) {
+        val player = api.getPlayer(holder) as? ViewGroup ?: return
+        IslandExpandedMediaMusicWaveController.remove(player)
     }
 
     private fun restoreMediaElements(binder: Any) {
         val api = nativeApi ?: return
         api.getHolders(binder).forEach { holder ->
             IslandExpandedMediaElementController.restore(api.getMediaElements(holder))
+            restoreSeekBarTrackOffset(api, holder)
+            (api.getPlayer(holder) as? ViewGroup)?.let {
+                IslandExpandedMediaMusicWaveController.remove(it)
+            }
         }
     }
 
+    private fun applySeekBarTrackOffset(api: NativeApi, holder: Any) {
+        restoreSeekBarTrackOffset(api, holder)
+    }
+
+    private fun restoreSeekBarTrackOffset(api: NativeApi, holder: Any) {
+        val seekBar = api.getSeekBar(holder)
+        val state = seekBarTrackStates.remove(seekBar) ?: return
+        api.setSeekBarTrackOffset(seekBar, state.paddingOffset, state.trackPositionX)
+    }
+
     private fun applyFakeMediaElements(
-        fakeContentView: ViewGroup,
+        fakeExpandedView: View,
         binder: Any?,
         api: NativeApi
-    ) {
+    ): Boolean {
         val coverStyle = currentCoverStyle()
         val hideCoverSource = hideCoverSource()
         val hideDeviceSwitch = hideDeviceSwitch()
+        val hideCustomActions = hideCustomActions()
+        val hideTime = hideTime()
+        val keepAction4Slot = false
         if (
             coverStyle == RootConstants.ISLAND_EXPANDED_MEDIA_COVER_STYLE_DEFAULT &&
             !hideCoverSource &&
-            !hideDeviceSwitch
+            !hideDeviceSwitch &&
+            !hideCustomActions &&
+            !hideTime
         ) {
-            return
+            return true
         }
-        val fakeExpandedView = fakeContentView.javaClass.methods.firstOrNull {
-            it.name == "getFakeExpandedView" && it.parameterTypes.isEmpty()
-        }?.invoke(fakeContentView) as? View ?: return
         val activeBinder = binder
             ?: synchronized(activeBinders) { activeBinders.firstOrNull() }
-            ?: return
+            ?: return false
         val referenceElements = api.getHolders(activeBinder).firstNotNullOfOrNull { holder ->
             runCatching { api.getMediaElements(holder) }.getOrNull()
-        } ?: return
+        } ?: return false
         IslandExpandedMediaElementController.applyToFakeView(
             fakeExpandedView = fakeExpandedView,
             referenceElements = referenceElements,
             coverStyle = coverStyle,
             hideCoverSource = hideCoverSource,
-            hideDeviceSwitch = hideDeviceSwitch
+            hideDeviceSwitch = hideDeviceSwitch,
+            hideCustomActions = hideCustomActions,
+            hideTime = hideTime,
+            keepAction4Slot = keepAction4Slot
         )
+        return true
     }
 
     private fun applyMode(binder: Any, allowCoverColor: Boolean) {
@@ -817,7 +671,16 @@ object IslandExpandedMediaAmbientFlowHooker {
         if (IslandExpandedMediaBackgroundController.isActive()) {
             removeCustomFlow(binder)
             binderStates[binder]?.request?.incrementAndGet()
-            views.forEach { view -> hideAmbientFlow(view, api) }
+            views.forEach { view ->
+                if (
+                    IslandExpandedMediaBackgroundController
+                        .hasAppliedBackgroundForNativeFlow(view)
+                ) {
+                    hideAmbientFlow(view, api)
+                } else {
+                    restoreViewAlpha(view)
+                }
+            }
             return
         }
 
@@ -912,7 +775,8 @@ object IslandExpandedMediaAmbientFlowHooker {
         api: NativeApi
     ) {
         val drawable = api.getArtwork(binder) ?: return
-        val token = "${System.identityHashCode(drawable)}:${drawable.constantState?.hashCode() ?: 0}"
+        val token =
+            "${System.identityHashCode(drawable)}:${drawable.constantState?.hashCode() ?: 0}"
         if (state.customColorToken == token && state.customArtwork != null) {
             state.customViews.values.toList().forEach {
                 configureCustomFlowView(binder, state, it, api)
@@ -952,9 +816,6 @@ object IslandExpandedMediaAmbientFlowHooker {
     }
 
     private fun removeCustomFlow(binder: Any) {
-        synchronized(fakeFlowStates) {
-            fakeFlowStates.filterValues { it.binder === binder }.keys.toList()
-        }.forEach(::removeCustomFakeFlow)
         val state = binderStates[binder] ?: return
         state.customViews.values.toList().forEach { view ->
             view.update(
@@ -970,7 +831,8 @@ object IslandExpandedMediaAmbientFlowHooker {
 
     private fun scheduleCoverColors(binder: Any, primaryView: View, api: NativeApi) {
         val drawable = api.getArtwork(binder) ?: return
-        val token = "${System.identityHashCode(drawable)}:${drawable.constantState?.hashCode() ?: 0}"
+        val token =
+            "${System.identityHashCode(drawable)}:${drawable.constantState?.hashCode() ?: 0}"
         val state = binderStates.getOrPut(binder) { BinderState() }
         if (state.colorToken == token) {
             state.palette?.let { palette ->
@@ -1025,6 +887,7 @@ object IslandExpandedMediaAmbientFlowHooker {
         removeCustomFlow(binder)
         binderStates.remove(binder)?.request?.incrementAndGet()
         nativeApi?.getMusicBgViews(binder)?.forEach(::restoreViewAlpha)
+        nativeApi?.removeHolderBackgrounds(binder)
     }
 
     private fun restoreViewAlpha(view: View) {
@@ -1054,61 +917,51 @@ object IslandExpandedMediaAmbientFlowHooker {
     }
 
     private fun currentMode(): Int {
-        if (!SystemUiEnhancementGate.isEnabled()) {
+        if (!MediaCardRuntimeConfig.current.enabled) {
             return RootConstants.ISLAND_EXPANDED_MEDIA_AMBIENT_FLOW_MODE_DEFAULT
         }
-        return prefs?.getInt(
-            RootConstants.KEY_HOOK_ISLAND_EXPANDED_MEDIA_AMBIENT_FLOW_MODE,
-            RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_AMBIENT_FLOW_MODE
-        )?.coerceIn(
-            RootConstants.ISLAND_EXPANDED_MEDIA_AMBIENT_FLOW_MODE_DEFAULT,
-            RootConstants.ISLAND_EXPANDED_MEDIA_AMBIENT_FLOW_MODE_CUSTOM_FULL
-        ) ?: RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_AMBIENT_FLOW_MODE
+        return MediaCardRuntimeConfig.current.islandExpanded.ambientFlowMode
     }
 
     private fun isCustomMode(mode: Int): Boolean =
         mode == RootConstants.ISLAND_EXPANDED_MEDIA_AMBIENT_FLOW_MODE_CUSTOM_FULL
 
     private fun currentCardTheme(): Int {
-        if (!SystemUiEnhancementGate.isEnabled()) {
+        if (!MediaCardRuntimeConfig.current.enabled) {
             return RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_CARD_THEME
         }
-        return prefs?.getInt(
-            RootConstants.KEY_HOOK_ISLAND_EXPANDED_MEDIA_CARD_THEME,
-            RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_CARD_THEME
-        )?.coerceIn(
-            RootConstants.MEDIA_CARD_THEME_FOLLOW_SYSTEM,
-            RootConstants.MEDIA_CARD_THEME_ALWAYS_DARK
-        ) ?: RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_CARD_THEME
+        return MediaCardRuntimeConfig.current.islandExpanded.cardTheme
     }
 
     private fun currentCoverStyle(): Int {
-        if (!SystemUiEnhancementGate.isEnabled()) {
+        if (!MediaCardRuntimeConfig.current.enabled) {
             return RootConstants.ISLAND_EXPANDED_MEDIA_COVER_STYLE_DEFAULT
         }
-        return prefs?.getInt(
-            RootConstants.KEY_HOOK_ISLAND_EXPANDED_MEDIA_COVER_STYLE,
-            RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_COVER_STYLE
-        )?.coerceIn(
-            RootConstants.ISLAND_EXPANDED_MEDIA_COVER_STYLE_DEFAULT,
-            RootConstants.ISLAND_EXPANDED_MEDIA_COVER_STYLE_HIDDEN
-        ) ?: RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_COVER_STYLE
+        return MediaCardRuntimeConfig.current.islandExpanded.coverStyle
+    }
+
+    private fun currentLayoutStyle(): Int {
+        return RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_SYSTEM
     }
 
     private fun hideCoverSource(): Boolean {
-        if (!SystemUiEnhancementGate.isEnabled()) return false
-        return prefs?.getBoolean(
-            RootConstants.KEY_HOOK_ISLAND_EXPANDED_MEDIA_HIDE_COVER_SOURCE,
-            RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_HIDE_COVER_SOURCE
-        ) ?: RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_HIDE_COVER_SOURCE
+        if (!MediaCardRuntimeConfig.current.enabled) return false
+        return MediaCardRuntimeConfig.current.islandExpanded.hideCoverSource
     }
 
     private fun hideDeviceSwitch(): Boolean {
-        if (!SystemUiEnhancementGate.isEnabled()) return false
-        return prefs?.getBoolean(
-            RootConstants.KEY_HOOK_ISLAND_EXPANDED_MEDIA_HIDE_DEVICE_SWITCH,
-            RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_HIDE_DEVICE_SWITCH
-        ) ?: RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_HIDE_DEVICE_SWITCH
+        if (!MediaCardRuntimeConfig.current.enabled) return false
+        return MediaCardRuntimeConfig.current.islandExpanded.hideDeviceSwitch
+    }
+
+    private fun hideCustomActions(): Boolean {
+        if (!MediaCardRuntimeConfig.current.enabled) return false
+        return MediaCardRuntimeConfig.current.islandExpanded.hideCustomActions
+    }
+
+    private fun hideTime(): Boolean {
+        if (!MediaCardRuntimeConfig.current.enabled) return false
+        return MediaCardRuntimeConfig.current.islandExpanded.hideTime
     }
 
     private val Configuration.isNightMode: Boolean
@@ -1140,17 +993,6 @@ object IslandExpandedMediaAmbientFlowHooker {
         val request: AtomicInteger = AtomicInteger()
     )
 
-    private data class FakeFlowState(
-        val binder: Any,
-        var target: IslandExpandedBackgroundTarget,
-        var api: NativeApi,
-        val flowView: MediaFlowBackgroundView,
-        var originalTransitionBackground: Drawable? = null,
-        var originalOccludingBackgrounds: List<Pair<View, Drawable?>> = emptyList(),
-        var hiddenHolderFlows: List<MediaFlowBackgroundView> = emptyList(),
-        var active: Boolean = false
-    )
-
     private data class ViewThemeState(
         val target: IslandExpandedBackgroundTarget,
         val miniBar: View?,
@@ -1161,6 +1003,12 @@ object IslandExpandedMediaAmbientFlowHooker {
         val originalColorFilter: ColorFilter?,
         val originalHeadGlowAlpha: Float,
         var suppressHeadGlow: Boolean = false
+    )
+
+    private data class SeekBarTrackState(
+        val paddingOffset: Int,
+        val trackPositionX: Float,
+        var applied: Boolean = false
     )
 
     private data class CardColors(
@@ -1183,7 +1031,7 @@ object IslandExpandedMediaAmbientFlowHooker {
                     secondaryText = color("media_secondary_text"),
                     durationText = color("media_duration_time_font_color"),
                     action = color("notification_media_action_button_light_color"),
-                    seekBarForeground = android.graphics.Color.BLACK,
+                    seekBarForeground = Color.BLACK,
                     seekBarBackground = color("media_seekbar_background_color")
                 )
             }
@@ -1194,7 +1042,7 @@ object IslandExpandedMediaAmbientFlowHooker {
         val hookMethods: List<Method>,
         private val holderField: Field,
         private val dummyHolderField: Field,
-        private val artworkField: Field,
+        private val artworkField: Field?,
         private val mediaBgViewField: Field,
         private val playerField: Field,
         private val contextField: Field,
@@ -1209,10 +1057,14 @@ object IslandExpandedMediaAmbientFlowHooker {
         private val seamlessField: Field,
         private val mediaDataField: Field,
         private val mediaDataIsPlayingField: Field,
+        private val mediaDataArtworkField: Field?,
         private val mediaDataPackageNameField: Field,
+        private val isArtworkUpdateField: Field?,
         private val seekBarField: Field,
         private val seekBarPaintField: Field,
         private val seekBarRuntimeShaderField: Field,
+        private val seekBarPaddingOffsetField: Field?,
+        private val seekBarTrackPositionField: Field?,
         private val seekBarHeadGlowAlphaField: Field,
         private val headAlphaListenerSeekBarField: Field,
         private val getActionListMethod: Method,
@@ -1225,6 +1077,13 @@ object IslandExpandedMediaAmbientFlowHooker {
     ) : IslandExpandedMediaBackgroundApi {
         private val expandedBackgroundMethods = Collections.synchronizedMap(
             WeakHashMap<ClassLoader, ExpandedBackgroundMethods>()
+        )
+        private val holderBackgrounds = IslandMediaBackgroundHostAdapter(
+            holderField = holderField,
+            dummyHolderField = dummyHolderField,
+            playerField = playerField,
+            titleTextField = titleTextField,
+            mediaBgViewField = mediaBgViewField
         )
 
         fun getHolders(binder: Any): List<Any> {
@@ -1240,8 +1099,13 @@ object IslandExpandedMediaAmbientFlowHooker {
 
         fun getPlayer(holder: Any): View = playerField.get(holder) as View
 
+        fun getMusicWaveColor(holder: Any): Int {
+            return (titleTextField.get(holder) as TextView).currentTextColor
+        }
+
         fun getMediaElements(holder: Any): IslandExpandedMediaElements {
             val player = getPlayer(holder)
+
             @Suppress("UNCHECKED_CAST")
             val actions = getActionListMethod.invoke(holder) as List<View>
             val actionsId = player.resources.getIdentifier(
@@ -1259,6 +1123,9 @@ object IslandExpandedMediaAmbientFlowHooker {
                 artist = artistTextField.get(holder) as View,
                 actionsAnchor = requireNotNull(player.findViewById(actionsId)),
                 firstAction = actions.first(),
+                actionButtons = actions,
+                elapsedTime = elapsedTimeViewField.get(holder) as View,
+                totalTime = totalTimeViewField.get(holder) as View,
                 player = player
             )
         }
@@ -1270,21 +1137,120 @@ object IslandExpandedMediaAmbientFlowHooker {
 
         fun getSeekBar(holder: Any): View = seekBarField.get(holder) as View
 
+        fun captureSeekBarTrackState(seekBar: View): SeekBarTrackState? {
+            val paddingField = seekBarPaddingOffsetField ?: return null
+            val trackPositionField = seekBarTrackPositionField ?: return null
+            val trackPosition = trackPositionField.get(seekBar) as? FloatArray ?: return null
+            return SeekBarTrackState(
+                paddingOffset = paddingField.getInt(seekBar),
+                trackPositionX = trackPosition.firstOrNull() ?: return null
+            )
+        }
+
+        fun setSeekBarTrackOffset(seekBar: View, paddingOffset: Int, trackPositionX: Float) {
+            val paddingField = seekBarPaddingOffsetField ?: return
+            val trackPositionField = seekBarTrackPositionField ?: return
+            paddingField.setInt(seekBar, paddingOffset)
+            val trackPosition = trackPositionField.get(seekBar) as? FloatArray ?: return
+            if (trackPosition.isEmpty()) return
+            trackPosition[0] = trackPositionX
+            runCatching {
+                val shader = seekBarRuntimeShaderField.get(seekBar) ?: return@runCatching
+                val setFloatUniform = shader.javaClass.methods.find { method ->
+                    method.name == "setFloatUniform" &&
+                            method.parameterCount == 2 &&
+                            method.parameterTypes[0] == String::class.java &&
+                            method.parameterTypes[1] == FloatArray::class.java
+                } ?: return@runCatching
+                setFloatUniform.invoke(shader, "uTrackPosition", trackPosition)
+            }
+            seekBar.requestLayout()
+            seekBar.invalidate()
+        }
+
         fun getHeadAlphaListenerSeekBar(listener: Any): View {
             return headAlphaListenerSeekBarField.get(listener) as View
         }
 
         override fun getContext(binder: Any): Context = contextField.get(binder) as Context
 
-        override fun getPackageName(binder: Any): String? {
-            val mediaData = mediaDataField.get(binder) ?: return null
+        override fun getMediaPackageName(mediaData: Any): String? {
             return mediaDataPackageNameField.get(mediaData) as? String
         }
 
+        override fun getMediaArtwork(mediaData: Any): Icon? {
+            return runCatching {
+                mediaDataArtworkField?.get(mediaData) as? Icon
+            }.getOrNull()
+        }
+
+        override fun isArtworkUpdated(binder: Any): Boolean? {
+            val field = isArtworkUpdateField ?: return null
+            return runCatching { field.get(binder) as? Boolean }.getOrNull()
+        }
+
+        override fun supportsCustomBackground(): Boolean {
+            // Match XiaomiHelper: pull-down tracking is an optional visual companion,
+            // not a prerequisite for binding the real/dummy custom backgrounds.
+            return true
+        }
+
+        override fun getBackgroundRetryView(binder: Any): View? {
+            val holder = holderField.get(binder) ?: return null
+            return playerField.get(holder) as? View
+        }
+
         override fun getBackgroundHosts(binder: Any): List<IslandExpandedMediaBackgroundHost> {
-            return getHolders(binder).mapNotNull { holder ->
-                val target = findExpandedBackgroundTarget(getPlayer(holder)) ?: return@mapNotNull null
-                IslandExpandedMediaBackgroundHost(target, holder, getMiniBar(target))
+            val holders = getHolders(binder)
+            if (holders.size != 2) return emptyList()
+            val dedicatedHosts = holderBackgrounds.getOrCreateHosts(binder)
+                .toMap()
+            if (dedicatedHosts.size != holders.size ||
+                holders.any { holder -> holder !in dedicatedHosts }
+            ) {
+                return emptyList()
+            }
+            val hosts = holders.mapNotNull { holder ->
+                val dedicatedHost = dedicatedHosts[holder] ?: return@mapNotNull null
+                val player = dedicatedHost.player
+                // The real and dummy holders are the source of truth here.  Do
+                // not borrow the outer expanded/fake viewport: their bounds
+                // change during transitions and make the two card backgrounds
+                // crop differently.  XiaomiHelper likewise renders against each
+                // holder's media background.
+                val target = IslandExpandedBackgroundTarget(
+                    owner = player,
+                    expandedView = player,
+                    measurementView = player,
+                    customBackgroundView = dedicatedHost.customBackground,
+                    nativeBackgroundViews = emptyList(),
+                    nativeFlowViews = emptyList()
+                )
+                IslandExpandedMediaBackgroundHost(target, holder)
+            }
+            return hosts.takeIf { it.size == holders.size } ?: emptyList()
+        }
+
+        fun removeHolderBackgrounds(binder: Any) {
+            holderBackgrounds.detach(binder)
+        }
+
+        fun applyDummyMiniBarTracking(
+            dummyHolder: Any,
+            action: String,
+            pullDownOffset: Float
+        ) {
+            if (!IslandExpandedMediaBackgroundController.isActive()) return
+            val mediaBackground = holderBackgrounds.findHost(dummyHolder)?.customBackground
+                ?: return
+            when (action) {
+                "pull_down_type_start" -> mediaBackground.pivotY = 0f
+                "pull_down_type_update" -> {
+                    val height = mediaBackground.height
+                    if (height > 0) {
+                        mediaBackground.scaleY = (height + pullDownOffset) / height.toFloat()
+                    }
+                }
             }
         }
 
@@ -1411,27 +1377,21 @@ object IslandExpandedMediaAmbientFlowHooker {
                 val realView = contentView.javaClass.methods.single {
                     it.name == "getRealView" && it.parameterTypes.isEmpty()
                 }.invoke(contentView) as View
+
                 fun realDimension(name: String): Int {
                     return (realView.javaClass.methods.single {
                         it.name == name && it.parameterTypes.isEmpty()
                     }.invoke(realView) as Number).toInt()
                 }
-                val left = realDimension("getExpandedViewMarginHorizontal")
-                val top = realDimension("getIslandViewMarginTop")
+
                 val width = realDimension("getExpandedViewWidth")
                 val height = realDimension("getExpandedViewHeight")
-                val fakeContainer = contentView.javaClass.methods.single {
-                    it.name == "getFakeContainer" && it.parameterTypes.isEmpty()
-                }.invoke(contentView) as View
                 return IslandExpandedBackgroundTarget(
                     owner = contentView,
                     expandedView = expandedView,
                     customBackgroundView = expandedView,
-                    extensionBackgroundView = contentView,
                     viewportWidth = width,
                     viewportHeight = height,
-                    transitionContentBounds = Rect(left, top, left + width, top + height),
-                    transitionOccludingViews = listOf(fakeContainer),
                     nativeBackgroundViews = listOf(expandedView)
                 )
             }
@@ -1481,15 +1441,29 @@ object IslandExpandedMediaAmbientFlowHooker {
         }
 
         override fun prepareCustomBackground(target: IslandExpandedBackgroundTarget) {
+            if (target.customBackgroundView !== target.expandedView) {
+                target.customBackgroundView.visibility = View.VISIBLE
+                target.nativeFlowViews.forEach { view -> hideAmbientFlow(view, this) }
+                return
+            }
             val methods = expandedBackgroundMethods(target)
             target.nativeBackgroundViews.forEach { view ->
                 methods.setMiViewBlurMode.invoke(null, view, 0)
                 methods.clearMiBackgroundBlendColor.invoke(null, view)
                 if (view !== target.customBackgroundView) view.background = null
             }
+            target.nativeFlowViews.forEach { view -> hideAmbientFlow(view, this) }
         }
 
         override fun restoreNativeBackground(target: IslandExpandedBackgroundTarget) {
+            target.nativeFlowViews.forEach(::restoreViewAlpha)
+            if (target.customBackgroundView !== target.expandedView) {
+                (target.customBackgroundView as? ImageView)?.setImageDrawable(null)
+                    ?: run { target.customBackgroundView.background = null }
+                target.customBackgroundView.visibility = View.INVISIBLE
+                target.customBackgroundView.scaleY = 1f
+                return
+            }
             target.nativeBackgroundViews.forEach { view ->
                 expandedBackgroundMethods(target).updateBackgroundBg.invoke(
                     target.owner,
@@ -1522,7 +1496,10 @@ object IslandExpandedMediaAmbientFlowHooker {
             return false
         }
 
-        override fun getArtwork(binder: Any): Drawable? = artworkField.get(binder) as? Drawable
+        fun getArtwork(binder: Any): Drawable? {
+            val field = artworkField ?: return null
+            return runCatching { field.get(binder) as? Drawable }.getOrNull()
+        }
 
         fun pause(view: View) {
             pauseMethod.invoke(view)
@@ -1593,7 +1570,6 @@ object IslandExpandedMediaAmbientFlowHooker {
                 val headAlphaUpdate = headAlphaListenerClass.declaredMethods.single {
                     it.name == "onUpdate" && it.parameterCount == 2
                 }.apply { isAccessible = true }
-
                 return NativeApi(
                     hookMethods = listOf(
                         attach,
@@ -1614,9 +1590,11 @@ object IslandExpandedMediaAmbientFlowHooker {
                     dummyHolderField = binderClass.getDeclaredField("dummyHolder").apply {
                         isAccessible = true
                     },
-                    artworkField = binderClass.getDeclaredField("artWorkDrawable").apply {
-                        isAccessible = true
-                    },
+                    artworkField = findOptionalField(
+                        owner = binderClass,
+                        candidateNames = listOf("artWorkDrawable", "artworkDrawable"),
+                        expectedType = Drawable::class.java
+                    ),
                     mediaBgViewField = holderClass.getDeclaredField("mediaBgView").apply {
                         isAccessible = true
                     },
@@ -1659,21 +1637,44 @@ object IslandExpandedMediaAmbientFlowHooker {
                     mediaDataIsPlayingField = mediaDataClass.getDeclaredField("isPlaying").apply {
                         isAccessible = true
                     },
-                    mediaDataPackageNameField = mediaDataClass.getDeclaredField("packageName").apply {
-                        isAccessible = true
-                    },
+                    mediaDataArtworkField = findOptionalField(
+                        owner = mediaDataClass,
+                        candidateNames = listOf("artwork", "artWork"),
+                        expectedType = Icon::class.java
+                    ),
+                    mediaDataPackageNameField = mediaDataClass.getDeclaredField("packageName")
+                        .apply {
+                            isAccessible = true
+                        },
+                    isArtworkUpdateField = runCatching {
+                        binderClass.getDeclaredField("isArtWorkUpdate").apply {
+                            isAccessible = true
+                        }
+                    }.getOrNull(),
                     seekBarField = holderClass.getDeclaredField("seekBar").apply {
                         isAccessible = true
                     },
                     seekBarPaintField = seekBarClass.getDeclaredField("mPaint").apply {
                         isAccessible = true
                     },
-                    seekBarRuntimeShaderField = seekBarClass.getDeclaredField("runtimeShader").apply {
-                        isAccessible = true
-                    },
-                    seekBarHeadGlowAlphaField = seekBarClass.getDeclaredField("uHeadGlowAlpha").apply {
-                        isAccessible = true
-                    },
+                    seekBarRuntimeShaderField = seekBarClass.getDeclaredField("runtimeShader")
+                        .apply {
+                            isAccessible = true
+                        },
+                    seekBarPaddingOffsetField = runCatching {
+                        seekBarClass.getDeclaredField("mProgressPaddingOffset").apply {
+                            isAccessible = true
+                        }
+                    }.getOrNull(),
+                    seekBarTrackPositionField = runCatching {
+                        seekBarClass.getDeclaredField("uTrackPosition").apply {
+                            isAccessible = true
+                        }
+                    }.getOrNull(),
+                    seekBarHeadGlowAlphaField = seekBarClass.getDeclaredField("uHeadGlowAlpha")
+                        .apply {
+                            isAccessible = true
+                        },
                     headAlphaListenerSeekBarField = headAlphaListenerClass.getDeclaredField(
                         "this\$0"
                     ).apply { isAccessible = true },
@@ -1701,6 +1702,29 @@ object IslandExpandedMediaAmbientFlowHooker {
                     ).apply { isAccessible = true },
                     getPaletteColorMethod = getPaletteColor
                 )
+            }
+
+            private fun findOptionalField(
+                owner: Class<*>,
+                candidateNames: List<String>,
+                expectedType: Class<*>
+            ): Field? {
+                val hierarchy = generateSequence(owner as Class<*>?) { it.superclass }.toList()
+                candidateNames.forEach { name ->
+                    hierarchy.forEach { type ->
+                        runCatching { type.getDeclaredField(name) }.getOrNull()?.let { field ->
+                            if (expectedType.isAssignableFrom(field.type)) {
+                                field.isAccessible = true
+                                return field
+                            }
+                        }
+                    }
+                }
+                return hierarchy
+                    .flatMap { it.declaredFields.asList() }
+                    .filter { expectedType.isAssignableFrom(it.type) }
+                    .singleOrNull()
+                    ?.apply { isAccessible = true }
             }
         }
     }

@@ -9,8 +9,8 @@ import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Matrix
 import android.graphics.Paint
-import android.graphics.RuntimeShader
 import android.graphics.Rect
+import android.graphics.RuntimeShader
 import android.graphics.Shader
 import android.os.SystemClock
 import android.view.Choreographer
@@ -40,7 +40,8 @@ internal data class MediaSoftPalette(
 }
 
 internal object MediaSoftPaletteExtractor {
-    private val fallbackColors = listOf(0xffe60012.toInt(), 0xffff7a3d.toInt(), 0xff4d68ff.toInt(), 0xffd64d9d.toInt())
+    private val fallbackColors =
+        listOf(0xffe60012.toInt(), 0xffff7a3d.toInt(), 0xff4d68ff.toInt(), 0xffd64d9d.toInt())
 
     fun extract(bitmap: Bitmap): MediaSoftPalette? {
         if (bitmap.isRecycled) return null
@@ -143,18 +144,21 @@ internal object MediaSoftPaletteExtractor {
                 )
             }
         }
+
         2 -> listOf(
             colors[0],
             colors[0].adjustHsl(hueDelta = 12f, lightnessDelta = 0.05f),
             colors[1].adjustHsl(hueDelta = -12f, lightnessDelta = -0.04f),
             colors[1]
         )
+
         3 -> listOf(
             colors[0],
             colors[1],
             colors[2],
             colors[0].adjustHsl(hueDelta = 18f, lightnessDelta = 0.07f)
         )
+
         else -> colors.take(4)
     }
 
@@ -198,9 +202,9 @@ internal object MediaSoftArtworkFactory {
             for (x in 0 until TEXTURE_SIZE) {
                 val normalizedX = x / denominator
                 val warpedX = normalizedX + sin(normalizedY * PI * 2.0).toFloat() * 0.075f +
-                    sin((normalizedX + normalizedY) * PI).toFloat() * 0.035f
+                        sin((normalizedX + normalizedY) * PI).toFloat() * 0.035f
                 val warpedY = normalizedY + cos(normalizedX * PI * 2.0).toFloat() * 0.065f -
-                    sin((normalizedX - normalizedY) * PI).toFloat() * 0.030f
+                        sin((normalizedX - normalizedY) * PI).toFloat() * 0.030f
                 var totalWeight = 0f
                 var lightness = 0f
                 var greenRed = 0f
@@ -211,8 +215,8 @@ internal object MediaSoftArtworkFactory {
                     val areaWeight = dominance[index]
                     val weight =
                         exp((-(dx * dx + dy * dy) * 5.2f).toDouble()).toFloat() *
-                            (0.55f + areaWeight * 2.6f) +
-                            0.006f + areaWeight * 0.11f
+                                (0.55f + areaWeight * 2.6f) +
+                                0.006f + areaWeight * 0.11f
                     totalWeight += weight
                     lightness += colors[index].l * weight
                     greenRed += colors[index].a * weight
@@ -241,8 +245,28 @@ internal object MediaSoftArtworkFactory {
         val flow = createBitmap(width, height)
         val canvas = Canvas(flow)
         drawLayer(canvas, texture, width, height, angle = 0f, zoom = 1.34f, alpha = 255)
-        drawLayer(canvas, texture, width, height, angle = 97f, zoom = 1.48f, offsetX = -0.08f, offsetY = -0.06f, alpha = 82)
-        drawLayer(canvas, texture, width, height, angle = 218f, zoom = 1.58f, offsetX = 0.07f, offsetY = 0.08f, alpha = 62)
+        drawLayer(
+            canvas,
+            texture,
+            width,
+            height,
+            angle = 97f,
+            zoom = 1.48f,
+            offsetX = -0.08f,
+            offsetY = -0.06f,
+            alpha = 82
+        )
+        drawLayer(
+            canvas,
+            texture,
+            width,
+            height,
+            angle = 218f,
+            zoom = 1.58f,
+            offsetX = 0.07f,
+            offsetY = 0.08f,
+            alpha = 62
+        )
 
         val appearance = appearance(tone)
         val result = createBitmap(width, height)
@@ -265,6 +289,7 @@ internal object MediaSoftArtworkFactory {
             surfaceBlend = 0.39f,
             saturation = 1.18f
         )
+
         MediaFlowTone.LIGHT -> MediaFlowAppearance(
             surface = 0xfff3f3f5.toInt(),
             surfaceBlend = 0.65f,
@@ -284,7 +309,7 @@ internal object MediaSoftArtworkFactory {
         alpha: Int
     ) {
         val shader = BitmapShader(texture, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply {
-            setFilterMode(BitmapShader.FILTER_MODE_LINEAR)
+            filterMode = BitmapShader.FILTER_MODE_LINEAR
         }
         val scale = max(width, height) / TEXTURE_SIZE.toFloat() * zoom
         val matrix = Matrix().apply {
@@ -294,10 +319,15 @@ internal object MediaSoftArtworkFactory {
             postTranslate(width / 2f + width * offsetX, height / 2f + height * offsetY)
         }
         shader.setLocalMatrix(matrix)
-        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            this.shader = shader
-            this.alpha = alpha
-        })
+        canvas.drawRect(
+            0f,
+            0f,
+            width.toFloat(),
+            height.toFloat(),
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                this.shader = shader
+                this.alpha = alpha
+            })
     }
 
     private data class Oklab(val l: Float, val a: Float, val b: Float)
@@ -369,8 +399,8 @@ internal class MediaFlowArtwork private constructor(
 
     override fun equals(other: Any?): Boolean =
         other is MediaFlowArtwork &&
-            signature == other.signature &&
-            pixels.contentEquals(other.pixels)
+                signature == other.signature &&
+                pixels.contentEquals(other.pixels)
 
     override fun hashCode(): Int = signature
 
@@ -502,7 +532,7 @@ internal class MediaFlowTimeline {
     fun currentTimeSeconds(): Float {
         if (!playing) return accumulatedSeconds
         return accumulatedSeconds +
-            (SystemClock.elapsedRealtimeNanos() - startedAtNanos) / 1_000_000_000f
+                (SystemClock.elapsedRealtimeNanos() - startedAtNanos) / 1_000_000_000f
     }
 }
 
@@ -652,7 +682,7 @@ internal class MediaFlowBackgroundView(
             artwork.createBitmap(),
             Shader.TileMode.CLAMP,
             Shader.TileMode.CLAMP
-        ).apply { setFilterMode(BitmapShader.FILTER_MODE_LINEAR) }
+        ).apply { filterMode = BitmapShader.FILTER_MODE_LINEAR }
     }
 
     private fun updateShaderArtwork() {
@@ -807,8 +837,11 @@ internal object MediaFlowOverlayLayout {
         }.recoverCatching {
             val intType = Int::class.javaPrimitiveType ?: error("No primitive int type")
             sourceClass.getDeclaredConstructor(intType, intType).apply { isAccessible = true }
-                .newInstance(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-                as ViewGroup.LayoutParams
+                .newInstance(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+                    as ViewGroup.LayoutParams
         }.getOrNull()
     }
 }

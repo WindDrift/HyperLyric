@@ -5,16 +5,13 @@ import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.Icon
-import android.os.Handler
-import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
 import com.lidesheng.hyperlyric.common.RootConstants
-import com.lidesheng.hyperlyric.root.HookEntry
-import com.lidesheng.hyperlyric.root.SystemUiEnhancementGate
 import com.lidesheng.hyperlyric.root.mediacard.MediaAmbientFlowPalette
 import com.lidesheng.hyperlyric.root.mediacard.MediaAmbientFlowPaletteExtractor
 import com.lidesheng.hyperlyric.root.mediacard.MediaArtworkSampler
+import com.lidesheng.hyperlyric.root.mediacard.MediaCardRuntimeConfig
 import com.lidesheng.hyperlyric.root.mediacard.background.MediaFlowArtwork
 import com.lidesheng.hyperlyric.root.mediacard.background.MediaFlowBackgroundView
 import com.lidesheng.hyperlyric.root.mediacard.background.MediaFlowOverlayLayout
@@ -45,32 +42,16 @@ object NotificationMediaAmbientFlowHooker {
         Collections.newSetFromMap(WeakHashMap<ClassLoader, Boolean>())
     )
     private val states = Collections.synchronizedMap(WeakHashMap<Any, ControllerState>())
-    private val activeControllers = Collections.synchronizedSet(
-        Collections.newSetFromMap(WeakHashMap<Any, Boolean>())
-    )
     private val themeStates = Collections.synchronizedMap(WeakHashMap<Any, ControllerThemeState>())
-    private val nativeApis = Collections.synchronizedMap(WeakHashMap<ClassLoader, NativeMusicBgApi>())
+    private val nativeApis =
+        Collections.synchronizedMap(WeakHashMap<ClassLoader, NativeMusicBgApi>())
     private val themeApis = Collections.synchronizedMap(WeakHashMap<ClassLoader, CardThemeApi>())
     private val nativeUnavailableClassLoaders = Collections.synchronizedSet(
         Collections.newSetFromMap(WeakHashMap<ClassLoader, Boolean>())
     )
-    @Volatile
-    private var colorExecutor = newColorExecutor()
-
-    @Volatile
-    private var module: XposedModule? = null
-
-    private val prefs
-        get() = (module as? HookEntry)?.prefs
-
-    fun initialize(xposedModule: XposedModule) {
-        module = xposedModule
-        NotificationMediaBackgroundController.initialize(xposedModule)
-        if (colorExecutor.isShutdown) colorExecutor = newColorExecutor()
-    }
+    private val colorExecutor = newColorExecutor()
 
     fun hook(xposedModule: XposedModule, classLoader: ClassLoader) {
-        initialize(xposedModule)
         if (!hookedClassLoaders.add(classLoader)) return
 
         val controllerClass = controllerClassNames.firstNotNullOfOrNull { className ->
@@ -105,7 +86,7 @@ object NotificationMediaAmbientFlowHooker {
             installedNativeUpdates.containsAll(NATIVE_BACKGROUND_UPDATE_METHODS)
         )
         if (!installedNativeUpdates.containsAll(NATIVE_BACKGROUND_UPDATE_METHODS)) {
-                HookLogger.w(TAG, "通知中心原生背景接口不完整，跳过自定义背景 Hook")
+            HookLogger.w(TAG, "通知中心原生背景接口不完整，跳过自定义背景 Hook")
         }
 
         runCatching {
@@ -117,7 +98,7 @@ object NotificationMediaAmbientFlowHooker {
                 installed++
             }
         }.onFailure { error ->
-                HookLogger.w(TAG, "通知中心进度条接口不可用: reason=${error.message}")
+            HookLogger.w(TAG, "通知中心进度条接口不可用: reason=${error.message}")
         }
 
         if (installed == 0) {
@@ -154,46 +135,19 @@ object NotificationMediaAmbientFlowHooker {
         }
     }
 
-    fun releaseAll() {
-        val snapshot = synchronized(states) { states.toMap() }
-        val controllers = synchronized(activeControllers) { activeControllers.toList() }
-        states.clear()
-        activeControllers.clear()
-        colorExecutor.shutdownNow()
-        NotificationMediaBackgroundController.releaseAll()
-        val cleanup = Runnable {
-            controllers.forEach(::restoreCardTheme)
-            snapshot.values.forEach(::disposeState)
-            themeStates.clear()
-            nativeApis.clear()
-            themeApis.clear()
-            nativeUnavailableClassLoaders.clear()
-        }
-        if (Looper.myLooper() == Looper.getMainLooper()) {
-            cleanup.run()
-        } else {
-            Handler(Looper.getMainLooper()).post(cleanup)
-        }
-    }
-
     class ControllerHook(private val action: Action) : Hooker {
         override fun intercept(chain: Chain): Any? {
             val controller = chain.thisObject ?: return chain.proceed()
-            if (!SystemUiEnhancementGate.isEnabled()) {
+            if (!MediaCardRuntimeConfig.current.enabled) {
                 if (action == Action.DETACH) {
-                    activeControllers.remove(controller)
                     removeView(controller, forgetState = true)
                     NotificationMediaBackgroundController.onDetach(controller)
                     restoreCardTheme(controller)
                 }
                 val result = chain.proceed()
-                if (action == Action.ATTACH || action == Action.BIND) {
-                    activeControllers.add(controller)
-                }
                 return result
             }
             if (action == Action.DETACH) {
-                activeControllers.remove(controller)
                 removeView(controller, forgetState = true)
                 NotificationMediaBackgroundController.onDetach(controller)
                 restoreCardTheme(controller)
@@ -212,17 +166,17 @@ object NotificationMediaAmbientFlowHooker {
             runCatching {
                 when (action) {
                     Action.ATTACH -> {
-                        activeControllers.add(controller)
                         syncView(controller)
                     }
+
                     Action.BIND -> {
-                        activeControllers.add(controller)
                         NotificationMediaBackgroundController.onBind(
                             controller,
                             chain.args.firstOrNull()
                         )
                         bind(controller, chain.args.firstOrNull())
                     }
+
                     Action.DETACH -> Unit
                 }
             }.onFailure { error ->
@@ -240,9 +194,12 @@ object NotificationMediaAmbientFlowHooker {
 
     class NativeBackgroundUpdateHook : Hooker {
         override fun intercept(chain: Chain): Any? {
-            if (!SystemUiEnhancementGate.isEnabled()) return chain.proceed()
+            if (!MediaCardRuntimeConfig.current.enabled) return chain.proceed()
             val controller = chain.thisObject ?: return chain.proceed()
-            return if (NotificationMediaBackgroundController.isActive(controller)) {
+            return if (NotificationMediaBackgroundController.shouldSuppressNativeBackground(
+                    controller
+                )
+            ) {
                 null
             } else {
                 chain.proceed()
@@ -252,59 +209,16 @@ object NotificationMediaAmbientFlowHooker {
 
     class ProgressDrawHook : Hooker {
         override fun intercept(chain: Chain): Any? {
-            if (SystemUiEnhancementGate.isEnabled()) {
+            if (MediaCardRuntimeConfig.current.enabled) {
                 chain.thisObject?.let(NotificationMediaBackgroundController::applySeekBarColor)
             }
             return chain.proceed()
         }
     }
 
-    fun refreshCardTheme() {
-        val refresh = Runnable {
-            val snapshot = synchronized(activeControllers) { activeControllers.toList() }
-            snapshot.forEach { controller ->
-                runCatching {
-                    refreshCardTheme(controller)
-                    syncView(controller)
-                }
-                    .onFailure { HookLogger.e(TAG, "刷新通知中心媒体卡片主题失败", it) }
-            }
-        }
-        if (Looper.myLooper() == Looper.getMainLooper()) refresh.run()
-        else Handler(Looper.getMainLooper()).post(refresh)
-    }
-
-    fun refreshBackgroundStyle() {
-        val controllers = synchronized(activeControllers) { activeControllers.toList() }
-        controllers.forEach { controller ->
-            if (NotificationMediaBackgroundController.isActive(controller)) {
-                restoreCardTheme(controller)
-            }
-        }
-        NotificationMediaBackgroundController.refresh(controllers) { controller ->
-            runCatching { refreshCardTheme(controller) }
-                .onFailure { HookLogger.e(TAG, "恢复通知中心原生媒体背景失败", it) }
-        }
-        controllers.forEach(::syncView)
-    }
-
-    fun refreshAmbientFlow() {
-        val refresh = Runnable {
-            synchronized(activeControllers) { activeControllers.toList() }.forEach(::syncView)
-        }
-        if (Looper.myLooper() == Looper.getMainLooper()) refresh.run()
-        else Handler(Looper.getMainLooper()).post(refresh)
-    }
-
     private fun prepareCardTheme(controller: Any) {
         val api = resolveThemeApi(controller.javaClass.classLoader) ?: return
-        api.apply(controller, currentCardTheme(), refreshViews = false)
-    }
-
-    private fun refreshCardTheme(controller: Any) {
-        if (NotificationMediaBackgroundController.isActive(controller)) return
-        val api = resolveThemeApi(controller.javaClass.classLoader) ?: return
-        api.apply(controller, currentCardTheme(), refreshViews = true)
+        api.apply(controller, currentCardTheme())
     }
 
     private fun restoreCardTheme(controller: Any) {
@@ -387,7 +301,7 @@ object NotificationMediaAmbientFlowHooker {
                     }
                 }
             }.getOrElse { error ->
-            HookLogger.e(TAG, "提取通知中心媒体封面颜色失败", error)
+                HookLogger.e(TAG, "提取通知中心媒体封面颜色失败", error)
                 null
             }
             view.post {
@@ -440,14 +354,15 @@ object NotificationMediaAmbientFlowHooker {
             outlineProvider = mediaBg.outlineProvider
             clipToOutline = true
         }
-        val layoutParams = MediaFlowOverlayLayout.createConstraintFill(mediaBg.layoutParams) ?: run {
-            HookLogger.w(
-                TAG,
-                "无法创建独立媒体背景约束，跳过流光视图"
-            )
-            stopView(view, nativeApi)
-            return null
-        }
+        val layoutParams =
+            MediaFlowOverlayLayout.createConstraintFill(mediaBg.layoutParams) ?: run {
+                HookLogger.w(
+                    TAG,
+                    "无法创建独立媒体背景约束，跳过流光视图"
+                )
+                stopView(view, nativeApi)
+                return null
+            }
         val index = (parent.indexOfChild(mediaBg) + 1).coerceAtMost(parent.childCount)
         parent.addView(view, index, layoutParams)
         state.colorRequest.incrementAndGet()
@@ -573,11 +488,11 @@ object NotificationMediaAmbientFlowHooker {
         return runCatching { NativeMusicBgApi.create(classLoader) }
             .onSuccess { api ->
                 nativeApis[classLoader] = api
-            HookLogger.d(TAG, "使用原生 MusicBgView 渲染器")
+                HookLogger.d(TAG, "使用原生 MusicBgView 渲染器")
             }
             .onFailure { error ->
                 nativeUnavailableClassLoaders.add(classLoader)
-            HookLogger.w(TAG, "原生 MusicBgView 不可用: reason=${error.message}")
+                HookLogger.w(TAG, "原生 MusicBgView 不可用: reason=${error.message}")
             }
             .getOrNull()
     }
@@ -605,9 +520,9 @@ object NotificationMediaAmbientFlowHooker {
         while (current != null) {
             val methods = current.declaredMethods.filter { method ->
                 method.name == name &&
-                    !method.isBridge &&
-                    !method.isSynthetic &&
-                    !Modifier.isAbstract(method.modifiers)
+                        !method.isBridge &&
+                        !method.isSynthetic &&
+                        !Modifier.isAbstract(method.modifiers)
             }
             if (methods.isNotEmpty()) return methods
             current = current.superclass
@@ -616,16 +531,10 @@ object NotificationMediaAmbientFlowHooker {
     }
 
     private fun currentMode(): Int {
-        if (!SystemUiEnhancementGate.isEnabled()) {
+        if (!MediaCardRuntimeConfig.current.enabled) {
             return RootConstants.NOTIFICATION_MEDIA_AMBIENT_FLOW_MODE_DISABLED
         }
-        return prefs?.getInt(
-            RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_AMBIENT_FLOW_MODE,
-            RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_AMBIENT_FLOW_MODE
-        )?.coerceIn(
-            RootConstants.NOTIFICATION_MEDIA_AMBIENT_FLOW_MODE_DISABLED,
-            RootConstants.NOTIFICATION_MEDIA_AMBIENT_FLOW_MODE_CUSTOM_FULL
-        ) ?: RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_AMBIENT_FLOW_MODE
+        return MediaCardRuntimeConfig.current.notification.ambientFlowMode
     }
 
     private fun isCustomMode(mode: Int): Boolean =
@@ -636,22 +545,16 @@ object NotificationMediaAmbientFlowHooker {
             RootConstants.MEDIA_CARD_THEME_ALWAYS_LIGHT -> true
             RootConstants.MEDIA_CARD_THEME_ALWAYS_DARK -> false
             else -> context.resources.configuration.uiMode and
-                Configuration.UI_MODE_NIGHT_MASK != Configuration.UI_MODE_NIGHT_YES
+                    Configuration.UI_MODE_NIGHT_MASK != Configuration.UI_MODE_NIGHT_YES
         }
         return if (light) MediaFlowTone.LIGHT else MediaFlowTone.DARK
     }
 
     private fun currentCardTheme(): Int {
-        if (!SystemUiEnhancementGate.isEnabled()) {
+        if (!MediaCardRuntimeConfig.current.enabled) {
             return RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_CARD_THEME
         }
-        return prefs?.getInt(
-            RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_CARD_THEME,
-            RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_CARD_THEME
-        )?.coerceIn(
-            RootConstants.MEDIA_CARD_THEME_FOLLOW_SYSTEM,
-            RootConstants.MEDIA_CARD_THEME_ALWAYS_DARK
-        ) ?: RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_CARD_THEME
+        return MediaCardRuntimeConfig.current.notification.cardTheme
     }
 
     private data class ControllerState(
@@ -678,19 +581,19 @@ object NotificationMediaAmbientFlowHooker {
     }
 
     private class CardThemeApi private constructor(
-        private val contextField: Field,
-        private val updateForegroundColorsMethod: Method,
-        private val updateMediaBackgroundMethod: Method
+        private val contextField: Field
     ) {
-        fun apply(controller: Any, theme: Int, refreshViews: Boolean) {
+        fun apply(controller: Any, theme: Int) {
             val existingState = themeStates[controller]
             val originalContext = existingState?.originalContext
                 ?: contextField.get(controller) as Context
             val themedContext = when (theme) {
                 RootConstants.MEDIA_CARD_THEME_ALWAYS_LIGHT ->
                     originalContext.withNightMode(Configuration.UI_MODE_NIGHT_NO)
+
                 RootConstants.MEDIA_CARD_THEME_ALWAYS_DARK ->
                     originalContext.withNightMode(Configuration.UI_MODE_NIGHT_YES)
+
                 else -> originalContext
             }
 
@@ -704,10 +607,6 @@ object NotificationMediaAmbientFlowHooker {
                 contextField.set(controller, themedContext)
             }
 
-            if (refreshViews) {
-                updateForegroundColorsMethod.invoke(controller)
-                updateMediaBackgroundMethod.invoke(controller)
-            }
         }
 
         fun restore(controller: Any) {
@@ -728,13 +627,7 @@ object NotificationMediaAmbientFlowHooker {
                     runCatching { classLoader.loadClass(className) }.getOrNull()
                 } ?: error("Media controller class is unavailable")
                 return CardThemeApi(
-                    contextField = findRequiredField(controllerClass, "context"),
-                    updateForegroundColorsMethod = controllerClass.declaredMethods.single {
-                        it.name == "updateForegroundColors" && it.parameterCount == 0
-                    }.apply { isAccessible = true },
-                    updateMediaBackgroundMethod = controllerClass.declaredMethods.single {
-                        it.name == "updateMediaBackground" && it.parameterCount == 0
-                    }.apply { isAccessible = true }
+                    contextField = findRequiredField(controllerClass, "context")
                 )
             }
 
@@ -820,8 +713,8 @@ object NotificationMediaAmbientFlowHooker {
                 val drawableUtils = classLoader.loadClass("com.miui.utils.DrawableUtils")
                 val drawableToBitmap = drawableUtils.declaredMethods.single { method ->
                     method.name == "drawable2Bitmap" &&
-                        method.parameterTypes.contentEquals(arrayOf(Drawable::class.java)) &&
-                        method.returnType == Bitmap::class.java
+                            method.parameterTypes.contentEquals(arrayOf(Drawable::class.java)) &&
+                            method.returnType == Bitmap::class.java
                 }.apply { isAccessible = true }
 
                 val miPalette = classLoader.loadClass("miuix.mipalette.MiPalette")

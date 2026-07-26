@@ -11,16 +11,12 @@ import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.Icon
 import android.graphics.drawable.TransitionDrawable
-import android.os.Handler
-import android.os.Looper
 import android.widget.ImageView
 import android.widget.SeekBar
 import android.widget.TextView
 import com.lidesheng.hyperlyric.common.RootConstants
-import com.lidesheng.hyperlyric.root.HookEntry
-import com.lidesheng.hyperlyric.root.SystemUiEnhancementGate
+import com.lidesheng.hyperlyric.root.mediacard.MediaCardRuntimeConfig
 import com.lidesheng.hyperlyric.root.utils.HookLogger
-import io.github.libxposed.api.XposedModule
 import java.lang.reflect.Field
 import java.util.Collections
 import java.util.WeakHashMap
@@ -40,19 +36,7 @@ internal object NotificationMediaBackgroundController {
     private val seekBarColors = Collections.synchronizedMap(WeakHashMap<SeekBar, Int>())
     private val seekBarStates = Collections.synchronizedMap(WeakHashMap<SeekBar, SeekBarState>())
 
-    @Volatile
-    private var module: XposedModule? = null
-
-    @Volatile
-    private var executor: ExecutorService = newExecutor()
-
-    private val prefs
-        get() = (module as? HookEntry)?.prefs
-
-    fun initialize(xposedModule: XposedModule) {
-        module = xposedModule
-        if (executor.isShutdown) executor = newExecutor()
-    }
+    private val executor: ExecutorService = newExecutor()
 
     fun isActive(controller: Any): Boolean {
         if (currentStyle() == RootConstants.NOTIFICATION_MEDIA_BACKGROUND_STYLE_DEFAULT) return false
@@ -66,7 +50,6 @@ internal object NotificationMediaBackgroundController {
 
     fun onBind(controller: Any, mediaData: Any?) {
         val state = states.getOrPut(controller) { ControllerState() }
-        state.lastMediaData = mediaData
         if (!isActive(controller)) {
             state.token = null
             state.customApplied = false
@@ -77,6 +60,7 @@ internal object NotificationMediaBackgroundController {
         val context = readField(controller, "context") as? Context ?: return
         val holder = readField(controller, "holder") ?: return
         val mediaBg = readField(holder, "mediaBg") as? ImageView ?: return
+        state.lastMediaData = mediaData
         if (state.mediaBg !== mediaBg || (!state.customApplied && !state.renderPending)) {
             captureNativeBackground(state, mediaBg)
         }
@@ -84,10 +68,16 @@ internal object NotificationMediaBackgroundController {
         val artwork = readField(mediaData, "artwork") as? Icon
         val width = mediaBg.measuredWidth.takeIf { it > 0 }
             ?: mediaBg.layoutParams?.width?.takeIf { it > 0 }
-            ?: return
+            ?: state.lastWidth
         val height = mediaBg.measuredHeight.takeIf { it > 0 }
             ?: mediaBg.layoutParams?.height?.takeIf { it > 0 }
-            ?: return
+            ?: state.lastHeight
+        if (width == null || height == null) {
+            scheduleMeasuredBind(controller, state, mediaBg)
+            return
+        }
+        state.lastWidth = width
+        state.lastHeight = height
         val style = currentStyle()
         val blurAmount = currentBlurAmount()
         val autoInvert = currentAutoInvert()
@@ -100,7 +90,10 @@ internal object NotificationMediaBackgroundController {
         state.token = token
         state.renderPending = true
         val request = state.request.incrementAndGet()
-        val renderer = resolveRenderer(controller.javaClass.classLoader) ?: return
+        val renderer = resolveRenderer(controller.javaClass.classLoader) ?: run {
+            state.renderPending = false
+            return
+        }
 
         executor.execute {
             val rendered = runCatching {
@@ -154,27 +147,44 @@ internal object NotificationMediaBackgroundController {
         }
     }
 
-    fun refresh(controllers: Collection<Any>, refreshNative: (Any) -> Unit) {
-        val task = Runnable {
-            controllers.forEach { controller ->
-                val state = states.getOrPut(controller) { ControllerState() }
-                state.token = null
-                state.renderPending = false
-                state.request.incrementAndGet()
-                if (isActive(controller)) {
-                    onBind(controller, state.lastMediaData)
-                } else {
-                    clearSeekBarColor(controller)
-                    restoreMediaBackground(state)
-                    state.customApplied = false
-                    state.appliedToken = null
-                    state.artworkFingerprint = null
-                    refreshNative(controller)
-                }
+    /**
+     * SystemUI may bind before the holder has been measured.  Do not replace the
+     * native image with an empty custom layer in that frame; retry the same bind
+     * once the holder has a real viewport, mirroring XiaomiHelper's holder-size
+     * fallback behavior.
+     */
+    fun shouldSuppressNativeBackground(controller: Any): Boolean {
+        if (!isActive(controller)) return false
+        val state = states[controller] ?: return false
+        return state.customApplied || state.renderPending
+    }
+
+    private fun scheduleMeasuredBind(
+        controller: Any,
+        state: ControllerState,
+        mediaBg: ImageView
+    ) {
+        if (state.layoutRetryScheduled) return
+        state.layoutRetryScheduled = true
+        mediaBg.addOnLayoutChangeListener(object : android.view.View.OnLayoutChangeListener {
+            override fun onLayoutChange(
+                view: android.view.View,
+                left: Int,
+                top: Int,
+                right: Int,
+                bottom: Int,
+                oldLeft: Int,
+                oldTop: Int,
+                oldRight: Int,
+                oldBottom: Int
+            ) {
+                if (right <= left || bottom <= top) return
+                view.removeOnLayoutChangeListener(this)
+                state.layoutRetryScheduled = false
+                val pending = state.lastMediaData ?: return
+                if (states[controller] === state) onBind(controller, pending)
             }
-        }
-        if (Looper.myLooper() == Looper.getMainLooper()) task.run()
-        else Handler(Looper.getMainLooper()).post(task)
+        })
     }
 
     fun applySeekBarColor(seekBar: Any) {
@@ -188,22 +198,6 @@ internal object NotificationMediaBackgroundController {
                 color and 0x00ffffff or (0x33 shl 24),
                 PorterDuff.Mode.SRC_IN
             )
-    }
-
-    fun releaseAll() {
-        executor.shutdownNow()
-        val snapshot = synchronized(states) { states.values.toList() }
-        snapshot.forEach { state ->
-            state.request.incrementAndGet()
-            restoreMediaBackground(state)
-        }
-        states.clear()
-        unavailableLoaders.clear()
-        supportedLoaders.clear()
-        val seekBarSnapshot = synchronized(seekBarStates) { seekBarStates.toMap() }
-        seekBarSnapshot.forEach { (seekBar, state) -> restoreSeekBarState(seekBar, state) }
-        seekBarStates.clear()
-        seekBarColors.clear()
     }
 
     private fun applyBackground(mediaBg: ImageView, bitmap: Bitmap) {
@@ -313,46 +307,29 @@ internal object NotificationMediaBackgroundController {
         return runCatching { MediaBackgroundRendererPool.get(classLoader) }
             .onFailure { error ->
                 unavailableLoaders.add(classLoader)
-            HookLogger.w(TAG, "通知中心 Monet 背景接口不可用: reason=${error.message}")
+                HookLogger.w(TAG, "通知中心 Monet 背景接口不可用: reason=${error.message}")
             }
             .getOrNull()
     }
 
     private fun currentStyle(): Int {
-        if (!SystemUiEnhancementGate.isEnabled()) {
+        if (!MediaCardRuntimeConfig.current.enabled) {
             return RootConstants.NOTIFICATION_MEDIA_BACKGROUND_STYLE_DEFAULT
         }
-        return prefs?.getInt(
-            RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_BACKGROUND_STYLE,
-            RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_BACKGROUND_STYLE
-        )?.coerceIn(
-            RootConstants.NOTIFICATION_MEDIA_BACKGROUND_STYLE_DEFAULT,
-            RootConstants.NOTIFICATION_MEDIA_BACKGROUND_STYLE_SOFT_COVER
-        ) ?: RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_BACKGROUND_STYLE
+        return MediaCardRuntimeConfig.current.notification.backgroundStyle
     }
 
-    private fun currentSoftCoverTone(): Int = prefs?.getInt(
-        RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_SOFT_COVER_TONE,
-        RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_SOFT_COVER_TONE
-    )?.coerceIn(
-        RootConstants.MEDIA_SOFT_COVER_TONE_LIGHT,
-        RootConstants.MEDIA_SOFT_COVER_TONE_DARK
-    ) ?: RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_SOFT_COVER_TONE
+    private fun currentSoftCoverTone(): Int =
+        MediaCardRuntimeConfig.current.notification.softCoverTone
 
-    private fun currentBlurAmount(): Int = prefs?.getInt(
-        RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_BACKGROUND_BLUR,
-        RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_BACKGROUND_BLUR
-    )?.coerceIn(1, 20) ?: RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_BACKGROUND_BLUR
+    private fun currentBlurAmount(): Int =
+        MediaCardRuntimeConfig.current.notification.backgroundBlur
 
-    private fun currentAutoInvert(): Boolean = prefs?.getBoolean(
-        RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_BACKGROUND_AUTO_INVERT,
-        RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_BACKGROUND_AUTO_INVERT
-    ) ?: RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_BACKGROUND_AUTO_INVERT
+    private fun currentAutoInvert(): Boolean =
+        MediaCardRuntimeConfig.current.notification.backgroundAutoInvert
 
-    private fun currentColorAnimation(): Boolean = prefs?.getBoolean(
-        RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_BACKGROUND_COLOR_ANIMATION,
-        RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_BACKGROUND_COLOR_ANIMATION
-    ) ?: RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_BACKGROUND_COLOR_ANIMATION
+    private fun currentColorAnimation(): Boolean =
+        MediaCardRuntimeConfig.current.notification.backgroundColorAnimation
 
     private fun readField(receiver: Any, name: String): Any? {
         return findField(receiver.javaClass, name)?.let { field ->
@@ -377,7 +354,6 @@ internal object NotificationMediaBackgroundController {
     }
 
     private data class ControllerState(
-        var lastMediaData: Any? = null,
         var token: String? = null,
         var appliedToken: String? = null,
         var artworkFingerprint: Long? = null,
@@ -388,6 +364,10 @@ internal object NotificationMediaBackgroundController {
         var originalScaleType: ImageView.ScaleType? = null,
         var originalPadding: IntArray = intArrayOf(0, 0, 0, 0),
         var originalClipToOutline: Boolean = false,
+        var lastMediaData: Any? = null,
+        var lastWidth: Int? = null,
+        var lastHeight: Int? = null,
+        var layoutRetryScheduled: Boolean = false,
         val request: AtomicInteger = AtomicInteger()
     )
 

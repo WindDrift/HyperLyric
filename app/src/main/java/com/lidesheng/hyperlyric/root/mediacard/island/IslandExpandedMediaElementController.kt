@@ -26,12 +26,17 @@ internal object IslandExpandedMediaElementController {
         coverStyle: Int,
         hideCoverSource: Boolean,
         hideDeviceSwitch: Boolean,
+        hideCustomActions: Boolean,
+        hideTime: Boolean,
+        keepAction4Slot: Boolean,
         playbackActive: Boolean
     ) {
         if (
             coverStyle == RootConstants.ISLAND_EXPANDED_MEDIA_COVER_STYLE_DEFAULT &&
             !hideCoverSource &&
-            !hideDeviceSwitch
+            !hideDeviceSwitch &&
+            !hideCustomActions &&
+            !hideTime
         ) {
             restore(elements)
             return
@@ -68,6 +73,8 @@ internal object IslandExpandedMediaElementController {
 
         state.applyCoverSourceHidden(hideCoverSource)
         state.applyDeviceSwitchHidden(hideDeviceSwitch)
+        state.applyCustomActionsHidden(hideCustomActions, keepAction4Slot)
+        state.applyTimeHidden(hideTime)
     }
 
     fun restore(elements: IslandExpandedMediaElements) {
@@ -84,12 +91,17 @@ internal object IslandExpandedMediaElementController {
         referenceElements: IslandExpandedMediaElements,
         coverStyle: Int,
         hideCoverSource: Boolean,
-        hideDeviceSwitch: Boolean
+        hideDeviceSwitch: Boolean,
+        hideCustomActions: Boolean,
+        hideTime: Boolean,
+        keepAction4Slot: Boolean
     ) {
         if (
             coverStyle == RootConstants.ISLAND_EXPANDED_MEDIA_COVER_STYLE_DEFAULT &&
             !hideCoverSource &&
-            !hideDeviceSwitch
+            !hideDeviceSwitch &&
+            !hideCustomActions &&
+            !hideTime
         ) {
             return
         }
@@ -119,9 +131,31 @@ internal object IslandExpandedMediaElementController {
             }
 
             RootConstants.ISLAND_EXPANDED_MEDIA_COVER_STYLE_HIDDEN -> {
+                syncGoneMargin(
+                    fakeExpandedView,
+                    referenceElements.title,
+                    GONE_START_MARGIN_FIELD
+                )
+                syncGoneMargin(
+                    fakeExpandedView,
+                    referenceElements.artist,
+                    GONE_START_MARGIN_FIELD
+                )
+                syncGoneMargin(
+                    fakeExpandedView,
+                    referenceElements.actionsAnchor,
+                    GONE_TOP_MARGIN_FIELD
+                )
+                syncGoneMargin(
+                    fakeExpandedView,
+                    referenceElements.firstAction,
+                    GONE_TOP_MARGIN_FIELD
+                )
                 if (albumViewId != 0) {
-                    fakeExpandedView.findViewById<View>(albumViewId)?.let { it.visibility = View.GONE }
+                    fakeExpandedView.findViewById<View>(albumViewId)
+                        ?.let { it.visibility = View.GONE }
                 }
+                fakeExpandedView.requestLayout()
             }
         }
 
@@ -130,6 +164,25 @@ internal object IslandExpandedMediaElementController {
         }
         if (hideDeviceSwitch && deviceSwitchId != 0) {
             fakeExpandedView.findViewById<View>(deviceSwitchId)?.let { it.visibility = View.GONE }
+        }
+        if (hideCustomActions) {
+            referenceElements.actionButtons.forEachIndexed { index, action ->
+                if (index == 4 && keepAction4Slot) return@forEachIndexed
+                if (index != 0 && index != 4) return@forEachIndexed
+                if (action.id != 0) {
+                    fakeExpandedView.findViewById<View>(action.id)?.visibility = View.INVISIBLE
+                }
+            }
+        }
+        if (hideTime) {
+            if (referenceElements.elapsedTime.id != 0) {
+                fakeExpandedView.findViewById<View>(referenceElements.elapsedTime.id)?.visibility =
+                    View.GONE
+            }
+            if (referenceElements.totalTime.id != 0) {
+                fakeExpandedView.findViewById<View>(referenceElements.totalTime.id)?.visibility =
+                    View.GONE
+            }
         }
     }
 
@@ -150,6 +203,9 @@ internal object IslandExpandedMediaElementController {
         val imageClipToOutline: Boolean,
         var coverSourceVisibility: Int,
         var deviceSwitchVisibility: Int,
+        val actionVisibilities: IntArray,
+        val elapsedTimeVisibility: Int,
+        val totalTimeVisibility: Int,
         val titleGoneStartMargin: Int,
         val artistGoneStartMargin: Int,
         val actionsGoneTopMargin: Int,
@@ -157,7 +213,9 @@ internal object IslandExpandedMediaElementController {
         var coverHidden: Boolean = false,
         var coverOutlined: Boolean = false,
         var coverSourceHidden: Boolean = false,
-        var deviceSwitchHidden: Boolean = false
+        var deviceSwitchHidden: Boolean = false,
+        var customActionsHidden: Boolean = false,
+        var timeHidden: Boolean = false
     ) {
         fun applyCircle() {
             if (
@@ -192,8 +250,8 @@ internal object IslandExpandedMediaElementController {
             val albumHeight = elements.albumView.height.takeIf { it > 0 }
                 ?: elements.albumView.layoutParams.height
             val textGoneStartMargin = (
-                26f * elements.player.resources.displayMetrics.density
-            ).roundToInt()
+                    26f * elements.player.resources.displayMetrics.density
+                    ).roundToInt()
             elements.title.setGoneMargin(
                 GONE_START_MARGIN_FIELD,
                 textGoneStartMargin
@@ -270,10 +328,40 @@ internal object IslandExpandedMediaElementController {
             }
         }
 
+        fun applyCustomActionsHidden(hidden: Boolean, keepAction4Slot: Boolean) {
+            if (hidden) {
+                elements.actionButtons.forEachIndexed { index, action ->
+                    if (index == 0 || (index == 4 && !keepAction4Slot)) {
+                        action.visibility = View.INVISIBLE
+                    }
+                }
+                customActionsHidden = true
+            } else if (customActionsHidden) {
+                elements.actionButtons.forEachIndexed { index, action ->
+                    action.visibility = actionVisibilities[index]
+                }
+                customActionsHidden = false
+            }
+        }
+
+        fun applyTimeHidden(hidden: Boolean) {
+            if (hidden) {
+                elements.elapsedTime.visibility = View.GONE
+                elements.totalTime.visibility = View.GONE
+                timeHidden = true
+            } else if (timeHidden) {
+                elements.elapsedTime.visibility = elapsedTimeVisibility
+                elements.totalTime.visibility = totalTimeVisibility
+                timeHidden = false
+            }
+        }
+
         fun restoreAll() {
             restoreCover()
             applyCoverSourceHidden(false)
             applyDeviceSwitchHidden(false)
+            applyCustomActionsHidden(false, keepAction4Slot = false)
+            applyTimeHidden(false)
         }
 
         companion object {
@@ -287,6 +375,10 @@ internal object IslandExpandedMediaElementController {
                     imageClipToOutline = elements.albumImage.clipToOutline,
                     coverSourceVisibility = elements.coverSource.visibility,
                     deviceSwitchVisibility = elements.deviceSwitch.visibility,
+                    actionVisibilities =
+                        elements.actionButtons.map { it.visibility }.toIntArray(),
+                    elapsedTimeVisibility = elements.elapsedTime.visibility,
+                    totalTimeVisibility = elements.totalTime.visibility,
                     titleGoneStartMargin = elements.title.getGoneMargin(
                         GONE_START_MARGIN_FIELD
                     ),
@@ -320,6 +412,14 @@ internal object IslandExpandedMediaElementController {
         params.javaClass.getField(fieldName).setInt(params, value)
         layoutParams = params
     }
+
+    private fun syncGoneMargin(root: View, reference: View, fieldName: String) {
+        if (reference.id == 0) return
+        root.findViewById<View>(reference.id)?.setGoneMargin(
+            fieldName,
+            reference.getGoneMargin(fieldName)
+        )
+    }
 }
 
 internal data class IslandExpandedMediaElements(
@@ -331,5 +431,8 @@ internal data class IslandExpandedMediaElements(
     val artist: View,
     val actionsAnchor: View,
     val firstAction: View,
+    val actionButtons: List<View>,
+    val elapsedTime: View,
+    val totalTime: View,
     val player: View
 )

@@ -14,10 +14,4 @@ internal object MediaBackgroundRendererPool {
         }
     }
 
-    fun releaseAll() {
-        val snapshot = synchronized(lock) {
-            renderers.values.toList().also { renderers.clear() }
-        }
-        snapshot.forEach(NotificationMediaBackgroundRenderer::close)
-    }
 }
