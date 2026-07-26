@@ -172,6 +172,18 @@ object IslandExpandedMediaAmbientFlowHooker {
         }
     }
 
+    fun resetMiniWindowBackgroundTransform() {
+        if (!IslandExpandedMediaBackgroundController.isActive()) return
+        val api = nativeApi ?: return
+        synchronized(activeBinders) { activeBinders.toList() }.forEach { binder ->
+            runCatching {
+                api.resetDummyBackgroundTransform(binder)
+            }.onFailure { error ->
+                HookLogger.e(TAG, "复位小窗返回时的媒体背景失败", error)
+            }
+        }
+    }
+
     private enum class Action { ATTACH, BIND, DETACH, ALBUM, SEAMLESS }
 
     private class BinderHook(private val action: Action) : Hooker {
@@ -1245,6 +1257,7 @@ object IslandExpandedMediaAmbientFlowHooker {
                 ?: return
             when (action) {
                 "pull_down_type_start" -> mediaBackground.pivotY = 0f
+
                 "pull_down_type_update" -> {
                     val height = mediaBackground.height
                     if (height > 0) {
@@ -1252,6 +1265,13 @@ object IslandExpandedMediaAmbientFlowHooker {
                     }
                 }
             }
+        }
+
+        fun resetDummyBackgroundTransform(binder: Any) {
+            val dummyHolder = dummyHolderField.get(binder) ?: return
+            val mediaBackground = holderBackgrounds.findHost(dummyHolder)?.customBackground
+                ?: return
+            mediaBackground.scaleY = 1f
         }
 
         fun applyNativeForeground(binder: Any, holder: Any) {

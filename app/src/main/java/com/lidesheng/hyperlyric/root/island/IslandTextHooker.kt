@@ -22,6 +22,8 @@ internal object IslandTextHooker {
         "miui.systemui.dynamicisland.view.DynamicIslandExpandedView"
     private const val ANIMATION_DELEGATE_CLASS =
         "miui.systemui.dynamicisland.anim.DynamicIslandAnimationDelegate"
+    private const val EVENT_COORDINATOR_CLASS =
+        "miui.systemui.dynamicisland.event.DynamicIslandEventCoordinator"
     private const val TEMPLATE_BUILDER_CLASS =
         "miui.systemui.dynamicisland.template.IslandTemplateBuilder"
     private const val ADAPTER_CLASS =
@@ -82,6 +84,22 @@ internal object IslandTextHooker {
                         FakeIslandTransitionHooker.AppReturnToBigIslandHook()
                     )
                     HookLogger.d(TAG, "已 Hook fakeViewToBigIsland: $method")
+                }
+
+            cl.loadClass(EVENT_COORDINATOR_CLASS).declaredMethods
+                .filter {
+                    it.name == "updateFreeformFakeView" &&
+                            it.parameterTypes.size == 3 &&
+                            it.parameterTypes[0].name == FAKE_CONTENT_VIEW_CLASS &&
+                            it.parameterTypes[1].name == CONTENT_VIEW_CLASS
+                }
+                .forEach { method ->
+                    method.isAccessible = true
+                    module.deoptimize(method)
+                    module.hook(method).intercept(
+                        FakeIslandTransitionHooker.FreeformFakeViewCallbackHook()
+                    )
+                    HookLogger.d(TAG, "已 Hook updateFreeformFakeView: $method")
                 }
 
         }

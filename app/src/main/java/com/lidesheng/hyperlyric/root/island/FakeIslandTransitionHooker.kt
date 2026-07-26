@@ -3,12 +3,12 @@ package com.lidesheng.hyperlyric.root.island
 import android.view.View
 import android.view.ViewGroup
 import com.lidesheng.hyperlyric.root.island.IslandTextHookerSupport.TAG
+import com.lidesheng.hyperlyric.root.mediacard.island.IslandExpandedMediaAmbientFlowHooker
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import io.github.libxposed.api.XposedInterface.Chain
 import io.github.libxposed.api.XposedInterface.Hooker
 
 internal object FakeIslandTransitionHooker {
-
     class AppReturnToBigIslandHook : Hooker {
         override fun intercept(chain: Chain): Any? {
             val fakeView = runCatching {
@@ -27,6 +27,35 @@ internal object FakeIslandTransitionHooker {
                     view,
                     "before delegate.fakeViewToBigIsland"
                 )
+            }
+            return chain.proceed()
+        }
+    }
+
+    class FreeformFakeViewCallbackHook : Hooker {
+        override fun intercept(chain: Chain): Any? {
+            runCatching {
+                val fakeView = chain.args.firstOrNull() as? ViewGroup
+                    ?: return@runCatching
+                val fakeBigIsland = IslandTextHookerSupport.callNoArgMethodResult(
+                    fakeView,
+                    "getFakeBigIsland"
+                ) as? ViewGroup ?: return@runCatching
+                if (
+                    IslandTextHookerSupport.callNoArgMethodResult(
+                        fakeView,
+                        "getClosingAppFromFreeform"
+                    ) == true
+                ) {
+                    IslandExpandedMediaAmbientFlowHooker.resetMiniWindowBackgroundTransform()
+                }
+                IslandTextHookerSupport.prepareFrozenFakeIslandForTransition(
+                    fakeView,
+                    "before coordinator.onFreeformFakeViewCallback",
+                    injectionRoot = fakeBigIsland
+                )
+            }.onFailure { error ->
+                HookLogger.e(TAG, "自由小窗快照回调前冻结歌词失败", error)
             }
             return chain.proceed()
         }

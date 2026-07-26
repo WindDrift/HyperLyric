@@ -19,7 +19,11 @@ internal object IslandTextHookerSupport {
         return IslandProbeUtils.extractMediaIslandInfo(realData)
     }
 
-    fun prepareFrozenFakeIslandForTransition(fakeView: ViewGroup, source: String) {
+    fun prepareFrozenFakeIslandForTransition(
+        fakeView: ViewGroup,
+        source: String,
+        injectionRoot: ViewGroup = fakeView
+    ) {
         if (!IslandProbeUtils.isSuperIslandEnabled()) return
         val mediaInfo = extractMediaInfoFromContentOrReal(fakeView) ?: return
 
@@ -27,30 +31,30 @@ internal object IslandTextHookerSupport {
             return
         }
         if (!shouldRenderInjectedIsland()) {
-            IslandHostFacade.clearInjectedViews(fakeView)
+            IslandHostFacade.clearInjectedViews(injectionRoot)
             return
         }
 
-        if (IslandLyricTextInjector.hasInjectedLyricText(fakeView)) {
-            IslandLyricTextInjector.restoreExistingSlotsLightweight(fakeView)
+        if (IslandLyricTextInjector.hasInjectedLyricText(injectionRoot)) {
+            IslandLyricTextInjector.restoreExistingSlotsLightweight(injectionRoot)
         } else {
             IslandLyricTextInjector.injectSlots(
-                fakeView,
+                injectionRoot,
                 reconfigureExisting = false,
                 suppressAnimation = true
             )
         }
         IslandLyricTextInjector.refreshCurrentContent(
-            fakeView,
+            injectionRoot,
             includeLyricSlots = true,
             force = true,
             suppressAnimation = true
         )
         IslandLyricTextInjector.freezeInjectedLyricProgress(
-            fakeView,
+            injectionRoot,
             LyriconDataBridge.currentPosition
         )
-        fakeView.alpha = 1f
+        injectionRoot.alpha = 1f
         HookLogger.d(TAG, "已准备过渡冻结 fake view: 来源=$source")
     }
 
