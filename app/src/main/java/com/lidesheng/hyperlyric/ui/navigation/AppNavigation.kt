@@ -29,6 +29,8 @@ import com.lidesheng.hyperlyric.ui.page.hooksettings.lyrics.scroll.LyricScrollPa
 import com.lidesheng.hyperlyric.ui.page.hooksettings.lyrics.translation.LyricTranslationPage
 import com.lidesheng.hyperlyric.ui.page.hooksettings.lyrics.verbatim.VerbatimLyricPage
 import com.lidesheng.hyperlyric.ui.page.hooksettings.media.MediaCardSettingsPage
+import com.lidesheng.hyperlyric.ui.page.hooksettings.media.island.IslandExpandedMediaCardPage
+import com.lidesheng.hyperlyric.ui.page.hooksettings.media.notification.NotificationCenterMediaCardPage
 
 @Composable
 fun AppNavigation(startRoute: Route) {
@@ -57,6 +59,8 @@ fun AppNavigation(startRoute: Route) {
                 entry<Route.LyricTranslation> { LyricTranslationPage() }
                 entry<Route.SuperIslandSettings> { SuperIslandSettingsPage() }
                 entry<Route.MediaCardSettings> { MediaCardSettingsPage() }
+                entry<Route.NotificationMediaCardSettings> { NotificationCenterMediaCardPage() }
+                entry<Route.SuperIslandMediaCardSettings> { IslandExpandedMediaCardPage() }
                 entry<Route.DynamicIslandNotification> { DynamicIslandNotificationPage() }
                 entry<Route.Log> { LogPage() }
                 entry<Route.Licenses> { LicensesPage() }
@@ -78,3 +82,4 @@ fun AppNavigation(startRoute: Route) {
         )
     }
 }
+

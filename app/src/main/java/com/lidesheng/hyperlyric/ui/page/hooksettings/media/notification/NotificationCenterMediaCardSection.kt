@@ -17,22 +17,152 @@ import com.lidesheng.hyperlyric.common.RootConstants
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Slider
-import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.roundToInt
 
-fun LazyListScope.notificationCenterMediaCardSection(
-    cardTheme: Int,
-    onCardThemeChange: (Int) -> Unit,
+fun LazyListScope.notificationCenterMediaElementSection(
     coverStyle: Int,
     onCoverStyleChange: (Int) -> Unit,
     hideCoverSource: Boolean,
     onHideCoverSourceChange: (Boolean) -> Unit,
+    hideCoverShadow: Boolean,
+    onHideCoverShadowChange: (Boolean) -> Unit,
+    disableCoverFlip: Boolean,
+    onDisableCoverFlipChange: (Boolean) -> Unit,
     hideDeviceSwitch: Boolean,
     onHideDeviceSwitchChange: (Boolean) -> Unit,
+    hideCustomActions: Boolean,
+    onHideCustomActionsChange: (Boolean) -> Unit,
+    hideTime: Boolean,
+    onHideTimeChange: (Boolean) -> Unit,
+    progressStyle: Int,
+    onProgressStyleChange: (Int) -> Unit,
+    thumbStyle: Int,
+    onThumbStyleChange: (Int) -> Unit
+) {
+    item(key = "notification_center_media_card_elements") {
+        Column {
+            Card(
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 12.dp)
+                    .fillMaxWidth()
+            ) {
+                val coverStyleValues = listOf(
+                    RootConstants.NOTIFICATION_MEDIA_COVER_STYLE_DEFAULT,
+                    RootConstants.NOTIFICATION_MEDIA_COVER_STYLE_CIRCLE,
+                    RootConstants.NOTIFICATION_MEDIA_COVER_STYLE_ROTATING_CIRCLE,
+                    RootConstants.NOTIFICATION_MEDIA_COVER_STYLE_HIDDEN
+                )
+                OverlayDropdownPreference(
+                    title = stringResource(R.string.title_audio_cover_style),
+                    items = listOf(
+                        stringResource(R.string.option_audio_cover_style_default),
+                        stringResource(R.string.option_audio_cover_style_circle),
+                        stringResource(R.string.option_audio_cover_style_rotating_circle),
+                        stringResource(R.string.option_audio_cover_style_hidden)
+                    ),
+                    selectedIndex = coverStyleValues.indexOf(coverStyle).coerceAtLeast(0),
+                    onSelectedIndexChange = { index ->
+                        onCoverStyleChange(coverStyleValues[index])
+                    }
+                )
+                SwitchPreference(
+                    title = stringResource(R.string.title_hide_audio_cover_source),
+                    checked = hideCoverSource,
+                    onCheckedChange = onHideCoverSourceChange
+                )
+                SwitchPreference(
+                    title = stringResource(R.string.title_hide_audio_cover_shadow),
+                    checked = hideCoverShadow,
+                    onCheckedChange = onHideCoverShadowChange
+                )
+                SwitchPreference(
+                    title = stringResource(R.string.title_disable_media_cover_flip),
+                    checked = disableCoverFlip,
+                    onCheckedChange = onDisableCoverFlipChange
+                )
+            }
+
+            Card(
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 12.dp)
+                    .fillMaxWidth()
+            ) {
+                SwitchPreference(
+                    title = stringResource(R.string.title_hide_media_device_switch),
+                    checked = hideDeviceSwitch,
+                    onCheckedChange = onHideDeviceSwitchChange
+                )
+                SwitchPreference(
+                    title = stringResource(R.string.title_hide_media_custom_actions),
+                    checked = hideCustomActions,
+                    onCheckedChange = onHideCustomActionsChange
+                )
+                SwitchPreference(
+                    title = stringResource(R.string.title_hide_media_time),
+                    checked = hideTime,
+                    onCheckedChange = onHideTimeChange
+                )
+            }
+
+            Card(
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 12.dp)
+                    .fillMaxWidth()
+            ) {
+                val progressStyleValues = listOf(
+                    RootConstants.NOTIFICATION_MEDIA_PROGRESS_STYLE_DEFAULT,
+                    RootConstants.NOTIFICATION_MEDIA_PROGRESS_STYLE_WAVE
+                )
+                OverlayDropdownPreference(
+                    title = stringResource(R.string.title_media_progress_style),
+                    items = listOf(
+                        stringResource(R.string.option_media_progress_style_default),
+                        stringResource(R.string.option_media_progress_style_wave)
+                    ),
+                    selectedIndex = progressStyleValues.indexOf(progressStyle).coerceAtLeast(0),
+                    onSelectedIndexChange = { index ->
+                        onProgressStyleChange(progressStyleValues[index])
+                    }
+                )
+
+                AnimatedVisibility(
+                    visible = progressStyle == RootConstants.NOTIFICATION_MEDIA_PROGRESS_STYLE_WAVE
+                ) {
+                    Column {
+                        val thumbStyleValues = listOf(
+                            RootConstants.NOTIFICATION_MEDIA_THUMB_STYLE_DEFAULT,
+                            RootConstants.NOTIFICATION_MEDIA_THUMB_STYLE_VERTICAL,
+                            RootConstants.NOTIFICATION_MEDIA_THUMB_STYLE_HIDDEN
+                        )
+                        OverlayDropdownPreference(
+                            title = stringResource(R.string.title_media_thumb_style),
+                            items = listOf(
+                                stringResource(R.string.option_media_thumb_style_default),
+                                stringResource(R.string.option_media_thumb_style_vertical),
+                                stringResource(R.string.option_media_thumb_style_hidden)
+                            ),
+                            selectedIndex = thumbStyleValues.indexOf(thumbStyle).coerceAtLeast(0),
+                            onSelectedIndexChange = { index ->
+                                onThumbStyleChange(thumbStyleValues[index])
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+fun LazyListScope.notificationCenterMediaBackgroundSection(
+    cardTheme: Int,
+    onCardThemeChange: (Int) -> Unit,
     backgroundStyle: Int,
     onBackgroundStyleChange: (Int) -> Unit,
     backgroundColorAnimation: Boolean,
@@ -46,44 +176,7 @@ fun LazyListScope.notificationCenterMediaCardSection(
     ambientFlowMode: Int,
     onAmbientFlowModeChange: (Int) -> Unit
 ) {
-    item(key = "notification_center_media_card") {
-        SmallTitle(text = stringResource(R.string.title_notification_center_media_card))
-        Card(
-            modifier = Modifier
-                .padding(horizontal = 12.dp)
-                .padding(bottom = 12.dp)
-                .fillMaxWidth()
-        ) {
-            val coverStyleValues = listOf(
-                RootConstants.NOTIFICATION_MEDIA_COVER_STYLE_DEFAULT,
-                RootConstants.NOTIFICATION_MEDIA_COVER_STYLE_CIRCLE,
-                RootConstants.NOTIFICATION_MEDIA_COVER_STYLE_ROTATING_CIRCLE,
-                RootConstants.NOTIFICATION_MEDIA_COVER_STYLE_HIDDEN
-            )
-            OverlayDropdownPreference(
-                title = stringResource(R.string.title_audio_cover_style),
-                items = listOf(
-                    stringResource(R.string.option_audio_cover_style_default),
-                    stringResource(R.string.option_audio_cover_style_circle),
-                    stringResource(R.string.option_audio_cover_style_rotating_circle),
-                    stringResource(R.string.option_audio_cover_style_hidden)
-                ),
-                selectedIndex = coverStyleValues.indexOf(coverStyle).coerceAtLeast(0),
-                onSelectedIndexChange = { index ->
-                    onCoverStyleChange(coverStyleValues[index])
-                }
-            )
-            SwitchPreference(
-                title = stringResource(R.string.title_hide_audio_cover_source),
-                checked = hideCoverSource,
-                onCheckedChange = onHideCoverSourceChange
-            )
-            SwitchPreference(
-                title = stringResource(R.string.title_hide_media_device_switch),
-                checked = hideDeviceSwitch,
-                onCheckedChange = onHideDeviceSwitchChange
-            )
-        }
+    item(key = "notification_center_media_card_background") {
         Card(
             modifier = Modifier
                 .padding(horizontal = 12.dp)
@@ -243,6 +336,48 @@ fun LazyListScope.notificationCenterMediaCardSection(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+fun LazyListScope.notificationCenterMediaLayoutSection(
+    actionAlignLeft: Boolean,
+    onActionAlignLeftChange: (Boolean) -> Unit,
+    actionOrder: Int,
+    onActionOrderChange: (Int) -> Unit
+) {
+    item(key = "notification_center_media_card_layout") {
+        Column {
+            Card(
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 12.dp)
+                    .fillMaxWidth()
+            ) {
+                SwitchPreference(
+                    title = stringResource(R.string.title_media_action_align_left),
+                    checked = actionAlignLeft,
+                    onCheckedChange = onActionAlignLeftChange
+                )
+
+                val actionOrderValues = listOf(
+                    RootConstants.NOTIFICATION_MEDIA_ACTION_ORDER_DEFAULT,
+                    RootConstants.NOTIFICATION_MEDIA_ACTION_ORDER_CUSTOM_RIGHT,
+                    RootConstants.NOTIFICATION_MEDIA_ACTION_ORDER_PLAY_LEFT
+                )
+                OverlayDropdownPreference(
+                    title = stringResource(R.string.title_media_action_order),
+                    items = listOf(
+                        stringResource(R.string.option_media_action_order_default),
+                        stringResource(R.string.option_media_action_order_custom_right),
+                        stringResource(R.string.option_media_action_order_play_left)
+                    ),
+                    selectedIndex = actionOrderValues.indexOf(actionOrder).coerceAtLeast(0),
+                    onSelectedIndexChange = { index ->
+                        onActionOrderChange(actionOrderValues[index])
+                    }
+                )
             }
         }
     }

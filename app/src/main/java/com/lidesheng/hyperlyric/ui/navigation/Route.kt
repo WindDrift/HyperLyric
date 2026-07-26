@@ -51,6 +51,12 @@ sealed interface Route : NavKey {
     data object MediaCardSettings : Route
 
     @Serializable
+    data object NotificationMediaCardSettings : Route
+
+    @Serializable
+    data object SuperIslandMediaCardSettings : Route
+
+    @Serializable
     data object Licenses : Route
 
     @Serializable
@@ -65,3 +71,4 @@ sealed interface Route : NavKey {
     @Serializable
     data object Contributors : Route
 }
+

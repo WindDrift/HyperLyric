@@ -6,6 +6,7 @@ object LicenseProvider {
     fun getLicenses(): List<LicenseItem> {
         return listOf(
             LicenseItem("miuix", "YuKongA", "https://github.com/Yukonga/MIUIX"),
+            LicenseItem("XiaomiHelper", "HowieHChen", "https://github.com/HowieHChen/XiaomiHelper"),
             LicenseItem("libxposed API", "libxposed", "https://github.com/libxposed/api"),
             LicenseItem("lyricon", "tomakino", "https://github.com/tomakino/lyricon"),
             LicenseItem("LyricProvider", "tomakino", "https://github.com/tomakino/LyricProvider"),

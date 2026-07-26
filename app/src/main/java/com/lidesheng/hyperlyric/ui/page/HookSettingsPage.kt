@@ -253,9 +253,11 @@ private fun LazyListScope.hookSettingsSections(
     }
     item(key = "custom_config_content") {
         val navigator = LocalNavigator.current
-        Card(modifier = Modifier
-            .padding(horizontal = 12.dp)
-            .fillMaxWidth()) {
+        Card(
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .fillMaxWidth()
+        ) {
             Column {
                 ArrowPreference(
                     title = stringResource(R.string.title_super_island),

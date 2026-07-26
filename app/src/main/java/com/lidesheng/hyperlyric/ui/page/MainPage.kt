@@ -664,9 +664,11 @@ fun MainPage() {
                     .fillMaxWidth()
                     .padding(bottom = 40.dp)
             ) {
-                Card(modifier = Modifier
-                    .padding(horizontal = 12.dp)
-                    .fillMaxWidth()) {
+                Card(
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .fillMaxWidth()
+                ) {
                     ArrowPreference(
                         title = stringResource(R.string.title_permission_post_notification),
                         onClick = { notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) }

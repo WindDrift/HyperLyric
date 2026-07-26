@@ -159,9 +159,11 @@ private fun LazyListScope.animationPageSections() {
             }
         }
 
-        Card(modifier = Modifier
-            .padding(horizontal = 12.dp)
-            .fillMaxWidth()) {
+        Card(
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .fillMaxWidth()
+        ) {
             Column {
                 RadioButtonPreference(
                     title = stringResource(id = R.string.option_anim_none),

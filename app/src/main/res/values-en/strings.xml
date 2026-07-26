@@ -111,8 +111,16 @@
     <string name="title_super_island">HyperIsland</string>
     <string name="subtitle_super_island">Takes effect after music paused or changed</string>
     <string name="title_media_cards">Media cards</string>
+    <string name="title_notification_center">Notification Center</string>
     <string name="summary_media_cards">Requires restarting the system UI after update</string>
     <string name="title_notification_center_media_card">Notification center media card</string>
+    <string name="title_notification_media_layout_style">Card layout style</string>
+    <string name="option_notification_media_layout_system">System default</string>
+    <string name="option_notification_media_layout_ios">iOS style</string>
+    <string name="option_notification_media_layout_coloros">ColorOS style</string>
+    <string name="option_notification_media_layout_oneui">One UI style</string>
+    <string name="option_notification_media_layout_miui">MIUI style</string>
+    <string name="option_notification_media_layout_pixelos">PixelOS style</string>
     <string name="title_media_card_background_theme">Card background color</string>
     <string name="option_media_card_theme_follow_system">Follow system</string>
     <string name="option_media_card_theme_follow_system_default">Follow system (default)</string>
@@ -136,7 +144,29 @@
     <string name="option_media_soft_cover_tone_dark">Dark</string>
     <string name="title_notification_media_background_color_animation">Background transition</string>
     <string name="title_notification_media_background_blur">Background blur strength</string>
-    <string name="title_notification_media_background_auto_invert">Auto-invert bright covers</string>
+
+    <!-- Tab Strings -->
+    <string name="tab_background">Background</string>
+    <string name="tab_elements">Elements</string>
+    <string name="tab_layout">Layout</string>
+
+    <string name="title_hide_media_time">Hide progress time</string>
+    <string name="title_hide_media_custom_actions">Hide custom action buttons</string>
+    <string name="title_disable_media_cover_flip">Disable audio cover flip animation</string>
+    <string name="title_hide_audio_cover_shadow">Hide audio cover shadow</string>
+    <string name="title_media_progress_style">Progress bar style</string>
+    <string name="option_media_progress_style_default">Default</string>
+    <string name="option_media_progress_style_wave">Wave</string>
+    <string name="title_media_thumb_style">Thumb style</string>
+    <string name="option_media_thumb_style_default">Default</string>
+    <string name="option_media_thumb_style_vertical">Vertical</string>
+    <string name="option_media_thumb_style_hidden">Hidden</string>
+    <string name="title_media_action_align_left">Align action buttons to left</string>
+    <string name="title_media_action_order">Action buttons order</string>
+    <string name="option_media_action_order_default">Default</string>
+    <string name="option_media_action_order_custom_right">Custom button on far right</string>
+    <string name="option_media_action_order_play_left">Play button on far left</string>
+    <string name="title_notification_media_background_auto_invert">Auto invert bright cover</string>
     <string name="title_island_expanded_media_card">Expanded HyperIsland media card</string>
     <string name="title_island_media_ambient_flow_mode">Card ambient flow</string>
     <string name="option_island_media_ambient_flow_default">Ambient flow (default)</string>
