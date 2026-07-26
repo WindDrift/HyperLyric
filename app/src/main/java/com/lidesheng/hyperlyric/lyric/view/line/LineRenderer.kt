@@ -17,7 +17,15 @@ internal interface LineRenderer {
     var centerIfPossible: Boolean
 
     fun step(deltaNanos: Long, model: LyricModel, state: LineState, viewWidth: Int): Boolean
-    fun draw(canvas: Canvas, model: LyricModel, paint: TextPaint, state: LineState, viewWidth: Int, viewHeight: Int)
+    fun draw(
+        canvas: Canvas,
+        model: LyricModel,
+        paint: TextPaint,
+        state: LineState,
+        viewWidth: Int,
+        viewHeight: Int
+    )
+
     fun seek(model: LyricModel, state: LineState, posMs: Long, viewWidth: Int, viewHeight: Int)
     fun update(model: LyricModel, state: LineState, posMs: Long, viewWidth: Int, viewHeight: Int)
     fun reset(state: LineState)

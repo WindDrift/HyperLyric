@@ -92,6 +92,7 @@ dependencies {
 
     // --- 布局兼容 ---
     implementation(libs.androidx.constraintlayout)
+    implementation(libs.androidx.constraintlayout.compose)
 
     // --- Compose 核心 ---
     val composeBom = platform(libs.androidx.compose.bom)
@@ -111,7 +112,7 @@ dependencies {
     implementation(libs.miuix.icons.android)
     implementation(libs.miuix.navigation3.ui.android)
     implementation(libs.androidx.navigation3.runtime)
-
+    implementation(libs.androidx.compose.animation.graphics)
 
     // --- 调试工具 ---
     debugImplementation(libs.androidx.compose.ui.tooling)
@@ -134,3 +135,4 @@ apply(from = "fetch_contributors.gradle")
 tasks.named("preBuild") {
     dependsOn("generateContributors")
 }
+

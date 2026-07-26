@@ -36,7 +36,7 @@ object SystemUIHookRegistry {
         module = xposedModule
 
         try {
-            IslandTextHooker.hook(module, cl, includeMediaHooks = !lyricsOnly)
+            IslandTextHooker.hook(module, cl)
             if (!lyricsOnly) {
                 HookIslandGlow.init(module, cl)
                 IslandProgressGlowHooker.hook(module, cl)

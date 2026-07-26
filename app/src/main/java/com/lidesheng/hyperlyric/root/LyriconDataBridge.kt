@@ -1,15 +1,15 @@
 package com.lidesheng.hyperlyric.root
 
-import com.lidesheng.hyperlyric.lyric.source.StateResetter
-import com.lidesheng.hyperlyric.root.utils.HookLogger
 import com.lidesheng.hyperlyric.lyric.model.RichLyricLine
 import com.lidesheng.hyperlyric.lyric.model.Song
 import com.lidesheng.hyperlyric.lyric.model.extensions.TimingNavigator
 import com.lidesheng.hyperlyric.lyric.model.interfaces.IRichLyricLine
+import com.lidesheng.hyperlyric.lyric.source.StateResetter
 import com.lidesheng.hyperlyric.lyric.view.InterludeTracker
 import com.lidesheng.hyperlyric.lyric.view.SongPreprocessor
 import com.lidesheng.hyperlyric.lyric.view.TimedLine
 import com.lidesheng.hyperlyric.lyric.view.TitleSlot
+import com.lidesheng.hyperlyric.root.utils.HookLogger
 
 object LyriconDataBridge : StateResetter {
 

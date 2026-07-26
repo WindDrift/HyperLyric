@@ -25,7 +25,9 @@ internal class ScrollTextRenderer : LineRenderer {
 
     var ghostSpacing: Float = 40f.dp
     var scrollSpeed: Float = pxPerMs(DEFAULT_SPEED_DP)
-        set(value) { field = pxPerMs(value) }
+        set(value) {
+            field = pxPerMs(value)
+        }
     var initialDelayMs: Int = 400
     var loopDelayMs: Int = 800
     var repeatCount: Int = -1

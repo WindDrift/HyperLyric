@@ -18,12 +18,14 @@ import java.util.WeakHashMap
 @SuppressLint("DiscouragedPrivateApi", "PrivateApi")
 object HookIslandGlow {
     private const val TAG = "HookIslandGlow"
-    private const val BASE_CONTENT_VIEW_CLASS = "miui.systemui.dynamicisland.window.content.DynamicIslandBaseContentView"
-    private const val DATA_CLASS = "com.android.systemui.plugins.miui.dynamicisland.DynamicIslandData"
+    private const val BASE_CONTENT_VIEW_CLASS =
+        "miui.systemui.dynamicisland.window.content.DynamicIslandBaseContentView"
+    private const val DATA_CLASS =
+        "com.android.systemui.plugins.miui.dynamicisland.DynamicIslandData"
 
     private lateinit var module: XposedModule
     private val hookedClassLoaders = java.util.Collections.synchronizedSet(
-        java.util.Collections.newSetFromMap(java.util.WeakHashMap<ClassLoader, Boolean>())
+        java.util.Collections.newSetFromMap(WeakHashMap<ClassLoader, Boolean>())
     )
     private val lastGlowEnabledByView = WeakHashMap<View, Boolean>()
 
@@ -43,8 +45,8 @@ object HookIslandGlow {
             val dataClass = baseContentViewClass.classLoader?.loadClass(DATA_CLASS) ?: return
             val updateTemplateMethod = baseContentViewClass.declaredMethods.find {
                 it.name == "updateTemplate" &&
-                    it.parameterTypes.size == 1 &&
-                    it.parameterTypes[0] == dataClass
+                        it.parameterTypes.size == 1 &&
+                        it.parameterTypes[0] == dataClass
             }
 
             if (updateTemplateMethod != null) {
@@ -77,10 +79,18 @@ object HookIslandGlow {
     private fun prepareHighlightColor(view: View?, islandData: Any?): String? {
         return runCatching {
             val sharedPrefs = prefs ?: return@runCatching null
-            if (!sharedPrefs.getBoolean(RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND, RootConstants.DEFAULT_HOOK_ENABLE_SUPER_ISLAND)) {
+            if (!sharedPrefs.getBoolean(
+                    RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND,
+                    RootConstants.DEFAULT_HOOK_ENABLE_SUPER_ISLAND
+                )
+            ) {
                 return@runCatching null
             }
-            if (!sharedPrefs.getBoolean(RootConstants.KEY_HOOK_ISLAND_GLOW_EXTRACT_COLOR, RootConstants.DEFAULT_HOOK_ISLAND_GLOW_EXTRACT_COLOR)) {
+            if (!sharedPrefs.getBoolean(
+                    RootConstants.KEY_HOOK_ISLAND_GLOW_EXTRACT_COLOR,
+                    RootConstants.DEFAULT_HOOK_ISLAND_GLOW_EXTRACT_COLOR
+                )
+            ) {
                 return@runCatching null
             }
 
@@ -125,8 +135,8 @@ object HookIslandGlow {
             } ?: return
             val setTickerData = receiver.javaClass.methods.find {
                 it.name == "setTickerData" &&
-                    it.parameterTypes.size == 1 &&
-                    it.parameterTypes[0] == String::class.java
+                        it.parameterTypes.size == 1 &&
+                        it.parameterTypes[0] == String::class.java
             } ?: return
 
             val tickerData = getTickerData.invoke(receiver) as? String ?: return
@@ -145,7 +155,11 @@ object HookIslandGlow {
         // Color is injected before updateTemplate parses tickerData.
     }
 
-    fun updateMusicGlow(contentView: View?, @Suppress("UNUSED_PARAMETER") albumArt: Bitmap?, sharedPrefs: SharedPreferences) {
+    fun updateMusicGlow(
+        contentView: View?,
+        @Suppress("UNUSED_PARAMETER") albumArt: Bitmap?,
+        sharedPrefs: SharedPreferences
+    ) {
         val enabled = sharedPrefs.getBoolean(
             RootConstants.KEY_HOOK_ISLAND_GLOW_EXTRACT_COLOR,
             RootConstants.DEFAULT_HOOK_ISLAND_GLOW_EXTRACT_COLOR
@@ -188,8 +202,8 @@ object HookIslandGlow {
             template?.javaClass?.methods
                 ?.find {
                     it.name == "setHighlightColor" &&
-                        it.parameterTypes.size == 1 &&
-                        it.parameterTypes[0] == String::class.java
+                            it.parameterTypes.size == 1 &&
+                            it.parameterTypes[0] == String::class.java
                 }
                 ?.invoke(template, null)
 

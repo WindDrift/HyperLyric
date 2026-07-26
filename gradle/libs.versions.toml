@@ -8,6 +8,7 @@ constraintlayout = "2.2.1"
 kotlinComposePlugin = "2.3.21"
 activityCompose = "1.12.4"
 composeBom = "2026.04.01"
+constraintlayout-compose = "1.1.0"
 miuix = "0.9.3"
 palette = "1.0.0"
 kotlin = "2.3.21"
@@ -32,6 +33,7 @@ androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 androidx-activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
 androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
+androidx-constraintlayout-compose = { group = "androidx.constraintlayout", name = "constraintlayout-compose", version.ref = "constraintlayout-compose" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 androidx-palette-ktx = { group = "androidx.palette", name = "palette-ktx", version.ref = "palette" }
 hiddenapibypass = { group = "org.lsposed.hiddenapibypass", name = "hiddenapibypass", version.ref = "hiddenapibypass" }
@@ -50,6 +52,7 @@ androidx-compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-toolin
 androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+androidx-compose-animation-graphics = { group = "androidx.compose.animation", name = "animation-graphics" }
 
 # --- MIUI X ---
 miuix-ui-android = { group = "top.yukonga.miuix.kmp", name = "miuix-ui-android", version.ref = "miuix" }

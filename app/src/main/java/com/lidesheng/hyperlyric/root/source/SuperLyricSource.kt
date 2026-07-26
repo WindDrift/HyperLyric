@@ -4,12 +4,12 @@ import com.hchen.superlyricapi.ISuperLyricReceiver
 import com.hchen.superlyricapi.SuperLyricData
 import com.hchen.superlyricapi.SuperLyricHelper
 import com.hchen.superlyricapi.SuperLyricLine
-import com.hchen.superlyricapi.SuperLyricWord
+import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
+import com.lidesheng.hyperlyric.lyric.model.LyricWord
+import com.lidesheng.hyperlyric.lyric.model.RichLyricLine
 import com.lidesheng.hyperlyric.lyric.source.LyricSink
 import com.lidesheng.hyperlyric.lyric.source.LyricSource
-import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
 import com.lidesheng.hyperlyric.root.utils.HookLogger
-import com.lidesheng.hyperlyric.lyric.model.LyricWord
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -17,7 +17,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import com.lidesheng.hyperlyric.lyric.model.RichLyricLine
 
 class SuperLyricSource : LyricSource {
 
@@ -29,6 +28,7 @@ class SuperLyricSource : LyricSource {
     private var receiver: ISuperLyricReceiver? = null
     private var positionJob: Job? = null
     private val positionScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+
     @Volatile
     private var lastKnownPosition: Long = -1L
     private var positionPublisher: String? = null
@@ -43,10 +43,10 @@ class SuperLyricSource : LyricSource {
 
     override fun isAvailable(): Boolean = try {
         val available = SuperLyricHelper.isAvailable()
-            HookLogger.d(TAG, "检查数据源可用性: available=$available")
+        HookLogger.d(TAG, "检查数据源可用性: available=$available")
         available
     } catch (e: Exception) {
-            HookLogger.w(TAG, "检查数据源可用性失败", e)
+        HookLogger.w(TAG, "检查数据源可用性失败", e)
         false
     }
 
@@ -67,7 +67,7 @@ class SuperLyricSource : LyricSource {
 
         val stub = object : ISuperLyricReceiver.Stub() {
             override fun onLyric(publisher: String, data: SuperLyricData) {
-        HookLogger.d(TAG, "收到歌词事件: publisher=$publisher, hasLyric=${data.hasLyric()}")
+                HookLogger.d(TAG, "收到歌词事件: publisher=$publisher, hasLyric=${data.hasLyric()}")
                 try {
                     handleLyric(publisher, data)
                 } catch (e: Exception) {
@@ -143,11 +143,14 @@ class SuperLyricSource : LyricSource {
             if (lyric != null) {
                 val st = lyric.startTime
                 val et = lyric.endTime
+
                 @Suppress("DEPRECATION")
                 val dl = lyric.delay
                 val words = lyric.words
-                HookLogger.d(TAG, "歌词: text=${lyric.text}, start=$st, end=$et, delay=$dl, " +
-                    "words=${words?.size ?: 0}, pos=$lastKnownPosition, pub=$publisher")
+                HookLogger.d(
+                    TAG, "歌词: text=${lyric.text}, start=$st, end=$et, delay=$dl, " +
+                            "words=${words?.size ?: 0}, pos=$lastKnownPosition, pub=$publisher"
+                )
 
                 if (st == 0L && et == 0L) {
                     val pos = lastKnownPosition.takeIf { it >= 0 }
@@ -160,7 +163,10 @@ class SuperLyricSource : LyricSource {
                             end = pos + dl,
                             duration = dl
                         )
-                        HookLogger.d(TAG, "→ onLyricLine (推算时间): begin=${richLine.begin}, end=${richLine.end}")
+                        HookLogger.d(
+                            TAG,
+                            "→ onLyricLine (推算时间): begin=${richLine.begin}, end=${richLine.end}"
+                        )
                         currentSink.onLyricLine(richLine)
                         startPositionPolling(publisher)
                     } else {

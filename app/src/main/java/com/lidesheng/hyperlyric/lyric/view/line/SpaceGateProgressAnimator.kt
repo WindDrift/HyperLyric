@@ -49,7 +49,8 @@ internal class SpaceGateProgressAnimator {
             isAnimating = false
             return true
         }
-        currentWidth = startWidth + (targetWidth - startWidth) * (elapsedNanos.toFloat() / durationNano)
+        currentWidth =
+            startWidth + (targetWidth - startWidth) * (elapsedNanos.toFloat() / durationNano)
         return true
     }
 

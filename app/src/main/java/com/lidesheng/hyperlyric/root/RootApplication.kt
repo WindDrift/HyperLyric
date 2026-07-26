@@ -26,6 +26,7 @@ class RootApplication : Application() {
                 xposedService = service
                 reconcileRemotePreferences(this@RootApplication, service)
             }
+
             override fun onServiceDied(service: XposedService) {
                 xposedService = null
             }
@@ -35,7 +36,7 @@ class RootApplication : Application() {
     companion object {
         private const val TAG = "RootApplication"
         private const val REMOTE_PREFS_RECONCILIATION_VERSION = 1
-        
+
         @JvmStatic
         var xposedService: XposedService? = null
             private set

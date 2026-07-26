@@ -48,7 +48,7 @@ internal object IslandProgressGlowHooker {
             val backgroundClass = classLoader.loadClass(BACKGROUND_VIEW_CLASS)
             val onDrawMethod = backgroundClass.declaredMethods.firstOrNull {
                 it.name == "onDraw" &&
-                    it.parameterTypes.contentEquals(arrayOf(Canvas::class.java))
+                        it.parameterTypes.contentEquals(arrayOf(Canvas::class.java))
             } ?: throw NoSuchMethodException("$BACKGROUND_VIEW_CLASS.onDraw")
             onDrawMethod.isAccessible = true
             module.deoptimize(onDrawMethod)
@@ -133,7 +133,7 @@ internal object IslandProgressGlowHooker {
                         HookLogger.d(
                             TAG,
                             "首次绘制边缘光效进度: progress=${state.fraction}, " +
-                                "view=${backgroundView.javaClass.name}"
+                                    "view=${backgroundView.javaClass.name}"
                         )
                     }
                 }
@@ -300,12 +300,15 @@ internal object IslandProgressGlowHooker {
                 RootConstants.ISLAND_PROGRESS_STYLE_LEFT_BIDIRECTIONAL -> {
                     appendBidirectionalSegment(LEFT_START_FRACTION, fraction)
                 }
+
                 RootConstants.ISLAND_PROGRESS_STYLE_TOP_BIDIRECTIONAL -> {
                     appendBidirectionalSegment(TOP_START_FRACTION, fraction)
                 }
+
                 RootConstants.ISLAND_PROGRESS_STYLE_BOTTOM_BIDIRECTIONAL -> {
                     appendBidirectionalSegment(BOTTOM_START_FRACTION, fraction)
                 }
+
                 else -> {
                     appendWrappedSegment(
                         startDistance = trackLength * startFraction(style),

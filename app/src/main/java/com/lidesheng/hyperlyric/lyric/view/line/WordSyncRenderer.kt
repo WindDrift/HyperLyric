@@ -207,7 +207,11 @@ internal class WordSyncRenderer(private val view: LyricLineView) : LineRenderer 
         }
     }
 
-    private fun animationTargetWidth(posMs: Long, model: LyricModel, word: WordModel? = null): Float {
+    private fun animationTargetWidth(
+        posMs: Long,
+        model: LyricModel,
+        word: WordModel? = null
+    ): Float {
         val w = word ?: model.wordTimingNavigator.first(posMs)
         return when {
             w != null -> w.endPosition

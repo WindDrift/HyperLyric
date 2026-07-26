@@ -34,10 +34,22 @@ internal object IslandTextHookerSupport {
         if (IslandLyricTextInjector.hasInjectedLyricText(fakeView)) {
             IslandLyricTextInjector.restoreExistingSlotsLightweight(fakeView)
         } else {
-            IslandLyricTextInjector.injectSlots(fakeView, reconfigureExisting = false, suppressAnimation = true)
+            IslandLyricTextInjector.injectSlots(
+                fakeView,
+                reconfigureExisting = false,
+                suppressAnimation = true
+            )
         }
-        IslandLyricTextInjector.refreshCurrentContent(fakeView, includeLyricSlots = true, force = true, suppressAnimation = true)
-        IslandLyricTextInjector.freezeInjectedLyricProgress(fakeView, LyriconDataBridge.currentPosition)
+        IslandLyricTextInjector.refreshCurrentContent(
+            fakeView,
+            includeLyricSlots = true,
+            force = true,
+            suppressAnimation = true
+        )
+        IslandLyricTextInjector.freezeInjectedLyricProgress(
+            fakeView,
+            LyriconDataBridge.currentPosition
+        )
         fakeView.alpha = 1f
         HookLogger.d(TAG, "已准备过渡冻结 fake view: 来源=$source")
     }
@@ -65,7 +77,10 @@ internal object IslandTextHookerSupport {
         return !lyricPkg.isNullOrEmpty() && mediaInfo.packageName == lyricPkg
     }
 
-    fun clearOnlyWhenPackageIsDefinitelyDifferent(viewGroup: ViewGroup, mediaInfo: IslandProbeUtils.MediaIslandInfo) {
+    fun clearOnlyWhenPackageIsDefinitelyDifferent(
+        viewGroup: ViewGroup,
+        mediaInfo: IslandProbeUtils.MediaIslandInfo
+    ) {
         val lyricPkg = LyriconDataBridge.currentLyricPackageName
         if (lyricPkg.isNullOrEmpty()) {
             HookLogger.d(TAG, "歌词包名暂时为空，保留已注入岛: 岛包名=${mediaInfo.packageName}")
@@ -99,7 +114,7 @@ internal object IslandTextHookerSupport {
 
         if (IslandLyricTextInjector.restoreExistingModuleSlotLightweight(holderRoot, moduleType)) {
             IslandLyricTextInjector.refreshCurrentContent(holderRoot)
-        HookLogger.d(TAG, "已轻量恢复歌词视图: 来源=$source，模块=$moduleType")
+            HookLogger.d(TAG, "已轻量恢复歌词视图: 来源=$source，模块=$moduleType")
         }
     }
 

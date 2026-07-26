@@ -4,15 +4,14 @@ import android.content.SharedPreferences
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
-import com.lidesheng.hyperlyric.lyric.source.LyricSink
-import com.lidesheng.hyperlyric.root.LyriconDataBridge
-import com.lidesheng.hyperlyric.root.island.IslandSlotContentAssembler
-import com.lidesheng.hyperlyric.root.island.renderer.IslandRenderer
-import com.lidesheng.hyperlyric.root.aitrans.AiTranslationGateway
-import com.lidesheng.hyperlyric.root.utils.HookLogger
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.lyric.model.Song
 import com.lidesheng.hyperlyric.lyric.model.interfaces.IRichLyricLine
+import com.lidesheng.hyperlyric.lyric.source.LyricSink
+import com.lidesheng.hyperlyric.root.LyriconDataBridge
+import com.lidesheng.hyperlyric.root.aitrans.AiTranslationGateway
+import com.lidesheng.hyperlyric.root.island.IslandSlotContentAssembler
+import com.lidesheng.hyperlyric.root.island.renderer.IslandRenderer
 
 class RootLyricSink(
     private val renderer: IslandRenderer,
@@ -60,7 +59,7 @@ class RootLyricSink(
 
     override fun onLyricLine(line: Any?) {
         if (line is IRichLyricLine) {
-    
+
             LyriconDataBridge.updateLyricLine(line)
             renderer.updateLyricLine()
         }
@@ -123,7 +122,10 @@ class RootLyricSink(
         if (positionDispatchScheduled) return
 
         positionDispatchScheduled = true
-        mainHandler.postDelayed(positionDispatchRunnable, MIN_POSITION_DISPATCH_INTERVAL_MS - elapsed)
+        mainHandler.postDelayed(
+            positionDispatchRunnable,
+            MIN_POSITION_DISPATCH_INTERVAL_MS - elapsed
+        )
     }
 
     private fun dispatchPosition(position: Long, now: Long = SystemClock.uptimeMillis()) {

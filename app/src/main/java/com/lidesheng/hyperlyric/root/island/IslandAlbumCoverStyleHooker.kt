@@ -63,10 +63,14 @@ internal object IslandAlbumCoverStyleHooker {
                 setAppIconMethod = holderClass.declaredMethods.firstOrNull {
                     it.name == "setAppIcon" && it.parameterTypes.contentEquals(fixMethod.parameterTypes)
                 }?.apply { isAccessible = true },
-                picInfoField = holderClass.getDeclaredField("picInfo").apply { isAccessible = true },
-                fixIconField = holderClass.getDeclaredField("fixIcon").apply { isAccessible = true },
-                appIconField = holderClass.getDeclaredField("appIcon").apply { isAccessible = true },
-                iconContainerField = holderClass.getDeclaredField("iconContainer").apply { isAccessible = true }
+                picInfoField = holderClass.getDeclaredField("picInfo")
+                    .apply { isAccessible = true },
+                fixIconField = holderClass.getDeclaredField("fixIcon")
+                    .apply { isAccessible = true },
+                appIconField = holderClass.getDeclaredField("appIcon")
+                    .apply { isAccessible = true },
+                iconContainerField = holderClass.getDeclaredField("iconContainer")
+                    .apply { isAccessible = true }
             )
 
             xposedModule.deoptimize(fixMethod)

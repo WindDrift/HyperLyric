@@ -6,10 +6,10 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
-import com.lidesheng.hyperlyric.root.HookEntry
-import com.lidesheng.hyperlyric.root.LyriconDataBridge
 import com.lidesheng.hyperlyric.lyric.view.RichLyricLineView
 import com.lidesheng.hyperlyric.lyric.view.SpaceGateRichLyricLineView
+import com.lidesheng.hyperlyric.root.HookEntry
+import com.lidesheng.hyperlyric.root.LyriconDataBridge
 import com.lidesheng.hyperlyric.root.island.view.MaxWidthFrameLayout
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 
@@ -234,7 +234,7 @@ internal object IslandLyricTextInjector {
 
         IslandViewHelper.showForInjection(container)
 
-        val prefs = HookEntry.instance?.prefs ?: return false
+        HookEntry.instance?.prefs ?: return false
 
         val taggedWrapper = container.findViewWithTag<View>(wrapperTag)
         val existingWrapper = taggedWrapper as? MaxWidthFrameLayout

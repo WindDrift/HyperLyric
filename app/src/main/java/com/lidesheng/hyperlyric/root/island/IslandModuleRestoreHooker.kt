@@ -26,7 +26,11 @@ internal object IslandModuleRestoreHooker {
                     return@runCatching
                 }
 
-                IslandTextHookerSupport.restoreAdapterModule(chain.thisObject, moduleType, "adapter.updateView")
+                IslandTextHookerSupport.restoreAdapterModule(
+                    chain.thisObject,
+                    moduleType,
+                    "adapter.updateView"
+                )
             }.onFailure { e ->
                 HookLogger.e(TAG, "adapter.updateView 后恢复歌词视图失败", e)
             }
@@ -46,7 +50,8 @@ internal object IslandModuleRestoreHooker {
                 val mediaInfo = IslandProbeUtils.extractMediaIslandInfo(data) ?: return@runCatching
 
                 if (!IslandTextHookerSupport.isCurrentLyricIsland(mediaInfo)) return@runCatching
-                val adapter = IslandTextHookerSupport.findFieldValue(chain.thisObject, "islandAdapter")
+                val adapter =
+                    IslandTextHookerSupport.findFieldValue(chain.thisObject, "islandAdapter")
                 val holderRoot = IslandProbeUtils.getHolderRootView(
                     IslandProbeUtils.getHolder(adapter, moduleType)
                 )
@@ -55,7 +60,11 @@ internal object IslandModuleRestoreHooker {
                     return@runCatching
                 }
 
-                IslandTextHookerSupport.restoreAdapterModule(adapter, moduleType, "updateModuleView")
+                IslandTextHookerSupport.restoreAdapterModule(
+                    adapter,
+                    moduleType,
+                    "updateModuleView"
+                )
             }.onFailure { e ->
                 HookLogger.e(TAG, "updateModuleView 后恢复歌词视图失败", e)
             }

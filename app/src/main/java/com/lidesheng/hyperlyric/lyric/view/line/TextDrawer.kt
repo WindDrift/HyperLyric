@@ -132,7 +132,8 @@ internal class TextDrawer {
                             )
                         }
                         val maskShader = getOrCreateAlphaMaskShader(model.width, highlightWidth)
-                        hlPaint.shader = ComposeShader(baseShader, maskShader, PorterDuff.Mode.DST_IN)
+                        hlPaint.shader =
+                            ComposeShader(baseShader, maskShader, PorterDuff.Mode.DST_IN)
                     } else {
                         if (isRainbowHl) {
                             hlPaint.shader = getOrCreateRainbowShader(model.width, hlColors)

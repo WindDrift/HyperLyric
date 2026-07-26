@@ -80,7 +80,7 @@ internal object IslandProgressGlowController {
                 rootView,
                 DiagnosticStage.INVALID_MEDIA_PROGRESS,
                 "媒体进度不可用: package=$packageName, position=${playbackProgress.position}, " +
-                    "duration=${playbackProgress.duration}, playing=${playbackProgress.isPlaying}"
+                        "duration=${playbackProgress.duration}, playing=${playbackProgress.isPlaying}"
             )
             clear(rootView)
             return
@@ -114,11 +114,11 @@ internal object IslandProgressGlowController {
             rootView,
             DiagnosticStage.BACKGROUND_REGISTERED,
             "边缘光效进度已更新: package=$packageName, " +
-                "progress=${playbackProgress.fraction}, " +
-                "progressStart=${colors.progressStart.toUInt().toString(16)}, " +
-                "progressEnd=${colors.progressEnd.toUInt().toString(16)}, " +
-                "trackColor=${colors.track.toUInt().toString(16)}, " +
-                "style=$progressStyle"
+                    "progress=${playbackProgress.fraction}, " +
+                    "progressStart=${colors.progressStart.toUInt().toString(16)}, " +
+                    "progressEnd=${colors.progressEnd.toUInt().toString(16)}, " +
+                    "trackColor=${colors.track.toUInt().toString(16)}, " +
+                    "style=$progressStyle"
         )
     }
 
@@ -258,11 +258,11 @@ internal object IslandProgressGlowController {
         val palette = mediaInfo?.albumArt?.let {
             CoverColorHelper.extractColors(it, useGradient, mediaColorKey)
         } ?: CoverColorHelper.getCachedColors(useGradient, mediaColorKey)
-            ?: return ProgressColors(
-                DEFAULT_PROGRESS_COLOR,
-                DEFAULT_PROGRESS_COLOR,
-                DEFAULT_TRACK_COLOR
-            )
+        ?: return ProgressColors(
+            DEFAULT_PROGRESS_COLOR,
+            DEFAULT_PROGRESS_COLOR,
+            DEFAULT_TRACK_COLOR
+        )
         val highlight = palette.second.firstOrNull()
             ?: return ProgressColors(
                 DEFAULT_PROGRESS_COLOR,
@@ -325,8 +325,8 @@ internal object IslandProgressGlowController {
             }
             val elapsed = (now - sampledAt).coerceAtLeast(0L)
             val estimated = (
-                progress.position + elapsed * progress.playbackSpeed
-            ).toLong().coerceAtLeast(0L)
+                    progress.position + elapsed * progress.playbackSpeed
+                    ).toLong().coerceAtLeast(0L)
             val bounded = if (progress.duration > 0L) {
                 estimated.coerceAtMost(progress.duration)
             } else {

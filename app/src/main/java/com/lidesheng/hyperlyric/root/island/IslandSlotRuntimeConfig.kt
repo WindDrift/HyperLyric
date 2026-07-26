@@ -126,64 +126,205 @@ internal data class IslandSlotRuntimeConfig(
     }
 
     fun paddingLeftPx(rootView: View, parentName: String): Int {
-        return (paddingLeftDp(parentName) * rootView.resources.displayMetrics.density).toInt().coerceAtLeast(0)
+        return (paddingLeftDp(parentName) * rootView.resources.displayMetrics.density).toInt()
+            .coerceAtLeast(0)
     }
 
     fun paddingRightPx(rootView: View, parentName: String): Int {
-        return (paddingRightDp(parentName) * rootView.resources.displayMetrics.density).toInt().coerceAtLeast(0)
+        return (paddingRightDp(parentName) * rootView.resources.displayMetrics.density).toInt()
+            .coerceAtLeast(0)
     }
 
     companion object {
         fun from(prefs: SharedPreferences): IslandSlotRuntimeConfig {
-            val activeMode = prefs.getInt(RootConstants.KEY_HOOK_LYRIC_MODE, RootConstants.DEFAULT_HOOK_LYRIC_MODE)
+            val activeMode = prefs.getInt(
+                RootConstants.KEY_HOOK_LYRIC_MODE,
+                RootConstants.DEFAULT_HOOK_LYRIC_MODE
+            )
             return IslandSlotRuntimeConfig(
                 activeMode = activeMode,
-                leftMode = if (activeMode == 1) 7 else prefs.getInt(RootConstants.KEY_HOOK_ISLAND_CONTENT_LEFT, RootConstants.DEFAULT_HOOK_ISLAND_CONTENT_LEFT),
-                rightMode = if (activeMode == 1) 7 else prefs.getInt(RootConstants.KEY_HOOK_ISLAND_CONTENT_RIGHT, RootConstants.DEFAULT_HOOK_ISLAND_CONTENT_RIGHT),
-                showAlbum = prefs.getBoolean(RootConstants.KEY_HOOK_ISLAND_LEFT_ALBUM, RootConstants.DEFAULT_HOOK_ISLAND_LEFT_ALBUM),
-                showRhythm = prefs.getBoolean(RootConstants.KEY_HOOK_ISLAND_RIGHT_ICON, RootConstants.DEFAULT_HOOK_ISLAND_RIGHT_ICON),
-                leftPaddingLeftDp = prefs.getInt(RootConstants.KEY_HOOK_ISLAND_LEFT_PADDING_LEFT, RootConstants.DEFAULT_HOOK_ISLAND_LEFT_PADDING_LEFT),
-                leftPaddingRightDp = prefs.getInt(RootConstants.KEY_HOOK_ISLAND_LEFT_PADDING_RIGHT, RootConstants.DEFAULT_HOOK_ISLAND_LEFT_PADDING_RIGHT),
-                rightPaddingLeftDp = prefs.getInt(RootConstants.KEY_HOOK_ISLAND_RIGHT_PADDING_LEFT, RootConstants.DEFAULT_HOOK_ISLAND_RIGHT_PADDING_LEFT),
-                rightPaddingRightDp = prefs.getInt(RootConstants.KEY_HOOK_ISLAND_RIGHT_PADDING_RIGHT, RootConstants.DEFAULT_HOOK_ISLAND_RIGHT_PADDING_RIGHT),
-                leftMaxWidthDp = prefs.getInt(RootConstants.KEY_HOOK_ISLAND_LEFT_CONTENT_MAX_WIDTH, RootConstants.DEFAULT_HOOK_ISLAND_LEFT_CONTENT_MAX_WIDTH),
-                rightMaxWidthDp = prefs.getInt(RootConstants.KEY_HOOK_ISLAND_RIGHT_CONTENT_MAX_WIDTH, RootConstants.DEFAULT_HOOK_ISLAND_RIGHT_CONTENT_MAX_WIDTH),
-                pauseBehavior = prefs.getInt(RootConstants.KEY_HOOK_ISLAND_BEHAVIOR_AFTER_PAUSE, RootConstants.DEFAULT_HOOK_ISLAND_BEHAVIOR_AFTER_PAUSE),
-                textSizeSp = prefs.getInt(RootConstants.KEY_HOOK_TEXT_SIZE, RootConstants.DEFAULT_HOOK_TEXT_SIZE),
-                textSizeRatio = prefs.getFloat(RootConstants.KEY_HOOK_TEXT_SIZE_RATIO, RootConstants.DEFAULT_HOOK_TEXT_SIZE_RATIO),
-                fontWeight = prefs.getInt(RootConstants.KEY_HOOK_FONT_WEIGHT, RootConstants.DEFAULT_HOOK_FONT_WEIGHT),
-                fontItalic = prefs.getBoolean(RootConstants.KEY_HOOK_FONT_ITALIC, RootConstants.DEFAULT_HOOK_FONT_ITALIC),
-                fadingEdgeLength = prefs.getInt(RootConstants.KEY_HOOK_FADING_EDGE_LENGTH, RootConstants.DEFAULT_HOOK_FADING_EDGE_LENGTH),
-                gradientProgress = prefs.getBoolean(RootConstants.KEY_HOOK_GRADIENT_PROGRESS, RootConstants.DEFAULT_HOOK_GRADIENT_PROGRESS),
-                centerLyric = prefs.getBoolean(RootConstants.KEY_HOOK_CENTER_LYRIC, RootConstants.DEFAULT_HOOK_CENTER_LYRIC),
-                lyricAnimationEnabled = prefs.getBoolean(RootConstants.KEY_HOOK_ANIM_ENABLE, RootConstants.DEFAULT_HOOK_ANIM_ENABLE),
-                lyricAnimationId = prefs.getString(RootConstants.KEY_HOOK_ANIM_ID, RootConstants.DEFAULT_HOOK_ANIM_ID) ?: RootConstants.DEFAULT_HOOK_ANIM_ID,
-                lyricMarqueeEnabled = prefs.getBoolean(RootConstants.KEY_HOOK_MARQUEE_MODE, RootConstants.DEFAULT_HOOK_MARQUEE_MODE),
-                lyricMarqueeSpeed = prefs.getInt(RootConstants.KEY_HOOK_MARQUEE_SPEED, RootConstants.DEFAULT_HOOK_MARQUEE_SPEED),
-                lyricMarqueeDelay = prefs.getInt(RootConstants.KEY_HOOK_MARQUEE_DELAY, RootConstants.DEFAULT_HOOK_MARQUEE_DELAY),
-                lyricMarqueeLoopDelay = prefs.getInt(RootConstants.KEY_HOOK_MARQUEE_LOOP_DELAY, RootConstants.DEFAULT_HOOK_MARQUEE_LOOP_DELAY),
-                lyricMarqueeInfinite = prefs.getBoolean(RootConstants.KEY_HOOK_MARQUEE_INFINITE, RootConstants.DEFAULT_HOOK_MARQUEE_INFINITE),
-                lyricMarqueeStopEnd = prefs.getBoolean(RootConstants.KEY_HOOK_MARQUEE_STOP_END, RootConstants.DEFAULT_HOOK_MARQUEE_STOP_END),
-                metadataMarqueeEnabled = prefs.getBoolean(RootConstants.KEY_HOOK_MARQUEE_METADATA_MODE, RootConstants.DEFAULT_HOOK_MARQUEE_METADATA_MODE),
-                metadataMarqueeSpeed = prefs.getInt(RootConstants.KEY_HOOK_MARQUEE_METADATA_SPEED, RootConstants.DEFAULT_HOOK_MARQUEE_METADATA_SPEED),
-                metadataMarqueeDelay = prefs.getInt(RootConstants.KEY_HOOK_MARQUEE_METADATA_DELAY, RootConstants.DEFAULT_HOOK_MARQUEE_METADATA_DELAY),
-                metadataMarqueeLoopDelay = prefs.getInt(RootConstants.KEY_HOOK_MARQUEE_METADATA_LOOP_DELAY, RootConstants.DEFAULT_HOOK_MARQUEE_METADATA_LOOP_DELAY),
-                metadataMarqueeInfinite = prefs.getBoolean(RootConstants.KEY_HOOK_MARQUEE_METADATA_INFINITE, RootConstants.DEFAULT_HOOK_MARQUEE_METADATA_INFINITE),
-                syllableRelative = prefs.getBoolean(RootConstants.KEY_HOOK_SYLLABLE_RELATIVE, RootConstants.DEFAULT_HOOK_SYLLABLE_RELATIVE),
-                syllableHighlight = prefs.getBoolean(RootConstants.KEY_HOOK_SYLLABLE_HIGHLIGHT, RootConstants.DEFAULT_HOOK_SYLLABLE_HIGHLIGHT),
-                disableTranslation = prefs.getBoolean(RootConstants.KEY_HOOK_DISABLE_TRANSLATION, RootConstants.DEFAULT_HOOK_DISABLE_TRANSLATION),
-                translationOnly = prefs.getBoolean(RootConstants.KEY_HOOK_TRANSLATION_ONLY, RootConstants.DEFAULT_HOOK_TRANSLATION_ONLY),
-                swapTranslation = prefs.getBoolean(RootConstants.KEY_HOOK_SWAP_TRANSLATION, RootConstants.DEFAULT_HOOK_SWAP_TRANSLATION),
-                nextLyricLine = prefs.getBoolean(RootConstants.KEY_HOOK_NEXT_LYRIC_LINE, RootConstants.DEFAULT_HOOK_NEXT_LYRIC_LINE),
-                autoSwitchTranslation = prefs.getBoolean(RootConstants.KEY_HOOK_AUTO_SWITCH_TRANSLATION, RootConstants.DEFAULT_HOOK_AUTO_SWITCH_TRANSLATION),
-                extractCoverTextColor = prefs.getBoolean(RootConstants.KEY_HOOK_EXTRACT_COVER_TEXT_COLOR, RootConstants.DEFAULT_HOOK_EXTRACT_COVER_TEXT_COLOR),
-                extractCoverTextGradient = prefs.getBoolean(RootConstants.KEY_HOOK_EXTRACT_COVER_TEXT_GRADIENT, RootConstants.DEFAULT_HOOK_EXTRACT_COVER_TEXT_GRADIENT),
-                customFontPath = prefs.getString(RootConstants.KEY_HOOK_CUSTOM_FONT_PATH, null).orEmpty(),
-                wordMotionEnabled = prefs.getBoolean(RootConstants.KEY_HOOK_WORD_MOTION_ENABLED, RootConstants.DEFAULT_HOOK_WORD_MOTION_ENABLED),
-                wordMotionCjkLift = prefs.getFloat(RootConstants.KEY_HOOK_WORD_MOTION_CJK_LIFT, RootConstants.DEFAULT_HOOK_WORD_MOTION_CJK_LIFT),
-                wordMotionCjkWave = prefs.getFloat(RootConstants.KEY_HOOK_WORD_MOTION_CJK_WAVE, RootConstants.DEFAULT_HOOK_WORD_MOTION_CJK_WAVE),
-                wordMotionLatinLift = prefs.getFloat(RootConstants.KEY_HOOK_WORD_MOTION_LATIN_LIFT, RootConstants.DEFAULT_HOOK_WORD_MOTION_LATIN_LIFT),
-                wordMotionLatinWave = prefs.getFloat(RootConstants.KEY_HOOK_WORD_MOTION_LATIN_WAVE, RootConstants.DEFAULT_HOOK_WORD_MOTION_LATIN_WAVE)
+                leftMode = if (activeMode == 1) 7 else prefs.getInt(
+                    RootConstants.KEY_HOOK_ISLAND_CONTENT_LEFT,
+                    RootConstants.DEFAULT_HOOK_ISLAND_CONTENT_LEFT
+                ),
+                rightMode = if (activeMode == 1) 7 else prefs.getInt(
+                    RootConstants.KEY_HOOK_ISLAND_CONTENT_RIGHT,
+                    RootConstants.DEFAULT_HOOK_ISLAND_CONTENT_RIGHT
+                ),
+                showAlbum = prefs.getBoolean(
+                    RootConstants.KEY_HOOK_ISLAND_LEFT_ALBUM,
+                    RootConstants.DEFAULT_HOOK_ISLAND_LEFT_ALBUM
+                ),
+                showRhythm = prefs.getBoolean(
+                    RootConstants.KEY_HOOK_ISLAND_RIGHT_ICON,
+                    RootConstants.DEFAULT_HOOK_ISLAND_RIGHT_ICON
+                ),
+                leftPaddingLeftDp = prefs.getInt(
+                    RootConstants.KEY_HOOK_ISLAND_LEFT_PADDING_LEFT,
+                    RootConstants.DEFAULT_HOOK_ISLAND_LEFT_PADDING_LEFT
+                ),
+                leftPaddingRightDp = prefs.getInt(
+                    RootConstants.KEY_HOOK_ISLAND_LEFT_PADDING_RIGHT,
+                    RootConstants.DEFAULT_HOOK_ISLAND_LEFT_PADDING_RIGHT
+                ),
+                rightPaddingLeftDp = prefs.getInt(
+                    RootConstants.KEY_HOOK_ISLAND_RIGHT_PADDING_LEFT,
+                    RootConstants.DEFAULT_HOOK_ISLAND_RIGHT_PADDING_LEFT
+                ),
+                rightPaddingRightDp = prefs.getInt(
+                    RootConstants.KEY_HOOK_ISLAND_RIGHT_PADDING_RIGHT,
+                    RootConstants.DEFAULT_HOOK_ISLAND_RIGHT_PADDING_RIGHT
+                ),
+                leftMaxWidthDp = prefs.getInt(
+                    RootConstants.KEY_HOOK_ISLAND_LEFT_CONTENT_MAX_WIDTH,
+                    RootConstants.DEFAULT_HOOK_ISLAND_LEFT_CONTENT_MAX_WIDTH
+                ),
+                rightMaxWidthDp = prefs.getInt(
+                    RootConstants.KEY_HOOK_ISLAND_RIGHT_CONTENT_MAX_WIDTH,
+                    RootConstants.DEFAULT_HOOK_ISLAND_RIGHT_CONTENT_MAX_WIDTH
+                ),
+                pauseBehavior = prefs.getInt(
+                    RootConstants.KEY_HOOK_ISLAND_BEHAVIOR_AFTER_PAUSE,
+                    RootConstants.DEFAULT_HOOK_ISLAND_BEHAVIOR_AFTER_PAUSE
+                ),
+                textSizeSp = prefs.getInt(
+                    RootConstants.KEY_HOOK_TEXT_SIZE,
+                    RootConstants.DEFAULT_HOOK_TEXT_SIZE
+                ),
+                textSizeRatio = prefs.getFloat(
+                    RootConstants.KEY_HOOK_TEXT_SIZE_RATIO,
+                    RootConstants.DEFAULT_HOOK_TEXT_SIZE_RATIO
+                ),
+                fontWeight = prefs.getInt(
+                    RootConstants.KEY_HOOK_FONT_WEIGHT,
+                    RootConstants.DEFAULT_HOOK_FONT_WEIGHT
+                ),
+                fontItalic = prefs.getBoolean(
+                    RootConstants.KEY_HOOK_FONT_ITALIC,
+                    RootConstants.DEFAULT_HOOK_FONT_ITALIC
+                ),
+                fadingEdgeLength = prefs.getInt(
+                    RootConstants.KEY_HOOK_FADING_EDGE_LENGTH,
+                    RootConstants.DEFAULT_HOOK_FADING_EDGE_LENGTH
+                ),
+                gradientProgress = prefs.getBoolean(
+                    RootConstants.KEY_HOOK_GRADIENT_PROGRESS,
+                    RootConstants.DEFAULT_HOOK_GRADIENT_PROGRESS
+                ),
+                centerLyric = prefs.getBoolean(
+                    RootConstants.KEY_HOOK_CENTER_LYRIC,
+                    RootConstants.DEFAULT_HOOK_CENTER_LYRIC
+                ),
+                lyricAnimationEnabled = prefs.getBoolean(
+                    RootConstants.KEY_HOOK_ANIM_ENABLE,
+                    RootConstants.DEFAULT_HOOK_ANIM_ENABLE
+                ),
+                lyricAnimationId = prefs.getString(
+                    RootConstants.KEY_HOOK_ANIM_ID,
+                    RootConstants.DEFAULT_HOOK_ANIM_ID
+                ) ?: RootConstants.DEFAULT_HOOK_ANIM_ID,
+                lyricMarqueeEnabled = prefs.getBoolean(
+                    RootConstants.KEY_HOOK_MARQUEE_MODE,
+                    RootConstants.DEFAULT_HOOK_MARQUEE_MODE
+                ),
+                lyricMarqueeSpeed = prefs.getInt(
+                    RootConstants.KEY_HOOK_MARQUEE_SPEED,
+                    RootConstants.DEFAULT_HOOK_MARQUEE_SPEED
+                ),
+                lyricMarqueeDelay = prefs.getInt(
+                    RootConstants.KEY_HOOK_MARQUEE_DELAY,
+                    RootConstants.DEFAULT_HOOK_MARQUEE_DELAY
+                ),
+                lyricMarqueeLoopDelay = prefs.getInt(
+                    RootConstants.KEY_HOOK_MARQUEE_LOOP_DELAY,
+                    RootConstants.DEFAULT_HOOK_MARQUEE_LOOP_DELAY
+                ),
+                lyricMarqueeInfinite = prefs.getBoolean(
+                    RootConstants.KEY_HOOK_MARQUEE_INFINITE,
+                    RootConstants.DEFAULT_HOOK_MARQUEE_INFINITE
+                ),
+                lyricMarqueeStopEnd = prefs.getBoolean(
+                    RootConstants.KEY_HOOK_MARQUEE_STOP_END,
+                    RootConstants.DEFAULT_HOOK_MARQUEE_STOP_END
+                ),
+                metadataMarqueeEnabled = prefs.getBoolean(
+                    RootConstants.KEY_HOOK_MARQUEE_METADATA_MODE,
+                    RootConstants.DEFAULT_HOOK_MARQUEE_METADATA_MODE
+                ),
+                metadataMarqueeSpeed = prefs.getInt(
+                    RootConstants.KEY_HOOK_MARQUEE_METADATA_SPEED,
+                    RootConstants.DEFAULT_HOOK_MARQUEE_METADATA_SPEED
+                ),
+                metadataMarqueeDelay = prefs.getInt(
+                    RootConstants.KEY_HOOK_MARQUEE_METADATA_DELAY,
+                    RootConstants.DEFAULT_HOOK_MARQUEE_METADATA_DELAY
+                ),
+                metadataMarqueeLoopDelay = prefs.getInt(
+                    RootConstants.KEY_HOOK_MARQUEE_METADATA_LOOP_DELAY,
+                    RootConstants.DEFAULT_HOOK_MARQUEE_METADATA_LOOP_DELAY
+                ),
+                metadataMarqueeInfinite = prefs.getBoolean(
+                    RootConstants.KEY_HOOK_MARQUEE_METADATA_INFINITE,
+                    RootConstants.DEFAULT_HOOK_MARQUEE_METADATA_INFINITE
+                ),
+                syllableRelative = prefs.getBoolean(
+                    RootConstants.KEY_HOOK_SYLLABLE_RELATIVE,
+                    RootConstants.DEFAULT_HOOK_SYLLABLE_RELATIVE
+                ),
+                syllableHighlight = prefs.getBoolean(
+                    RootConstants.KEY_HOOK_SYLLABLE_HIGHLIGHT,
+                    RootConstants.DEFAULT_HOOK_SYLLABLE_HIGHLIGHT
+                ),
+                disableTranslation = prefs.getBoolean(
+                    RootConstants.KEY_HOOK_DISABLE_TRANSLATION,
+                    RootConstants.DEFAULT_HOOK_DISABLE_TRANSLATION
+                ),
+                translationOnly = prefs.getBoolean(
+                    RootConstants.KEY_HOOK_TRANSLATION_ONLY,
+                    RootConstants.DEFAULT_HOOK_TRANSLATION_ONLY
+                ),
+                swapTranslation = prefs.getBoolean(
+                    RootConstants.KEY_HOOK_SWAP_TRANSLATION,
+                    RootConstants.DEFAULT_HOOK_SWAP_TRANSLATION
+                ),
+                nextLyricLine = prefs.getBoolean(
+                    RootConstants.KEY_HOOK_NEXT_LYRIC_LINE,
+                    RootConstants.DEFAULT_HOOK_NEXT_LYRIC_LINE
+                ),
+                autoSwitchTranslation = prefs.getBoolean(
+                    RootConstants.KEY_HOOK_AUTO_SWITCH_TRANSLATION,
+                    RootConstants.DEFAULT_HOOK_AUTO_SWITCH_TRANSLATION
+                ),
+                extractCoverTextColor = prefs.getBoolean(
+                    RootConstants.KEY_HOOK_EXTRACT_COVER_TEXT_COLOR,
+                    RootConstants.DEFAULT_HOOK_EXTRACT_COVER_TEXT_COLOR
+                ),
+                extractCoverTextGradient = prefs.getBoolean(
+                    RootConstants.KEY_HOOK_EXTRACT_COVER_TEXT_GRADIENT,
+                    RootConstants.DEFAULT_HOOK_EXTRACT_COVER_TEXT_GRADIENT
+                ),
+                customFontPath = prefs.getString(RootConstants.KEY_HOOK_CUSTOM_FONT_PATH, null)
+                    .orEmpty(),
+                wordMotionEnabled = prefs.getBoolean(
+                    RootConstants.KEY_HOOK_WORD_MOTION_ENABLED,
+                    RootConstants.DEFAULT_HOOK_WORD_MOTION_ENABLED
+                ),
+                wordMotionCjkLift = prefs.getFloat(
+                    RootConstants.KEY_HOOK_WORD_MOTION_CJK_LIFT,
+                    RootConstants.DEFAULT_HOOK_WORD_MOTION_CJK_LIFT
+                ),
+                wordMotionCjkWave = prefs.getFloat(
+                    RootConstants.KEY_HOOK_WORD_MOTION_CJK_WAVE,
+                    RootConstants.DEFAULT_HOOK_WORD_MOTION_CJK_WAVE
+                ),
+                wordMotionLatinLift = prefs.getFloat(
+                    RootConstants.KEY_HOOK_WORD_MOTION_LATIN_LIFT,
+                    RootConstants.DEFAULT_HOOK_WORD_MOTION_LATIN_LIFT
+                ),
+                wordMotionLatinWave = prefs.getFloat(
+                    RootConstants.KEY_HOOK_WORD_MOTION_LATIN_WAVE,
+                    RootConstants.DEFAULT_HOOK_WORD_MOTION_LATIN_WAVE
+                )
             )
         }
     }

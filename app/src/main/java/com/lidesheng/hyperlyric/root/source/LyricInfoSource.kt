@@ -7,7 +7,6 @@ import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import com.lidesheng.hyperlyric.common.lyric.LyricInfoParser
 import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
-import com.lidesheng.hyperlyric.lyric.model.Song
 import com.lidesheng.hyperlyric.lyric.source.LyricSink
 import com.lidesheng.hyperlyric.lyric.source.LyricSource
 import com.lidesheng.hyperlyric.root.LyriconDataBridge
@@ -25,8 +24,10 @@ class LyricInfoSource(private val context: Context) : LyricSource {
     override val id = "lyricinfo"
     override val displayName = "LyricInfo"
 
-    private val manager = context.getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
-    private val trackedControllers = java.util.concurrent.ConcurrentHashMap<MediaController, MediaController.Callback>()
+    private val manager =
+        context.getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
+    private val trackedControllers =
+        java.util.concurrent.ConcurrentHashMap<MediaController, MediaController.Callback>()
     private var sink: LyricSink? = null
 
     private var lastLyricHash: Int = 0
@@ -38,9 +39,10 @@ class LyricInfoSource(private val context: Context) : LyricSource {
     private val positionJob_supervisor = SupervisorJob()
     private val positionScope = CoroutineScope(Dispatchers.Main + positionJob_supervisor)
 
-    private val sessionListener = MediaSessionManager.OnActiveSessionsChangedListener { controllers ->
-        onActiveSessionsChanged(controllers)
-    }
+    private val sessionListener =
+        MediaSessionManager.OnActiveSessionsChangedListener { controllers ->
+            onActiveSessionsChanged(controllers)
+        }
 
     override fun isAvailable() = true
 
@@ -58,9 +60,15 @@ class LyricInfoSource(private val context: Context) : LyricSource {
 
     override fun stop() {
         stopPositionPolling()
-        try { manager.removeOnActiveSessionsChangedListener(sessionListener) } catch (_: Exception) {}
+        try {
+            manager.removeOnActiveSessionsChangedListener(sessionListener)
+        } catch (_: Exception) {
+        }
         trackedControllers.forEach { (ctrl, cb) ->
-            try { ctrl.unregisterCallback(cb) } catch (_: Exception) {}
+            try {
+                ctrl.unregisterCallback(cb)
+            } catch (_: Exception) {
+            }
         }
         trackedControllers.clear()
         clearLyrics()
@@ -79,7 +87,12 @@ class LyricInfoSource(private val context: Context) : LyricSource {
         if (controllers == null) return
         val currentSessions = controllers.toSet()
         trackedControllers.keys.filter { it !in currentSessions }.forEach { dead ->
-            trackedControllers.remove(dead)?.let { try { dead.unregisterCallback(it) } catch (_: Exception) {} }
+            trackedControllers.remove(dead)?.let {
+                try {
+                    dead.unregisterCallback(it)
+                } catch (_: Exception) {
+                }
+            }
         }
         val activeToken = activeController?.sessionToken
         if (activeToken != null && controllers.none { it.sessionToken == activeToken }) {
@@ -89,15 +102,22 @@ class LyricInfoSource(private val context: Context) : LyricSource {
         for (ctrl in controllers) {
             if (!trackedControllers.containsKey(ctrl)) {
                 val cb = object : MediaController.Callback() {
-                    override fun onMetadataChanged(metadata: MediaMetadata?) = onMetadataUpdate(ctrl)
+                    override fun onMetadataChanged(metadata: MediaMetadata?) =
+                        onMetadataUpdate(ctrl)
+
                     override fun onPlaybackStateChanged(state: PlaybackState?) {
                         if (ctrl.sessionToken == activeController?.sessionToken) {
                             handlePlaybackState(ctrl, state)
                         }
                     }
-                    override fun onSessionDestroyed() = onActiveSessionsChanged(manager.getActiveSessions(null))
+
+                    override fun onSessionDestroyed() =
+                        onActiveSessionsChanged(manager.getActiveSessions(null))
                 }
-                try { ctrl.registerCallback(cb); trackedControllers[ctrl] = cb; onMetadataUpdate(ctrl) } catch (_: Exception) {}
+                try {
+                    ctrl.registerCallback(cb); trackedControllers[ctrl] = cb; onMetadataUpdate(ctrl)
+                } catch (_: Exception) {
+                }
             }
         }
     }
@@ -113,7 +133,11 @@ class LyricInfoSource(private val context: Context) : LyricSource {
         val metadata = controller.metadata ?: return
         val pkg = controller.packageName ?: return
 
-        val lyricInfoRaw = try { metadata.getString("lyricInfo") } catch (_: Exception) { null }
+        val lyricInfoRaw = try {
+            metadata.getString("lyricInfo")
+        } catch (_: Exception) {
+            null
+        }
         val currentHash = lyricInfoRaw?.hashCode() ?: 0
 
         if (!lyricInfoRaw.isNullOrBlank() && currentHash != 0) {
@@ -141,23 +165,28 @@ class LyricInfoSource(private val context: Context) : LyricSource {
                 sink?.onSongChanged(song)
                 sink?.onMetadata(title = songName, artist = artist, album = "", publisher = pkg)
                 handlePlaybackState(controller, controller.playbackState)
-        HookLogger.d(
-            "LyricInfoSource",
-            "歌词已就绪: song=$songName, lines=${song.lyrics!!.size}"
-        )
+                HookLogger.d(
+                    "LyricInfoSource",
+                    "歌词已就绪: song=$songName, lines=${song.lyrics!!.size}"
+                )
             }
         } else if (hasLyrics && pkg == activePkg) {
             // 只清理当前有歌词的包，不影响其他包
             sink?.onStop()
             LyriconDataBridge.clearState()
             clearLyrics()
-        HookLogger.d("LyricInfoSource", "歌词已清除: package=$pkg")
+            HookLogger.d("LyricInfoSource", "歌词已清除: package=$pkg")
         }
     }
 
     private fun logDiagnosis(json: String) {
         val d = LyricInfoParser.diagnose(json) ?: return
-        HookLogger.d("LyricInfoSource", "songName=${d.songName} | artist=${d.artist} | songId=${d.songId} | format=${d.format} | translation=${d.translationFormat} | lyric=${d.lyricLength}chars | ${d.lyricPreview.joinToString(" | ")}")
+        HookLogger.d(
+            "LyricInfoSource",
+            "songName=${d.songName} | artist=${d.artist} | songId=${d.songId} | format=${d.format} | translation=${d.translationFormat} | lyric=${d.lyricLength}chars | ${
+                d.lyricPreview.joinToString(" | ")
+            }"
+        )
     }
 
     private fun startPositionPolling(controller: MediaController) {
@@ -174,7 +203,8 @@ class LyricInfoSource(private val context: Context) : LyricSource {
                     if (position >= 0L && activeController?.sessionToken == controller.sessionToken) {
                         sink?.onPositionChanged(position)
                     }
-                } catch (_: Exception) {}
+                } catch (_: Exception) {
+                }
                 delay(33)
             }
         }

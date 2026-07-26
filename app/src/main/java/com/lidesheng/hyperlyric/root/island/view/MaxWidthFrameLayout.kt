@@ -1,7 +1,6 @@
 package com.lidesheng.hyperlyric.root.island.view
 
 import android.content.Context
-import android.view.View
 import android.widget.FrameLayout
 
 /**

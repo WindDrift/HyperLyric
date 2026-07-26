@@ -1,8 +1,8 @@
 package com.lidesheng.hyperlyric.root
 
 import android.content.SharedPreferences
-import com.lidesheng.hyperlyric.root.utils.HookLogger
 import com.lidesheng.hyperlyric.common.RootConstants
+import com.lidesheng.hyperlyric.root.utils.HookLogger
 import io.github.libxposed.api.XposedInterface.Chain
 import io.github.libxposed.api.XposedInterface.HookHandle
 import io.github.libxposed.api.XposedInterface.Hooker
@@ -14,7 +14,8 @@ object UnlockIslandWhitelist {
     private const val TARGET_METHOD = "mediaIslandSupportMiniWindow"
 
     internal lateinit var module: XposedModule
-    private val hookedClassLoaders = java.util.Collections.newSetFromMap(java.util.WeakHashMap<ClassLoader, Boolean>())
+    private val hookedClassLoaders =
+        java.util.Collections.newSetFromMap(java.util.WeakHashMap<ClassLoader, Boolean>())
     private val hookHandles = mutableMapOf<Method, HookHandle>()
     private val knownClassLoaders = mutableSetOf<ClassLoader>()
     private var prefsListener: SharedPreferences.OnSharedPreferenceChangeListener? = null
@@ -26,7 +27,8 @@ object UnlockIslandWhitelist {
 
         prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             if (key == prefKey) {
-                val enabled = prefs.getBoolean(prefKey, RootConstants.DEFAULT_HOOK_REMOVE_ISLAND_WHITELIST)
+                val enabled =
+                    prefs.getBoolean(prefKey, RootConstants.DEFAULT_HOOK_REMOVE_ISLAND_WHITELIST)
                 if (enabled) {
                     hookAllKnownClassLoaders()
                 } else {
@@ -49,7 +51,10 @@ object UnlockIslandWhitelist {
         knownClassLoaders.add(cl)
 
         val prefs = (module as? HookEntry)?.prefs ?: return
-        val enabled = prefs.getBoolean(RootConstants.KEY_HOOK_REMOVE_ISLAND_WHITELIST, RootConstants.DEFAULT_HOOK_REMOVE_ISLAND_WHITELIST)
+        val enabled = prefs.getBoolean(
+            RootConstants.KEY_HOOK_REMOVE_ISLAND_WHITELIST,
+            RootConstants.DEFAULT_HOOK_REMOVE_ISLAND_WHITELIST
+        )
         if (!enabled) return
 
         installHook(cl)
@@ -64,10 +69,10 @@ object UnlockIslandWhitelist {
                 module.deoptimize(method)
                 val handle = module.hook(method).intercept(ReturnTrueHooker())
                 hookHandles[method] = handle
-            HookLogger.i(
-                "UnlockIslandWhitelist",
-                "超级岛下拉小窗白名单 Hook 已安装: method=$TARGET_METHOD"
-            )
+                HookLogger.i(
+                    "UnlockIslandWhitelist",
+                    "超级岛下拉小窗白名单 Hook 已安装: method=$TARGET_METHOD"
+                )
             }
         }.onFailure { e ->
             if (e !is ClassNotFoundException) {
@@ -85,11 +90,11 @@ object UnlockIslandWhitelist {
     private fun unhookAll() {
         hookHandles.values.forEach { it.unhook() }
         hookHandles.clear()
-            HookLogger.i("UnlockIslandWhitelist", "超级岛下拉小窗白名单 Hook 已移除")
+        HookLogger.i("UnlockIslandWhitelist", "超级岛下拉小窗白名单 Hook 已移除")
     }
 
     class ReturnTrueHooker : Hooker {
-        override fun intercept(chain: Chain): Any? {
+        override fun intercept(chain: Chain): Any {
             // hook 存在即代表功能开启，无需读取偏好
             return true
         }

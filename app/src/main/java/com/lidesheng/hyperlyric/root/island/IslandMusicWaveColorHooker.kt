@@ -91,7 +91,7 @@ internal object IslandMusicWaveColorHooker {
 
             val setLottieColorMethod = holderClass.declaredMethods.firstOrNull {
                 it.name == "setLottieColor" &&
-                    it.parameterTypes.contentEquals(arrayOf(Bitmap::class.java))
+                        it.parameterTypes.contentEquals(arrayOf(Bitmap::class.java))
             }
             if (setLottieColorMethod != null) {
                 setLottieColorMethod.isAccessible = true
@@ -601,7 +601,7 @@ internal object IslandMusicWaveColorHooker {
                 }
                 lottieView.invalidate()
             }.onFailure { e ->
-            HookLogger.e(TAG, "刷新音频律动动画失败", e)
+                HookLogger.e(TAG, "刷新音频律动动画失败", e)
             }
             return result
         }

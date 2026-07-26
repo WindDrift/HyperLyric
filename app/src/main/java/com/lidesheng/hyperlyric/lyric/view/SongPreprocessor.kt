@@ -65,6 +65,7 @@ internal class SongPreprocessor(private val placeholder: TitleSlot) {
                 !name.isNullOrBlank() -> name
                 else -> null
             }
+
             TitleSlot.NAME -> name?.takeIf { it.isNotBlank() }
         }
     }

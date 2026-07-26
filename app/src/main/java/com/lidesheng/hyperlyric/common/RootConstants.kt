@@ -27,12 +27,30 @@ object RootConstants {
         "key_hook_island_expanded_media_ambient_flow_mode"
     const val KEY_HOOK_NOTIFICATION_MEDIA_CARD_THEME =
         "key_hook_notification_media_card_theme"
+    const val KEY_HOOK_NOTIFICATION_MEDIA_LAYOUT_STYLE =
+        "key_hook_notification_media_layout_style"
     const val KEY_HOOK_NOTIFICATION_MEDIA_COVER_STYLE =
         "key_hook_notification_media_cover_style"
     const val KEY_HOOK_NOTIFICATION_MEDIA_HIDE_COVER_SOURCE =
         "key_hook_notification_media_hide_cover_source"
+    const val KEY_HOOK_NOTIFICATION_MEDIA_HIDE_COVER_SHADOW =
+        "key_hook_notification_media_hide_cover_shadow"
     const val KEY_HOOK_NOTIFICATION_MEDIA_HIDE_DEVICE_SWITCH =
         "key_hook_notification_media_hide_device_switch"
+    const val KEY_HOOK_NOTIFICATION_MEDIA_HIDE_TIME =
+        "key_hook_notification_media_hide_time"
+    const val KEY_HOOK_NOTIFICATION_MEDIA_HIDE_CUSTOM_ACTIONS =
+        "key_hook_notification_media_hide_custom_actions"
+    const val KEY_HOOK_NOTIFICATION_MEDIA_DISABLE_COVER_FLIP =
+        "key_hook_notification_media_disable_cover_flip"
+    const val KEY_HOOK_NOTIFICATION_MEDIA_PROGRESS_STYLE =
+        "key_hook_notification_media_progress_style"
+    const val KEY_HOOK_NOTIFICATION_MEDIA_THUMB_STYLE =
+        "key_hook_notification_media_thumb_style"
+    const val KEY_HOOK_NOTIFICATION_MEDIA_ACTION_ALIGN_LEFT =
+        "key_hook_notification_media_action_align_left"
+    const val KEY_HOOK_NOTIFICATION_MEDIA_ACTION_ORDER =
+        "key_hook_notification_media_action_order"
     const val KEY_HOOK_NOTIFICATION_MEDIA_BACKGROUND_STYLE =
         "key_hook_notification_media_background_style"
     const val KEY_HOOK_NOTIFICATION_MEDIA_BACKGROUND_BLUR =
@@ -51,6 +69,20 @@ object RootConstants {
         "key_hook_island_expanded_media_hide_cover_source"
     const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_HIDE_DEVICE_SWITCH =
         "key_hook_island_expanded_media_hide_device_switch"
+    const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_HIDE_TIME =
+        "key_hook_island_expanded_media_hide_time"
+    const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_HIDE_CUSTOM_ACTIONS =
+        "key_hook_island_expanded_media_hide_custom_actions"
+    const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_DISABLE_COVER_FLIP =
+        "key_hook_island_expanded_media_disable_cover_flip"
+    const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_PROGRESS_STYLE =
+        "key_hook_island_expanded_media_progress_style"
+    const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_THUMB_STYLE =
+        "key_hook_island_expanded_media_thumb_style"
+    const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_ACTION_ALIGN_LEFT =
+        "key_hook_island_expanded_media_action_align_left"
+    const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_ACTION_ORDER =
+        "key_hook_island_expanded_media_action_order"
     const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_BACKGROUND_STYLE =
         "key_hook_island_expanded_media_background_style"
     const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_BACKGROUND_BLUR =
@@ -61,6 +93,44 @@ object RootConstants {
         "key_hook_island_expanded_media_background_auto_invert"
     const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_SOFT_COVER_TONE =
         "key_hook_island_expanded_media_soft_cover_tone"
+    const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_IOS_COVER_SIZE =
+        "key_hook_island_expanded_media_ios_cover_size"
+    const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_IOS_COVER_TOP =
+        "key_hook_island_expanded_media_ios_cover_top"
+    const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_IOS_COVER_START =
+        "key_hook_island_expanded_media_ios_cover_start"
+    const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_IOS_TITLE_TOP =
+        "key_hook_island_expanded_media_ios_title_top"
+    const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_IOS_INFO_START_GAP =
+        "key_hook_island_expanded_media_ios_info_start_gap"
+    const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_IOS_ARTIST_GAP =
+        "key_hook_island_expanded_media_ios_artist_gap"
+    const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_IOS_MUSIC_WAVE_SIZE =
+        "key_hook_island_expanded_media_ios_music_wave_size"
+    const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_IOS_MUSIC_WAVE_TOP =
+        "key_hook_island_expanded_media_ios_music_wave_top"
+    const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_IOS_MUSIC_WAVE_END =
+        "key_hook_island_expanded_media_ios_music_wave_end"
+    const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_IOS_PROGRESS_TOP_GAP =
+        "key_hook_island_expanded_media_ios_progress_top_gap"
+    const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_IOS_PROGRESS_HEIGHT =
+        "key_hook_island_expanded_media_ios_progress_height"
+    const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_IOS_PROGRESS_TIME_GAP =
+        "key_hook_island_expanded_media_ios_progress_time_gap"
+    const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_IOS_TIME_OUTER_MARGIN =
+        "key_hook_island_expanded_media_ios_time_outer_margin"
+    const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_IOS_ACTION_WIDTH =
+        "key_hook_island_expanded_media_ios_action_width"
+    const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_IOS_ACTION_HEIGHT =
+        "key_hook_island_expanded_media_ios_action_height"
+    const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_IOS_ACTION_BOTTOM =
+        "key_hook_island_expanded_media_ios_action_bottom"
+    const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_IOS_ACTION_OUTER_MARGIN =
+        "key_hook_island_expanded_media_ios_action_outer_margin"
+    const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_IOS_ACTION_SCALE_PERCENT =
+        "key_hook_island_expanded_media_ios_action_scale_percent"
+    const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_IOS_DEVICE_SWITCH_SCALE_PERCENT =
+        "key_hook_island_expanded_media_ios_device_switch_scale_percent"
 
     const val KEY_HOOK_REMOVE_FOCUS_WHITELIST = "key_hook_remove_focus_whitelist"
     const val KEY_HOOK_REMOVE_ISLAND_WHITELIST = "key_hook_remove_island_whitelist"
@@ -178,6 +248,14 @@ object RootConstants {
     const val MEDIA_CARD_THEME_ALWAYS_DARK = 2
     const val DEFAULT_HOOK_NOTIFICATION_MEDIA_CARD_THEME = MEDIA_CARD_THEME_FOLLOW_SYSTEM
     const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_CARD_THEME = MEDIA_CARD_THEME_ALWAYS_DARK
+    const val NOTIFICATION_MEDIA_LAYOUT_STYLE_SYSTEM = 0
+    const val NOTIFICATION_MEDIA_LAYOUT_STYLE_IOS = 1
+    const val NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS = 2
+    const val NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI = 3
+    const val NOTIFICATION_MEDIA_LAYOUT_STYLE_MIUI = 4
+    const val NOTIFICATION_MEDIA_LAYOUT_STYLE_PIXEL = 5
+    const val DEFAULT_HOOK_NOTIFICATION_MEDIA_LAYOUT_STYLE =
+        NOTIFICATION_MEDIA_LAYOUT_STYLE_SYSTEM
     const val NOTIFICATION_MEDIA_COVER_STYLE_DEFAULT = 0
     const val NOTIFICATION_MEDIA_COVER_STYLE_CIRCLE = 1
     const val NOTIFICATION_MEDIA_COVER_STYLE_ROTATING_CIRCLE = 2
@@ -185,7 +263,23 @@ object RootConstants {
     const val DEFAULT_HOOK_NOTIFICATION_MEDIA_COVER_STYLE =
         NOTIFICATION_MEDIA_COVER_STYLE_DEFAULT
     const val DEFAULT_HOOK_NOTIFICATION_MEDIA_HIDE_COVER_SOURCE = false
+    const val DEFAULT_HOOK_NOTIFICATION_MEDIA_HIDE_COVER_SHADOW = false
     const val DEFAULT_HOOK_NOTIFICATION_MEDIA_HIDE_DEVICE_SWITCH = false
+    const val DEFAULT_HOOK_NOTIFICATION_MEDIA_HIDE_TIME = false
+    const val DEFAULT_HOOK_NOTIFICATION_MEDIA_HIDE_CUSTOM_ACTIONS = false
+    const val DEFAULT_HOOK_NOTIFICATION_MEDIA_DISABLE_COVER_FLIP = false
+    const val NOTIFICATION_MEDIA_PROGRESS_STYLE_DEFAULT = 0
+    const val NOTIFICATION_MEDIA_PROGRESS_STYLE_WAVE = 1
+    const val DEFAULT_HOOK_NOTIFICATION_MEDIA_PROGRESS_STYLE = NOTIFICATION_MEDIA_PROGRESS_STYLE_DEFAULT
+    const val NOTIFICATION_MEDIA_THUMB_STYLE_DEFAULT = 0
+    const val NOTIFICATION_MEDIA_THUMB_STYLE_VERTICAL = 1
+    const val NOTIFICATION_MEDIA_THUMB_STYLE_HIDDEN = 2
+    const val DEFAULT_HOOK_NOTIFICATION_MEDIA_THUMB_STYLE = NOTIFICATION_MEDIA_THUMB_STYLE_DEFAULT
+    const val DEFAULT_HOOK_NOTIFICATION_MEDIA_ACTION_ALIGN_LEFT = false
+    const val NOTIFICATION_MEDIA_ACTION_ORDER_DEFAULT = 0
+    const val NOTIFICATION_MEDIA_ACTION_ORDER_CUSTOM_RIGHT = 1
+    const val NOTIFICATION_MEDIA_ACTION_ORDER_PLAY_LEFT = 2
+    const val DEFAULT_HOOK_NOTIFICATION_MEDIA_ACTION_ORDER = NOTIFICATION_MEDIA_ACTION_ORDER_DEFAULT
     const val MEDIA_SOFT_COVER_TONE_LIGHT = 0
     const val MEDIA_SOFT_COVER_TONE_DARK = 1
 
@@ -209,6 +303,21 @@ object RootConstants {
         ISLAND_EXPANDED_MEDIA_COVER_STYLE_DEFAULT
     const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_HIDE_COVER_SOURCE = false
     const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_HIDE_DEVICE_SWITCH = false
+    const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_HIDE_TIME = false
+    const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_HIDE_CUSTOM_ACTIONS = false
+    const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_DISABLE_COVER_FLIP = false
+    const val ISLAND_EXPANDED_MEDIA_PROGRESS_STYLE_DEFAULT = 0
+    const val ISLAND_EXPANDED_MEDIA_PROGRESS_STYLE_WAVE = 1
+    const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_PROGRESS_STYLE = ISLAND_EXPANDED_MEDIA_PROGRESS_STYLE_DEFAULT
+    const val ISLAND_EXPANDED_MEDIA_THUMB_STYLE_DEFAULT = 0
+    const val ISLAND_EXPANDED_MEDIA_THUMB_STYLE_VERTICAL = 1
+    const val ISLAND_EXPANDED_MEDIA_THUMB_STYLE_HIDDEN = 2
+    const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_THUMB_STYLE = ISLAND_EXPANDED_MEDIA_THUMB_STYLE_DEFAULT
+    const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_ACTION_ALIGN_LEFT = false
+    const val ISLAND_EXPANDED_MEDIA_ACTION_ORDER_DEFAULT = 0
+    const val ISLAND_EXPANDED_MEDIA_ACTION_ORDER_CUSTOM_RIGHT = 1
+    const val ISLAND_EXPANDED_MEDIA_ACTION_ORDER_PLAY_LEFT = 2
+    const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_ACTION_ORDER = ISLAND_EXPANDED_MEDIA_ACTION_ORDER_DEFAULT
     const val ISLAND_EXPANDED_MEDIA_BACKGROUND_STYLE_DEFAULT = 0
     const val ISLAND_EXPANDED_MEDIA_BACKGROUND_STYLE_COVER_ART = 1
     const val ISLAND_EXPANDED_MEDIA_BACKGROUND_STYLE_BLURRED_COVER = 2
@@ -221,6 +330,25 @@ object RootConstants {
     const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_BACKGROUND_COLOR_ANIMATION = false
     const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_BACKGROUND_AUTO_INVERT = false
     const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_SOFT_COVER_TONE = MEDIA_SOFT_COVER_TONE_DARK
+    const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_IOS_COVER_SIZE = 50f
+    const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_IOS_COVER_TOP = 15f
+    const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_IOS_COVER_START = 15f
+    const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_IOS_TITLE_TOP = 19f
+    const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_IOS_INFO_START_GAP = 12f
+    const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_IOS_ARTIST_GAP = 3f
+    const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_IOS_MUSIC_WAVE_SIZE = 24f
+    const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_IOS_MUSIC_WAVE_TOP = 24f
+    const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_IOS_MUSIC_WAVE_END = 24f
+    const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_IOS_PROGRESS_TOP_GAP = 5f
+    const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_IOS_PROGRESS_HEIGHT = 38f
+    const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_IOS_PROGRESS_TIME_GAP = 0f
+    const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_IOS_TIME_OUTER_MARGIN = 12f
+    const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_IOS_ACTION_WIDTH = 60f
+    const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_IOS_ACTION_HEIGHT = 50f
+    const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_IOS_ACTION_BOTTOM = 12f
+    const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_IOS_ACTION_OUTER_MARGIN = 6f
+    const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_IOS_ACTION_SCALE_PERCENT = 100f
+    const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_IOS_DEVICE_SWITCH_SCALE_PERCENT = 90f
 
 
     const val DEFAULT_HOOK_TEXT_SIZE = 12

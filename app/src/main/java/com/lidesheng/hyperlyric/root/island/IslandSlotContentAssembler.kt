@@ -8,16 +8,16 @@ import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.common.lyric.RichLyricLineSplitter
 import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
 import com.lidesheng.hyperlyric.lyric.model.RichLyricLine
-import com.lidesheng.hyperlyric.lyric.model.lyricMetadataOf
 import com.lidesheng.hyperlyric.lyric.model.interfaces.IRichLyricLine
+import com.lidesheng.hyperlyric.lyric.model.lyricMetadataOf
 import com.lidesheng.hyperlyric.lyric.view.METADATA_NEXT_LINE_PREVIEW
 import com.lidesheng.hyperlyric.lyric.view.RichLyricLineView
 import com.lidesheng.hyperlyric.lyric.view.SpaceGateRichLyricLineView
 import com.lidesheng.hyperlyric.lyric.view.yoyo.YoYoPresets
 import com.lidesheng.hyperlyric.lyric.view.yoyo.animateUpdate
 import com.lidesheng.hyperlyric.root.LyriconDataBridge
-import com.lidesheng.hyperlyric.root.utils.HookLogger
 import com.lidesheng.hyperlyric.root.utils.CoverColorHelper
+import com.lidesheng.hyperlyric.root.utils.HookLogger
 import com.lidesheng.hyperlyric.root.utils.LyricStyleHelper
 import com.lidesheng.hyperlyric.root.utils.TranslationHelper
 import java.util.WeakHashMap
@@ -60,9 +60,9 @@ internal object IslandSlotContentAssembler {
         )
         val albumBitmap = mediaInfo.albumArt.takeUnless {
             lyricTitle != null &&
-                mediaInfo.title.isNotBlank() &&
-                !normalizeMediaText(lyricTitle).contains(normalizeMediaText(mediaInfo.title)) &&
-                !normalizeMediaText(mediaInfo.title).contains(normalizeMediaText(lyricTitle))
+                    mediaInfo.title.isNotBlank() &&
+                    !normalizeMediaText(lyricTitle).contains(normalizeMediaText(mediaInfo.title)) &&
+                    !normalizeMediaText(mediaInfo.title).contains(normalizeMediaText(lyricTitle))
         }
         val signature = listOf(
             config.styleSignature,
@@ -88,6 +88,7 @@ internal object IslandSlotContentAssembler {
                 view.displayRoma = !disableAll && !translationOnly
                 view.setStyle(style)
             }
+
             is SpaceGateRichLyricLineView -> {
                 view.displayTranslation = !disableAll
                 view.displayRoma = !disableAll && !translationOnly
@@ -114,7 +115,15 @@ internal object IslandSlotContentAssembler {
     ): Boolean {
         configureView(view, prefs, config, mode, mediaInfo, force)
         return if (mode == 7) {
-            applyLyricContent(view, prefs, config, lineOverride, force, playbackActive, suppressAnimation)
+            applyLyricContent(
+                view,
+                prefs,
+                config,
+                lineOverride,
+                force,
+                playbackActive,
+                suppressAnimation
+            )
         } else {
             applyMetadataContent(view, config, mode, force, mediaInfo)
         }
@@ -167,7 +176,10 @@ internal object IslandSlotContentAssembler {
         return if (isLeft) splitResult.left else splitResult.right
     }
 
-    fun processedRawLine(prefs: SharedPreferences, config: IslandSlotRuntimeConfig? = null): IRichLyricLine? {
+    fun processedRawLine(
+        prefs: SharedPreferences,
+        config: IslandSlotRuntimeConfig? = null
+    ): IRichLyricLine {
         val songName = LyriconDataBridge.currentSongName?.takeIf { it.isNotEmpty() } ?: ""
         var rawLine = LyriconDataBridge.currentLyricLine
             ?: RichLyricLine(text = songName, words = emptyList())
@@ -212,6 +224,7 @@ internal object IslandSlotContentAssembler {
                     target.setPlaybackActive(playbackActive)
                     if (config.lyricMarqueeEnabled) target.post { target.requestStartMarquee() }
                 }
+
                 is SpaceGateRichLyricLineView -> {
                     target.line = targetLine
                     target.setPlaybackActive(playbackActive)
@@ -220,7 +233,10 @@ internal object IslandSlotContentAssembler {
             }
         }
 
-        val suppressContentAnimation = suppressAnimation || isNextLinePreviewEnabled(prefs, config) || view.parent == null || !view.isAttachedToWindow
+        val suppressContentAnimation = suppressAnimation || isNextLinePreviewEnabled(
+            prefs,
+            config
+        ) || view.parent == null || !view.isAttachedToWindow
         if (config.lyricAnimationEnabled && !suppressContentAnimation) {
             val preset = YoYoPresets.getById(config.lyricAnimationId) ?: YoYoPresets.Default
             when (view) {
@@ -242,7 +258,8 @@ internal object IslandSlotContentAssembler {
         force: Boolean,
         mediaInfo: MediaMetadataHelper.MediaInfo
     ): Boolean {
-        val songName = LyriconDataBridge.currentSongName?.takeIf { it.isNotEmpty() } ?: mediaInfo.title
+        val songName =
+            LyriconDataBridge.currentSongName?.takeIf { it.isNotEmpty() } ?: mediaInfo.title
         val artistName = mediaInfo.artist
         val albumName = mediaInfo.album
 
@@ -269,11 +286,23 @@ internal object IslandSlotContentAssembler {
         }
         val newLine = when (mode) {
             1, 2, 3, 4 -> RichLyricLine(text = singleModeText, words = emptyList())
-            5 -> RichLyricLine(text = songName, words = emptyList(), secondary = artistName, secondaryWords = emptyList())
+            5 -> RichLyricLine(
+                text = songName,
+                words = emptyList(),
+                secondary = artistName,
+                secondaryWords = emptyList()
+            )
+
             6 -> {
                 val secondary = if (albumName.isEmpty()) artistName else "$artistName - $albumName"
-                RichLyricLine(text = songName, words = emptyList(), secondary = secondary, secondaryWords = emptyList())
+                RichLyricLine(
+                    text = songName,
+                    words = emptyList(),
+                    secondary = secondary,
+                    secondaryWords = emptyList()
+                )
             }
+
             else -> null
         }
 
@@ -282,6 +311,7 @@ internal object IslandSlotContentAssembler {
                 view.line = newLine
                 applyMetadataMarquee(view, config)
             }
+
             is SpaceGateRichLyricLineView -> {
                 view.line = newLine
                 applyMetadataMarquee(view, config)
@@ -312,7 +342,10 @@ internal object IslandSlotContentAssembler {
         view.post { view.requestStartMarquee() }
     }
 
-    private fun applyMetadataMarquee(view: SpaceGateRichLyricLineView, config: IslandSlotRuntimeConfig) {
+    private fun applyMetadataMarquee(
+        view: SpaceGateRichLyricLineView,
+        config: IslandSlotRuntimeConfig
+    ) {
         if (!config.metadataMarqueeEnabled) return
         view.setMetadataMarqueeConfig(
             config.metadataMarqueeSpeed.toFloat(),
@@ -355,11 +388,15 @@ internal object IslandSlotContentAssembler {
     ): Boolean {
         if (!config.nextLyricLine || config.isSplitMode) return false
         if (LyriconDataBridge.isTextMode) return false
-        val source = prefs.getString(RootConstants.KEY_HOOK_LYRIC_SOURCE, RootConstants.DEFAULT_HOOK_LYRIC_SOURCE)
+        val source = prefs.getString(
+            RootConstants.KEY_HOOK_LYRIC_SOURCE,
+            RootConstants.DEFAULT_HOOK_LYRIC_SOURCE
+        )
         if (source != "lyricon" && source != "lyricinfo") return false
 
         if (config.autoSwitchTranslation) {
-            val hasSongTranslation = LyriconDataBridge.currentSong?.lyrics?.any { !it.translation.isNullOrBlank() } == true
+            val hasSongTranslation =
+                LyriconDataBridge.currentSong?.lyrics?.any { !it.translation.isNullOrBlank() } == true
             val hasLineTranslation = !currentLine?.translation.isNullOrBlank()
             if (hasSongTranslation || hasLineTranslation) return false
         }

@@ -15,7 +15,6 @@ import android.text.TextPaint
 import android.util.AttributeSet
 import android.view.Choreographer
 import android.view.View
-import android.view.ViewGroup
 import android.view.ViewParent
 import androidx.core.graphics.withSave
 import androidx.core.view.doOnAttach
@@ -55,12 +54,29 @@ open class SpaceGateLyricLineView(context: Context, attrs: AttributeSet? = null)
     val lineWidth: Float get() = _model.width
 
     // ---- Metadata marquee overrides (called from HyperLyric) ----
-    fun setMarqueeSpeed(speed: Float) { scrollRenderer.scrollSpeed = speed }
-    fun setMarqueeInitialDelay(ms: Int) { scrollRenderer.initialDelayMs = ms }
-    fun setMarqueeLoopDelay(ms: Int) { scrollRenderer.loopDelayMs = ms }
-    fun setMarqueeRepeatCount(count: Int) { scrollRenderer.repeatCount = count }
-    fun setMarqueeStopAtEnd(stop: Boolean) { scrollRenderer.stopAtEnd = stop }
-    fun setPeerLineWidth(width: Float) { scrollRenderer.peerLineWidth = width }
+    fun setMarqueeSpeed(speed: Float) {
+        scrollRenderer.scrollSpeed = speed
+    }
+
+    fun setMarqueeInitialDelay(ms: Int) {
+        scrollRenderer.initialDelayMs = ms
+    }
+
+    fun setMarqueeLoopDelay(ms: Int) {
+        scrollRenderer.loopDelayMs = ms
+    }
+
+    fun setMarqueeRepeatCount(count: Int) {
+        scrollRenderer.repeatCount = count
+    }
+
+    fun setMarqueeStopAtEnd(stop: Boolean) {
+        scrollRenderer.stopAtEnd = stop
+    }
+
+    fun setPeerLineWidth(width: Float) {
+        scrollRenderer.peerLineWidth = width
+    }
 
     val isPlainText: Boolean get() = _model.isPlainText
     val isWordSync: Boolean get() = !isPlainText
@@ -217,7 +233,13 @@ open class SpaceGateLyricLineView(context: Context, attrs: AttributeSet? = null)
         if (isPlainText) {
             if (playbackActive) startScrolling()
         } else {
-            activeRenderer.seek(_model, lineState, posMs, getSpaceGateVirtualWidth(), measuredHeight)
+            activeRenderer.seek(
+                _model,
+                lineState,
+                posMs,
+                getSpaceGateVirtualWidth(),
+                measuredHeight
+            )
             if (playbackActive) {
                 animator.startIfNeeded()
             } else {
@@ -234,12 +256,24 @@ open class SpaceGateLyricLineView(context: Context, attrs: AttributeSet? = null)
         if (isWordSync) {
             if (syncRenderer.isScrollOnly && !isOverflow) return
             if (playbackActive) {
-                activeRenderer.update(_model, lineState, posMs, getSpaceGateVirtualWidth(), measuredHeight)
+                activeRenderer.update(
+                    _model,
+                    lineState,
+                    posMs,
+                    getSpaceGateVirtualWidth(),
+                    measuredHeight
+                )
                 if (syncRenderer.isPlaying && !syncRenderer.isFinished) {
                     animator.startIfNeeded()
                 }
             } else {
-                activeRenderer.seek(_model, lineState, posMs, getSpaceGateVirtualWidth(), measuredHeight)
+                activeRenderer.seek(
+                    _model,
+                    lineState,
+                    posMs,
+                    getSpaceGateVirtualWidth(),
+                    measuredHeight
+                )
                 animator.stop()
                 invalidate()
                 siblingView?.invalidate()
@@ -286,7 +320,12 @@ open class SpaceGateLyricLineView(context: Context, attrs: AttributeSet? = null)
     }
 
     fun relayout() {
-        if (isWordSync) syncRenderer.updateLayout(_model, lineState, getSpaceGateVirtualWidth(), measuredHeight)
+        if (isWordSync) syncRenderer.updateLayout(
+            _model,
+            lineState,
+            getSpaceGateVirtualWidth(),
+            measuredHeight
+        )
     }
 
     override fun updateColor(primary: IntArray, background: IntArray, highlight: IntArray) {
@@ -379,8 +418,8 @@ open class SpaceGateLyricLineView(context: Context, attrs: AttributeSet? = null)
 
     private fun getSpaceGateVirtualWidth(): Int {
         if (!spaceGateEnabled) return measuredWidth
-        val master = if (isRightSide) this else siblingView ?: return measuredWidth
-        
+        if (isRightSide) this else siblingView ?: return measuredWidth
+
         val sibling = siblingView
         val (leftView, rightView) = if (isRightSide) {
             Pair(sibling ?: this, this)
