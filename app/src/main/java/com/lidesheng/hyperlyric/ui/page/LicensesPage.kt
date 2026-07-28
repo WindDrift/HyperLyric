@@ -4,7 +4,6 @@ package com.lidesheng.hyperlyric.ui.page
 
 import android.content.Intent
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -105,27 +104,24 @@ fun LicensesPage() {
 }
 
 private fun LazyListScope.licensesPageSections() {
-    item(key = "licenses_card") {
+    val licenses = LicenseProvider.getLicenses()
+    items(licenses.size, key = { licenses[it].url }) { index ->
         val context = LocalContext.current
-        val licenses = remember { LicenseProvider.getLicenses() }
+        val license = licenses[index]
         Card(
             modifier = Modifier
                 .padding(horizontal = 12.dp)
                 .padding(bottom = 12.dp)
                 .fillMaxWidth()
         ) {
-            Column {
-                licenses.forEach { license ->
-                    ArrowPreference(
-                        title = license.name,
-                        summary = license.author,
-                        onClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, license.url.toUri())
-                            context.startActivity(intent)
-                        }
-                    )
+            ArrowPreference(
+                title = license.name,
+                summary = license.author,
+                onClick = {
+                    val intent = Intent(Intent.ACTION_VIEW, license.url.toUri())
+                    context.startActivity(intent)
                 }
-            }
+            )
         }
     }
 }
