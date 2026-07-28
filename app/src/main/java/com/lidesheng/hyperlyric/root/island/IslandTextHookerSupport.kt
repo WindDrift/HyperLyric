@@ -122,6 +122,27 @@ internal object IslandTextHookerSupport {
         }
     }
 
+    fun injectBoundAdapterModule(holderRoot: ViewGroup, moduleType: String?, source: String) {
+        val hadInjectedView = IslandLyricTextInjector.hasInjectedLyricText(holderRoot)
+        val changed = IslandLyricTextInjector.injectSlots(
+            holderRoot,
+            reconfigureExisting = false,
+            suppressAnimation = true
+        )
+        if (!IslandLyricTextInjector.hasInjectedLyricText(holderRoot)) return
+
+        if (hadInjectedView) {
+            IslandLyricTextInjector.refreshCurrentContent(
+                holderRoot,
+                force = true,
+                suppressAnimation = true
+            )
+        }
+        if (changed) {
+            HookLogger.d(TAG, "已在模块首绑阶段注入歌词视图: 来源=$source，模块=$moduleType")
+        }
+    }
+
     fun callNoArgMethodResult(receiver: Any, name: String): Any? {
         return runCatching {
             receiver.javaClass.methods.find {

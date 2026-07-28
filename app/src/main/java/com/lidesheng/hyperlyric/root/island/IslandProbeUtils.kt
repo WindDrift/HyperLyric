@@ -58,6 +58,13 @@ internal object IslandProbeUtils {
         }.getOrNull()
     }
 
+    fun isRealBigIslandModuleArea(rootView: ViewGroup): Boolean {
+        val areaName = runCatching {
+            rootView.resources.getResourceEntryName(rootView.id)
+        }.getOrNull()
+        return areaName == "area_left" || areaName == "area_right"
+    }
+
     private fun extractExtras(data: Any?): Bundle? {
         return runCatching {
             data.callGetter("getExtras") as? Bundle

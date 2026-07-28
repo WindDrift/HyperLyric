@@ -190,6 +190,26 @@ object BaseIslandRenderer : IslandRenderer {
         IslandViewRegistry.snapshotAttached(lyricPkg)
             .forEach { (cv, _) ->
                 cv.post {
+                    val leftSlotMissing = config.leftMode != 0 &&
+                            !IslandLyricTextInjector.hasInjectedLyricSlot(
+                                cv,
+                                IslandProbeUtils.LEFT_TEST_VIEW_TAG
+                            )
+                    val rightSlotMissing = config.rightMode != 0 &&
+                            !IslandLyricTextInjector.hasInjectedLyricSlot(
+                                cv,
+                                IslandProbeUtils.RIGHT_TEST_VIEW_TAG
+                            )
+                    if ((leftSlotMissing || rightSlotMissing) &&
+                        IslandLyricTextInjector.injectSlots(
+                            cv,
+                            reconfigureExisting = false,
+                            suppressAnimation = true
+                        )
+                    ) {
+                        IslandHostFacade.triggerSystemRelayout(cv)
+                        HookLogger.d("BaseIslandRenderer", "歌词更新时已补齐缺失的首帧注入")
+                    }
                     updateLyricContentForView(cv, prefs, config)
                 }
             }

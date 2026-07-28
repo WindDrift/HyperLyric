@@ -35,6 +35,9 @@ internal object RealIslandHooker {
             }
 
             val result = chain.proceed()
+            // The old two-argument API returns Boolean directly. In the newer suspend API,
+            // the extra continuation argument returns a non-Boolean marker while creation waits.
+            if (chain.args.size >= 3 && result !is Boolean) return result
 
             runCatching {
                 val contentView = chain.thisObject as? ViewGroup ?: return@runCatching
@@ -48,7 +51,12 @@ internal object RealIslandHooker {
                 }
 
                 val data = chain.args.getOrNull(0)
-                val info = mediaInfo ?: IslandProbeUtils.extractMediaIslandInfo(data)
+                // Newer SystemUI versions resume this suspend method by invoking it again with
+                // a null data argument. Resolve the data held by the content view before treating
+                // the call as a real island clear.
+                val info = mediaInfo
+                    ?: IslandProbeUtils.extractMediaIslandInfo(data)
+                    ?: IslandTextHookerSupport.extractMediaInfoFromContentOrReal(contentView)
 
                 if (info == null) {
                     IslandTextHookerSupport.hardClearInjectedIsland(contentView)

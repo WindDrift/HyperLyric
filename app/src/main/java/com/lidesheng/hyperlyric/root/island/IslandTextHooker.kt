@@ -104,6 +104,23 @@ internal object IslandTextHooker {
 
         }
 
+        installFeature("模块首次绑定") {
+            val adapterClass = cl.loadClass(ADAPTER_CLASS)
+
+            adapterClass.declaredMethods
+                .filter {
+                    it.name == "bindData" &&
+                            it.parameterTypes.size == 2 &&
+                            it.parameterTypes[0] == String::class.java
+                }
+                .forEach { method ->
+                    method.isAccessible = true
+                    module.deoptimize(method)
+                    module.hook(method).intercept(IslandModuleRestoreHooker.AdapterBindDataHook())
+                    HookLogger.d(TAG, "已 Hook adapter.bindData: $method")
+                }
+        }
+
         installFeature("模块恢复") {
             cl.loadClass(TEMPLATE_BUILDER_CLASS).declaredMethods
                 .filter { it.name == "updateModuleView" && it.parameterTypes.size == 3 }

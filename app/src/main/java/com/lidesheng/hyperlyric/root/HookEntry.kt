@@ -461,6 +461,9 @@ class HookEntry : XposedModule() {
             "updateModuleView" -> IslandModuleRestoreHooker.UpdateModuleViewHook()
                 .takeIf { owner.endsWith("IslandTemplateBuilder") }
 
+            "bindData" -> IslandModuleRestoreHooker.AdapterBindDataHook()
+                .takeIf { owner.endsWith("IslandModuleViewHolderAdapter") }
+
             "updateView" -> IslandModuleRestoreHooker.AdapterUpdateViewHook()
                 .takeIf { owner.endsWith("IslandModuleViewHolderAdapter") }
 

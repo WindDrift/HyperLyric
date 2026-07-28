@@ -138,6 +138,11 @@ internal object IslandLyricTextInjector {
                 rootView.findViewWithTag<View>(IslandProbeUtils.RIGHT_TEST_VIEW_TAG) != null
     }
 
+    fun hasInjectedLyricSlot(rootView: ViewGroup, viewTag: String): Boolean {
+        return rootView.findViewWithTag<View>("${viewTag}_WRAPPER") != null ||
+                rootView.findViewWithTag<View>(viewTag) != null
+    }
+
     fun refreshCurrentContent(
         rootView: ViewGroup,
         includeLyricSlots: Boolean = true,
