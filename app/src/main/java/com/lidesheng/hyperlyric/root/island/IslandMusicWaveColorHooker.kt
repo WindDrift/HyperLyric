@@ -9,7 +9,6 @@ import android.view.ViewGroup
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
 import com.lidesheng.hyperlyric.root.HookEntry
-import com.lidesheng.hyperlyric.root.LyriconDataBridge
 import com.lidesheng.hyperlyric.root.SystemUiEnhancementGate
 import com.lidesheng.hyperlyric.root.island.renderer.BaseIslandRenderer
 import com.lidesheng.hyperlyric.root.mediacard.MediaArtworkSampler
@@ -36,6 +35,7 @@ internal object IslandMusicWaveColorHooker {
     )
     private val trackedLottieViews = WeakHashMap<View, Boolean>()
     private val trackedHolders = WeakHashMap<Any, Boolean>()
+    private val nativeColorsByHolder = WeakHashMap<Any, WaveColors>()
     private val colorRequest = AtomicInteger()
 
     @Volatile
@@ -57,7 +57,7 @@ internal object IslandMusicWaveColorHooker {
     private var pendingToken: String? = null
 
     @Volatile
-    private var nativeColors: WaveColors? = null
+    private var staticNativeColors: WaveColors? = null
 
     @Volatile
     private var overrideApplied = false
@@ -138,15 +138,29 @@ internal object IslandMusicWaveColorHooker {
             if (sharedPrefs == null || !isEnabled(sharedPrefs)) {
                 restoreNativeColors()
             } else {
-                val mediaColorKey = CoverColorHelper.currentMediaKey()
-                val synced = mediaColorKey?.let {
-                    applyCachedColors(sharedPrefs, it)
-                } == true
+                val colorSession = CoverColorHelper.currentSession()
+                val artworkRequest = CoverColorHelper.currentArtworkRequest()
+                val synced = when {
+                    artworkRequest != null -> applyCachedColors(sharedPrefs, artworkRequest)
+                    colorSession != null -> applyCachedColors(sharedPrefs, colorSession)
+                    else -> false
+                }
                 if (!synced) {
-                    if (mediaColorKey != null &&
-                        !isTokenForMediaKey(desiredToken, mediaColorKey)
-                    ) {
-                        discardPendingOverride()
+                    val tokenMatches = when {
+                        artworkRequest != null ->
+                            isTokenForArtwork(desiredToken, artworkRequest)
+                        colorSession != null ->
+                            isTokenForSession(desiredToken, colorSession)
+                        else -> false
+                    }
+                    if (!tokenMatches) {
+                        if (artworkRequest != null &&
+                            isTokenForArtwork(pendingToken, artworkRequest)
+                        ) {
+                            restoreAppliedOverridePreservingPending()
+                        } else {
+                            restoreNativeColors()
+                        }
                     } else {
                         desiredColors?.let(::applyColorsToTrackedHolders)
                         invalidateTrackedLottieViews()
@@ -167,7 +181,10 @@ internal object IslandMusicWaveColorHooker {
             synchronized(trackedHolders) {
                 trackedHolders.clear()
             }
-            nativeColors = null
+            staticNativeColors = null
+            synchronized(nativeColorsByHolder) {
+                nativeColorsByHolder.clear()
+            }
             colorAccessor = null
         }
     }
@@ -175,39 +192,33 @@ internal object IslandMusicWaveColorHooker {
     private fun scheduleOptimizedColors(
         bitmap: Bitmap,
         sharedPrefs: SharedPreferences,
-        mediaColorKey: String?,
+        artworkRequest: CoverColorHelper.ArtworkRequest,
         holder: Any
     ) {
+        if (!CoverColorHelper.isCurrentArtwork(artworkRequest)) return
         val useGradient = sharedPrefs.getBoolean(
             RootConstants.KEY_HOOK_ISLAND_MUSIC_WAVE_GRADIENT,
             RootConstants.DEFAULT_HOOK_ISLAND_MUSIC_WAVE_GRADIENT
         )
-        val knownToken = mediaColorKey?.let { "$it:$useGradient" }
-        if (knownToken != null) {
-            if (desiredToken != null && desiredToken != knownToken) {
-                desiredColors = null
-                desiredToken = null
-                overrideApplied = false
-            }
-            if (desiredToken == knownToken) {
-                desiredColors?.let { applyOptimizedColors(it, knownToken, holder) }
+        val token = tokenForArtwork(artworkRequest, useGradient)
+        if (desiredToken != null && desiredToken != token) {
+            restoreNativeColors()
+        }
+        if (desiredToken == token) {
+            desiredColors?.let { applyOptimizedColors(it, token, holder) }
+            return
+        }
+        if (pendingToken == token) return
+        CoverColorHelper.getCachedColors(useGradient = true, request = artworkRequest)
+            ?.second
+            ?.toList()
+            ?.let { colorsFromPalette(it, useGradient) }
+            ?.let {
+                applyOptimizedColors(it, token, holder)
                 return
             }
-            if (pendingToken == knownToken) return
-            CoverColorHelper.getCachedColors(useGradient = true, songKey = mediaColorKey)
-                ?.second
-                ?.toList()
-                ?.let { colorsFromPalette(it, useGradient) }
-                ?.let {
-                    applyOptimizedColors(it, knownToken, holder)
-                    return
-                }
-        }
 
         val sample = MediaArtworkSampler.sample(bitmap) ?: return
-        val paletteKey = mediaColorKey
-            ?: "artwork:${MediaArtworkSampler.fingerprint(sample)}"
-        val token = "$paletteKey:$useGradient"
 
         if (desiredToken == token) {
             sample.recycle()
@@ -231,12 +242,14 @@ internal object IslandMusicWaveColorHooker {
                     val palette = CoverColorHelper.extractColors(
                         bitmap = sample,
                         useGradient = true,
-                        songKey = paletteKey
+                        request = artworkRequest
                     )
-                    colorsFromPalette(
-                        palette.second.toList(),
-                        useGradient
-                    )
+                    palette?.let {
+                        colorsFromPalette(
+                            it.second.toList(),
+                            useGradient
+                        )
+                    }
                 } catch (e: Throwable) {
                     HookLogger.e(TAG, "提取音频律动颜色失败", e)
                     null
@@ -251,9 +264,7 @@ internal object IslandMusicWaveColorHooker {
                     if (colors == null || currentPrefs == null || !isEnabled(currentPrefs)) {
                         return@runOnMain
                     }
-                    if (mediaColorKey != null &&
-                        CoverColorHelper.currentMediaKey() != paletteKey
-                    ) {
+                    if (!CoverColorHelper.isCurrentArtwork(artworkRequest)) {
                         HookLogger.d(TAG, "忽略已切歌的音频律动取色结果")
                         return@runOnMain
                     }
@@ -281,14 +292,13 @@ internal object IslandMusicWaveColorHooker {
         desiredToken = token
         if (pendingToken == token) pendingToken = null
         val accessor = colorAccessor ?: return
-        if (!overrideApplied && nativeColors == null) {
+        if (!overrideApplied) {
             val snapshotHolder = holder ?: synchronized(trackedHolders) {
                 trackedHolders.keys.firstOrNull()
             }
-            nativeColors = try {
-                accessor.read(snapshotHolder)
+            try {
+                rememberNativeColors(snapshotHolder, accessor.read(snapshotHolder))
             } catch (_: Exception) {
-                null
             }
         }
         applyColorsToTrackedHolders(colors, holder)
@@ -302,11 +312,21 @@ internal object IslandMusicWaveColorHooker {
         desiredToken = null
         pendingToken = null
         if (overrideApplied) {
-            nativeColors?.let(::applyColorsToTrackedHolders)
+            restoreTrackedNativeColors()
             overrideApplied = false
         }
         invalidateTrackedLottieViews()
         rootView?.let(::invalidateLottieViews)
+    }
+
+    private fun restoreAppliedOverridePreservingPending() {
+        desiredColors = null
+        desiredToken = null
+        if (overrideApplied) {
+            restoreTrackedNativeColors()
+            overrideApplied = false
+        }
+        invalidateTrackedLottieViews()
     }
 
     private fun isEnabled(sharedPrefs: SharedPreferences): Boolean {
@@ -337,16 +357,16 @@ internal object IslandMusicWaveColorHooker {
     private fun refreshAlbumColorConsumers(
         packageName: String?,
         bitmap: Bitmap,
-        mediaColorKey: String?,
+        artworkRequest: CoverColorHelper.ArtworkRequest,
         shouldRefresh: Boolean
     ) {
-        if (!shouldRefresh) return
+        if (!shouldRefresh || !CoverColorHelper.isCurrentArtwork(artworkRequest)) return
         val targetPackage = packageName ?: return
         HookLogger.d(TAG, "原生封面取色完成，刷新当前歌词岛动态颜色")
         BaseIslandRenderer.refreshAlbumColors(
             targetPackage,
             bitmap,
-            mediaColorKey
+            artworkRequest
         )
     }
 
@@ -361,34 +381,106 @@ internal object IslandMusicWaveColorHooker {
 
     private fun applyCachedColors(
         sharedPrefs: SharedPreferences,
-        mediaColorKey: String
+        colorSession: CoverColorHelper.ColorSession
     ): Boolean {
+        if (!CoverColorHelper.isCurrentSession(colorSession)) return false
         val useGradient = sharedPrefs.getBoolean(
             RootConstants.KEY_HOOK_ISLAND_MUSIC_WAVE_GRADIENT,
             RootConstants.DEFAULT_HOOK_ISLAND_MUSIC_WAVE_GRADIENT
         )
         val colors = CoverColorHelper
-            .getCachedColors(useGradient = true, songKey = mediaColorKey)
+            .getCachedColors(useGradient = true, session = colorSession)
             ?.second
             ?.toList()
             ?.let { colorsFromPalette(it, useGradient) }
             ?: return false
         colorRequest.incrementAndGet()
         pendingToken = null
-        applyOptimizedColors(colors, "$mediaColorKey:$useGradient")
+        applyOptimizedColors(colors, tokenForSession(colorSession, useGradient))
         return true
     }
 
-    private fun isTokenForMediaKey(token: String?, mediaColorKey: String): Boolean {
-        return token == "$mediaColorKey:true" || token == "$mediaColorKey:false"
+    private fun applyCachedColors(
+        sharedPrefs: SharedPreferences,
+        artworkRequest: CoverColorHelper.ArtworkRequest
+    ): Boolean {
+        if (!CoverColorHelper.isCurrentArtwork(artworkRequest)) return false
+        val useGradient = sharedPrefs.getBoolean(
+            RootConstants.KEY_HOOK_ISLAND_MUSIC_WAVE_GRADIENT,
+            RootConstants.DEFAULT_HOOK_ISLAND_MUSIC_WAVE_GRADIENT
+        )
+        val colors = CoverColorHelper
+            .getCachedColors(useGradient = true, request = artworkRequest)
+            ?.second
+            ?.toList()
+            ?.let { colorsFromPalette(it, useGradient) }
+            ?: return false
+        colorRequest.incrementAndGet()
+        pendingToken = null
+        applyOptimizedColors(colors, tokenForArtwork(artworkRequest, useGradient))
+        return true
     }
 
-    private fun discardPendingOverride() {
-        colorRequest.incrementAndGet()
-        desiredColors = null
-        desiredToken = null
-        pendingToken = null
-        overrideApplied = false
+    private fun tokenForSession(
+        colorSession: CoverColorHelper.ColorSession,
+        useGradient: Boolean
+    ): String {
+        return "${sessionTokenPrefix(colorSession)}cached:$useGradient"
+    }
+
+    private fun tokenForArtwork(
+        artworkRequest: CoverColorHelper.ArtworkRequest,
+        useGradient: Boolean
+    ): String {
+        return "${sessionTokenPrefix(artworkRequest.colorSession)}" +
+                "artwork:${artworkRequest.revision}:$useGradient"
+    }
+
+    private fun sessionTokenPrefix(
+        colorSession: CoverColorHelper.ColorSession
+    ): String {
+        return "${colorSession.revision}:${colorSession.mediaKey}:"
+    }
+
+    private fun isTokenForSession(
+        token: String?,
+        colorSession: CoverColorHelper.ColorSession
+    ): Boolean {
+        return token?.startsWith(sessionTokenPrefix(colorSession)) == true
+    }
+
+    private fun isTokenForArtwork(
+        token: String?,
+        artworkRequest: CoverColorHelper.ArtworkRequest
+    ): Boolean {
+        val prefix = "${sessionTokenPrefix(artworkRequest.colorSession)}" +
+                "artwork:${artworkRequest.revision}:"
+        return token?.startsWith(prefix) == true
+    }
+
+    private fun rememberNativeColors(holder: Any?, colors: WaveColors) {
+        val accessor = colorAccessor ?: return
+        if (accessor.usesStaticFields) {
+            staticNativeColors = colors
+        } else if (holder != null) {
+            synchronized(nativeColorsByHolder) {
+                nativeColorsByHolder[holder] = colors
+            }
+        }
+    }
+
+    private fun restoreTrackedNativeColors() {
+        val accessor = colorAccessor ?: return
+        if (accessor.usesStaticFields) {
+            staticNativeColors?.let { accessor.write(it) }
+            return
+        }
+        val snapshots = synchronized(nativeColorsByHolder) {
+            nativeColorsByHolder.entries.map { it.key to it.value }
+        }
+        snapshots.forEach { (holder, colors) ->
+            accessor.write(colors, holder)
+        }
     }
 
     private fun trackHolder(holder: Any, lottieView: View?) {
@@ -476,17 +568,13 @@ internal object IslandMusicWaveColorHooker {
 
                 val sharedPrefs = prefs ?: return@runCatching
                 if (lyricPackageName == null) {
-                    if (isEnabled(sharedPrefs)) {
-                        runOnMain {
-                            desiredColors?.let(::applyColorsToTrackedHolders)
-                            invalidateTrackedLottieViews()
-                        }
-                    }
                     return@runCatching
                 }
                 val lottieView = lottieViewField.get(holder) as? View
                 trackHolder(holder, lottieView)
-                nativeColors = colorAccessor?.read(holder)
+                colorAccessor?.read(holder)?.let {
+                    rememberNativeColors(holder, it)
+                }
                 val context = lottieView?.context
                 val mediaInfo = context?.let {
                     MediaMetadataHelper.getMediaInfo(
@@ -495,72 +583,75 @@ internal object IslandMusicWaveColorHooker {
                         HookLogger
                     )
                 }
-                val song = LyriconDataBridge.currentSong
-                val mediaColorKey = CoverColorHelper.resolveMediaKey(
-                    packageName = lyricPackageName,
-                    title = mediaInfo?.title ?: song?.name.orEmpty(),
-                    artist = mediaInfo?.artist ?: song?.artist.orEmpty(),
-                    album = mediaInfo?.album.orEmpty(),
-                    duration = mediaInfo?.duration ?: song?.duration ?: -1L
-                )
-                val activeMediaKey = CoverColorHelper.currentMediaKey()
-                val canApplyToCurrentSong =
-                    activeMediaKey == null || activeMediaKey == mediaColorKey
-                if (activeMediaKey == null) {
-                    CoverColorHelper.updateMediaSession(
+                val artwork = mediaInfo?.albumArt?.takeUnless { it.isRecycled }
+                val artworkRequest = if (mediaInfo != null && artwork != null) {
+                    CoverColorHelper.resolveArtworkRequest(
                         packageName = lyricPackageName,
-                        title = mediaInfo?.title ?: song?.name.orEmpty(),
-                        artist = mediaInfo?.artist ?: song?.artist.orEmpty(),
-                        album = mediaInfo?.album.orEmpty(),
-                        duration = mediaInfo?.duration ?: song?.duration ?: -1L
+                        title = mediaInfo.title,
+                        artist = mediaInfo.artist,
+                        bitmap = artwork
                     )
+                } else {
+                    null
                 }
-                val artwork = mediaInfo?.albumArt
-                    ?.takeUnless { it.isRecycled }
-                    ?: bitmap
                 val shouldRefreshAlbumColors = usesAlbumColors(sharedPrefs)
                 if (!isEnabled(sharedPrefs)) {
-                    colorRequest.incrementAndGet()
-                    desiredColors = null
-                    desiredToken = null
-                    pendingToken = null
-                    overrideApplied = false
                     runOnMain {
-                        invalidateTrackedLottieViews()
-                        refreshAlbumColorConsumers(
-                            lyricPackageName,
-                            artwork,
-                            mediaColorKey,
-                            shouldRefreshAlbumColors
-                        )
+                        restoreNativeColors()
+                        if (artworkRequest != null && artwork != null) {
+                            refreshAlbumColorConsumers(
+                                lyricPackageName,
+                                artwork,
+                                artworkRequest,
+                                shouldRefreshAlbumColors
+                            )
+                        }
                     }
                     return@runCatching
                 }
 
                 runOnMain {
-                    if (canApplyToCurrentSong) {
+                    if (artwork != null &&
+                        artworkRequest != null &&
+                        CoverColorHelper.isCurrentArtwork(artworkRequest)
+                    ) {
                         runCatching {
                             scheduleOptimizedColors(
                                 artwork,
                                 sharedPrefs,
-                                mediaColorKey,
+                                artworkRequest,
                                 holder
                             )
                         }.onFailure { e ->
                             HookLogger.e(TAG, "应用音频律动颜色失败", e)
                         }
+                        refreshAlbumColorConsumers(
+                            lyricPackageName,
+                            artwork,
+                            artworkRequest,
+                            shouldRefreshAlbumColors
+                        )
                     } else {
-                        val restoredFromCache =
-                            applyCachedColors(sharedPrefs, activeMediaKey)
-                        if (!restoredFromCache) discardPendingOverride()
+                        val activeSession = CoverColorHelper.currentSession(lyricPackageName)
+                        val activeArtworkRequest = CoverColorHelper.currentArtworkRequest()
+                        val restoredFromCache = when {
+                            activeArtworkRequest != null ->
+                                applyCachedColors(sharedPrefs, activeArtworkRequest)
+                            activeSession != null ->
+                                applyCachedColors(sharedPrefs, activeSession)
+                            else -> false
+                        }
+                        if (!restoredFromCache) {
+                            if (activeArtworkRequest != null &&
+                                isTokenForArtwork(pendingToken, activeArtworkRequest)
+                            ) {
+                                restoreAppliedOverridePreservingPending()
+                            } else {
+                                restoreNativeColors()
+                            }
+                        }
                         HookLogger.d(TAG, "忽略非当前歌曲的音频律动封面回调")
                     }
-                    refreshAlbumColorConsumers(
-                        lyricPackageName,
-                        artwork,
-                        mediaColorKey,
-                        shouldRefreshAlbumColors
-                    )
                 }
             }.onFailure { e ->
                 HookLogger.e(TAG, "读取原生音频律动颜色失败", e)
@@ -586,17 +677,16 @@ internal object IslandMusicWaveColorHooker {
                     ?.get(holder)
                     ?.let(IslandProbeUtils::extractMediaIslandInfo)
                     ?.let(IslandPresentationCoordinator::isCurrentLyricOwner) == true
-                if (!isCurrentLyricHolder) {
-                    if (sharedPrefs != null && isEnabled(sharedPrefs)) {
-                        desiredColors?.let(::applyColorsToTrackedHolders)
-                        invalidateTrackedLottieViews()
-                    }
-                    return@runCatching
-                }
+                if (!isCurrentLyricHolder) return@runCatching
                 trackHolder(holder, lottieView)
                 if (sharedPrefs != null && isEnabled(sharedPrefs)) {
-                    desiredColors?.let {
-                        applyColorsToTrackedHolders(it, holder)
+                    val colorSession = CoverColorHelper.currentSession()
+                    if (colorSession != null &&
+                        isTokenForSession(desiredToken, colorSession)
+                    ) {
+                        desiredColors?.let {
+                            applyColorsToTrackedHolders(it, holder)
+                        }
                     }
                 }
                 lottieView.invalidate()
@@ -623,6 +713,10 @@ internal object IslandMusicWaveColorHooker {
         val topField: Field,
         val bottomField: Field
     ) {
+        val usesStaticFields: Boolean
+            get() = java.lang.reflect.Modifier.isStatic(topField.modifiers) &&
+                    java.lang.reflect.Modifier.isStatic(bottomField.modifiers)
+
         fun read(holder: Any? = null): WaveColors = WaveColors(
             top = getInt(topField, holder),
             bottom = getInt(bottomField, holder)

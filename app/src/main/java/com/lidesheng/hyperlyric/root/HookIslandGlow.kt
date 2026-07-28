@@ -104,21 +104,35 @@ object HookIslandGlow {
 
             val context = view?.context ?: return@runCatching null
             val mediaInfo = MediaMetadataHelper.getMediaInfo(context, pkgName, HookLogger)
-            val albumArt = mediaInfo.albumArt ?: return@runCatching null
-            val mediaColorKey = CoverColorHelper.updateMediaSession(
-                packageName = pkgName,
-                title = mediaInfo.title,
-                artist = mediaInfo.artist,
-                album = mediaInfo.album,
-                duration = mediaInfo.duration
-            )
+            val colorSession = CoverColorHelper.currentSession(pkgName)
+                ?: return@runCatching null
+            val artworkRequest = mediaInfo.albumArt?.let {
+                CoverColorHelper.resolveArtworkRequest(
+                    packageName = pkgName,
+                    title = mediaInfo.title,
+                    artist = mediaInfo.artist,
+                    bitmap = it
+                )
+            }
             val useGradient = sharedPrefs.getBoolean(
                 RootConstants.KEY_HOOK_EXTRACT_COVER_TEXT_GRADIENT,
                 RootConstants.DEFAULT_HOOK_EXTRACT_COVER_TEXT_GRADIENT
             )
-            val color = CoverColorHelper.extractColors(albumArt, useGradient, mediaColorKey)
-                .second
-                .firstOrNull()
+            val matchingArtworkRequest = artworkRequest?.takeIf {
+                it.colorSession.revision == colorSession.revision
+            }
+            val palette = if (mediaInfo.albumArt != null && matchingArtworkRequest != null) {
+                CoverColorHelper.extractColors(
+                        bitmap = mediaInfo.albumArt,
+                        useGradient = useGradient,
+                        request = matchingArtworkRequest
+                    )
+            } else {
+                CoverColorHelper.getCachedColors(useGradient, colorSession)
+            }
+            val color = palette
+                ?.second
+                ?.firstOrNull()
                 ?: return@runCatching null
 
             String.format("#%08X", color)

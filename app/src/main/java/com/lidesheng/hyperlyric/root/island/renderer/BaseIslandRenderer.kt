@@ -48,12 +48,15 @@ object BaseIslandRenderer : IslandRenderer {
     fun refreshAlbumColors(
         packageName: String,
         albumArt: Bitmap,
-        expectedMediaColorKey: String? = null
+        expectedArtworkRequest: CoverColorHelper.ArtworkRequest
     ) {
-        if (albumArt.isRecycled) return
+        if (albumArt.isRecycled ||
+            !CoverColorHelper.isCurrentArtwork(expectedArtworkRequest)
+        ) return
         val expectedLyricVersion = LyriconDataBridge.versionCounter.get()
         mainHandler.post refresh@{
             if (albumArt.isRecycled ||
+                !CoverColorHelper.isCurrentArtwork(expectedArtworkRequest) ||
                 LyriconDataBridge.versionCounter.get() != expectedLyricVersion ||
                 LyriconDataBridge.currentLyricPackageName != packageName ||
                 !shouldRenderInjectedIsland()
@@ -67,6 +70,7 @@ object BaseIslandRenderer : IslandRenderer {
                     rootView.post updateColors@{
                         if (!IslandPresentationCoordinator.isCurrentHost(token) ||
                             albumArt.isRecycled ||
+                            !CoverColorHelper.isCurrentArtwork(expectedArtworkRequest) ||
                             LyriconDataBridge.versionCounter.get() != expectedLyricVersion ||
                             LyriconDataBridge.currentLyricPackageName != packageName ||
                             !shouldRenderInjectedIsland()
@@ -78,29 +82,19 @@ object BaseIslandRenderer : IslandRenderer {
                         val mediaInfo = MediaMetadataHelper
                             .getMediaInfo(rootView.context, packageName, HookLogger)
                             .copy(albumArt = albumArt)
-                        val currentMediaColorKey = CoverColorHelper.resolveMediaKey(
+                        val metadataMatches = CoverColorHelper.matchesCurrentArtworkMetadata(
+                            request = expectedArtworkRequest,
                             packageName = packageName,
                             title = mediaInfo.title,
-                            artist = mediaInfo.artist,
-                            album = mediaInfo.album,
-                            duration = mediaInfo.duration
+                            artist = mediaInfo.artist
                         )
-                        if (expectedMediaColorKey != null &&
-                            currentMediaColorKey != expectedMediaColorKey
-                        ) {
+                        if (!metadataMatches) {
                             HookLogger.d(
                                 "BaseIslandRenderer",
                                 "忽略已过期的原生封面颜色刷新"
                             )
                             return@updateColors
                         }
-                        CoverColorHelper.updateMediaSession(
-                            packageName = packageName,
-                            title = mediaInfo.title,
-                            artist = mediaInfo.artist,
-                            album = mediaInfo.album,
-                            duration = mediaInfo.duration
-                        )
                         refreshSlotColors(
                             rootView,
                             IslandProbeUtils.LEFT_TEST_VIEW_TAG,

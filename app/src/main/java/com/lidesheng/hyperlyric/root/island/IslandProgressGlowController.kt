@@ -246,18 +246,32 @@ internal object IslandProgressGlowController {
             RootConstants.KEY_HOOK_ISLAND_PROGRESS_GRADIENT,
             RootConstants.DEFAULT_HOOK_ISLAND_PROGRESS_GRADIENT
         )
-        val mediaColorKey = mediaInfo?.let {
-            CoverColorHelper.updateMediaSession(
-                packageName = packageName,
-                title = it.title,
-                artist = it.artist,
-                album = it.album,
-                duration = it.duration
+        val colorSession = CoverColorHelper.currentSession(packageName)
+            ?: return ProgressColors(
+                DEFAULT_PROGRESS_COLOR,
+                DEFAULT_PROGRESS_COLOR,
+                DEFAULT_TRACK_COLOR
             )
-        } ?: CoverColorHelper.currentMediaKey()
-        val palette = mediaInfo?.albumArt?.let {
-            CoverColorHelper.extractColors(it, useGradient, mediaColorKey)
-        } ?: CoverColorHelper.getCachedColors(useGradient, mediaColorKey)
+        val artworkRequest = mediaInfo?.albumArt?.let { bitmap ->
+            CoverColorHelper.resolveArtworkRequest(
+                packageName = packageName,
+                title = mediaInfo.title,
+                artist = mediaInfo.artist,
+                bitmap = bitmap
+            )
+        }
+        val matchingArtworkRequest = artworkRequest?.takeIf {
+            it.colorSession.revision == colorSession.revision
+        }
+        val palette = if (mediaInfo?.albumArt != null && matchingArtworkRequest != null) {
+            CoverColorHelper.extractColors(
+                    bitmap = mediaInfo.albumArt,
+                    useGradient = useGradient,
+                    request = matchingArtworkRequest
+                )
+        } else {
+            CoverColorHelper.getCachedColors(useGradient, colorSession)
+        }
         ?: return ProgressColors(
             DEFAULT_PROGRESS_COLOR,
             DEFAULT_PROGRESS_COLOR,

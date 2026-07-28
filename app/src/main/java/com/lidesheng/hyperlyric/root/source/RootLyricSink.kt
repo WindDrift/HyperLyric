@@ -10,8 +10,10 @@ import com.lidesheng.hyperlyric.lyric.model.interfaces.IRichLyricLine
 import com.lidesheng.hyperlyric.lyric.source.LyricSink
 import com.lidesheng.hyperlyric.root.LyriconDataBridge
 import com.lidesheng.hyperlyric.root.aitrans.AiTranslationGateway
+import com.lidesheng.hyperlyric.root.island.IslandMusicWaveColorHooker
 import com.lidesheng.hyperlyric.root.island.IslandSlotContentAssembler
 import com.lidesheng.hyperlyric.root.island.renderer.IslandRenderer
+import com.lidesheng.hyperlyric.root.utils.CoverColorHelper
 
 class RootLyricSink(
     private val renderer: IslandRenderer,
@@ -25,6 +27,8 @@ class RootLyricSink(
     private var playbackActive = false
     private var lastReceivedPosition = Long.MIN_VALUE
     private var lastDispatchedPosition = Long.MIN_VALUE
+    private var lastMetadataArtist = ""
+    private var lastMetadataAlbum = ""
     private val positionDispatchRunnable = Runnable {
         positionDispatchScheduled = false
         val latest = pendingPosition ?: return@Runnable
@@ -41,6 +45,20 @@ class RootLyricSink(
         lastReceivedPosition = Long.MIN_VALUE
         lastDispatchedPosition = Long.MIN_VALUE
         AiTranslationGateway.cancelActiveRequests()
+        if (song is Song) {
+            lastMetadataArtist = song.artist.orEmpty()
+            lastMetadataAlbum = ""
+            updateColorSession(
+                title = song.name.orEmpty(),
+                artist = song.artist.orEmpty(),
+                album = lastMetadataAlbum,
+                songId = song.id
+            )
+        } else {
+            lastMetadataArtist = ""
+            lastMetadataAlbum = ""
+            endColorSession()
+        }
 
         if (song is Song && prefs != null) {
             val aiEnabled = prefs.getBoolean(
@@ -77,15 +95,29 @@ class RootLyricSink(
         cancelPendingPositionDispatch()
         lastReceivedPosition = Long.MIN_VALUE
         lastDispatchedPosition = Long.MIN_VALUE
+        lastMetadataArtist = ""
+        lastMetadataAlbum = ""
+        endColorSession()
         renderer.clearAllViews()
         LyriconDataBridge.clearState()
     }
 
     override fun onMetadata(title: String?, artist: String?, album: String?, publisher: String?) {
         if (title != null) LyriconDataBridge.currentSongName = title
+        if (artist != null) lastMetadataArtist = artist
+        if (album != null) lastMetadataAlbum = album
         if (!publisher.isNullOrEmpty()) {
             LyriconDataBridge.updateLyricPackage(publisher)
         }
+        val song = LyriconDataBridge.currentSong
+        updateColorSession(
+            title = song?.name?.takeIf { it.isNotBlank() }
+                ?: LyriconDataBridge.currentSongName.orEmpty(),
+            artist = song?.artist?.takeIf { it.isNotBlank() }
+                ?: lastMetadataArtist,
+            album = lastMetadataAlbum,
+            songId = song?.id
+        )
         IslandSlotContentAssembler.invalidate()
         renderer.refreshActiveIsland()
     }
@@ -140,6 +172,33 @@ class RootLyricSink(
         mainHandler.removeCallbacks(positionDispatchRunnable)
         pendingPosition = null
         positionDispatchScheduled = false
+    }
+
+    private fun updateColorSession(
+        title: String,
+        artist: String,
+        album: String,
+        songId: String?
+    ) {
+        val previousRevision = CoverColorHelper.currentSession()?.revision
+        val current = CoverColorHelper.activateSession(
+            packageName = LyriconDataBridge.currentLyricPackageName.orEmpty(),
+            title = title,
+            artist = artist,
+            album = album,
+            songId = songId
+        ) ?: return
+        if (previousRevision != current.revision) {
+            IslandSlotContentAssembler.invalidate()
+            IslandMusicWaveColorHooker.refresh()
+        }
+    }
+
+    private fun endColorSession() {
+        if (CoverColorHelper.endSession()) {
+            IslandSlotContentAssembler.invalidate()
+            IslandMusicWaveColorHooker.refresh()
+        }
     }
 
 }

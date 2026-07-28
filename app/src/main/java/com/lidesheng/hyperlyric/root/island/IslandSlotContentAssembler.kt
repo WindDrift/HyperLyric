@@ -47,22 +47,16 @@ internal object IslandSlotContentAssembler {
         val nextLinePreview = isNextLinePreviewEnabled(prefs, config)
         val disableAll = TranslationHelper.isTranslationDisabled(prefs) || nextLinePreview
         val translationOnly = TranslationHelper.isTranslationOnly(prefs)
-        val lyricSong = LyriconDataBridge.currentSong
-        val lyricTitle = lyricSong?.name?.takeIf { it.isNotBlank() }
-            ?: LyriconDataBridge.currentSongName?.takeIf { it.isNotBlank() }
-        val lyricArtist = lyricSong?.artist?.takeIf { it.isNotBlank() }
-        val mediaColorKey = CoverColorHelper.updateMediaSession(
-            packageName = LyriconDataBridge.currentLyricPackageName.orEmpty(),
-            title = lyricTitle ?: mediaInfo.title,
-            artist = lyricArtist ?: mediaInfo.artist,
-            album = mediaInfo.album,
-            duration = mediaInfo.duration
-        )
-        val albumBitmap = mediaInfo.albumArt.takeUnless {
-            lyricTitle != null &&
-                    mediaInfo.title.isNotBlank() &&
-                    !normalizeMediaText(lyricTitle).contains(normalizeMediaText(mediaInfo.title)) &&
-                    !normalizeMediaText(mediaInfo.title).contains(normalizeMediaText(lyricTitle))
+        val lyricPackage = LyriconDataBridge.currentLyricPackageName.orEmpty()
+        val colorSession = CoverColorHelper.currentSession(lyricPackage)
+        val albumBitmap = mediaInfo.albumArt
+        val artworkRequest = albumBitmap?.let {
+            CoverColorHelper.resolveArtworkRequest(
+                packageName = lyricPackage,
+                title = mediaInfo.title,
+                artist = mediaInfo.artist,
+                bitmap = it
+            )
         }
         val statusBarTextColor = if (config.followStatusBarTextColor) {
             StatusBarTextColorHooker.currentTextColor()
@@ -73,7 +67,9 @@ internal object IslandSlotContentAssembler {
             config.styleSignature,
             mode,
             statusBarTextColor,
-            mediaColorKey,
+            colorSession?.revision,
+            colorSession?.mediaKey,
+            artworkRequest?.revision,
             mediaInfo.title,
             mediaInfo.artist,
             mediaInfo.album,
@@ -85,8 +81,9 @@ internal object IslandSlotContentAssembler {
             prefs = prefs,
             res = view.resources,
             mode = mode,
-            albumBitmap = albumBitmap,
-            mediaColorKey = mediaColorKey,
+            albumBitmap = albumBitmap?.takeIf { artworkRequest != null },
+            colorSession = colorSession,
+            artworkRequest = artworkRequest,
             textColorOverride = statusBarTextColor
         )
         when (view) {
@@ -103,10 +100,6 @@ internal object IslandSlotContentAssembler {
             }
         }
         lastStyleSignatures[view] = signature
-    }
-
-    private fun normalizeMediaText(value: String): String {
-        return value.trim().lowercase().filterNot(Char::isWhitespace)
     }
 
     fun applySlotContent(

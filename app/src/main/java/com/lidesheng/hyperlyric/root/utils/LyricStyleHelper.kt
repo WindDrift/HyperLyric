@@ -27,7 +27,8 @@ object LyricStyleHelper {
         res: Resources,
         mode: Int,
         albumBitmap: Bitmap? = null,
-        mediaColorKey: String? = CoverColorHelper.currentMediaKey(),
+        colorSession: CoverColorHelper.ColorSession? = CoverColorHelper.currentSession(),
+        artworkRequest: CoverColorHelper.ArtworkRequest? = null,
         textColorOverride: Int? = null
     ): LyricViewStyle {
         val fontSize =
@@ -140,12 +141,19 @@ object LyricStyleHelper {
             )
             hlColors = intArrayOf(textColorOverride)
         } else if (useCoverColor) {
-            if (albumBitmap != null) {
-                val (_, darkColors) = CoverColorHelper.extractColors(
-                    albumBitmap,
-                    useCoverGradient,
-                    mediaColorKey
+            val palette = if (albumBitmap != null && artworkRequest != null) {
+                CoverColorHelper.extractColors(
+                    bitmap = albumBitmap,
+                    useGradient = useCoverGradient,
+                    request = artworkRequest
                 )
+            } else {
+                colorSession?.let {
+                    CoverColorHelper.getCachedColors(useCoverGradient, it)
+                }
+            }
+            val darkColors = palette?.second
+            if (darkColors != null && darkColors.isNotEmpty()) {
                 val translucentDarkColors = darkColors.map {
                     Color.argb(
                         191,
@@ -158,25 +166,9 @@ object LyricStyleHelper {
                 bgColors = translucentDarkColors // 未唱到 -> 封面颜色(75%透明度)
                 hlColors = darkColors        // 已唱到 -> 封面颜色
             } else {
-                val cached = CoverColorHelper.getCachedColors(useCoverGradient, mediaColorKey)
-                if (cached != null) {
-                    val darkColors = cached.second
-                    val translucentDarkColors = darkColors.map {
-                        Color.argb(
-                            191,
-                            Color.red(it),
-                            Color.green(it),
-                            Color.blue(it)
-                        )
-                    }.toIntArray()
-                    primaryColors = darkColors
-                    bgColors = translucentDarkColors
-                    hlColors = darkColors
-                } else {
-                    primaryColors = intArrayOf(Color.WHITE)
-                    bgColors = intArrayOf(Color.argb(128, 255, 255, 255))
-                    hlColors = intArrayOf(Color.WHITE)
-                }
+                primaryColors = intArrayOf(Color.WHITE)
+                bgColors = intArrayOf(Color.argb(128, 255, 255, 255))
+                hlColors = intArrayOf(Color.WHITE)
             }
         } else {
             primaryColors = intArrayOf(Color.WHITE)
