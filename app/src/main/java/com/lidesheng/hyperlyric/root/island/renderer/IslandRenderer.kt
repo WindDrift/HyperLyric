@@ -2,8 +2,8 @@ package com.lidesheng.hyperlyric.root.island.renderer
 
 /**
  * 超级岛渲染器接口。
- * 仅负责外部事件驱动的更新（歌词变化、播放状态、进度同步）。
- * 注入逻辑由 IslandTextHooker 在 bind() 中统一处理。
+ * 仅接收歌词源驱动的内容、播放状态和进度事件。
+ * 结构注入和宿主恢复统一交给 IslandPresentationCoordinator 对账。
  */
 interface IslandRenderer {
     fun refreshActiveIsland()

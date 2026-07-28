@@ -2,6 +2,7 @@ package com.lidesheng.hyperlyric.root.island
 
 import android.view.View
 import android.view.ViewGroup
+import com.lidesheng.hyperlyric.root.LyriconDataBridge
 import com.lidesheng.hyperlyric.root.island.IslandTextHookerSupport.TAG
 import com.lidesheng.hyperlyric.root.mediacard.island.IslandExpandedMediaAmbientFlowHooker
 import com.lidesheng.hyperlyric.root.utils.HookLogger
@@ -11,9 +12,11 @@ import io.github.libxposed.api.XposedInterface.Hooker
 internal object FakeIslandTransitionHooker {
     class AppReturnToBigIslandHook : Hooker {
         override fun intercept(chain: Chain): Any? {
+            var sourceRealRoot: ViewGroup? = null
             val fakeView = runCatching {
                 if (chain.args.getOrNull(1) != true) return@runCatching null
                 val contentView = chain.args.firstOrNull() ?: return@runCatching null
+                sourceRealRoot = contentView as? ViewGroup
                 IslandTextHookerSupport.callNoArgMethodResult(
                     contentView,
                     "getFakeView"
@@ -23,9 +26,17 @@ internal object FakeIslandTransitionHooker {
             }.getOrNull()
 
             fakeView?.let { view ->
-                IslandTextHookerSupport.prepareFrozenFakeIslandForTransition(
+                val data = IslandTextHookerSupport.extractIslandDataFromContentOrReal(view)
+                val realRoot = IslandTextHookerSupport.callNoArgMethodResult(
                     view,
-                    "before delegate.fakeViewToBigIsland"
+                    "getRealView"
+                ) as? ViewGroup ?: sourceRealRoot
+                IslandPresentationCoordinator.onFakeSnapshotRequested(
+                    fakeOwner = view,
+                    snapshotRoot = view,
+                    owner = IslandPresentationCoordinator.ownerEvidence(data),
+                    realRoot = realRoot,
+                    position = LyriconDataBridge.currentPosition
                 )
             }
             return chain.proceed()
@@ -49,10 +60,17 @@ internal object FakeIslandTransitionHooker {
                 ) {
                     IslandExpandedMediaAmbientFlowHooker.resetMiniWindowBackgroundTransform()
                 }
-                IslandTextHookerSupport.prepareFrozenFakeIslandForTransition(
+                val data = IslandTextHookerSupport.extractIslandDataFromContentOrReal(fakeView)
+                val realRoot = IslandTextHookerSupport.callNoArgMethodResult(
                     fakeView,
-                    "before coordinator.onFreeformFakeViewCallback",
-                    injectionRoot = fakeBigIsland
+                    "getRealView"
+                ) as? ViewGroup
+                IslandPresentationCoordinator.onFakeSnapshotRequested(
+                    fakeOwner = fakeView,
+                    snapshotRoot = fakeBigIsland,
+                    owner = IslandPresentationCoordinator.ownerEvidence(data),
+                    realRoot = realRoot,
+                    position = LyriconDataBridge.currentPosition
                 )
             }.onFailure { error ->
                 HookLogger.e(TAG, "自由小窗快照回调前冻结歌词失败", error)
@@ -69,9 +87,13 @@ internal object FakeIslandTransitionHooker {
             if (visibility == View.INVISIBLE) {
                 runCatching {
                     val fakeView = chain.thisObject as? ViewGroup ?: return@runCatching
-                    IslandTextHookerSupport.restoreRealIslandAfterFakeTransition(
+                    val realView = IslandTextHookerSupport.callNoArgMethodResult(
                         fakeView,
-                        "after fake.setVisibility(INVISIBLE)"
+                        "getRealView"
+                    ) as? ViewGroup ?: return@runCatching
+                    IslandPresentationCoordinator.onFakeTransitionEnded(
+                        fakeOwner = fakeView,
+                        realRoot = realView
                     )
                 }.onFailure { e ->
                     HookLogger.e(TAG, "过渡视图隐藏后恢复真实岛失败", e)

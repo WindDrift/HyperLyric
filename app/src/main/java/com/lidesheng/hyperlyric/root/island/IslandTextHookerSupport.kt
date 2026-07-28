@@ -1,145 +1,27 @@
 package com.lidesheng.hyperlyric.root.island
 
-import android.view.View
 import android.view.ViewGroup
-import com.lidesheng.hyperlyric.root.LyriconDataBridge
-import com.lidesheng.hyperlyric.root.island.renderer.BaseIslandRenderer
-import com.lidesheng.hyperlyric.root.utils.HookLogger
 
+/**
+ * Reflection-only helpers shared by the thin SystemUI lifecycle adapters.
+ *
+ * Presentation policy and view mutations live in
+ * [IslandPresentationCoordinator] and [IslandInjectionReconciler].
+ */
 internal object IslandTextHookerSupport {
     const val TAG = "IslandTextHooker"
 
-    fun extractMediaInfoFromContentOrReal(contentView: ViewGroup): IslandProbeUtils.MediaIslandInfo? {
+    fun extractIslandDataFromContentOrReal(contentView: ViewGroup): Any? {
         val currentData = IslandProbeUtils.getCurrentIslandData(contentView)
-        val currentInfo = IslandProbeUtils.extractMediaIslandInfo(currentData)
-        if (currentInfo != null) return currentInfo
-
         val realView = callNoArgMethodResult(contentView, "getRealView")
         val realData = IslandProbeUtils.getCurrentIslandData(realView)
-        return IslandProbeUtils.extractMediaIslandInfo(realData)
-    }
 
-    fun prepareFrozenFakeIslandForTransition(
-        fakeView: ViewGroup,
-        source: String,
-        injectionRoot: ViewGroup = fakeView
-    ) {
-        if (!IslandProbeUtils.isSuperIslandEnabled()) return
-        val mediaInfo = extractMediaInfoFromContentOrReal(fakeView) ?: return
-
-        if (!isCurrentLyricIsland(mediaInfo)) {
-            return
-        }
-        if (!shouldRenderInjectedIsland()) {
-            IslandHostFacade.clearInjectedViews(injectionRoot)
-            return
-        }
-
-        if (IslandLyricTextInjector.hasInjectedLyricText(injectionRoot)) {
-            IslandLyricTextInjector.restoreExistingSlotsLightweight(injectionRoot)
-        } else {
-            IslandLyricTextInjector.injectSlots(
-                injectionRoot,
-                reconfigureExisting = false,
-                suppressAnimation = true
-            )
-        }
-        IslandLyricTextInjector.refreshCurrentContent(
-            injectionRoot,
-            includeLyricSlots = true,
-            force = true,
-            suppressAnimation = true
-        )
-        IslandLyricTextInjector.freezeInjectedLyricProgress(
-            injectionRoot,
-            LyriconDataBridge.currentPosition
-        )
-        injectionRoot.alpha = 1f
-        HookLogger.d(TAG, "已准备过渡冻结 fake view: 来源=$source")
-    }
-
-    fun restoreRealIslandAfterFakeTransition(fakeView: ViewGroup, source: String) {
-        if (!IslandProbeUtils.isSuperIslandEnabled()) return
-        val mediaInfo = extractMediaInfoFromContentOrReal(fakeView) ?: return
-        if (!isCurrentLyricIsland(mediaInfo)) return
-        if (!shouldRenderInjectedIsland()) return
-
-        val realView = callNoArgMethodResult(fakeView, "getRealView") as? ViewGroup ?: return
-        IslandViewRegistry.register(realView, mediaInfo.packageName)
-        val changed = IslandLyricTextInjector.restoreExistingSlotsLightweight(realView)
-        IslandLyricTextInjector.refreshCurrentContent(realView)
-        realView.visibility = View.VISIBLE
-        (callNoArgMethodResult(realView, "getBackgroundView") as? View)?.visibility = View.VISIBLE
-        if (changed) {
-            IslandHostFacade.triggerSystemRelayout(realView)
-        }
-        HookLogger.d(TAG, "fake view 过渡结束后已恢复真实岛: 来源=$source, 重新布局=$changed")
-    }
-
-    fun isCurrentLyricIsland(mediaInfo: IslandProbeUtils.MediaIslandInfo): Boolean {
-        val lyricPkg = LyriconDataBridge.currentLyricPackageName
-        return !lyricPkg.isNullOrEmpty() && mediaInfo.packageName == lyricPkg
-    }
-
-    fun clearOnlyWhenPackageIsDefinitelyDifferent(
-        viewGroup: ViewGroup,
-        mediaInfo: IslandProbeUtils.MediaIslandInfo
-    ) {
-        val lyricPkg = LyriconDataBridge.currentLyricPackageName
-        if (lyricPkg.isNullOrEmpty()) {
-            HookLogger.d(TAG, "歌词包名暂时为空，保留已注入岛: 岛包名=${mediaInfo.packageName}")
-            return
-        }
-        hardClearInjectedIsland(viewGroup)
-    }
-
-    fun shouldRenderInjectedIsland(): Boolean {
-        return BaseIslandRenderer.shouldRenderInjectedIsland()
-    }
-
-    /** Clears the current lyric presentation but keeps the real island registered for resume. */
-    fun clearInjectedIsland(viewGroup: ViewGroup, suppressRelayout: Boolean = false) {
-        val changed = IslandHostFacade.clearInjectedViews(viewGroup)
-        if (!suppressRelayout && changed) {
-            IslandHostFacade.triggerSystemRelayout(viewGroup)
-        }
-    }
-
-    /** Clears an island that is no longer a valid target and removes it from the registry. */
-    fun hardClearInjectedIsland(viewGroup: ViewGroup, suppressRelayout: Boolean = false) {
-        IslandViewRegistry.unregister(viewGroup)
-        clearInjectedIsland(viewGroup, suppressRelayout)
-    }
-
-    fun restoreAdapterModule(adapter: Any?, moduleType: String?, source: String) {
-        val holderRoot = IslandProbeUtils.getHolderRootView(
-            IslandProbeUtils.getHolder(adapter, moduleType)
-        ) ?: return
-
-        if (IslandLyricTextInjector.restoreExistingModuleSlotLightweight(holderRoot, moduleType)) {
-            IslandLyricTextInjector.refreshCurrentContent(holderRoot)
-            HookLogger.d(TAG, "已轻量恢复歌词视图: 来源=$source，模块=$moduleType")
-        }
-    }
-
-    fun injectBoundAdapterModule(holderRoot: ViewGroup, moduleType: String?, source: String) {
-        val hadInjectedView = IslandLyricTextInjector.hasInjectedLyricText(holderRoot)
-        val changed = IslandLyricTextInjector.injectSlots(
-            holderRoot,
-            reconfigureExisting = false,
-            suppressAnimation = true
-        )
-        if (!IslandLyricTextInjector.hasInjectedLyricText(holderRoot)) return
-
-        if (hadInjectedView) {
-            IslandLyricTextInjector.refreshCurrentContent(
-                holderRoot,
-                force = true,
-                suppressAnimation = true
-            )
-        }
-        if (changed) {
-            HookLogger.d(TAG, "已在模块首绑阶段注入歌词视图: 来源=$source，模块=$moduleType")
+        return when {
+            IslandProbeUtils.extractMediaIslandInfo(currentData) != null -> currentData
+            IslandProbeUtils.extractMediaIslandInfo(realData) != null -> realData
+            currentData != null && IslandProbeUtils.isMediaIsland(currentData) -> currentData
+            realData != null && IslandProbeUtils.isMediaIsland(realData) -> realData
+            else -> currentData ?: realData
         }
     }
 
@@ -153,17 +35,18 @@ internal object IslandTextHookerSupport {
 
     fun findFieldValue(receiver: Any?, name: String): Any? {
         val target = receiver ?: return null
-        var current: Class<*>? = target.javaClass
-        while (current != null) {
-            val field = current.declaredFields.find { it.name == name }
-            if (field != null) {
-                return runCatching {
+        return runCatching {
+            var current: Class<*>? = target.javaClass
+            var value: Any? = null
+            while (current != null && value == null) {
+                val field = current.declaredFields.find { it.name == name }
+                if (field != null) {
                     field.isAccessible = true
-                    field.get(target)
-                }.getOrNull()
+                    value = field.get(target)
+                }
+                current = current.superclass
             }
-            current = current.superclass
-        }
-        return null
+            value
+        }.getOrNull()
     }
 }

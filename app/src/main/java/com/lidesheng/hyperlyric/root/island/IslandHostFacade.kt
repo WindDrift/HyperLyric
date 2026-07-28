@@ -2,6 +2,7 @@ package com.lidesheng.hyperlyric.root.island
 
 import android.content.SharedPreferences
 import android.graphics.Bitmap
+import android.view.View
 import android.view.ViewGroup
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
@@ -80,14 +81,6 @@ internal object IslandHostFacade {
         }
     }
 
-    fun clearAndRefresh(rootView: ViewGroup) {
-        val changed = IslandViewHelper.clearInjectedViews(rootView)
-        IslandProgressGlowController.clear(rootView)
-        if (changed) {
-            IslandViewHelper.triggerSystemRelayout(rootView)
-        }
-    }
-
     fun clearInjectedViews(rootView: ViewGroup): Boolean {
         val changed = IslandViewHelper.clearInjectedViews(rootView)
         IslandProgressGlowController.clear(rootView)
@@ -96,6 +89,18 @@ internal object IslandHostFacade {
 
     fun triggerSystemRelayout(rootView: ViewGroup) {
         IslandViewHelper.triggerSystemRelayout(rootView)
+    }
+
+    fun showFrozenSnapshot(rootView: ViewGroup) {
+        rootView.alpha = 1f
+    }
+
+    fun showRealHost(rootView: ViewGroup) {
+        rootView.visibility = View.VISIBLE
+        (IslandTextHookerSupport.callNoArgMethodResult(
+            rootView,
+            "getBackgroundView"
+        ) as? View)?.visibility = View.VISIBLE
     }
 
     fun injectHostGlow(viewGroup: ViewGroup, islandData: Any?, prefs: SharedPreferences) {

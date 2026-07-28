@@ -471,7 +471,7 @@ internal object IslandMusicWaveColorHooker {
                 val lyricPackageName = holder
                     .let { dataField?.get(it) }
                     ?.let(IslandProbeUtils::extractMediaIslandInfo)
-                    ?.takeIf(IslandTextHookerSupport::isCurrentLyricIsland)
+                    ?.takeIf(IslandPresentationCoordinator::isCurrentLyricOwner)
                     ?.packageName
 
                 val sharedPrefs = prefs ?: return@runCatching
@@ -585,7 +585,7 @@ internal object IslandMusicWaveColorHooker {
                 val isCurrentLyricHolder = dataField
                     ?.get(holder)
                     ?.let(IslandProbeUtils::extractMediaIslandInfo)
-                    ?.let(IslandTextHookerSupport::isCurrentLyricIsland) == true
+                    ?.let(IslandPresentationCoordinator::isCurrentLyricOwner) == true
                 if (!isCurrentLyricHolder) {
                     if (sharedPrefs != null && isEnabled(sharedPrefs)) {
                         desiredColors?.let(::applyColorsToTrackedHolders)

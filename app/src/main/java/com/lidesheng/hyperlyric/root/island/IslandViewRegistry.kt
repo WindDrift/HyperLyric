@@ -8,19 +8,101 @@ import java.util.WeakHashMap
 
 internal object IslandViewRegistry {
     private val lock = Any()
-    private val activeIslandPkgNames = WeakHashMap<ViewGroup, String>()
+    private val activeHosts = WeakHashMap<ViewGroup, HostRecord>()
     private val injectedViewsByRoot = WeakHashMap<ViewGroup, MutableMap<View, Unit>>()
+    private var nextGeneration = 0L
 
-    fun register(view: ViewGroup, packageName: String) {
-        synchronized(lock) {
-            activeIslandPkgNames[view] = packageName
+    enum class AttachState {
+        PENDING_ATTACH,
+        ATTACHED
+    }
+
+    data class HostToken(
+        val root: ViewGroup,
+        val packageName: String,
+        val generation: Long
+    )
+
+    data class InjectedHostToken(
+        val host: HostToken,
+        val injectedViews: List<View>
+    )
+
+    private data class HostRecord(
+        var packageName: String,
+        var generation: Long,
+        var attachState: AttachState
+    )
+
+    fun register(view: ViewGroup, packageName: String): HostToken {
+        return synchronized(lock) {
+            val existing = activeHosts[view]
+            val record = if (existing == null || existing.packageName != packageName) {
+                HostRecord(
+                    packageName = packageName,
+                    generation = ++nextGeneration,
+                    attachState = if (view.isAttachedToWindow) {
+                        AttachState.ATTACHED
+                    } else {
+                        AttachState.PENDING_ATTACH
+                    }
+                ).also { activeHosts[view] = it }
+            } else {
+                if (view.isAttachedToWindow) {
+                    existing.attachState = AttachState.ATTACHED
+                }
+                existing
+            }
+            record.toToken(view)
         }
     }
 
-    fun unregister(view: ViewGroup) {
+    fun unregister(token: HostToken) {
         synchronized(lock) {
-            activeIslandPkgNames.remove(view)
-            injectedViewsByRoot.remove(view)
+            val record = activeHosts[token.root] ?: return
+            if (record.generation != token.generation ||
+                record.packageName != token.packageName
+            ) {
+                return
+            }
+            activeHosts.remove(token.root)
+            injectedViewsByRoot.remove(token.root)
+        }
+    }
+
+    /**
+     * Invalidates callbacks queued during the previous attachment while retaining
+     * the weak host record for a possible reattach.
+     */
+    fun markDetached(root: ViewGroup) {
+        synchronized(lock) {
+            val record = activeHosts[root] ?: return
+            if (record.attachState == AttachState.PENDING_ATTACH) return
+            record.generation = ++nextGeneration
+            record.attachState = AttachState.PENDING_ATTACH
+            injectedViewsByRoot.remove(root)
+        }
+    }
+
+    fun markAttached(root: ViewGroup): HostToken? {
+        return synchronized(lock) {
+            val record = activeHosts[root] ?: return@synchronized null
+            record.attachState = AttachState.ATTACHED
+            record.toToken(root)
+        }
+    }
+
+    fun isCurrent(token: HostToken): Boolean {
+        return synchronized(lock) {
+            val record = activeHosts[token.root]
+            record?.generation == token.generation &&
+                    record.packageName == token.packageName
+        }
+    }
+
+    fun tokenFor(root: ViewGroup): HostToken? {
+        return synchronized(lock) {
+            activeHosts[root]?.toToken(root)
         }
     }
 
@@ -28,26 +110,23 @@ internal object IslandViewRegistry {
         val indexedViews = WeakHashMap<View, Unit>()
         collectInjectedViews(root, indexedViews)
         synchronized(lock) {
-            if (activeIslandPkgNames.containsKey(root)) {
+            if (activeHosts.containsKey(root)) {
                 injectedViewsByRoot[root] = indexedViews
             }
         }
     }
 
-    fun snapshotAttached(packageName: String? = null): List<Pair<ViewGroup, String>> {
-        val result = mutableListOf<Pair<ViewGroup, String>>()
+    fun snapshotAttached(packageName: String? = null): List<HostToken> {
+        val result = mutableListOf<HostToken>()
         synchronized(lock) {
-            val iterator = activeIslandPkgNames.entries.iterator()
-            while (iterator.hasNext()) {
-                val entry = iterator.next()
+            activeHosts.entries.forEach { entry ->
                 val viewGroup = entry.key
+                val record = entry.value
                 if (viewGroup.isAttachedToWindow) {
-                    if (packageName == null || entry.value == packageName) {
-                        result += viewGroup to entry.value
+                    record.attachState = AttachState.ATTACHED
+                    if (packageName == null || record.packageName == packageName) {
+                        result += record.toToken(viewGroup)
                     }
-                } else {
-                    iterator.remove()
-                    injectedViewsByRoot.remove(viewGroup)
                 }
             }
         }
@@ -56,28 +135,37 @@ internal object IslandViewRegistry {
 
     fun snapshotAttachedInjectedViews(
         packageName: String? = null
-    ): List<Pair<ViewGroup, List<View>>> {
-        val result = mutableListOf<Pair<ViewGroup, List<View>>>()
+    ): List<InjectedHostToken> {
+        val result = mutableListOf<InjectedHostToken>()
         synchronized(lock) {
-            val iterator = activeIslandPkgNames.entries.iterator()
-            while (iterator.hasNext()) {
-                val entry = iterator.next()
+            activeHosts.entries.forEach { entry ->
                 val root = entry.key
+                val record = entry.value
                 if (!root.isAttachedToWindow) {
-                    iterator.remove()
-                    injectedViewsByRoot.remove(root)
-                    continue
+                    return@forEach
                 }
-                if (packageName != null && entry.value != packageName) continue
+                record.attachState = AttachState.ATTACHED
+                if (packageName != null && record.packageName != packageName) return@forEach
 
                 val views = injectedViewsByRoot[root]
                     ?.keys
                     ?.filter { it.isAttachedToWindow }
                     .orEmpty()
-                result += root to views
+                result += InjectedHostToken(
+                    host = record.toToken(root),
+                    injectedViews = views
+                )
             }
         }
         return result
+    }
+
+    private fun HostRecord.toToken(root: ViewGroup): HostToken {
+        return HostToken(
+            root = root,
+            packageName = packageName,
+            generation = generation
+        )
     }
 
     private fun collectInjectedViews(view: View, result: MutableMap<View, Unit>) {

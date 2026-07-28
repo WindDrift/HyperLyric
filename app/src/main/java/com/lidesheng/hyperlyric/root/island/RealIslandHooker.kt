@@ -1,8 +1,6 @@
 package com.lidesheng.hyperlyric.root.island
 
 import android.view.ViewGroup
-import com.lidesheng.hyperlyric.common.RootConstants
-import com.lidesheng.hyperlyric.root.HookEntry
 import com.lidesheng.hyperlyric.root.island.IslandTextHookerSupport.TAG
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import io.github.libxposed.api.XposedInterface.Chain
@@ -12,23 +10,17 @@ internal object RealIslandHooker {
 
     class UpdateBigIslandViewHook : Hooker {
         override fun intercept(chain: Chain): Any? {
-            var mediaInfo: IslandProbeUtils.MediaIslandInfo? = null
+            var owner: IslandRenderPolicy.OwnerEvidence? = null
             runCatching {
                 val contentView = chain.thisObject as? ViewGroup ?: return@runCatching
                 val data = chain.args.getOrNull(0)
-                if (IslandProbeUtils.isSuperIslandEnabled()) {
-                    mediaInfo = IslandProbeUtils.extractMediaIslandInfo(data)
-                    if (mediaInfo?.let(IslandTextHookerSupport::isCurrentLyricIsland) == true) {
-                        if (!IslandTextHookerSupport.shouldRenderInjectedIsland()) {
-                            IslandTextHookerSupport.clearInjectedIsland(contentView)
-                            return@runCatching
-                        }
-                        if (IslandLyricTextInjector.restoreExistingSlotsLightweight(contentView)) {
-                            IslandLyricTextInjector.refreshCurrentContent(contentView)
-                            IslandHostFacade.triggerSystemRelayout(contentView)
-                            HookLogger.d(TAG, "updateBigIslandView 前已轻量恢复歌词视图并重新布局")
-                        }
-                    }
+                owner = IslandPresentationCoordinator.ownerEvidence(data)
+                val mediaOwner = owner as? IslandRenderPolicy.OwnerEvidence.Media
+                if (mediaOwner != null) {
+                    IslandPresentationCoordinator.onRealBeforeSystemUpdate(
+                        contentView,
+                        mediaOwner
+                    )
                 }
             }.onFailure { e ->
                 HookLogger.e(TAG, "预恢复歌词视图失败", e)
@@ -41,49 +33,45 @@ internal object RealIslandHooker {
 
             runCatching {
                 val contentView = chain.thisObject as? ViewGroup ?: return@runCatching
-                val prefs = HookEntry.instance?.prefs ?: return@runCatching
-                if (!prefs.getBoolean(
-                        RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND,
-                        RootConstants.DEFAULT_HOOK_ENABLE_SUPER_ISLAND
-                    )
-                ) {
-                    return@runCatching
-                }
-
-                val data = chain.args.getOrNull(0)
+                val argumentData = chain.args.getOrNull(0)
                 // Newer SystemUI versions resume this suspend method by invoking it again with
                 // a null data argument. Resolve the data held by the content view before treating
                 // the call as a real island clear.
-                val info = mediaInfo
-                    ?: IslandProbeUtils.extractMediaIslandInfo(data)
-                    ?: IslandTextHookerSupport.extractMediaInfoFromContentOrReal(contentView)
+                val argumentOwner = owner
+                    ?: IslandPresentationCoordinator.ownerEvidence(argumentData)
+                val fallbackData = if (
+                    argumentData == null ||
+                    argumentOwner == IslandRenderPolicy.OwnerEvidence.Pending
+                ) {
+                    IslandTextHookerSupport.extractIslandDataFromContentOrReal(contentView)
+                } else {
+                    null
+                }
+                val fallbackOwner = fallbackData?.let(
+                    IslandPresentationCoordinator::ownerEvidence
+                )
+                val resolvedOwner = when {
+                    argumentOwner is IslandRenderPolicy.OwnerEvidence.Media -> argumentOwner
+                    fallbackOwner is IslandRenderPolicy.OwnerEvidence.Media -> fallbackOwner
+                    argumentData != null -> argumentOwner
+                    fallbackData != null -> fallbackOwner
+                        ?: IslandRenderPolicy.OwnerEvidence.Pending
 
-                if (info == null) {
-                    IslandTextHookerSupport.hardClearInjectedIsland(contentView)
-                    return@runCatching
+                    else -> IslandRenderPolicy.OwnerEvidence.NotMedia
+                }
+                val resolvedData = if (
+                    fallbackOwner is IslandRenderPolicy.OwnerEvidence.Media
+                ) {
+                    fallbackData
+                } else {
+                    argumentData ?: fallbackData
                 }
 
-                IslandViewRegistry.register(contentView, info.packageName)
-
-                if (!IslandTextHookerSupport.isCurrentLyricIsland(info)) {
-                    IslandTextHookerSupport.clearOnlyWhenPackageIsDefinitelyDifferent(
-                        contentView,
-                        info
-                    )
-                    return@runCatching
-                }
-
-                if (!IslandTextHookerSupport.shouldRenderInjectedIsland()) {
-                    IslandTextHookerSupport.clearInjectedIsland(contentView)
-                    return@runCatching
-                }
-
-                if (IslandLyricTextInjector.injectSlots(contentView, reconfigureExisting = false)) {
-                    IslandViewHelper.triggerSystemRelayout(contentView)
-                }
-                IslandLyricTextInjector.refreshCurrentContent(contentView)
-
-                IslandHostFacade.injectHostGlow(contentView, data, prefs)
+                IslandPresentationCoordinator.onRealSystemUpdateComplete(
+                    root = contentView,
+                    owner = resolvedOwner,
+                    islandData = resolvedData
+                )
             }.onFailure { e ->
                 HookLogger.e(TAG, "注入歌词视图失败", e)
             }
@@ -102,26 +90,9 @@ internal object RealIslandHooker {
                 val contentView = chain.thisObject as? ViewGroup ?: return@runCatching
                 if (!IslandProbeUtils.isSuperIslandEnabled()) return@runCatching
                 val currentData = IslandProbeUtils.getCurrentIslandData(contentView)
-                val mediaInfo =
-                    IslandProbeUtils.extractMediaIslandInfo(currentData) ?: return@runCatching
-
-                if (!IslandTextHookerSupport.isCurrentLyricIsland(mediaInfo)) {
-                    IslandTextHookerSupport.clearOnlyWhenPackageIsDefinitelyDifferent(
-                        contentView,
-                        mediaInfo
-                    )
-                    return@runCatching
-                }
-                if (!IslandTextHookerSupport.shouldRenderInjectedIsland()) {
-                    IslandTextHookerSupport.clearInjectedIsland(contentView)
-                    return@runCatching
-                }
-
-                if (IslandLyricTextInjector.restoreExistingSlotsLightweight(contentView)) {
-                    IslandLyricTextInjector.refreshCurrentContent(contentView)
-                    IslandHostFacade.triggerSystemRelayout(contentView)
-                    HookLogger.d(TAG, "$eventName 后已轻量恢复歌词视图并重新布局")
-                }
+                val owner = IslandPresentationCoordinator.ownerEvidence(currentData)
+                if (owner !is IslandRenderPolicy.OwnerEvidence.Media) return@runCatching
+                IslandPresentationCoordinator.onRealVisibilityChanged(contentView, owner)
             }.onFailure { e ->
                 HookLogger.e(TAG, "$eventName 后恢复歌词视图失败", e)
             }

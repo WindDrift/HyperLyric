@@ -42,8 +42,10 @@ internal object IslandLyricTextInjector {
                 suppressAnimation
             ) || changed
         } else {
-            rootView.findViewWithTag<View>(IslandProbeUtils.LEFT_TEST_WRAPPER_TAG)
-                ?.let { (it.parent as? ViewGroup)?.removeView(it) }
+            changed = removeInjectedSlot(
+                rootView,
+                IslandProbeUtils.LEFT_TEST_WRAPPER_TAG
+            ) || changed
         }
 
         if (config.rightMode != 0) {
@@ -57,8 +59,10 @@ internal object IslandLyricTextInjector {
                 suppressAnimation
             ) || changed
         } else {
-            rootView.findViewWithTag<View>(IslandProbeUtils.RIGHT_TEST_WRAPPER_TAG)
-                ?.let { (it.parent as? ViewGroup)?.removeView(it) }
+            changed = removeInjectedSlot(
+                rootView,
+                IslandProbeUtils.RIGHT_TEST_WRAPPER_TAG
+            ) || changed
         }
 
         if (config.isSplitMode) {
@@ -66,8 +70,15 @@ internal object IslandLyricTextInjector {
         }
 
         IslandHostFacade.applyHostSettings(rootView, prefs)
-        IslandViewRegistry.refreshInjectedViews(rootView)
         return changed
+    }
+
+    private fun removeInjectedSlot(rootView: ViewGroup, wrapperTag: String): Boolean {
+        val wrapper = rootView.findViewWithTag<View>(wrapperTag) ?: return false
+        val parent = wrapper.parent as? ViewGroup ?: return false
+        parent.removeView(wrapper)
+        IslandSlotContentAssembler.invalidate(wrapper)
+        return true
     }
 
     fun restoreExistingSlotsLightweight(rootView: ViewGroup): Boolean {
@@ -90,7 +101,6 @@ internal object IslandLyricTextInjector {
             ) || changed
         }
         IslandHostFacade.applyHostSettings(rootView, prefs)
-        IslandViewRegistry.refreshInjectedViews(rootView)
         return changed
     }
 
@@ -127,7 +137,6 @@ internal object IslandLyricTextInjector {
         }
 
         IslandHostFacade.applyHostSettings(rootView, prefs)
-        IslandViewRegistry.refreshInjectedViews(rootView)
         return changed
     }
 
@@ -141,6 +150,31 @@ internal object IslandLyricTextInjector {
     fun hasInjectedLyricSlot(rootView: ViewGroup, viewTag: String): Boolean {
         return rootView.findViewWithTag<View>("${viewTag}_WRAPPER") != null ||
                 rootView.findViewWithTag<View>(viewTag) != null
+    }
+
+    fun hasAllConfiguredSlots(
+        rootView: ViewGroup,
+        moduleType: String? = null
+    ): Boolean {
+        val prefs = HookEntry.instance?.prefs ?: return false
+        val config = IslandSlotRuntimeConfig.from(prefs)
+        val checksLeft = moduleType?.endsWith("_2") != true
+        val checksRight = moduleType?.endsWith("_1") != true
+        val leftReady = !checksLeft || config.leftMode == 0 ||
+                hasInjectedLyricSlot(rootView, IslandProbeUtils.LEFT_TEST_VIEW_TAG)
+        val rightReady = !checksRight || config.rightMode == 0 ||
+                hasInjectedLyricSlot(rootView, IslandProbeUtils.RIGHT_TEST_VIEW_TAG)
+        return leftReady && rightReady
+    }
+
+    fun expectsConfiguredSlot(moduleType: String? = null): Boolean {
+        val prefs = HookEntry.instance?.prefs ?: return false
+        val config = IslandSlotRuntimeConfig.from(prefs)
+        return when {
+            moduleType?.endsWith("_1") == true -> config.leftMode != 0
+            moduleType?.endsWith("_2") == true -> config.rightMode != 0
+            else -> config.leftMode != 0 || config.rightMode != 0
+        }
     }
 
     fun refreshCurrentContent(

@@ -17,25 +17,17 @@ internal object IslandModuleRestoreHooker {
             val result = chain.proceed()
 
             runCatching {
-                if (!IslandProbeUtils.isSuperIslandEnabled()) return@runCatching
                 val moduleType = chain.args.getOrNull(0) as? String
                 val data = chain.args.getOrNull(1)
-                val mediaInfo = IslandProbeUtils.extractMediaIslandInfo(data) ?: return@runCatching
-                if (!IslandTextHookerSupport.isCurrentLyricIsland(mediaInfo)) return@runCatching
-
                 val holderRoot = IslandProbeUtils.getHolderRootView(
                     IslandProbeUtils.getHolder(chain.thisObject, moduleType)
                 ) ?: return@runCatching
                 if (!IslandProbeUtils.isRealBigIslandModuleArea(holderRoot)) return@runCatching
-                if (!IslandTextHookerSupport.shouldRenderInjectedIsland()) {
-                    IslandHostFacade.clearInjectedViews(holderRoot)
-                    return@runCatching
-                }
 
-                IslandTextHookerSupport.injectBoundAdapterModule(
-                    holderRoot,
-                    moduleType,
-                    "adapter.bindData"
+                IslandPresentationCoordinator.onModuleBound(
+                    holderRoot = holderRoot,
+                    moduleType = moduleType,
+                    owner = IslandPresentationCoordinator.ownerEvidence(data)
                 )
             }.onFailure { e ->
                 HookLogger.e(TAG, "adapter.bindData 后准备歌词视图失败", e)
@@ -50,24 +42,16 @@ internal object IslandModuleRestoreHooker {
             val result = chain.proceed()
 
             runCatching {
-                if (!IslandProbeUtils.isSuperIslandEnabled()) return@runCatching
                 val moduleType = chain.args.getOrNull(0) as? String
                 val data = chain.args.getOrNull(2)
-                val mediaInfo = IslandProbeUtils.extractMediaIslandInfo(data) ?: return@runCatching
-
-                if (!IslandTextHookerSupport.isCurrentLyricIsland(mediaInfo)) return@runCatching
                 val holderRoot = IslandProbeUtils.getHolderRootView(
                     IslandProbeUtils.getHolder(chain.thisObject, moduleType)
-                )
-                if (!IslandTextHookerSupport.shouldRenderInjectedIsland()) {
-                    holderRoot?.let { IslandHostFacade.clearInjectedViews(it) }
-                    return@runCatching
-                }
-
-                IslandTextHookerSupport.restoreAdapterModule(
-                    chain.thisObject,
-                    moduleType,
-                    "adapter.updateView"
+                ) ?: return@runCatching
+                if (!IslandProbeUtils.isRealBigIslandModuleArea(holderRoot)) return@runCatching
+                IslandPresentationCoordinator.onModuleUpdated(
+                    holderRoot = holderRoot,
+                    moduleType = moduleType,
+                    owner = IslandPresentationCoordinator.ownerEvidence(data)
                 )
             }.onFailure { e ->
                 HookLogger.e(TAG, "adapter.updateView 后恢复歌词视图失败", e)
@@ -82,26 +66,18 @@ internal object IslandModuleRestoreHooker {
             val result = chain.proceed()
 
             runCatching {
-                if (!IslandProbeUtils.isSuperIslandEnabled()) return@runCatching
                 val moduleType = chain.args.getOrNull(0) as? String
                 val data = chain.args.getOrNull(2)
-                val mediaInfo = IslandProbeUtils.extractMediaIslandInfo(data) ?: return@runCatching
-
-                if (!IslandTextHookerSupport.isCurrentLyricIsland(mediaInfo)) return@runCatching
                 val adapter =
                     IslandTextHookerSupport.findFieldValue(chain.thisObject, "islandAdapter")
                 val holderRoot = IslandProbeUtils.getHolderRootView(
                     IslandProbeUtils.getHolder(adapter, moduleType)
-                )
-                if (!IslandTextHookerSupport.shouldRenderInjectedIsland()) {
-                    holderRoot?.let { IslandHostFacade.clearInjectedViews(it) }
-                    return@runCatching
-                }
-
-                IslandTextHookerSupport.restoreAdapterModule(
-                    adapter,
-                    moduleType,
-                    "updateModuleView"
+                ) ?: return@runCatching
+                if (!IslandProbeUtils.isRealBigIslandModuleArea(holderRoot)) return@runCatching
+                IslandPresentationCoordinator.onModuleUpdated(
+                    holderRoot = holderRoot,
+                    moduleType = moduleType,
+                    owner = IslandPresentationCoordinator.ownerEvidence(data)
                 )
             }.onFailure { e ->
                 HookLogger.e(TAG, "updateModuleView 后恢复歌词视图失败", e)
