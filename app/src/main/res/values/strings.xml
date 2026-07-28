@@ -199,7 +199,7 @@
     <string name="title_lyrics">音乐信息</string>
     <string name="title_lyric_anim">歌词切换动画</string>
     <string name="title_lyric_provider">歌词提供者 (Lyricon)</string>
-    <string name="title_lyric_delay">歌词延迟</string>
+    <string name="title_lyric_delay">歌词时间偏移</string>
     <string name="summary_lyric_delay">正数延后显示，负数提前显示</string>
     <string name="title_lyric_whitelist">歌词白名单</string>
 

@@ -145,7 +145,8 @@ fun LyricProviderPage() {
                     coroutineScope.launch {
                         LyricProviderManager.loadProviders(
                             context,
-                            providerUiStateFlow
+                            providerUiStateFlow,
+                            forceRefresh = true
                         )
                     }
                 },
@@ -272,7 +273,7 @@ private fun LazyListScope.providerSections(
                             endActions = {
                                 Text(
                                     text = if (currentDelay > 0) "+$currentDelay ms" else "$currentDelay ms",
-                                    color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                                     fontSize = 14.sp
                                 )
                             },
@@ -308,15 +309,15 @@ private fun LazyListScope.providerSections(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(
                                             text = stringResource(R.string.title_lyric_delay),
-                                            color = Color.Black,
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.SemiBold
+                                            color = MiuixTheme.colorScheme.onBackground,
+                                            fontSize = 17.sp,
+                                            fontWeight = FontWeight.Medium
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
                                             text = stringResource(R.string.summary_lyric_delay),
-                                            color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                            fontSize = 12.sp
+                                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                            fontSize = 14.sp
                                         )
                                     }
                                     Spacer(modifier = Modifier.height(12.dp))

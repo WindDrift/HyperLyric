@@ -175,7 +175,7 @@
     <string name="title_lyrics">Media Info</string>
     <string name="title_lyric_anim">Lyric Animation</string>
     <string name="title_lyric_provider">Lyric Provider (Lyricon)</string>
-    <string name="title_lyric_delay">Lyric delay</string>
+    <string name="title_lyric_delay">Lyric time offset</string>
     <string name="summary_lyric_delay">Positive values show lyrics later, negative values earlier</string>
     <string name="title_lyric_whitelist">Lyric Whitelist</string>
 

@@ -44,9 +44,21 @@ data class ModuleCategory(
 
 object LyricProviderManager {
 
-    suspend fun loadProviders(context: Context, stateFlow: MutableStateFlow<ProviderUiState>) {
-        stateFlow.update { it.copy(isLoading = true) }
+    private var cachedModules: List<LyricModule>? = null
 
+    suspend fun loadProviders(context: Context, stateFlow: MutableStateFlow<ProviderUiState>, forceRefresh: Boolean = false) {
+        val cached = cachedModules
+        if (cached != null && !forceRefresh) {
+            stateFlow.update { it.copy(modules = cached, isLoading = false) }
+            scanAndUpdate(context, stateFlow)
+            return
+        }
+
+        stateFlow.update { it.copy(isLoading = true) }
+        scanAndUpdate(context, stateFlow)
+    }
+
+    private suspend fun scanAndUpdate(context: Context, stateFlow: MutableStateFlow<ProviderUiState>) {
         withContext(Dispatchers.IO) {
             try {
                 val packageManager = context.packageManager
@@ -54,40 +66,43 @@ object LyricProviderManager {
                 val getSignFlag =
                     PackageManager.GET_SIGNING_CERTIFICATES
 
-                // 获取全部包名列表，减少初次获取的数据量
                 val packageInfos = packageManager.getInstalledPackages(PackageManager.GET_META_DATA or getSignFlag)
-                
+
                 val targetPackages = packageInfos.filter { packageInfo ->
                     isValidModule(packageInfo)
                 }
 
                 if (targetPackages.isEmpty()) {
+                    cachedModules = emptyList()
                     stateFlow.update { it.copy(isLoading = false, modules = emptyList()) }
                     return@withContext
                 }
 
-                val collator = Collator.getInstance(Locale.getDefault())
                 val loadedModules = mutableListOf<LyricModule>()
 
                 targetPackages.chunked(6).forEach { batch ->
                     val batchResults = batch.mapNotNull { processPackage(packageManager, it) }
                     loadedModules.addAll(batchResults)
 
-                    val sortedList = loadedModules.sortedWith { m1, m2 ->
-                        if (m1.isCertified != m2.isCertified) {
-                            m2.isCertified.compareTo(m1.isCertified)
-                        } else {
-                            collator.compare(m1.label, m2.label)
-                        }
-                    }
-
-                    stateFlow.update { 
+                    stateFlow.update {
                         it.copy(
-                            modules = sortedList.toList(),
+                            modules = loadedModules.toList(),
                             isLoading = loadedModules.size < targetPackages.size
                         )
                     }
                 }
+
+                val collator = Collator.getInstance(Locale.getDefault())
+                val sortedModules = loadedModules.sortedWith { m1, m2 ->
+                    if (m1.isCertified != m2.isCertified) {
+                        m2.isCertified.compareTo(m1.isCertified)
+                    } else {
+                        collator.compare(m1.label, m2.label)
+                    }
+                }
+
+                cachedModules = sortedModules
+                stateFlow.update { it.copy(modules = sortedModules, isLoading = false) }
             } catch (e: Exception) {
                 LogManager.e("LyricProviderManager", "加载歌词模块失败", e)
                 stateFlow.update { it.copy(isLoading = false) }
