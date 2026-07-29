@@ -299,6 +299,13 @@
 
     <!-- ———————————————————————— LyricSettingsPage ———————————————————————— -->
     <string name="title_text">文字样式</string>
+    <string name="title_basic_style">基础样式</string>
+    <string name="title_text_color">文字颜色</string>
+    <string name="title_font_style">字体样式</string>
+    <string name="title_placeholder_format">占位符格式</string>
+    <string name="option_placeholder_none">无</string>
+    <string name="option_placeholder_title_artist">歌名 - 歌手</string>
+    <string name="option_placeholder_title">歌名</string>
     <string name="title_size">大小</string>
     <string name="label_size_range">范围：8 ~ 16</string>
     <string name="title_font_weight">字重</string>

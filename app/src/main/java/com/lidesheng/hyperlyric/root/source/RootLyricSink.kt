@@ -45,14 +45,22 @@ class RootLyricSink(
         lastReceivedPosition = Long.MIN_VALUE
         lastDispatchedPosition = Long.MIN_VALUE
         AiTranslationGateway.cancelActiveRequests()
-        if (song is Song) {
-            lastMetadataArtist = song.artist.orEmpty()
+        val localSong = song as? Song
+        LyriconDataBridge.updateSong(
+            song = localSong,
+            placeholderFormat = prefs?.getInt(
+                RootConstants.KEY_HOOK_PLACEHOLDER_FORMAT,
+                RootConstants.DEFAULT_HOOK_PLACEHOLDER_FORMAT
+            ) ?: RootConstants.DEFAULT_HOOK_PLACEHOLDER_FORMAT
+        )
+        if (localSong != null) {
+            lastMetadataArtist = localSong.artist.orEmpty()
             lastMetadataAlbum = ""
             updateColorSession(
-                title = song.name.orEmpty(),
-                artist = song.artist.orEmpty(),
+                title = localSong.name.orEmpty(),
+                artist = localSong.artist.orEmpty(),
                 album = lastMetadataAlbum,
-                songId = song.id
+                songId = localSong.id
             )
         } else {
             lastMetadataArtist = ""
@@ -60,7 +68,7 @@ class RootLyricSink(
             endColorSession()
         }
 
-        if (song is Song && prefs != null) {
+        if (localSong != null && prefs != null) {
             val aiEnabled = prefs.getBoolean(
                 RootConstants.KEY_HOOK_AI_TRANS_ENABLE,
                 RootConstants.DEFAULT_HOOK_AI_TRANS_ENABLE
@@ -70,7 +78,7 @@ class RootLyricSink(
                     RootConstants.KEY_HOOK_AI_TRANS_FORCE_OVERRIDE,
                     RootConstants.DEFAULT_HOOK_AI_TRANS_FORCE_OVERRIDE
                 )
-                AiTranslationGateway.translateSong(song, prefs, forceOverride)
+                AiTranslationGateway.translateSong(localSong, prefs, forceOverride)
             }
         }
     }

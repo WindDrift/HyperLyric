@@ -144,7 +144,6 @@ class LyriconSource : LyricSource {
 
         override fun onSongChanged(song: Song?) {
             val localSong = song?.toLocalSong()
-            LyriconDataBridge.updateSong(localSong)
             sink?.onSongChanged(localSong)
             BaseIslandRenderer.refreshActiveIsland()
         }

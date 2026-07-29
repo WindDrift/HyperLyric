@@ -103,6 +103,17 @@ fun LyricDisplayPage() {
             )
         )
     }
+    var placeholderFormat by remember {
+        mutableIntStateOf(
+            prefs.getInt(
+                RootConstants.KEY_HOOK_PLACEHOLDER_FORMAT,
+                RootConstants.DEFAULT_HOOK_PLACEHOLDER_FORMAT
+            ).coerceIn(
+                RootConstants.PLACEHOLDER_FORMAT_NONE,
+                RootConstants.PLACEHOLDER_FORMAT_TITLE
+            )
+        )
+    }
 
     var showTextSizeDialog by remember { mutableStateOf(false) }
     var showTextSizeRatioDialog by remember { mutableStateOf(false) }
@@ -194,6 +205,11 @@ fun LyricDisplayPage() {
             onTextSizeRatioClick = { showTextSizeRatioDialog = true },
             fadingEdge = fadingEdge,
             onFadingEdgeClick = { showFadingEdgeDialog = true },
+            placeholderFormat = placeholderFormat,
+            onPlaceholderFormatChange = {
+                placeholderFormat = it
+                saveConfig(RootConstants.KEY_HOOK_PLACEHOLDER_FORMAT, it)
+            },
             extractCoverColor = extractCoverColor,
             onExtractCoverColorChange = { enabled ->
                 if (enabled && followStatusBarColor) {

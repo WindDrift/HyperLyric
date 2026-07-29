@@ -179,10 +179,9 @@ internal object IslandSlotContentAssembler {
     fun processedRawLine(
         prefs: SharedPreferences,
         config: IslandSlotRuntimeConfig? = null
-    ): IRichLyricLine {
-        val songName = LyriconDataBridge.currentSongName?.takeIf { it.isNotEmpty() } ?: ""
+    ): IRichLyricLine? {
         var rawLine = LyriconDataBridge.currentLyricLine
-            ?: RichLyricLine(text = songName, words = emptyList())
+            ?: return null
 
         if (config != null && isNextLinePreviewEnabled(prefs, config, rawLine)) {
             return rawLine.withNextLinePreview(LyriconDataBridge.currentNextLyricLine)

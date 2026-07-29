@@ -1,5 +1,6 @@
 package com.lidesheng.hyperlyric.root
 
+import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.lyric.model.RichLyricLine
 import com.lidesheng.hyperlyric.lyric.model.Song
 import com.lidesheng.hyperlyric.lyric.model.extensions.TimingNavigator
@@ -46,6 +47,9 @@ object LyriconDataBridge : StateResetter {
     /** AI 翻译完成后的回调，由 LyriconSource 设置 */
     var onAiTranslationComplete: (() -> Unit)? = null
 
+    @Volatile
+    private var placeholderFormat = RootConstants.DEFAULT_HOOK_PLACEHOLDER_FORMAT
+
     fun updateLyricPackage(packageName: String?) {
         activePackageName = packageName
         currentLyricPackageName = packageName
@@ -54,7 +58,10 @@ object LyriconDataBridge : StateResetter {
     private var timingNavigator: TimingNavigator<TimedLine> = TimingNavigator(emptyArray())
     private var interludeTracker = InterludeTracker(8_000L)
 
-    fun updateSong(song: Song?) {
+    fun updateSong(
+        song: Song?,
+        placeholderFormat: Int = RootConstants.DEFAULT_HOOK_PLACEHOLDER_FORMAT
+    ) {
         HookLogger.d("LyriconDataBridge", "歌曲变更: ${song?.name}")
         isTextMode = false
         currentSong = song
@@ -62,14 +69,12 @@ object LyriconDataBridge : StateResetter {
         currentLyric = null
         currentLyricLine = null
         currentNextLyricLine = null
+        this.placeholderFormat = normalizePlaceholderFormat(placeholderFormat)
 
         versionCounter.incrementAndGet()
 
         if (song != null) {
-            val processor = SongPreprocessor(TitleSlot.NAME_ARTIST)
-            val lines = processor.prepare(song)
-            timingNavigator = TimingNavigator(lines.toTypedArray())
-            interludeTracker = InterludeTracker(8_000L)
+            rebuildTimeline(song, selectCurrentPosition = false)
         } else {
             timingNavigator = TimingNavigator(emptyArray())
         }
@@ -77,9 +82,17 @@ object LyriconDataBridge : StateResetter {
 
     fun applyTranslation(translatedSong: Song) {
         currentSong = translatedSong
-        val processor = SongPreprocessor(TitleSlot.NAME_ARTIST)
-        val lines = processor.prepare(translatedSong)
-        timingNavigator = TimingNavigator(lines.toTypedArray())
+        rebuildTimeline(translatedSong, selectCurrentPosition = true)
+    }
+
+    fun updatePlaceholderFormat(format: Int): Boolean {
+        val normalizedFormat = normalizePlaceholderFormat(format)
+        if (placeholderFormat == normalizedFormat) return false
+        placeholderFormat = normalizedFormat
+
+        val song = currentSong ?: return false
+        rebuildTimeline(song, selectCurrentPosition = true)
+        return true
     }
 
     fun updatePosition(position: Long): Boolean {
@@ -142,6 +155,38 @@ object LyriconDataBridge : StateResetter {
         timingNavigator = TimingNavigator(emptyArray())
 
         versionCounter.incrementAndGet()
+    }
+
+    private fun rebuildTimeline(song: Song, selectCurrentPosition: Boolean) {
+        val processor = SongPreprocessor(resolveTitleSlot(placeholderFormat))
+        val lines = processor.prepare(song.deepCopy())
+        timingNavigator = TimingNavigator(lines.toTypedArray())
+        interludeTracker = InterludeTracker(8_000L)
+
+        if (selectCurrentPosition) {
+            currentLyric = null
+            currentLyricLine = null
+            currentNextLyricLine = null
+            updatePosition(currentPosition)
+        }
+    }
+
+    private fun normalizePlaceholderFormat(format: Int): Int {
+        return when (format) {
+            RootConstants.PLACEHOLDER_FORMAT_NONE,
+            RootConstants.PLACEHOLDER_FORMAT_TITLE_ARTIST,
+            RootConstants.PLACEHOLDER_FORMAT_TITLE -> format
+
+            else -> RootConstants.DEFAULT_HOOK_PLACEHOLDER_FORMAT
+        }
+    }
+
+    private fun resolveTitleSlot(format: Int): TitleSlot {
+        return when (format) {
+            RootConstants.PLACEHOLDER_FORMAT_NONE -> TitleSlot.NONE
+            RootConstants.PLACEHOLDER_FORMAT_TITLE -> TitleSlot.NAME
+            else -> TitleSlot.NAME_ARTIST
+        }
     }
 
 }

@@ -143,6 +143,7 @@ object RootConstants {
     const val KEY_HOOK_FADING_EDGE_LENGTH = "key_hook_fading_edge_length"
     const val KEY_HOOK_GRADIENT_PROGRESS = "key_hook_gradient_progress"
     const val KEY_HOOK_CENTER_LYRIC = "key_hook_center_lyric"
+    const val KEY_HOOK_PLACEHOLDER_FORMAT = "key_hook_placeholder_format"
     const val KEY_HOOK_ISLAND_RIGHT_ICON = "key_hook_island_right_icon"
     const val KEY_HOOK_ISLAND_MUSIC_WAVE_COLOR = "key_hook_island_music_wave_color"
     const val KEY_HOOK_ISLAND_MUSIC_WAVE_GRADIENT = "key_hook_island_music_wave_gradient"
@@ -359,6 +360,10 @@ object RootConstants {
     const val DEFAULT_HOOK_FADING_EDGE_LENGTH = 15
     const val DEFAULT_HOOK_GRADIENT_PROGRESS = true
     const val DEFAULT_HOOK_CENTER_LYRIC = false
+    const val PLACEHOLDER_FORMAT_NONE = 0
+    const val PLACEHOLDER_FORMAT_TITLE_ARTIST = 1
+    const val PLACEHOLDER_FORMAT_TITLE = 2
+    const val DEFAULT_HOOK_PLACEHOLDER_FORMAT = PLACEHOLDER_FORMAT_TITLE_ARTIST
     const val DEFAULT_HOOK_ISLAND_RIGHT_ICON = true
     const val DEFAULT_HOOK_ISLAND_MUSIC_WAVE_COLOR = false
     const val DEFAULT_HOOK_ISLAND_MUSIC_WAVE_GRADIENT = false

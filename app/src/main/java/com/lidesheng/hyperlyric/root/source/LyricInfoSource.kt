@@ -161,7 +161,6 @@ class LyricInfoSource(private val context: Context) : LyricSource {
                 activePkg = pkg
                 activeController = controller
                 LyriconDataBridge.updateLyricPackage(pkg)
-                LyriconDataBridge.updateSong(song)
                 sink?.onSongChanged(song)
                 sink?.onMetadata(title = songName, artist = artist, album = "", publisher = pkg)
                 handlePlaybackState(controller, controller.playbackState)

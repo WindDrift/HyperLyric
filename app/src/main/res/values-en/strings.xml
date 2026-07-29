@@ -275,6 +275,13 @@
 
     <!-- ———————————————————————— LyricSettingsPage ———————————————————————— -->
     <string name="title_text">Text Style</string>
+    <string name="title_basic_style">Basic Style</string>
+    <string name="title_text_color">Text Color</string>
+    <string name="title_font_style">Font Style</string>
+    <string name="title_placeholder_format">Placeholder Format</string>
+    <string name="option_placeholder_none">None</string>
+    <string name="option_placeholder_title_artist">Title - Artist</string>
+    <string name="option_placeholder_title">Title</string>
     <string name="title_size">Size</string>
     <string name="label_size_range">Range: 8 ~ 16</string>
     <string name="title_font_weight">Font Weight</string>

@@ -348,6 +348,18 @@ class HookEntry : XposedModule() {
                             }
                         }
 
+                        RootConstants.KEY_HOOK_PLACEHOLDER_FORMAT -> {
+                            val format = prefs.getInt(
+                                key,
+                                RootConstants.DEFAULT_HOOK_PLACEHOLDER_FORMAT
+                            )
+                            Handler(Looper.getMainLooper()).post {
+                                if (LyriconDataBridge.updatePlaceholderFormat(format)) {
+                                    BaseIslandRenderer.updateLyricLine()
+                                }
+                            }
+                        }
+
                         RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND -> {
                             Handler(Looper.getMainLooper()).post {
                                 updateSystemUiEnhancements(SystemUiEnhancementGate.isEnabled())
