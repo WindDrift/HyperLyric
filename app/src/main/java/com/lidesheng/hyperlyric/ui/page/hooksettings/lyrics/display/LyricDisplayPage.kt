@@ -110,7 +110,7 @@ fun LyricDisplayPage() {
                 RootConstants.DEFAULT_HOOK_PLACEHOLDER_FORMAT
             ).coerceIn(
                 RootConstants.PLACEHOLDER_FORMAT_NONE,
-                RootConstants.PLACEHOLDER_FORMAT_TITLE
+                RootConstants.PLACEHOLDER_FORMAT_COUNTDOWN
             )
         )
     }

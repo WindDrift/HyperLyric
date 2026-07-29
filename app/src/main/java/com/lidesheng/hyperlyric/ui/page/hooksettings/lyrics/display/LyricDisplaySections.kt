@@ -47,7 +47,8 @@ fun LazyListScope.lyricDisplaySections(
         val placeholderOptions = listOf(
             stringResource(id = R.string.option_placeholder_none),
             stringResource(id = R.string.option_placeholder_title_artist),
-            stringResource(id = R.string.option_placeholder_title)
+            stringResource(id = R.string.option_placeholder_title),
+            stringResource(id = R.string.option_placeholder_countdown)
         )
         Card(
             modifier = Modifier

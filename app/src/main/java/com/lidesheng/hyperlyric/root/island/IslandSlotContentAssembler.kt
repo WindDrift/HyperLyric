@@ -377,7 +377,8 @@ internal object IslandSlotContentAssembler {
             line.translation,
             line.translationWords,
             line.roma,
-            line.isAlignedRight
+            line.isAlignedRight,
+            line.metadata
         ).hashCode()
     }
 

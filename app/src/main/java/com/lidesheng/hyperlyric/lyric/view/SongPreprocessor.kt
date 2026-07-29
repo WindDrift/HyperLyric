@@ -14,7 +14,7 @@ import com.lidesheng.hyperlyric.lyric.model.lyricMetadataOf
 internal class SongPreprocessor(private val placeholder: TitleSlot) {
 
     companion object {
-        internal const val KEY_TITLE_LINE = "TitleLine"
+        internal const val MIN_PLACEHOLDER_DURATION_MS = 3_000L
     }
 
     fun prepare(song: Song): List<TimedLine> {
@@ -33,18 +33,24 @@ internal class SongPreprocessor(private val placeholder: TitleSlot) {
     }
 
     private fun fillGap(song: Song): Song {
-        val title = songTitle(song) ?: return song
         val lyrics = song.lyrics?.toMutableList() ?: mutableListOf()
         if (lyrics.isEmpty()) {
+            val title = songTitle(song) ?: return song
             val d = if (song.duration > 0) song.duration else Long.MAX_VALUE
             lyrics.add(titleLine(d, d, title))
         } else {
             val first = lyrics.first()
-            if (first.begin > 0) {
-                var end = first.begin
-                if (end > 1) end--
-                lyrics.add(0, titleLine(end, end, title))
-            }
+            if (first.begin < MIN_PLACEHOLDER_DURATION_MS) return song
+
+            var end = first.begin
+            if (end > 1) end--
+            val line = when (placeholder) {
+                TitleSlot.NONE -> null
+                TitleSlot.COUNTDOWN -> countdownLine(end)
+                TitleSlot.NAME_ARTIST,
+                TitleSlot.NAME -> songTitle(song)?.let { titleLine(end, end, it) }
+            } ?: return song
+            lyrics.add(0, line)
         }
         song.lyrics = lyrics
         return song
@@ -52,7 +58,15 @@ internal class SongPreprocessor(private val placeholder: TitleSlot) {
 
     private fun titleLine(end: Long, duration: Long, text: String) =
         RichLyricLine(end = end, duration = duration, text = text).apply {
-            metadata = lyricMetadataOf(KEY_TITLE_LINE to "true")
+            metadata = lyricMetadataOf(METADATA_TITLE_LINE to "true")
+        }
+
+    private fun countdownLine(end: Long) =
+        RichLyricLine(end = end, duration = end).apply {
+            metadata = lyricMetadataOf(
+                METADATA_TITLE_LINE to "true",
+                METADATA_COUNTDOWN_LINE to "true"
+            )
         }
 
     private fun songTitle(song: Song): String? {
@@ -67,6 +81,7 @@ internal class SongPreprocessor(private val placeholder: TitleSlot) {
             }
 
             TitleSlot.NAME -> name?.takeIf { it.isNotBlank() }
+            TitleSlot.COUNTDOWN -> null
         }
     }
 }

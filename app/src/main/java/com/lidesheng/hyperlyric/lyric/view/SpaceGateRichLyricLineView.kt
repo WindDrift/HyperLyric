@@ -246,9 +246,10 @@ class SpaceGateRichLyricLineView(
         val mainResult = assembler.buildMain(line)
         val secResult = assembler.buildSecondary(line)
 
+        val hasMainVisualContent = currentMainText != null || main.model.isCountdownLine()
         val shouldPromote = allowNextLinePromotion &&
                 secondaryIsNextLinePreview && secResult.isNextLinePreview &&
-                currentMainText != null && currentMainText != mainResult.line.text &&
+                hasMainVisualContent && currentMainText != mainResult.line.text &&
                 secondary.model.text == mainResult.line.text &&
                 isAttachedToWindow && main.height > 0 && secondary.height > 0
         if (shouldPromote) {

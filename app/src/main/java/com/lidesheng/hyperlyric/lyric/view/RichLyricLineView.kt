@@ -244,9 +244,10 @@ class RichLyricLineView(
         val mainResult = assembler.buildMain(line)
         val secResult = assembler.buildSecondary(line)
 
+        val hasMainVisualContent = currentMainText != null || main.model.isCountdownLine()
         val shouldPromote = allowNextLinePromotion &&
                 secondaryIsNextLinePreview && secResult.isNextLinePreview &&
-                currentMainText != null && currentMainText != mainResult.line.text &&
+                hasMainVisualContent && currentMainText != mainResult.line.text &&
                 secondary.model.text == mainResult.line.text &&
                 isAttachedToWindow && main.height > 0 && secondary.height > 0
         if (shouldPromote) {
@@ -357,8 +358,4 @@ class RichLyricLineView(
         const val NEXT_LINE_PREVIEW_FADE_DURATION = 140L
     }
 }
-
-fun IRichLyricLine?.isTitleLine(): Boolean =
-    this?.metadata?.getBoolean("TitleLine", false) == true
-
 

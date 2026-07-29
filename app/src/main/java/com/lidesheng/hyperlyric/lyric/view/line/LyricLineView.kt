@@ -24,6 +24,7 @@ import com.lidesheng.hyperlyric.lyric.view.TextLook
 import com.lidesheng.hyperlyric.lyric.view.UpdatableColor
 import com.lidesheng.hyperlyric.lyric.view.WordMotion
 import com.lidesheng.hyperlyric.lyric.view.dp
+import com.lidesheng.hyperlyric.lyric.view.isCountdownLine
 import com.lidesheng.hyperlyric.lyric.view.line.model.LyricModel
 import com.lidesheng.hyperlyric.lyric.view.line.model.createModel
 import com.lidesheng.hyperlyric.lyric.view.line.model.emptyLyricModel
@@ -43,7 +44,8 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
     val model: LyricModel get() = _model
     private var _model: LyricModel = emptyLyricModel()
 
-    val lineWidth: Float get() = _model.width
+    val lineWidth: Float
+        get() = if (_model.isCountdownLine()) countdownRenderer.contentWidth() else _model.width
 
     // ---- Metadata marquee overrides (called from HyperLyric) ----
     fun setMarqueeSpeed(speed: Float) {
@@ -70,7 +72,7 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
         scrollRenderer.peerLineWidth = width
     }
 
-    val isPlainText: Boolean get() = _model.isPlainText
+    val isPlainText: Boolean get() = _model.isPlainText && !_model.isCountdownLine()
     val isWordSync: Boolean get() = !isPlainText
     val isOverflow: Boolean get() = lineWidth > measuredWidth
     val isPlaying: Boolean get() = activeRenderer.isPlaying
@@ -88,6 +90,7 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
             field = value
             syncRenderer.centerIfPossible = value
             scrollRenderer.centerIfPossible = value
+            countdownRenderer.centerIfPossible = value
         }
 
     var playListener: LyricPlayListener? = null
@@ -121,6 +124,7 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
     private val lineState = LineState()
     private val scrollRenderer = ScrollTextRenderer()
     private val syncRenderer = WordSyncRenderer(this)
+    private val countdownRenderer = CountdownDotsRenderer()
     private val animator = Animator()
 
     private var activeRenderer: LineRenderer = scrollRenderer
@@ -150,7 +154,7 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
 
     val textSize: Float get() = textPaint.textSize
 
-    fun currentTextStartX(): Float = resolveTextStartX(_model.width, _model.isAlignedRight)
+    fun currentTextStartX(): Float = resolveTextStartX(lineWidth, _model.isAlignedRight)
 
     fun textStartX(text: String?, isAlignedRight: Boolean): Float =
         resolveTextStartX(textPaint.measureText(text.orEmpty()), isAlignedRight)
@@ -160,20 +164,25 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
         if (!needsUpdate) return
         textPaint.textSize = size
         syncRenderer.setTextSize(size)
+        countdownRenderer.setTextSize(size)
         refreshSizes()
         syncRenderer.updateLayout(_model, lineState, measuredWidth, measuredHeight)
         invalidate()
     }
 
     fun setLyric(rawLine: LyricLine?) {
-        val line = if (rawLine?.text.isNullOrBlank()) null else rawLine
+        val line = if (rawLine?.text.isNullOrBlank() && !rawLine.isCountdownLine()) null else rawLine
 
         reset()
         scrollUnlocked = false
         scrollStarted = false
 
         _model = line?.normalize()?.createModel() ?: emptyLyricModel()
-        activeRenderer = if (_model.isPlainText) scrollRenderer else syncRenderer
+        activeRenderer = when {
+            _model.isCountdownLine() -> countdownRenderer
+            _model.isPlainText -> scrollRenderer
+            else -> syncRenderer
+        }
         refreshSizes()
         updateColorsIfReady()
         invalidate()
@@ -189,6 +198,7 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
         textPaint.typeface = text.typeface
         syncRenderer.setTypeface(text.typeface)
         syncRenderer.isGradientEnabled = gradient
+        countdownRenderer.isGradientEnabled = gradient
 
         scrollRenderer.apply {
             scrollSpeed = marquee.speed
@@ -229,6 +239,7 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
             if (playbackActive) startScrolling()
         } else {
             activeRenderer.seek(_model, lineState, posMs, measuredWidth, measuredHeight)
+            if (activeRenderer === countdownRenderer) invalidate()
             if (playbackActive) {
                 animator.startIfNeeded()
             } else {
@@ -241,10 +252,11 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
     fun updatePosition(posMs: Long) {
         if (isStaticPreview) return
         if (isWordSync) {
-            if (syncRenderer.isScrollOnly && !isOverflow) return
+            if (activeRenderer === syncRenderer && syncRenderer.isScrollOnly && !isOverflow) return
             if (playbackActive) {
                 activeRenderer.update(_model, lineState, posMs, measuredWidth, measuredHeight)
-                if (syncRenderer.isPlaying && !syncRenderer.isFinished) {
+                if (activeRenderer === countdownRenderer) invalidate()
+                if (activeRenderer.isPlaying && !activeRenderer.isFinished) {
                     animator.startIfNeeded()
                 }
             } else {
@@ -267,6 +279,10 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
             animator.stop()
             (activeRenderer as? WordSyncRenderer)?.let { renderer ->
                 renderer.freeze(_model, lineState, measuredWidth)
+                if (isShown) invalidate()
+            }
+            (activeRenderer as? CountdownDotsRenderer)?.let { renderer ->
+                renderer.freeze()
                 if (isShown) invalidate()
             }
             return
@@ -293,7 +309,9 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
     }
 
     fun relayout() {
-        if (isWordSync) syncRenderer.updateLayout(_model, lineState, measuredWidth, measuredHeight)
+        if (activeRenderer === syncRenderer) {
+            syncRenderer.updateLayout(_model, lineState, measuredWidth, measuredHeight)
+        }
     }
 
     override fun updateColor(primary: IntArray, background: IntArray, highlight: IntArray) {
@@ -303,6 +321,7 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
 
         updatePlainTextColors()
         syncRenderer.setColors(background, highlight)
+        countdownRenderer.setColors(background, highlight)
         invalidate()
     }
 
@@ -311,6 +330,7 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
         lineState.reset()
         scrollRenderer.reset(lineState)
         syncRenderer.reset(lineState)
+        countdownRenderer.reset(lineState)
         _model = emptyLyricModel()
         activeRenderer = scrollRenderer
         refreshSizes()

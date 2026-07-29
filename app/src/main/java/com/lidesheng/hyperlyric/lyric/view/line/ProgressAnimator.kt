@@ -61,4 +61,15 @@ internal class ProgressAnimator {
         hasStarted = false
         hasFinished = false
     }
+
+    fun syncFrom(other: ProgressAnimator) {
+        currentWidth = other.currentWidth
+        targetWidth = other.targetWidth
+        isAnimating = other.isAnimating
+        hasStarted = other.hasStarted
+        hasFinished = other.hasFinished
+        startWidth = other.startWidth
+        elapsedNanos = other.elapsedNanos
+        durationNano = other.durationNano
+    }
 }

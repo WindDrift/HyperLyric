@@ -175,7 +175,8 @@ object LyriconDataBridge : StateResetter {
         return when (format) {
             RootConstants.PLACEHOLDER_FORMAT_NONE,
             RootConstants.PLACEHOLDER_FORMAT_TITLE_ARTIST,
-            RootConstants.PLACEHOLDER_FORMAT_TITLE -> format
+            RootConstants.PLACEHOLDER_FORMAT_TITLE,
+            RootConstants.PLACEHOLDER_FORMAT_COUNTDOWN -> format
 
             else -> RootConstants.DEFAULT_HOOK_PLACEHOLDER_FORMAT
         }
@@ -185,6 +186,7 @@ object LyriconDataBridge : StateResetter {
         return when (format) {
             RootConstants.PLACEHOLDER_FORMAT_NONE -> TitleSlot.NONE
             RootConstants.PLACEHOLDER_FORMAT_TITLE -> TitleSlot.NAME
+            RootConstants.PLACEHOLDER_FORMAT_COUNTDOWN -> TitleSlot.COUNTDOWN
             else -> TitleSlot.NAME_ARTIST
         }
     }
