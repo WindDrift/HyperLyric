@@ -72,6 +72,7 @@ import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.Scaffold
@@ -195,7 +196,16 @@ fun LyricProviderPage() {
             }
         }
     ) { innerPadding ->
-        if (contentReady) {
+        if (!contentReady) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentAlignment = Alignment.Center
+            ) {
+                InfiniteProgressIndicator()
+            }
+        } else {
             Box(modifier = if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier) {
                 PullToRefresh(
                     isRefreshing = providerUiState.isRefreshing,
