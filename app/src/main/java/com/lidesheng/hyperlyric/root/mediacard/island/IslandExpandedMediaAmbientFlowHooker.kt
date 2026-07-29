@@ -483,6 +483,7 @@ object IslandExpandedMediaAmbientFlowHooker {
         if (IslandExpandedMediaBackgroundController.isActive()) {
             if (mediaData != null) {
                 IslandExpandedMediaBackgroundController.bind(binder, mediaData, api)
+                api.syncDummyBackgroundTransform(binder)
             } else {
                 IslandExpandedMediaBackgroundController.attach(binder, api)
             }
@@ -1072,6 +1073,7 @@ object IslandExpandedMediaAmbientFlowHooker {
         private val mediaDataArtworkField: Field?,
         private val mediaDataPackageNameField: Field,
         private val isArtworkUpdateField: Field?,
+        private val mediaBgTransYOffsetField: Field?,
         private val seekBarField: Field,
         private val seekBarPaintField: Field,
         private val seekBarRuntimeShaderField: Field,
@@ -1220,6 +1222,7 @@ object IslandExpandedMediaAmbientFlowHooker {
             if (dedicatedHosts.size != holders.size ||
                 holders.any { holder -> holder !in dedicatedHosts }
             ) {
+                holderBackgrounds.detach(binder)
                 return emptyList()
             }
             val hosts = holders.mapNotNull { holder ->
@@ -1256,14 +1259,18 @@ object IslandExpandedMediaAmbientFlowHooker {
             val mediaBackground = holderBackgrounds.findHost(dummyHolder)?.customBackground
                 ?: return
             when (action) {
-                "pull_down_type_start" -> mediaBackground.pivotY = 0f
-
-                "pull_down_type_update" -> {
-                    val height = mediaBackground.height
-                    if (height > 0) {
-                        mediaBackground.scaleY = (height + pullDownOffset) / height.toFloat()
+                "pull_down_type_start" -> {
+                    mediaBackground.pivotY = 0f
+                    if (mediaBackground.scaleY != 1f) {
+                        mediaBackground.scaleY = 1f
                     }
                 }
+
+                "pull_down_type_update" -> {
+                    applyDummyBackgroundScale(mediaBackground, pullDownOffset)
+                }
+
+                "pull_down_type_finish" -> applyDummyBackgroundScale(mediaBackground, 0f)
             }
         }
 
@@ -1271,7 +1278,41 @@ object IslandExpandedMediaAmbientFlowHooker {
             val dummyHolder = dummyHolderField.get(binder) ?: return
             val mediaBackground = holderBackgrounds.findHost(dummyHolder)?.customBackground
                 ?: return
-            mediaBackground.scaleY = 1f
+            applyDummyBackgroundScale(mediaBackground, 0f)
+        }
+
+        fun syncDummyBackgroundTransform(binder: Any) {
+            val offsetField = mediaBgTransYOffsetField ?: return
+            val offset = offsetField.getFloat(binder)
+            val dummyHolder = dummyHolderField.get(binder) ?: return
+            val mediaBackground = holderBackgrounds.findHost(dummyHolder)?.customBackground
+                ?: return
+            if (applyDummyBackgroundScale(mediaBackground, offset)) return
+            if (offset != 0f) {
+                mediaBackground.post {
+                    val currentOffset = offsetField.getFloat(binder)
+                    val currentHost = holderBackgrounds.findHost(dummyHolder)?.customBackground
+                    if (currentHost === mediaBackground) {
+                        applyDummyBackgroundScale(mediaBackground, currentOffset)
+                    }
+                }
+            }
+        }
+
+        private fun applyDummyBackgroundScale(
+            mediaBackground: View,
+            pullDownOffset: Float
+        ): Boolean {
+            mediaBackground.pivotY = 0f
+            if (pullDownOffset == 0f) {
+                mediaBackground.scaleY = 1f
+                return true
+            }
+            val height = mediaBackground.height
+            if (height <= 0) return false
+            mediaBackground.scaleY =
+                (height + pullDownOffset) / height.toFloat()
+            return true
         }
 
         fun applyNativeForeground(binder: Any, holder: Any) {
@@ -1478,10 +1519,7 @@ object IslandExpandedMediaAmbientFlowHooker {
         override fun restoreNativeBackground(target: IslandExpandedBackgroundTarget) {
             target.nativeFlowViews.forEach(::restoreViewAlpha)
             if (target.customBackgroundView !== target.expandedView) {
-                (target.customBackgroundView as? ImageView)?.setImageDrawable(null)
-                    ?: run { target.customBackgroundView.background = null }
-                target.customBackgroundView.visibility = View.INVISIBLE
-                target.customBackgroundView.scaleY = 1f
+                holderBackgrounds.restore(target.customBackgroundView)
                 return
             }
             target.nativeBackgroundViews.forEach { view ->
@@ -1671,6 +1709,12 @@ object IslandExpandedMediaAmbientFlowHooker {
                             isAccessible = true
                         }
                     }.getOrNull(),
+                    mediaBgTransYOffsetField = findOptionalField(
+                        owner = binderClass,
+                        candidateNames = listOf("mediaBgTransYOffset"),
+                        expectedType = Float::class.javaPrimitiveType
+                            ?: error("No primitive float type")
+                    ),
                     seekBarField = holderClass.getDeclaredField("seekBar").apply {
                         isAccessible = true
                     },

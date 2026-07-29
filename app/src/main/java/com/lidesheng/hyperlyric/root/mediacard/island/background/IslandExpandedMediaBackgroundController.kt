@@ -2,13 +2,7 @@ package com.lidesheng.hyperlyric.root.mediacard.island.background
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.ColorFilter
-import android.graphics.Paint
-import android.graphics.Path
-import android.graphics.PixelFormat
-import android.graphics.Rect
-import android.graphics.RectF
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.Icon
 import android.graphics.drawable.TransitionDrawable
@@ -90,10 +84,6 @@ internal object IslandExpandedMediaBackgroundController {
         if (hosts.isEmpty()) return
         val binderState = states.getOrPut(binder) { BinderState(api) }
         binderState.api = api
-        resolveMeasuredSize(hosts)?.let { size ->
-            binderState.lastWidth = size.width
-            binderState.lastHeight = size.height
-        }
         val pendingMediaData = binderState.pendingMediaData
         val pendingApi = binderState.pendingApi
         if (pendingMediaData != null && pendingApi != null) {
@@ -152,24 +142,15 @@ internal object IslandExpandedMediaBackgroundController {
             true
         }
 
-        val renderSize = resolveRenderSize(
-            hosts = hosts,
-            binderState = binderState
-        ) ?: run {
-            if (allowRetry) scheduleBindRetry(binder, binderState, mediaData, api)
-            return
-        }
-        cancelBindRetry(binderState)
-        binderState.lastWidth = renderSize.width
-        binderState.lastHeight = renderSize.height
-
         val style = currentStyle()
         val blurAmount = currentBlurAmount()
         val autoInvert = currentAutoInvert()
         val softCoverTone = currentSoftCoverTone()
-        val token =
-            "$style:$blurAmount:$autoInvert:$softCoverTone:$packageName:" +
-                    "${renderSize.width}:${renderSize.height}"
+        val artworkSize = runCatching {
+            artwork?.loadDrawable(context)?.let { drawable ->
+                positiveSize(drawable.intrinsicWidth, drawable.intrinsicHeight)
+            }
+        }.getOrNull()
         val preparedTargets = hosts
             .groupBy { it.target.customBackgroundView }
             .values
@@ -178,12 +159,25 @@ internal object IslandExpandedMediaBackgroundController {
                     binderState = binderState,
                     hosts = groupedHosts,
                     artworkUpdated = artworkUpdated,
-                    renderSize = renderSize,
-                    token = token,
+                    packageName = packageName,
+                    style = style,
+                    blurAmount = blurAmount,
+                    autoInvert = autoInvert,
+                    softCoverTone = softCoverTone,
+                    fallbackSize = artworkSize,
                     api = api
                 )
             }
-        if (preparedTargets.isEmpty()) return
+        if (preparedTargets.isEmpty()) {
+            val hasSizedTarget = binderState.targets.values.any {
+                it.lastWidth > 1 && it.lastHeight > 1
+            }
+            if (!hasSizedTarget && allowRetry) {
+                scheduleBindRetry(binder, binderState, mediaData, api)
+            }
+            return
+        }
+        cancelBindRetry(binderState)
         renderTargets(
             binder = binder,
             binderState = binderState,
@@ -195,8 +189,6 @@ internal object IslandExpandedMediaBackgroundController {
             blurAmount = blurAmount,
             autoInvert = autoInvert,
             softCoverTone = softCoverTone,
-            renderSize = renderSize,
-            token = token,
             api = api
         )
     }
@@ -251,8 +243,12 @@ internal object IslandExpandedMediaBackgroundController {
         binderState: BinderState,
         hosts: List<IslandExpandedMediaBackgroundHost>,
         artworkUpdated: Boolean?,
-        renderSize: RenderSize,
-        token: String,
+        packageName: String,
+        style: Int,
+        blurAmount: Int,
+        autoInvert: Boolean,
+        softCoverTone: Int,
+        fallbackSize: RenderSize?,
         api: IslandExpandedMediaBackgroundApi
     ): PreparedTarget? {
         val host = hosts.first()
@@ -268,10 +264,13 @@ internal object IslandExpandedMediaBackgroundController {
             .filter { previous -> nextHolders.none { current -> current === previous } }
             .forEach(foregroundColors::remove)
         targetState.holders = nextHolders
+        val renderSize = resolveRenderSize(hosts, targetState, fallbackSize) ?: return null
         val width = renderSize.width
         val height = renderSize.height
         targetState.lastWidth = width
         targetState.lastHeight = height
+        val token =
+            "$style:$blurAmount:$autoInvert:$softCoverTone:$packageName:$width:$height"
 
         if (
             targetState.token == token &&
@@ -290,7 +289,7 @@ internal object IslandExpandedMediaBackgroundController {
         targetState.token = token
         targetState.renderPending = true
         val request = targetState.request.incrementAndGet()
-        return PreparedTarget(targetState, hosts, request)
+        return PreparedTarget(targetState, hosts, renderSize, token, request)
     }
 
     private fun renderTargets(
@@ -304,8 +303,6 @@ internal object IslandExpandedMediaBackgroundController {
         blurAmount: Int,
         autoInvert: Boolean,
         softCoverTone: Int,
-        renderSize: RenderSize,
-        token: String,
         api: IslandExpandedMediaBackgroundApi
     ) {
         val classLoader = binder.javaClass.classLoader ?: run {
@@ -329,68 +326,66 @@ internal object IslandExpandedMediaBackgroundController {
                 clearPendingOnMain(binder, binderState, preparedTargets)
                 return@execute
             }
-            val rendered = runCatching {
-                renderer.render(
-                    context,
-                    artwork,
-                    packageName,
-                    style,
-                    blurAmount,
-                    autoInvert,
-                    softCoverTone,
-                    renderSize.width,
-                    renderSize.height
-                )
-            }.onFailure { error ->
-                HookLogger.e(TAG, "渲染展开态媒体背景失败", error)
-            }.getOrNull()
-            if (rendered == null) {
-                clearPendingOnMain(binder, binderState, preparedTargets)
-                return@execute
-            }
-            mainHandler.post {
+            preparedTargets.forEach { prepared ->
                 if (
                     states[binder] !== binderState ||
-                    currentStyle() != style ||
-                    !isActive() ||
-                    !api.supportsCustomBackground()
+                    prepared.state.request.get() != prepared.request
                 ) {
-                    rendered.bitmap.recycle()
-                    if (states[binder] === binderState && !api.supportsCustomBackground()) {
-                        restore(binder)
+                    return@forEach
+                }
+                val rendered = runCatching {
+                    renderer.render(
+                        context,
+                        artwork,
+                        packageName,
+                        style,
+                        blurAmount,
+                        autoInvert,
+                        softCoverTone,
+                        prepared.renderSize.width,
+                        prepared.renderSize.height
+                    )
+                }.onFailure { error ->
+                    HookLogger.e(TAG, "渲染展开态媒体背景失败", error)
+                }.getOrNull()
+                if (rendered == null) {
+                    clearPendingOnMain(binder, binderState, listOf(prepared))
+                    return@forEach
+                }
+                mainHandler.post {
+                    if (
+                        states[binder] !== binderState ||
+                        currentStyle() != style ||
+                        !isActive() ||
+                        !api.supportsCustomBackground() ||
+                        prepared.state.request.get() != prepared.request
+                    ) {
+                        rendered.bitmap.recycle()
+                        if (states[binder] === binderState && !api.supportsCustomBackground()) {
+                            restore(binder)
+                        }
+                        return@post
                     }
-                    return@post
-                }
-                val validTargets = preparedTargets.filter { prepared ->
-                    prepared.state.request.get() == prepared.request
-                }
-                if (validTargets.isEmpty()) {
-                    rendered.bitmap.recycle()
-                    return@post
-                }
 
-                var bitmapAttached = false
-                validTargets.forEach { prepared ->
                     val targetState = prepared.state
                     val alreadyApplied =
                         targetState.customApplied &&
-                                targetState.appliedToken == token &&
+                                targetState.appliedToken == prepared.token &&
                                 targetState.artworkFingerprint == rendered.artworkFingerprint
                     if (alreadyApplied) {
                         ensureBackgroundAttached(targetState, api)
+                        rendered.bitmap.recycle()
                     } else {
                         setBackground(
                             targetState,
                             rendered.bitmap,
-                            rendered.colors.backgroundEnd,
                             currentColorAnimation() && targetState.appliedStyle == style
                         )
                         api.prepareCustomBackground(targetState.target)
                         targetState.customApplied = true
                         targetState.appliedStyle = style
-                        targetState.appliedToken = token
+                        targetState.appliedToken = prepared.token
                         targetState.artworkFingerprint = rendered.artworkFingerprint
-                        bitmapAttached = true
                     }
                     prepared.hosts.forEach { host ->
                         applyForeground(host.holder, rendered.colors, api)
@@ -398,7 +393,6 @@ internal object IslandExpandedMediaBackgroundController {
                     targetState.colors = rendered.colors
                     targetState.renderPending = false
                 }
-                if (!bitmapAttached) rendered.bitmap.recycle()
             }
         }
     }
@@ -483,10 +477,11 @@ internal object IslandExpandedMediaBackgroundController {
 
     private fun resolveRenderSize(
         hosts: List<IslandExpandedMediaBackgroundHost>,
-        binderState: BinderState
+        targetState: TargetState,
+        fallbackSize: RenderSize?
     ): RenderSize? {
         resolveMeasuredSize(hosts)?.let { return it }
-        return positiveSize(binderState.lastWidth, binderState.lastHeight)
+        return positiveSize(targetState.lastWidth, targetState.lastHeight) ?: fallbackSize
     }
 
     private fun resolveMeasuredSize(
@@ -548,20 +543,12 @@ internal object IslandExpandedMediaBackgroundController {
     private fun setBackground(
         state: TargetState,
         bitmap: Bitmap,
-        fallbackColor: Int,
         animate: Boolean
     ) {
         val view = state.target.customBackgroundView
         val width = view.width.coerceAtLeast(1)
         val height = view.height.coerceAtLeast(1)
-        val next = FixedViewportBitmapDrawable(
-            bitmap,
-            state.lastWidth.takeIf { it > 0 }
-                ?: width,
-            state.lastHeight.takeIf { it > 0 }
-                ?: height,
-            fallbackColor
-        ).apply {
+        val next = BitmapDrawable(view.resources, bitmap).apply {
             setBounds(0, 0, width, height)
         }
         state.background = next
@@ -626,27 +613,6 @@ internal object IslandExpandedMediaBackgroundController {
         foregroundColors[holder] = colors
     }
 
-    private fun centerCropSourceRect(
-        bitmapWidth: Int,
-        bitmapHeight: Int,
-        targetWidth: Int,
-        targetHeight: Int
-    ): Rect {
-        return if (bitmapWidth.toLong() * targetHeight > bitmapHeight.toLong() * targetWidth) {
-            val sourceWidth = (bitmapHeight.toLong() * targetWidth / targetHeight)
-                .toInt()
-                .coerceIn(1, bitmapWidth)
-            val left = (bitmapWidth - sourceWidth) / 2
-            Rect(left, 0, left + sourceWidth, bitmapHeight)
-        } else {
-            val sourceHeight = (bitmapWidth.toLong() * targetHeight / targetWidth)
-                .toInt()
-                .coerceIn(1, bitmapHeight)
-            val top = (bitmapHeight - sourceHeight) / 2
-            Rect(0, top, bitmapWidth, top + sourceHeight)
-        }
-    }
-
     private fun currentStyle(): Int {
         if (!MediaCardRuntimeConfig.current.enabled) {
             return RootConstants.ISLAND_EXPANDED_MEDIA_BACKGROUND_STYLE_DEFAULT
@@ -672,8 +638,6 @@ internal object IslandExpandedMediaBackgroundController {
 
     private data class BinderState(
         var api: IslandExpandedMediaBackgroundApi,
-        var lastWidth: Int = 0,
-        var lastHeight: Int = 0,
         var retryScheduled: Boolean = false,
         val retryRequest: AtomicInteger = AtomicInteger(),
         var retryView: View? = null,
@@ -691,6 +655,8 @@ internal object IslandExpandedMediaBackgroundController {
     private data class PreparedTarget(
         val state: TargetState,
         val hosts: List<IslandExpandedMediaBackgroundHost>,
+        val renderSize: RenderSize,
+        val token: String,
         val request: Int
     )
 
@@ -710,106 +676,5 @@ internal object IslandExpandedMediaBackgroundController {
         var renderPending: Boolean = false,
         val request: AtomicInteger = AtomicInteger()
     )
-
-    private class FixedViewportBitmapDrawable(
-        private val bitmap: Bitmap,
-        viewportWidth: Int,
-        viewportHeight: Int,
-        fallbackColor: Int,
-        private val cornerRadius: Float = 0f
-    ) : Drawable() {
-        private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-        private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = fallbackColor }
-        private val viewportWidth = viewportWidth.coerceAtLeast(1)
-        private val viewportHeight = viewportHeight.coerceAtLeast(1)
-        private val viewportSource = centerCropSourceRect(
-            bitmap.width,
-            bitmap.height,
-            this.viewportWidth,
-            this.viewportHeight
-        )
-        private val source = Rect()
-        private val destination = Rect()
-        private val destinationF = RectF()
-        private val clipPath = Path()
-
-        override fun draw(canvas: Canvas) {
-            if (bounds.isEmpty) return
-            val checkpoint = canvas.save()
-            destinationF.set(bounds)
-            if (cornerRadius > 0f) {
-                clipPath.rewind()
-                clipPath.addRoundRect(
-                    destinationF,
-                    cornerRadius,
-                    cornerRadius,
-                    Path.Direction.CW
-                )
-                canvas.clipPath(clipPath)
-            } else {
-                canvas.clipRect(bounds)
-            }
-            canvas.drawRect(destinationF, fillPaint)
-
-            if (bitmap.isRecycled) {
-                canvas.restoreToCount(checkpoint)
-                return
-            }
-            val idealDestinationHeight = (
-                    bounds.width().toLong() * viewportHeight / viewportWidth
-                    ).toInt().coerceAtLeast(1)
-            val baseSourceHeight = viewportSource.height()
-            val requestedSourceHeight = if (bounds.height() <= idealDestinationHeight) {
-                baseSourceHeight
-            } else {
-                (
-                        bounds.height().toLong() * viewportSource.width() + bounds.width() - 1L
-                        ).div(bounds.width()).toInt().coerceAtLeast(baseSourceHeight)
-            }
-            val sourceHeight = requestedSourceHeight.coerceAtMost(
-                bitmap.height - viewportSource.top
-            )
-            source.set(
-                viewportSource.left,
-                viewportSource.top,
-                viewportSource.right,
-                viewportSource.top + sourceHeight
-            )
-            val destinationHeight = (
-                    sourceHeight.toLong() * bounds.width() + viewportSource.width() - 1L
-                    ).div(viewportSource.width()).toInt().coerceAtLeast(1)
-            destination.set(
-                bounds.left,
-                bounds.top,
-                bounds.right,
-                bounds.top + destinationHeight
-            )
-            canvas.drawBitmap(bitmap, source, destination, paint)
-            canvas.restoreToCount(checkpoint)
-        }
-
-        override fun setAlpha(alpha: Int) {
-            paint.alpha = alpha
-            fillPaint.alpha = alpha
-            invalidateSelf()
-        }
-
-        override fun setColorFilter(colorFilter: ColorFilter?) {
-            paint.colorFilter = colorFilter
-            fillPaint.colorFilter = colorFilter
-            invalidateSelf()
-        }
-
-        @Deprecated("Deprecated in Android")
-        override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
-
-        override fun getIntrinsicWidth(): Int = -1
-
-        override fun getIntrinsicHeight(): Int = -1
-
-        override fun getMinimumWidth(): Int = 0
-
-        override fun getMinimumHeight(): Int = 0
-    }
 
 }

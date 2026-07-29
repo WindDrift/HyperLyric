@@ -1,7 +1,9 @@
 package com.lidesheng.hyperlyric.root.mediacard.island.background
 
+import android.graphics.Outline
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewOutlineProvider
 import android.widget.ImageView
 import com.lidesheng.hyperlyric.root.mediacard.background.MediaFlowOverlayLayout
 import java.lang.reflect.Field
@@ -18,7 +20,9 @@ internal data class IslandMediaBackgroundHolderHost(
     val player: ViewGroup,
     val parent: ViewGroup,
     val replacedNativeBackground: View,
-    val customBackground: ImageView
+    val customBackground: ImageView,
+    val nativeBackgroundIndex: Int,
+    val nativeBackgroundLayoutParams: ViewGroup.LayoutParams
 )
 
 /**
@@ -46,11 +50,19 @@ internal class IslandMediaBackgroundHostAdapter(
 
     fun detach(binder: Any) {
         holderEntries(binder).forEach { (_, holder) ->
-            val host = hosts[holder] ?: return@forEach
-            host.customBackground.setImageDrawable(null)
-            host.customBackground.visibility = View.INVISIBLE
-            host.customBackground.scaleY = 1f
+            val host = hosts.remove(holder) ?: return@forEach
+            restoreHost(host)
         }
+    }
+
+    fun restore(customBackground: View) {
+        val entry = synchronized(hosts) {
+            hosts.entries.firstOrNull { (_, host) ->
+                host.customBackground === customBackground
+            }
+        } ?: return
+        hosts.remove(entry.key)
+        restoreHost(entry.value)
     }
 
     /**
@@ -85,15 +97,21 @@ internal class IslandMediaBackgroundHostAdapter(
         val nativeBackground = mediaBgViewField.get(holder) as? View ?: return null
         val existing = findCustomBackground(player)
         val parent = (existing?.parent ?: titleText.parent) as? ViewGroup ?: return null
+        val nativeBackgroundIndex = parent.indexOfChild(nativeBackground)
+            .takeIf { it >= 0 }
+            ?: parent.indexOfChild(existing).coerceAtLeast(0)
+        val nativeBackgroundLayoutParams = nativeBackground.layoutParams ?: return null
         val customBackground = existing ?: createBackgroundView(nativeBackground, parent)
-        ?: return null
+            ?: return null
 
         return IslandMediaBackgroundHolderHost(
             role = role,
             player = player,
             parent = parent,
             replacedNativeBackground = nativeBackground,
-            customBackground = customBackground
+            customBackground = customBackground,
+            nativeBackgroundIndex = nativeBackgroundIndex,
+            nativeBackgroundLayoutParams = nativeBackgroundLayoutParams
         ).also { hosts[holder] = it }
     }
 
@@ -115,22 +133,69 @@ internal class IslandMediaBackgroundHostAdapter(
             "com.android.systemui"
         )
         if (mediaBackgroundId == 0) return null
+        val cornerRadiusId = anchor.resources.getIdentifier(
+            "media_control_bg_radius",
+            "dimen",
+            "com.android.systemui"
+        )
         val background = ImageView(anchor.context).apply {
             id = mediaBackgroundId
             tag = CUSTOM_BACKGROUND_TAG
             scaleType = ImageView.ScaleType.CENTER_CROP
-            outlineProvider = anchor.outlineProvider
-            clipToOutline = anchor.clipToOutline
+            outlineProvider = if (cornerRadiusId != 0) {
+                object : ViewOutlineProvider() {
+                    override fun getOutline(view: View, outline: Outline) {
+                        outline.setRoundRect(
+                            0,
+                            0,
+                            view.width,
+                            view.height,
+                            view.resources.getDimension(cornerRadiusId)
+                        )
+                    }
+                }
+            } else {
+                anchor.outlineProvider
+            }
+            clipToOutline = true
             setPadding(0, 0, 0, 0)
             visibility = View.INVISIBLE
             isClickable = false
             isFocusable = false
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            addOnLayoutChangeListener { view, left, top, right, bottom,
+                                        oldLeft, oldTop, oldRight, oldBottom ->
+                if (
+                    right - left != oldRight - oldLeft ||
+                    bottom - top != oldBottom - oldTop
+                ) {
+                    view.invalidateOutline()
+                }
+            }
         }
-        val index = parent.indexOfChild(anchor).coerceIn(0, parent.childCount)
+        val index = (parent.indexOfChild(anchor) + 1).coerceIn(0, parent.childCount)
         parent.addView(background, index, layoutParams)
         parent.removeView(anchor)
         return background
+    }
+
+    private fun restoreHost(host: IslandMediaBackgroundHolderHost) {
+        host.customBackground.apply {
+            setImageDrawable(null)
+            visibility = View.INVISIBLE
+            scaleX = 1f
+            scaleY = 1f
+        }
+        if (host.customBackground.parent === host.parent) {
+            host.parent.removeView(host.customBackground)
+        }
+        if (host.replacedNativeBackground.parent == null) {
+            host.parent.addView(
+                host.replacedNativeBackground,
+                host.nativeBackgroundIndex.coerceIn(0, host.parent.childCount),
+                host.nativeBackgroundLayoutParams
+            )
+        }
     }
 
     private companion object {

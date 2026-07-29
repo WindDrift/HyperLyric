@@ -626,6 +626,7 @@ fun MediaPreviewCard(
                             AndroidView(
                                 factory = { context ->
                                     android.widget.ImageView(context).apply {
+                                        tag = playAtEnd
                                         setImageResource(if (playAtEnd) R.drawable.ic_media_play else R.drawable.ic_media_pause)
                                     }
                                 },
