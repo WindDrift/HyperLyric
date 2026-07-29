@@ -3,6 +3,8 @@ package com.lidesheng.hyperlyric.ui.page.hooksettings
 
 import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,27 +21,37 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import com.lidesheng.hyperlyric.R
 import com.lidesheng.hyperlyric.common.PrefsBridge
 import com.lidesheng.hyperlyric.common.RootConstants
@@ -50,11 +62,12 @@ import com.lidesheng.hyperlyric.ui.utils.BlurredBar
 import com.lidesheng.hyperlyric.ui.utils.pageScrollModifiers
 import com.lidesheng.hyperlyric.ui.utils.rememberBlurBackdrop
 import com.lidesheng.hyperlyric.utils.LyricProviderManager
+import com.lidesheng.hyperlyric.utils.LyricModule
 import com.lidesheng.hyperlyric.utils.ModuleCategory
 import com.lidesheng.hyperlyric.utils.ModuleTag
 import com.lidesheng.hyperlyric.utils.ProviderUiState
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
@@ -74,30 +87,74 @@ import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.roundToInt
 
+private val PROVIDER_ICON_SIZE = 40.dp
+private val PROVIDER_ICON_SHAPE = RoundedCornerShape(8.dp)
+private val LYRIC_DELAY_KEY_POINTS = listOf(
+    -5000f,
+    -4000f,
+    -3000f,
+    -2000f,
+    -1000f,
+    0f,
+    1000f,
+    2000f,
+    3000f,
+    4000f,
+    5000f
+)
+
 @Composable
 fun LyricProviderPage() {
     val context = LocalContext.current
     val navigator = LocalNavigator.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val providerReleaseHome = stringResource(R.string.provider_release_home)
-    val backdrop = rememberBlurBackdrop()
+    var contentReady by remember(lifecycleOwner) {
+        mutableStateOf(
+            lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+        )
+    }
+    var initialLoadCompleted by remember(lifecycleOwner) { mutableStateOf(false) }
+
+    // NavDisplay 在转场完成前将目标页保持在 STARTED，进入 RESUMED 后再组合重型内容并扫描。
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            contentReady = true
+            if (!initialLoadCompleted) {
+                LyricProviderManager.loadProviders(context.applicationContext)
+                initialLoadCompleted = true
+            }
+        }
+    }
+
+    val availableBackdrop = rememberBlurBackdrop()
+    val backdrop = availableBackdrop.takeIf { contentReady }
     val blurActive = backdrop != null
     val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
     val topAppBarScrollBehavior = MiuixScrollBehavior()
     val coroutineScope = rememberCoroutineScope()
-    val providerUiStateFlow = remember { MutableStateFlow(ProviderUiState()) }
-    val providerUiState = providerUiStateFlow.collectAsState()
+    val providerUiState by LyricProviderManager.uiState.collectAsStateWithLifecycle()
     val pullToRefreshState = rememberPullToRefreshState()
 
-    LaunchedEffect(Unit) {
-        LyricProviderManager.loadProviders(context, providerUiStateFlow)
-    }
-
     val othersCategoryName = stringResource(id = R.string.category_others)
-    val groupedModules = remember(providerUiState.value.modules) {
-        LyricProviderManager.categorizeModules(providerUiState.value.modules, othersCategoryName)
+    val groupedModules = remember(providerUiState.modules, othersCategoryName) {
+        LyricProviderManager.categorizeModules(providerUiState.modules, othersCategoryName)
     }
 
     val expandedStates = remember { mutableStateMapOf<String, Boolean>() }
+
+    val refreshPullDown = stringResource(id = R.string.refresh_pull_down)
+    val refreshRelease = stringResource(id = R.string.refresh_release)
+    val refreshing = stringResource(id = R.string.refreshing)
+    val refreshSuccess = stringResource(id = R.string.refresh_success)
+    val refreshTexts = remember(
+        refreshPullDown,
+        refreshRelease,
+        refreshing,
+        refreshSuccess
+    ) {
+        listOf(refreshPullDown, refreshRelease, refreshing, refreshSuccess)
+    }
 
     Scaffold(
         topBar = {
@@ -138,49 +195,47 @@ fun LyricProviderPage() {
             }
         }
     ) { innerPadding ->
-        Box(modifier = if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier) {
-            PullToRefresh(
-                isRefreshing = providerUiState.value.isLoading,
-                onRefresh = {
-                    coroutineScope.launch {
-                        LyricProviderManager.loadProviders(
-                            context,
-                            providerUiStateFlow,
-                            forceRefresh = true
+        if (contentReady) {
+            Box(modifier = if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier) {
+                PullToRefresh(
+                    isRefreshing = providerUiState.isRefreshing,
+                    onRefresh = {
+                        if (!providerUiState.isInitialLoading && !providerUiState.isRefreshing) {
+                            coroutineScope.launch {
+                                LyricProviderManager.loadProviders(
+                                    context = context.applicationContext,
+                                    forceRefresh = true
+                                )
+                            }
+                        }
+                    },
+                    pullToRefreshState = pullToRefreshState,
+                    topAppBarScrollBehavior = topAppBarScrollBehavior,
+                    contentPadding = PaddingValues(top = innerPadding.calculateTopPadding()),
+                    refreshTexts = refreshTexts,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    val lazyListState = rememberLazyListState()
+                    val top = innerPadding.calculateTopPadding()
+                    val bottom = innerPadding.calculateBottomPadding()
+                    val contentPadding = remember(top, bottom) {
+                        PaddingValues(top = top, start = 0.dp, end = 0.dp, bottom = bottom)
+                    }
+                    LazyColumn(
+                        state = lazyListState,
+                        modifier = Modifier.pageScrollModifiers(
+                            enableScrollEndHaptic = true,
+                            showTopAppBar = false,
+                            topAppBarScrollBehavior = topAppBarScrollBehavior
+                        ),
+                        contentPadding = contentPadding,
+                    ) {
+                        providerSections(
+                            uiState = providerUiState,
+                            groupedModules = groupedModules,
+                            expandedStates = expandedStates
                         )
                     }
-                },
-                pullToRefreshState = pullToRefreshState,
-                topAppBarScrollBehavior = topAppBarScrollBehavior,
-                contentPadding = PaddingValues(top = innerPadding.calculateTopPadding()),
-                refreshTexts = listOf(
-                    stringResource(id = R.string.refresh_pull_down),
-                    stringResource(id = R.string.refresh_release),
-                    stringResource(id = R.string.refreshing),
-                    stringResource(id = R.string.refresh_success)
-                ),
-                modifier = Modifier.fillMaxSize()
-            ) {
-                val lazyListState = rememberLazyListState()
-                val top = innerPadding.calculateTopPadding()
-                val bottom = innerPadding.calculateBottomPadding()
-                val contentPadding = remember(top, bottom) {
-                    PaddingValues(top = top, start = 0.dp, end = 0.dp, bottom = bottom)
-                }
-                LazyColumn(
-                    state = lazyListState,
-                    modifier = Modifier.pageScrollModifiers(
-                        enableScrollEndHaptic = true,
-                        showTopAppBar = false,
-                        topAppBarScrollBehavior = topAppBarScrollBehavior
-                    ),
-                    contentPadding = contentPadding,
-                ) {
-                    providerSections(
-                        uiState = providerUiState.value,
-                        groupedModules = groupedModules,
-                        expandedStates = expandedStates
-                    )
                 }
             }
         }
@@ -192,8 +247,12 @@ private fun LazyListScope.providerSections(
     groupedModules: List<ModuleCategory>,
     expandedStates: MutableMap<String, Boolean>
 ) {
-    if (!uiState.isLoading && uiState.modules.isEmpty()) {
-        item(key = "no_provider") {
+    if (!uiState.hasLoaded && uiState.modules.isEmpty()) {
+        return
+    }
+
+    if (uiState.modules.isEmpty()) {
+        item(key = "no_provider", contentType = "empty_state") {
             Card(
                 modifier = Modifier
                     .padding(horizontal = 12.dp)
@@ -209,7 +268,10 @@ private fun LazyListScope.providerSections(
     } else {
         groupedModules.forEach { category ->
             if (category.name.isNotBlank()) {
-                item(key = "header_${category.name}") {
+                item(
+                    key = "header_${category.name}",
+                    contentType = "category_header"
+                ) {
                     SmallTitle(
                         text = category.name,
                         insideMargin = PaddingValues(
@@ -222,10 +284,11 @@ private fun LazyListScope.providerSections(
                 }
             }
             items(
-                category.items.size,
-                key = { "provider_${category.items[it].packageInfo.packageName}" }) { index ->
-                val module = category.items[index]
-                val packageName = module.packageInfo.packageName
+                items = category.items,
+                key = { "provider_${it.packageName}" },
+                contentType = { "provider_card" }
+            ) { module ->
+                val packageName = module.packageName
                 val isExpanded = expandedStates[packageName] ?: false
 
                 val delayKey = RootConstants.KEY_HOOK_LYRICON_PROVIDER_DELAY_PREFIX + packageName
@@ -244,40 +307,9 @@ private fun LazyListScope.providerSections(
                 ) {
 
                     Column {
-                        ProComponent(
-                            title = module.label,
-                            summary = stringResource(
-                                id = R.string.format_version_author,
-                                module.packageInfo.versionName
-                                    ?: stringResource(id = R.string.unknown),
-                                module.author ?: stringResource(id = R.string.unknown_author)
-                            ),
-                            onClick = { expandedStates[packageName] = !isExpanded },
-                            startAction = {
-                                val pm = LocalContext.current.packageManager
-                                val appInfo = module.packageInfo.applicationInfo
-                                val icon = remember(packageName) { appInfo?.loadIcon(pm) }
-                                if (icon != null) {
-                                    Box(modifier = Modifier.size(40.dp)) {
-                                        androidx.compose.ui.viewinterop.AndroidView(
-                                            factory = { context ->
-                                                android.widget.ImageView(context).apply {
-                                                    setImageDrawable(icon)
-                                                }
-                                            },
-                                            modifier = Modifier.fillMaxSize()
-                                        )
-                                    }
-                                }
-                            },
-                            endActions = {
-                                Text(
-                                    text = if (currentDelay > 0) "+$currentDelay ms" else "$currentDelay ms",
-                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                    fontSize = 14.sp
-                                )
-                            },
-                            showIndication = false
+                        ProviderHeader(
+                            module = module,
+                            currentDelay = currentDelay
                         )
 
                         AnimatedVisibility(visible = isExpanded) {
@@ -337,19 +369,7 @@ private fun LazyListScope.providerSections(
                                         valueRange = RootConstants.MIN_HOOK_LYRICON_PROVIDER_DELAY.toFloat()..RootConstants.MAX_HOOK_LYRICON_PROVIDER_DELAY.toFloat(),
                                         steps = 199,
                                         showKeyPoints = true,
-                                        keyPoints = listOf(
-                                            -5000f,
-                                            -4000f,
-                                            -3000f,
-                                            -2000f,
-                                            -1000f,
-                                            0f,
-                                            1000f,
-                                            2000f,
-                                            3000f,
-                                            4000f,
-                                            5000f
-                                        ),
+                                        keyPoints = LYRIC_DELAY_KEY_POINTS,
                                         hapticEffect = SliderDefaults.SliderHapticEffect.Step
                                     )
                                 }
@@ -385,5 +405,89 @@ private fun ModuleTagsFlow(tags: List<ModuleTag>) {
                 modifier = Modifier.padding(end = 10.dp)
             )
         }
+    }
+}
+
+@Composable
+private fun ProviderIcon(module: LyricModule) {
+    val context = LocalContext.current.applicationContext
+    val targetSizePx = with(LocalDensity.current) { PROVIDER_ICON_SIZE.roundToPx() }
+    val cacheKey = "${module.packageName}:${module.lastUpdateTime}:$targetSizePx"
+    val icon by produceState(
+        initialValue = LyricProviderManager.getCachedIcon(module, targetSizePx),
+        key1 = cacheKey
+    ) {
+        if (value == null) {
+            value = LyricProviderManager.loadIcon(
+                context = context,
+                module = module,
+                targetSizePx = targetSizePx
+            )
+        }
+    }
+
+    val iconModifier = Modifier
+        .size(PROVIDER_ICON_SIZE)
+        .clip(PROVIDER_ICON_SHAPE)
+
+    val loadedIcon = icon
+    if (loadedIcon != null) {
+        Image(
+            bitmap = loadedIcon,
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = iconModifier
+        )
+    } else {
+        Box(
+            modifier = iconModifier.background(
+                MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.15f)
+            )
+        )
+    }
+}
+
+@Composable
+private fun ProviderHeader(
+    module: LyricModule,
+    currentDelay: Int
+) {
+    val versionName = module.versionName ?: stringResource(id = R.string.unknown)
+    val author = module.author ?: stringResource(id = R.string.unknown_author)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(BasicComponentDefaults.InsideMargin),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        ProviderIcon(module)
+        Spacer(modifier = Modifier.width(16.dp))
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = module.label,
+                fontSize = MiuixTheme.textStyles.headline1.fontSize,
+                fontWeight = FontWeight.Medium,
+                color = MiuixTheme.colorScheme.onBackground
+            )
+            Text(
+                text = stringResource(
+                    id = R.string.format_version_author,
+                    versionName,
+                    author
+                ),
+                fontSize = MiuixTheme.textStyles.body2.fontSize,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+            )
+        }
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(
+            text = if (currentDelay > 0) "+$currentDelay ms" else "$currentDelay ms",
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            fontSize = 14.sp
+        )
     }
 }

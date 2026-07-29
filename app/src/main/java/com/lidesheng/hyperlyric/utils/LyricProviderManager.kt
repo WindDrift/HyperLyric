@@ -4,16 +4,28 @@ import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.withContext
+import android.graphics.Bitmap
+import android.util.LruCache
+import androidx.compose.runtime.Immutable
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.core.graphics.drawable.toBitmap
 import com.lidesheng.hyperlyric.R
 import com.lidesheng.hyperlyric.ui.component.icon.GeminiColor
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.text.Collator
 import java.util.Locale
 
+@Immutable
 data class ModuleTag(
     val iconRes: Int? = null,
     val imageVector: ImageVector? = null,
@@ -22,21 +34,27 @@ data class ModuleTag(
     val isRainbow: Boolean = false
 )
 
+@Immutable
 data class LyricModule(
-    val packageInfo: PackageInfo,
+    val packageName: String,
+    val versionName: String?,
+    val lastUpdateTime: Long,
     val label: String,
     val description: String?,
     val author: String?,
     val category: String?,
-    val isCertified: Boolean = false,
     val tags: List<ModuleTag> = emptyList()
 )
 
+@Immutable
 data class ProviderUiState(
     val modules: List<LyricModule> = emptyList(),
-    val isLoading: Boolean = false
+    val hasLoaded: Boolean = false,
+    val isInitialLoading: Boolean = false,
+    val isRefreshing: Boolean = false
 )
 
+@Immutable
 data class ModuleCategory(
     val name: String,
     val items: List<LyricModule>
@@ -44,68 +62,103 @@ data class ModuleCategory(
 
 object LyricProviderManager {
 
-    private var cachedModules: List<LyricModule>? = null
+    private const val ICON_CACHE_SIZE_KB = 8 * 1024
+    private val scanMutex = Mutex()
+    private val mutableUiState = MutableStateFlow(ProviderUiState())
+    val uiState: StateFlow<ProviderUiState> = mutableUiState.asStateFlow()
 
-    suspend fun loadProviders(context: Context, stateFlow: MutableStateFlow<ProviderUiState>, forceRefresh: Boolean = false) {
-        val cached = cachedModules
-        if (cached != null && !forceRefresh) {
-            stateFlow.update { it.copy(modules = cached, isLoading = false) }
-            scanAndUpdate(context, stateFlow)
-            return
+    private val iconCache = object : LruCache<String, ImageBitmap>(ICON_CACHE_SIZE_KB) {
+        override fun sizeOf(key: String, value: ImageBitmap): Int {
+            return (value.width * value.height * 4 / 1024).coerceAtLeast(1)
         }
-
-        stateFlow.update { it.copy(isLoading = true) }
-        scanAndUpdate(context, stateFlow)
     }
 
-    private suspend fun scanAndUpdate(context: Context, stateFlow: MutableStateFlow<ProviderUiState>) {
-        withContext(Dispatchers.IO) {
+    fun getCachedIcon(module: LyricModule, targetSizePx: Int): ImageBitmap? {
+        return iconCache.get(iconCacheKey(module, targetSizePx))
+    }
+
+    suspend fun loadIcon(
+        context: Context,
+        module: LyricModule,
+        targetSizePx: Int
+    ): ImageBitmap? {
+        getCachedIcon(module, targetSizePx)?.let { return it }
+        return withContext(Dispatchers.IO) {
+            getCachedIcon(module, targetSizePx)?.let { return@withContext it }
             try {
-                val packageManager = context.packageManager
-                @Suppress("DEPRECATION")
-                val getSignFlag =
-                    PackageManager.GET_SIGNING_CERTIFICATES
-
-                val packageInfos = packageManager.getInstalledPackages(PackageManager.GET_META_DATA or getSignFlag)
-
-                val targetPackages = packageInfos.filter { packageInfo ->
-                    isValidModule(packageInfo)
+                val drawable = context.packageManager.getApplicationIcon(module.packageName)
+                val bitmap = drawable.toBitmap(
+                    width = targetSizePx,
+                    height = targetSizePx,
+                    config = Bitmap.Config.ARGB_8888
+                ).apply {
+                    prepareToDraw()
                 }
-
-                if (targetPackages.isEmpty()) {
-                    cachedModules = emptyList()
-                    stateFlow.update { it.copy(isLoading = false, modules = emptyList()) }
-                    return@withContext
+                bitmap.asImageBitmap().also {
+                    iconCache.put(iconCacheKey(module, targetSizePx), it)
                 }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                null
+            }
+        }
+    }
 
-                val loadedModules = mutableListOf<LyricModule>()
+    suspend fun loadProviders(context: Context, forceRefresh: Boolean = false) {
+        scanMutex.withLock {
+            val hasCachedData = mutableUiState.value.hasLoaded
+            mutableUiState.update { state ->
+                when {
+                    forceRefresh -> state.copy(isRefreshing = true)
+                    !hasCachedData -> state.copy(isInitialLoading = true)
+                    else -> state
+                }
+            }
 
-                targetPackages.chunked(6).forEach { batch ->
-                    val batchResults = batch.mapNotNull { processPackage(packageManager, it) }
-                    loadedModules.addAll(batchResults)
-
-                    stateFlow.update {
-                        it.copy(
-                            modules = loadedModules.toList(),
-                            isLoading = loadedModules.size < targetPackages.size
+            try {
+                val modules = scanProviders(context)
+                mutableUiState.update { state ->
+                    if (state.modules == modules && state.hasLoaded) {
+                        state.copy(isInitialLoading = false, isRefreshing = false)
+                    } else {
+                        state.copy(
+                            modules = modules,
+                            hasLoaded = true,
+                            isInitialLoading = false,
+                            isRefreshing = false
                         )
                     }
                 }
-
-                val collator = Collator.getInstance(Locale.getDefault())
-                val sortedModules = loadedModules.sortedWith { m1, m2 ->
-                    if (m1.isCertified != m2.isCertified) {
-                        m2.isCertified.compareTo(m1.isCertified)
-                    } else {
-                        collator.compare(m1.label, m2.label)
-                    }
+            } catch (e: CancellationException) {
+                mutableUiState.update {
+                    it.copy(isInitialLoading = false, isRefreshing = false)
                 }
-
-                cachedModules = sortedModules
-                stateFlow.update { it.copy(modules = sortedModules, isLoading = false) }
+                throw e
             } catch (e: Exception) {
                 LogManager.e("LyricProviderManager", "加载歌词模块失败", e)
-                stateFlow.update { it.copy(isLoading = false) }
+                mutableUiState.update {
+                    it.copy(isInitialLoading = false, isRefreshing = false)
+                }
+            }
+        }
+    }
+
+    private suspend fun scanProviders(context: Context): List<LyricModule> {
+        return withContext(Dispatchers.IO) {
+            val packageManager = context.packageManager
+            @Suppress("DEPRECATION")
+            val packageInfos =
+                packageManager.getInstalledPackages(PackageManager.GET_META_DATA)
+
+            val loadedModules = packageInfos.asSequence()
+                .filter(::isValidModule)
+                .mapNotNull { processPackage(packageManager, it) }
+                .toList()
+
+            val collator = Collator.getInstance(Locale.getDefault())
+            loadedModules.sortedWith { first, second ->
+                collator.compare(first.label, second.label)
             }
         }
     }
@@ -124,15 +177,14 @@ object LyricProviderManager {
             val metaData = appInfo.metaData ?: return null
             val label = appInfo.loadLabel(pm).toString()
 
-            val isCertified = validateSignature(packageInfo)
-
             LyricModule(
-                packageInfo = packageInfo,
+                packageName = packageInfo.packageName,
+                versionName = packageInfo.versionName,
+                lastUpdateTime = packageInfo.lastUpdateTime,
                 label = label,
                 description = metaData.getString("lyricon_module_description"),
                 author = metaData.getString("lyricon_module_author"),
                 category = metaData.getString("lyricon_module_category"),
-                isCertified = isCertified,
                 tags = extractTags(pm, appInfo, metaData)
             )
         } catch (_: Exception) {
@@ -172,12 +224,6 @@ object LyricProviderManager {
         }
     }
 
-    private fun validateSignature(packageInfo: PackageInfo): Boolean {
-        // 简化版的签名校验逻辑，实际项目中可能需要更复杂的实现
-        // 这里暂时返回 false，或者你可以实现完整的校验
-        return false 
-    }
-
     fun categorizeModules(modules: List<LyricModule>, defaultCategory: String): List<ModuleCategory> {
         if (modules.isEmpty()) return emptyList()
         val grouped = modules.groupBy { it.category ?: defaultCategory }
@@ -188,5 +234,9 @@ object LyricProviderManager {
         
         return grouped.map { (name, items) -> ModuleCategory(name, items) }
             .sortedBy { it.name }
+    }
+
+    private fun iconCacheKey(module: LyricModule, targetSizePx: Int): String {
+        return "${module.packageName}:${module.lastUpdateTime}:$targetSizePx"
     }
 }
