@@ -1,6 +1,5 @@
 package com.lidesheng.hyperlyric.root.island.renderer
 
-import android.graphics.Bitmap
 import android.os.Handler
 import android.os.Looper
 import android.view.View
@@ -43,84 +42,6 @@ object BaseIslandRenderer : IslandRenderer {
         IslandPresentationCoordinator.invalidatePresentation()
         mainHandler.removeCallbacks(refreshRunnable)
         mainHandler.postDelayed(refreshRunnable, REFRESH_DEBOUNCE_MS)
-    }
-
-    fun refreshAlbumColors(
-        packageName: String,
-        albumArt: Bitmap,
-        expectedArtworkRequest: CoverColorHelper.ArtworkRequest
-    ) {
-        if (albumArt.isRecycled ||
-            !CoverColorHelper.isCurrentArtwork(expectedArtworkRequest)
-        ) return
-        val expectedLyricVersion = LyriconDataBridge.versionCounter.get()
-        mainHandler.post refresh@{
-            if (albumArt.isRecycled ||
-                !CoverColorHelper.isCurrentArtwork(expectedArtworkRequest) ||
-                LyriconDataBridge.versionCounter.get() != expectedLyricVersion ||
-                LyriconDataBridge.currentLyricPackageName != packageName ||
-                !shouldRenderInjectedIsland()
-            ) {
-                return@refresh
-            }
-
-            IslandPresentationCoordinator.snapshotAttachedHosts(packageName)
-                .forEach { token ->
-                    val rootView = token.root
-                    rootView.post updateColors@{
-                        if (!IslandPresentationCoordinator.isCurrentHost(token) ||
-                            albumArt.isRecycled ||
-                            !CoverColorHelper.isCurrentArtwork(expectedArtworkRequest) ||
-                            LyriconDataBridge.versionCounter.get() != expectedLyricVersion ||
-                            LyriconDataBridge.currentLyricPackageName != packageName ||
-                            !shouldRenderInjectedIsland()
-                        ) {
-                            return@updateColors
-                        }
-                        val prefs = HookEntry.instance?.prefs ?: return@updateColors
-                        val config = IslandSlotRuntimeConfig.from(prefs)
-                        val mediaInfo = MediaMetadataHelper
-                            .getMediaInfo(rootView.context, packageName, HookLogger)
-                            .copy(albumArt = albumArt)
-                        val metadataMatches = CoverColorHelper.matchesCurrentArtworkMetadata(
-                            request = expectedArtworkRequest,
-                            packageName = packageName,
-                            title = mediaInfo.title,
-                            artist = mediaInfo.artist
-                        )
-                        if (!metadataMatches) {
-                            HookLogger.d(
-                                "BaseIslandRenderer",
-                                "忽略已过期的原生封面颜色刷新"
-                            )
-                            return@updateColors
-                        }
-                        refreshSlotColors(
-                            rootView,
-                            IslandProbeUtils.LEFT_TEST_VIEW_TAG,
-                            config.leftMode,
-                            prefs,
-                            config,
-                            mediaInfo
-                        )
-                        refreshSlotColors(
-                            rootView,
-                            IslandProbeUtils.RIGHT_TEST_VIEW_TAG,
-                            config.rightMode,
-                            prefs,
-                            config,
-                            mediaInfo
-                        )
-                        IslandHostFacade.updateProgressGlow(
-                            rootView,
-                            packageName,
-                            mediaInfo,
-                            prefs
-                        )
-                        IslandMusicWaveColorHooker.refresh()
-                    }
-                }
-        }
     }
 
     private fun performRefreshActiveIsland() {
@@ -448,7 +369,8 @@ object BaseIslandRenderer : IslandRenderer {
         config: IslandSlotRuntimeConfig
     ) {
         val mediaInfo = MediaMetadataHelper.getMediaInfo(cv.context, packageName, HookLogger)
-        IslandHostFacade.updateHostGlow(cv, mediaInfo.albumArt, prefs)
+        prepareSharedCoverPalette(packageName, mediaInfo, prefs)
+        IslandHostFacade.updateHostGlow(cv, prefs)
         IslandHostFacade.updateProgressGlow(cv, packageName, mediaInfo, prefs)
         updateSlot(
             cv,
@@ -467,6 +389,40 @@ object BaseIslandRenderer : IslandRenderer {
             mediaInfo
         )
         IslandMusicWaveColorHooker.refresh()
+    }
+
+    /**
+     * The MediaSession artwork is the only color source. Populate the shared palette before
+     * individual consumers render so their color lifecycle does not depend on MusicWave
+     * callbacks, which disappear when an external-device icon occupies that island slot.
+     */
+    private fun prepareSharedCoverPalette(
+        packageName: String,
+        mediaInfo: MediaMetadataHelper.MediaInfo,
+        prefs: android.content.SharedPreferences
+    ) {
+        val usesCoverPalette =
+            prefs.getBoolean(
+                RootConstants.KEY_HOOK_EXTRACT_COVER_TEXT_COLOR,
+                RootConstants.DEFAULT_HOOK_EXTRACT_COVER_TEXT_COLOR
+            ) ||
+                    prefs.getBoolean(
+                        RootConstants.KEY_HOOK_ISLAND_MUSIC_WAVE_COLOR,
+                        RootConstants.DEFAULT_HOOK_ISLAND_MUSIC_WAVE_COLOR
+                    ) ||
+                    prefs.getBoolean(
+                        RootConstants.KEY_HOOK_ISLAND_GLOW_EXTRACT_COLOR,
+                        RootConstants.DEFAULT_HOOK_ISLAND_GLOW_EXTRACT_COLOR
+                    )
+        if (!usesCoverPalette) return
+
+        val albumArt = mediaInfo.albumArt?.takeUnless { it.isRecycled } ?: return
+        CoverColorHelper.ensureArtworkColors(
+            packageName = packageName,
+            title = mediaInfo.title,
+            artist = mediaInfo.artist,
+            bitmap = albumArt
+        )
     }
 
     private fun updateLyricContentForView(
@@ -530,26 +486,6 @@ object BaseIslandRenderer : IslandRenderer {
             lineOverride = lineOverride,
             playbackActive = IslandPresentationCoordinator.isPlaybackActive(),
             mediaInfo = mediaInfo
-        )
-    }
-
-    private fun refreshSlotColors(
-        rootView: ViewGroup,
-        tag: String,
-        mode: Int,
-        prefs: android.content.SharedPreferences,
-        config: IslandSlotRuntimeConfig,
-        mediaInfo: MediaMetadataHelper.MediaInfo
-    ) {
-        if (mode == 0) return
-        val view = rootView.findViewWithTag<View>(tag) ?: return
-        IslandSlotContentAssembler.configureView(
-            view = view,
-            prefs = prefs,
-            config = config,
-            mode = mode,
-            mediaInfo = mediaInfo,
-            force = true
         )
     }
 

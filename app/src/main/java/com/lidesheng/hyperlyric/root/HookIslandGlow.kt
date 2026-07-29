@@ -2,7 +2,6 @@ package com.lidesheng.hyperlyric.root
 
 import android.annotation.SuppressLint
 import android.content.SharedPreferences
-import android.graphics.Bitmap
 import android.view.View
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
@@ -107,7 +106,7 @@ object HookIslandGlow {
             val colorSession = CoverColorHelper.currentSession(pkgName)
                 ?: return@runCatching null
             val artworkRequest = mediaInfo.albumArt?.let {
-                CoverColorHelper.resolveArtworkRequest(
+                CoverColorHelper.ensureArtworkColors(
                     packageName = pkgName,
                     title = mediaInfo.title,
                     artist = mediaInfo.artist,
@@ -121,12 +120,8 @@ object HookIslandGlow {
             val matchingArtworkRequest = artworkRequest?.takeIf {
                 it.colorSession.revision == colorSession.revision
             }
-            val palette = if (mediaInfo.albumArt != null && matchingArtworkRequest != null) {
-                CoverColorHelper.extractColors(
-                        bitmap = mediaInfo.albumArt,
-                        useGradient = useGradient,
-                        request = matchingArtworkRequest
-                    )
+            val palette = if (matchingArtworkRequest != null) {
+                CoverColorHelper.getCachedColors(useGradient, matchingArtworkRequest)
             } else {
                 CoverColorHelper.getCachedColors(useGradient, colorSession)
             }
@@ -164,14 +159,8 @@ object HookIslandGlow {
         }
     }
 
-    @Suppress("UNUSED_PARAMETER")
-    fun injectAndTriggerGlow(contentView: View, islandData: Any?, sharedPrefs: SharedPreferences) {
-        // Color is injected before updateTemplate parses tickerData.
-    }
-
     fun updateMusicGlow(
         contentView: View?,
-        @Suppress("UNUSED_PARAMETER") albumArt: Bitmap?,
         sharedPrefs: SharedPreferences
     ) {
         val enabled = sharedPrefs.getBoolean(

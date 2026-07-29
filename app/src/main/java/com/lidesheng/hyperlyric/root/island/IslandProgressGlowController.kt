@@ -251,9 +251,9 @@ internal object IslandProgressGlowController {
                 DEFAULT_PROGRESS_COLOR,
                 DEFAULT_PROGRESS_COLOR,
                 DEFAULT_TRACK_COLOR
-            )
+        )
         val artworkRequest = mediaInfo?.albumArt?.let { bitmap ->
-            CoverColorHelper.resolveArtworkRequest(
+            CoverColorHelper.ensureArtworkColors(
                 packageName = packageName,
                 title = mediaInfo.title,
                 artist = mediaInfo.artist,
@@ -263,12 +263,8 @@ internal object IslandProgressGlowController {
         val matchingArtworkRequest = artworkRequest?.takeIf {
             it.colorSession.revision == colorSession.revision
         }
-        val palette = if (mediaInfo?.albumArt != null && matchingArtworkRequest != null) {
-            CoverColorHelper.extractColors(
-                    bitmap = mediaInfo.albumArt,
-                    useGradient = useGradient,
-                    request = matchingArtworkRequest
-                )
+        val palette = if (matchingArtworkRequest != null) {
+            CoverColorHelper.getCachedColors(useGradient, matchingArtworkRequest)
         } else {
             CoverColorHelper.getCachedColors(useGradient, colorSession)
         }

@@ -1,7 +1,6 @@
 package com.lidesheng.hyperlyric.root.island
 
 import android.content.SharedPreferences
-import android.graphics.Bitmap
 import android.view.View
 import android.view.ViewGroup
 import com.lidesheng.hyperlyric.common.RootConstants
@@ -103,12 +102,8 @@ internal object IslandHostFacade {
         ) as? View)?.visibility = View.VISIBLE
     }
 
-    fun injectHostGlow(viewGroup: ViewGroup, islandData: Any?, prefs: SharedPreferences) {
-        HookIslandGlow.injectAndTriggerGlow(viewGroup, islandData, prefs)
-    }
-
-    fun updateHostGlow(rootView: ViewGroup, albumArt: Bitmap?, prefs: SharedPreferences) {
-        HookIslandGlow.updateMusicGlow(rootView, albumArt, prefs)
+    fun updateHostGlow(rootView: ViewGroup, prefs: SharedPreferences) {
+        HookIslandGlow.updateMusicGlow(rootView, prefs)
     }
 
     fun updateProgressGlow(

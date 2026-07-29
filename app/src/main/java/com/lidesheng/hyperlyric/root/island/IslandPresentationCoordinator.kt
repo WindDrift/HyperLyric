@@ -128,8 +128,7 @@ internal object IslandPresentationCoordinator {
 
     fun onRealSystemUpdateComplete(
         root: ViewGroup,
-        owner: IslandRenderPolicy.OwnerEvidence,
-        islandData: Any?
+        owner: IslandRenderPolicy.OwnerEvidence
     ): ReconcileResult {
         if (owner == IslandRenderPolicy.OwnerEvidence.NotMedia) {
             return removeRealHost(root, ReconcileReason.SYSTEM_UPDATE_COMPLETE)
@@ -144,11 +143,6 @@ internal object IslandPresentationCoordinator {
             owner = owner,
             reason = ReconcileReason.SYSTEM_UPDATE_COMPLETE
         )
-        if (result.isTarget) {
-            HookEntry.instance?.prefs?.let { prefs ->
-                IslandHostFacade.injectHostGlow(root, islandData, prefs)
-            }
-        }
         return result
     }
 

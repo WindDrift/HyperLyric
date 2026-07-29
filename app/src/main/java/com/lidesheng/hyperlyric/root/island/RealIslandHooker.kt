@@ -59,18 +59,9 @@ internal object RealIslandHooker {
 
                     else -> IslandRenderPolicy.OwnerEvidence.NotMedia
                 }
-                val resolvedData = if (
-                    fallbackOwner is IslandRenderPolicy.OwnerEvidence.Media
-                ) {
-                    fallbackData
-                } else {
-                    argumentData ?: fallbackData
-                }
-
                 IslandPresentationCoordinator.onRealSystemUpdateComplete(
                     root = contentView,
-                    owner = resolvedOwner,
-                    islandData = resolvedData
+                    owner = resolvedOwner
                 )
             }.onFailure { e ->
                 HookLogger.e(TAG, "注入歌词视图失败", e)

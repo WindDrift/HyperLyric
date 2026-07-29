@@ -2,7 +2,6 @@ package com.lidesheng.hyperlyric.root.utils
 
 import android.content.SharedPreferences
 import android.content.res.Resources
-import android.graphics.Bitmap
 import android.graphics.Color
 import android.util.TypedValue
 import com.lidesheng.hyperlyric.common.RootConstants
@@ -26,7 +25,6 @@ object LyricStyleHelper {
         prefs: SharedPreferences,
         res: Resources,
         mode: Int,
-        albumBitmap: Bitmap? = null,
         colorSession: CoverColorHelper.ColorSession? = CoverColorHelper.currentSession(),
         artworkRequest: CoverColorHelper.ArtworkRequest? = null,
         textColorOverride: Int? = null
@@ -141,12 +139,8 @@ object LyricStyleHelper {
             )
             hlColors = intArrayOf(textColorOverride)
         } else if (useCoverColor) {
-            val palette = if (albumBitmap != null && artworkRequest != null) {
-                CoverColorHelper.extractColors(
-                    bitmap = albumBitmap,
-                    useGradient = useCoverGradient,
-                    request = artworkRequest
-                )
+            val palette = if (artworkRequest != null) {
+                CoverColorHelper.getCachedColors(useCoverGradient, artworkRequest)
             } else {
                 colorSession?.let {
                     CoverColorHelper.getCachedColors(useCoverGradient, it)

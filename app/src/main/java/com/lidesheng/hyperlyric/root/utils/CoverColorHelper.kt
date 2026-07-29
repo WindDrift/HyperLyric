@@ -135,7 +135,7 @@ object CoverColorHelper {
      * 将系统媒体元数据与歌词源确认的歌曲进行匹配。歌词标题已知时，系统标题为空
      * 也视为尚未就绪；宁可暂时使用默认色，也不能把上一首歌的封面写入当前缓存。
      */
-    fun resolveArtworkRequest(
+    private fun resolveArtworkRequest(
         packageName: String,
         title: String,
         artist: String,
@@ -165,6 +165,34 @@ object CoverColorHelper {
         }
     }
 
+    /**
+     * Resolve the current MediaSession artwork and populate its shared full palette once.
+     * Renderers and individual color consumers must reuse this cache instead of treating
+     * component callbacks (such as MusicWave) as artwork sources.
+     */
+    fun ensureArtworkColors(
+        packageName: String,
+        title: String,
+        artist: String,
+        bitmap: Bitmap
+    ): ArtworkRequest? {
+        val request = resolveArtworkRequest(
+            packageName = packageName,
+            title = title,
+            artist = artist,
+            bitmap = bitmap
+        ) ?: return null
+        getCachedColors(
+            useGradient = true,
+            request = request
+        ) ?: extractColors(
+            bitmap = bitmap,
+            useGradient = true,
+            request = request
+        )
+        return request.takeIf(::isCurrentArtwork)
+    }
+
     @Synchronized
     fun isCurrentArtwork(request: ArtworkRequest): Boolean {
         return isCurrentArtworkLocked(request)
@@ -173,22 +201,6 @@ object CoverColorHelper {
     @Synchronized
     fun currentArtworkRequest(): ArtworkRequest? {
         return activeArtworkRequest?.takeIf(::isCurrentArtworkLocked)
-    }
-
-    @Synchronized
-    fun matchesCurrentArtworkMetadata(
-        request: ArtworkRequest,
-        packageName: String,
-        title: String,
-        artist: String
-    ): Boolean {
-        return isCurrentArtworkLocked(request) &&
-                matchesArtworkMetadataLocked(
-                    request.colorSession,
-                    packageName,
-                    title,
-                    artist
-                )
     }
 
     private fun matchesArtworkMetadataLocked(
@@ -227,7 +239,7 @@ object CoverColorHelper {
      * 实例或 generationId，暂停/恢复得到新 Bitmap 时仍可复用；若过渡期封面
      * 随后被真实封面替换，则允许纠正该歌曲的缓存。
      */
-    fun extractColors(
+    private fun extractColors(
         bitmap: Bitmap,
         useGradient: Boolean,
         request: ArtworkRequest
