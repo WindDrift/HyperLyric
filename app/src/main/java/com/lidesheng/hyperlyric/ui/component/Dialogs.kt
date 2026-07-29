@@ -17,12 +17,94 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import com.lidesheng.hyperlyric.R
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.preference.CheckboxLocation
+import top.yukonga.miuix.kmp.preference.CheckboxPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.window.WindowDialog
+
+data class MultiSelectDialogOption(
+    val key: String,
+    val title: String
+)
+
+@Composable
+fun MultiSelectDialog(
+    show: Boolean,
+    title: String,
+    summary: String? = null,
+    options: List<MultiSelectDialogOption>,
+    selectedKeys: Set<String>,
+    onDismiss: () -> Unit,
+    onConfirm: (Set<String>) -> Unit
+) {
+    if (!show) return
+    var draftSelection by remember(selectedKeys) { mutableStateOf(selectedKeys) }
+
+    WindowDialog(
+        title = title,
+        summary = summary,
+        show = true,
+        insideMargin = DpSize(width = 12.dp, height = 24.dp),
+        onDismissRequest = onDismiss
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Card(
+                modifier = Modifier
+                    .padding(bottom = 16.dp)
+                    .fillMaxWidth(),
+                colors = CardDefaults.defaultColors(
+                    color = MiuixTheme.colorScheme.surface,
+                    contentColor = MiuixTheme.colorScheme.onSurface
+                )
+            ) {
+                Column {
+                    options.forEach { option ->
+                        CheckboxPreference(
+                            title = option.title,
+                            checked = option.key in draftSelection,
+                            onCheckedChange = { checked ->
+                                draftSelection = if (checked) {
+                                    draftSelection + option.key
+                                } else {
+                                    draftSelection - option.key
+                                }
+                            },
+                            checkboxLocation = CheckboxLocation.End
+                        )
+                    }
+                }
+            }
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                TextButton(
+                    text = stringResource(id = R.string.cancel),
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(Modifier.width(20.dp))
+                TextButton(
+                    text = stringResource(id = R.string.confirm),
+                    onClick = {
+                        onConfirm(draftSelection)
+                        onDismiss()
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.textButtonColorsPrimary()
+                )
+            }
+        }
+    }
+}
 
 @Composable
 fun NumberInputDialog(

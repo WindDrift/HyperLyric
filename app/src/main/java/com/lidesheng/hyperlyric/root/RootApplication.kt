@@ -2,6 +2,7 @@ package com.lidesheng.hyperlyric.root
 
 import android.app.Application
 import android.content.Context
+import com.lidesheng.hyperlyric.common.AiTranslationLanguageSettings
 import com.lidesheng.hyperlyric.common.PrefsBridge
 import com.lidesheng.hyperlyric.common.UIConstants
 import com.lidesheng.hyperlyric.ui.utils.AppUtils
@@ -19,6 +20,7 @@ class RootApplication : Application() {
         AppUtils.initPredictiveBackGesture(this)
         LogManager.init(this)
         PrefsBridge.init(this)
+        AiTranslationLanguageSettings.migrateLegacyPreference(PrefsBridge.getPrefs())
         appContext = this
 
         XposedServiceHelper.registerListener(object : XposedServiceHelper.OnServiceListener {

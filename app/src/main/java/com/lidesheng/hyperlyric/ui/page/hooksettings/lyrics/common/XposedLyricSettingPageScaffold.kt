@@ -50,6 +50,7 @@ internal fun rememberHookConfigSaver(prefs: SharedPreferences): (String, Any) ->
                     is Boolean -> putBoolean(key, value)
                     is Float -> putFloat(key, value)
                     is String -> putString(key, value)
+                    is Set<*> -> putStringSet(key, value.filterIsInstance<String>().toSet())
                 }
             }
             when (value) {
@@ -57,6 +58,10 @@ internal fun rememberHookConfigSaver(prefs: SharedPreferences): (String, Any) ->
                 is Boolean -> PrefsBridge.putBoolean(key, value)
                 is Float -> PrefsBridge.putFloat(key, value)
                 is String -> PrefsBridge.putString(key, value)
+                is Set<*> -> PrefsBridge.putStringSet(
+                    key,
+                    value.filterIsInstance<String>().toSet()
+                )
             }
         }
     }

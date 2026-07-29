@@ -2,6 +2,7 @@ package com.lidesheng.hyperlyric.root.aitrans
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.lidesheng.hyperlyric.common.AiTranslationLanguageSettings
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.lyric.model.Song
 import com.lidesheng.hyperlyric.lyric.style.AiTranslationConfigs
@@ -13,55 +14,61 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 class AiTranslationGatewayImpl : AiTranslationGateway.Impl {
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var activeJob: Job? = null
+    private val languageDetector = SystemLanguageDetector()
+
+    private companion object {
+        const val TAG = "AiTranslationGateway"
+        const val LANGUAGE_MIN_CONFIDENCE = 0.8f
+        const val LANGUAGE_MIN_CONFIDENCE_MARGIN = 0.15f
+        const val LANGUAGE_SAMPLE_MAX_LENGTH = 2_000
+        const val LANGUAGE_SAMPLE_MIN_LETTER_COUNT = 12
+        val WHITESPACE_REGEX = Regex("\\s+")
+    }
 
     init {
         AiTranslationGateway.register(this)
     }
 
     override fun init(context: Context) {
+        languageDetector.init(context)
         AITranslator.init(context)
     }
 
     override fun translateSong(song: Song, prefs: SharedPreferences, forceOverride: Boolean): Boolean {
         val configs = buildConfigs(prefs)
-        val autoIgnoreChinese = prefs.getBoolean(
-            RootConstants.KEY_HOOK_AI_TRANS_AUTO_IGNORE_CHINESE,
-            RootConstants.DEFAULT_HOOK_AI_TRANS_AUTO_IGNORE_CHINESE
+        val skipLanguages = AiTranslationLanguageSettings.getSkipLanguages(prefs)
+        val skipExisting = prefs.getBoolean(
+            RootConstants.KEY_HOOK_AI_TRANS_SKIP_EXISTING_TRANSLATION,
+            RootConstants.DEFAULT_HOOK_AI_TRANS_SKIP_EXISTING_TRANSLATION
         )
         val version = LyriconDataBridge.versionCounter.get()
 
         activeJob?.cancel()
         activeJob = scope.launch {
             try {
-                val ratio = calculateChineseRatio(song)
-                val percentage = String.format(java.util.Locale.US, "%.1f%%", ratio * 100)
-                if (autoIgnoreChinese) {
-                    HookLogger.d("AiTranslationGateway", "歌曲 ${song.name}（中文占比 $percentage)")
-                }
-                if (autoIgnoreChinese && ratio > 0.5f) {
-                    HookLogger.d("AiTranslationGateway", "歌曲 ${song.name}（中文占比 $percentage），已自动跳过AI翻译")
-                    return@launch
-                }
-                val skipExisting = prefs.getBoolean(
-                    RootConstants.KEY_HOOK_AI_TRANS_SKIP_EXISTING_TRANSLATION,
-                    RootConstants.DEFAULT_HOOK_AI_TRANS_SKIP_EXISTING_TRANSLATION
-                )
-                if (skipExisting && !forceOverride) {
-                    val hasTranslation = song.lyrics?.any { !it.translation.isNullOrBlank() } == true
-                    if (hasTranslation) {
-                        HookLogger.d("AiTranslationGateway", "歌曲 ${song.name} 已有翻译，跳过AI翻译")
-                        return@launch
-                    }
-                }
                 if (song.lyrics.isNullOrEmpty()) {
-                    HookLogger.d("AiTranslationGateway", "歌曲 ${song.name} 无歌词，跳过AI翻译")
+                    HookLogger.d(TAG, "跳过 AI 翻译: reason=no_lyrics, song=${song.name}")
                     return@launch
                 }
+                if (
+                    skipExisting &&
+                    !forceOverride &&
+                    song.lyrics?.any { !it.translation.isNullOrBlank() } == true
+                ) {
+                    HookLogger.d(TAG, "跳过 AI 翻译: reason=existing_translation, song=${song.name}")
+                    return@launch
+                }
+                if (skipLanguages.isNotEmpty() && shouldSkipForDetectedLanguage(song, skipLanguages)) {
+                    return@launch
+                }
+                if (version != LyriconDataBridge.versionCounter.get()) return@launch
+
                 val translatedSong = AITranslator.translateSongSync(
                     song = song,
                     configs = configs,
@@ -94,6 +101,64 @@ class AiTranslationGatewayImpl : AiTranslationGateway.Impl {
         AITranslator.clearCache(callback ?: {})
     }
 
+    private suspend fun shouldSkipForDetectedLanguage(
+        song: Song,
+        skipLanguages: Set<String>
+    ): Boolean {
+        val sample = buildLanguageSample(song)
+        if (sample.count { it.isLetterOrDigit() } < LANGUAGE_SAMPLE_MIN_LETTER_COUNT) {
+            HookLogger.d(TAG, "跳过语言识别: reason=text_too_short, song=${song.name}")
+            return false
+        }
+
+        val detected = languageDetector.detect(sample) ?: return false
+        val confidenceMargin = detected.secondConfidence?.let {
+            detected.confidence - it
+        }
+        val confidentEnough =
+            detected.confidence >= LANGUAGE_MIN_CONFIDENCE &&
+                    (confidenceMargin == null ||
+                            confidenceMargin >= LANGUAGE_MIN_CONFIDENCE_MARGIN)
+        val selected = detected.language in skipLanguages
+        val confidence = String.format(Locale.US, "%.3f", detected.confidence)
+        val margin = confidenceMargin?.let {
+            String.format(Locale.US, "%.3f", it)
+        } ?: "-"
+        HookLogger.d(
+            TAG,
+            "歌词语言识别: song=${song.name}, detected=${detected.languageTag}, " +
+                    "confidence=$confidence, margin=$margin, " +
+                    "hypotheses=${detected.hypothesisCount}, selected=$selected, " +
+                    "confident=$confidentEnough"
+        )
+        if (!selected || !confidentEnough) return false
+
+        HookLogger.d(
+            TAG,
+            "跳过 AI 翻译: reason=selected_language, song=${song.name}, " +
+                    "detected=${detected.languageTag}"
+        )
+        return true
+    }
+
+    private fun buildLanguageSample(song: Song): String = buildString {
+        val seenLines = hashSetOf<String>()
+        for (line in song.lyrics.orEmpty()) {
+            val text = line.text
+                ?.trim()
+                ?.replace(WHITESPACE_REGEX, " ")
+                ?.takeIf { it.isNotBlank() }
+                ?: continue
+            if (!seenLines.add(text)) continue
+
+            if (isNotEmpty()) append('\n')
+            val remaining = LANGUAGE_SAMPLE_MAX_LENGTH - length
+            if (remaining <= 0) break
+            append(text.take(remaining))
+            if (length >= LANGUAGE_SAMPLE_MAX_LENGTH) break
+        }
+    }
+
     private fun buildConfigs(prefs: SharedPreferences): AiTranslationConfigs {
         val providerName = prefs.getString(RootConstants.KEY_HOOK_AI_TRANS_PROVIDER, AiTranslationProvider.OPENAI.name)
             ?: AiTranslationProvider.OPENAI.name
@@ -112,28 +177,4 @@ class AiTranslationGatewayImpl : AiTranslationGateway.Impl {
         )
     }
 
-    private fun calculateChineseRatio(song: Song): Float {
-        val totalChars = song.lyrics?.flatMap { it.text.orEmpty().toList() }
-            ?.filterNot { it.isWhitespace() || isPunctuation(it) } ?: return 1.0f
-        if (totalChars.isEmpty()) return 1.0f
-
-        val chineseHanCount = totalChars.count { isChineseHan(it) }
-        return chineseHanCount.toFloat() / totalChars.size
-    }
-
-    private fun isChineseHan(c: Char): Boolean {
-        return try {
-            Character.UnicodeScript.of(c.code) == Character.UnicodeScript.HAN
-        } catch (_: Exception) {
-            val ub = Character.UnicodeBlock.of(c)
-            ub == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS ||
-                    ub == Character.UnicodeBlock.CJK_COMPATIBILITY_IDEOGRAPHS ||
-                    ub == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_A ||
-                    ub == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_B
-        }
-    }
-
-    private fun isPunctuation(c: Char): Boolean {
-        return !c.isLetterOrDigit() && !c.isWhitespace()
-    }
 }

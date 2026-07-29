@@ -32,8 +32,9 @@ fun LazyListScope.translationSections(
     onAutoSwitchTranslationChange: (Boolean) -> Unit,
     aiTransEnabled: Boolean,
     onAiTransEnabledChange: (Boolean) -> Unit,
-    autoIgnoreChinese: Boolean,
-    onAutoIgnoreChineseChange: (Boolean) -> Unit,
+    skipLanguagesSummary: String,
+    skipLanguagesDialogVisible: Boolean,
+    onSkipLanguagesClick: () -> Unit,
     skipExistingTranslation: Boolean,
     onSkipExistingTranslationChange: (Boolean) -> Unit,
     forceAiTranslation: Boolean,
@@ -138,10 +139,11 @@ fun LazyListScope.translationSections(
                         )
                         AnimatedVisibility(visible = aiTransEnabled) {
                             Column {
-                                SwitchPreference(
-                                    title = stringResource(id = R.string.title_ai_trans_auto_ignore_chinese),
-                                    checked = autoIgnoreChinese,
-                                    onCheckedChange = onAutoIgnoreChineseChange,
+                                ArrowPreference(
+                                    title = stringResource(id = R.string.title_ai_trans_skip_languages),
+                                    summary = skipLanguagesSummary,
+                                    onClick = onSkipLanguagesClick,
+                                    holdDownState = skipLanguagesDialogVisible,
                                     enabled = translationControlsEnabled
                                 )
                                 SwitchPreference(

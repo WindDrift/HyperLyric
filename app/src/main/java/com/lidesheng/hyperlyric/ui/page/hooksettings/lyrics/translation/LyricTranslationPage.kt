@@ -11,7 +11,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import com.lidesheng.hyperlyric.BuildConfig
 import com.lidesheng.hyperlyric.R
+import com.lidesheng.hyperlyric.common.AiTranslationLanguageSettings
 import com.lidesheng.hyperlyric.common.RootConstants
+import com.lidesheng.hyperlyric.ui.component.MultiSelectDialog
+import com.lidesheng.hyperlyric.ui.component.MultiSelectDialogOption
 import com.lidesheng.hyperlyric.ui.component.TextInputDialog
 import com.lidesheng.hyperlyric.ui.page.hooksettings.lyrics.common.XposedLyricSettingPage
 import com.lidesheng.hyperlyric.ui.page.hooksettings.lyrics.common.rememberHookConfigSaver
@@ -86,12 +89,9 @@ fun LyricTranslationPage() {
             )
         )
     }
-    var autoIgnoreChinese by remember {
+    var skipLanguages by remember {
         mutableStateOf(
-            prefs.getBoolean(
-                RootConstants.KEY_HOOK_AI_TRANS_AUTO_IGNORE_CHINESE,
-                RootConstants.DEFAULT_HOOK_AI_TRANS_AUTO_IGNORE_CHINESE
-            )
+            AiTranslationLanguageSettings.getSkipLanguages(prefs)
         )
     }
     var skipExistingTranslation by remember {
@@ -156,8 +156,48 @@ fun LyricTranslationPage() {
     var showBaseUrlDialog by remember { mutableStateOf(false) }
     var showTargetLangDialog by remember { mutableStateOf(false) }
     var showPromptDialog by remember { mutableStateOf(false) }
+    var showSkipLanguagesDialog by remember { mutableStateOf(false) }
+
+    val skipLanguageOptions = listOf(
+        MultiSelectDialogOption(
+            AiTranslationLanguageSettings.LANGUAGE_CHINESE,
+            stringResource(R.string.label_ai_trans_language_chinese)
+        ),
+        MultiSelectDialogOption(
+            AiTranslationLanguageSettings.LANGUAGE_ENGLISH,
+            stringResource(R.string.label_ai_trans_language_english)
+        ),
+        MultiSelectDialogOption(
+            AiTranslationLanguageSettings.LANGUAGE_JAPANESE,
+            stringResource(R.string.label_ai_trans_language_japanese)
+        ),
+        MultiSelectDialogOption(
+            AiTranslationLanguageSettings.LANGUAGE_KOREAN,
+            stringResource(R.string.label_ai_trans_language_korean)
+        ),
+        MultiSelectDialogOption(
+            AiTranslationLanguageSettings.LANGUAGE_SPANISH,
+            stringResource(R.string.label_ai_trans_language_spanish)
+        )
+    )
+    val skipLanguagesSummary = skipLanguageOptions
+        .filter { it.key in skipLanguages }
+        .joinToString(", ") { it.title }
+        .ifEmpty { stringResource(R.string.summary_ai_trans_skip_languages_disabled) }
 
     if (BuildConfig.ONLINE_FEATURES_ENABLED) {
+        MultiSelectDialog(
+            show = showSkipLanguagesDialog,
+            title = stringResource(R.string.title_ai_trans_skip_languages),
+            summary = stringResource(R.string.summary_ai_trans_skip_languages),
+            options = skipLanguageOptions,
+            selectedKeys = skipLanguages,
+            onDismiss = { showSkipLanguagesDialog = false },
+            onConfirm = {
+                skipLanguages = it
+                saveConfig(RootConstants.KEY_HOOK_AI_TRANS_SKIP_LANGUAGES, it)
+            }
+        )
         TextInputDialog(
             show = showApiKeyDialog,
             title = stringResource(id = R.string.label_ai_trans_api_key),
@@ -253,11 +293,9 @@ fun LyricTranslationPage() {
                 aiTransEnabled = it
                 saveConfig(RootConstants.KEY_HOOK_AI_TRANS_ENABLE, it)
             },
-            autoIgnoreChinese = autoIgnoreChinese,
-            onAutoIgnoreChineseChange = {
-                autoIgnoreChinese = it
-                saveConfig(RootConstants.KEY_HOOK_AI_TRANS_AUTO_IGNORE_CHINESE, it)
-            },
+            skipLanguagesSummary = skipLanguagesSummary,
+            skipLanguagesDialogVisible = showSkipLanguagesDialog,
+            onSkipLanguagesClick = { showSkipLanguagesDialog = true },
             skipExistingTranslation = skipExistingTranslation,
             onSkipExistingTranslationChange = {
                 skipExistingTranslation = it

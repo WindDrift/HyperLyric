@@ -196,6 +196,7 @@ object RootConstants {
     // ================= AI TRANSLATION KEYS =================
     const val KEY_HOOK_AI_TRANS_ENABLE = "key_hook_ai_trans_enable"
     const val KEY_HOOK_AI_TRANS_AUTO_IGNORE_CHINESE = "key_hook_ai_trans_auto_ignore_chinese"
+    const val KEY_HOOK_AI_TRANS_SKIP_LANGUAGES = "key_hook_ai_trans_skip_languages"
     const val KEY_HOOK_AI_TRANS_SKIP_EXISTING_TRANSLATION = "key_hook_ai_trans_skip_existing_translation"
     const val KEY_HOOK_AI_TRANS_FORCE_OVERRIDE = "key_hook_ai_trans_force_override"
     const val KEY_HOOK_AI_TRANS_PROVIDER = "key_hook_ai_trans_provider"
@@ -412,6 +413,7 @@ object RootConstants {
     const val DEFAULT_HOOK_WORD_MOTION_LATIN_WAVE = 3.6f
     const val DEFAULT_HOOK_AI_TRANS_ENABLE = false
     const val DEFAULT_HOOK_AI_TRANS_AUTO_IGNORE_CHINESE = false
+    val DEFAULT_HOOK_AI_TRANS_SKIP_LANGUAGES: Set<String> = emptySet()
     const val DEFAULT_HOOK_AI_TRANS_SKIP_EXISTING_TRANSLATION = false
     const val DEFAULT_HOOK_AI_TRANS_FORCE_OVERRIDE = false
     const val DEFAULT_HOOK_AI_TRANS_TARGET_LANG = "中文"

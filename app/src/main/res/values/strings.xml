@@ -367,7 +367,14 @@
     <string name="summary_not_configured">未配置</string>
     <string name="title_ai_translation">OpenAI 翻译</string>
     <string name="title_ai_trans_basic">基础设置</string>
-    <string name="title_ai_trans_auto_ignore_chinese">自动跳过中文歌词</string>
+    <string name="title_ai_trans_skip_languages">自动跳过语言</string>
+    <string name="summary_ai_trans_skip_languages">勾选后，识别为这些语言的歌词将不会请求 AI 翻译</string>
+    <string name="summary_ai_trans_skip_languages_disabled">未选择（关闭）</string>
+    <string name="label_ai_trans_language_chinese">中文</string>
+    <string name="label_ai_trans_language_english">English</string>
+    <string name="label_ai_trans_language_japanese">日本語</string>
+    <string name="label_ai_trans_language_korean">한국어</string>
+    <string name="label_ai_trans_language_spanish">Español</string>
     <string name="title_ai_trans_skip_existing">自动跳过已有翻译歌曲</string>
     <string name="title_ai_trans_force_override">强制 AI 翻译</string>
     <string name="summary_ai_trans_force_override">使用 AI 译文覆盖歌词源提供的已有翻译</string>

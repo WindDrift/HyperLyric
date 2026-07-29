@@ -343,7 +343,14 @@
     <string name="summary_not_configured">Not configured</string>
     <string name="title_ai_translation">OpenAI Translation</string>
     <string name="title_ai_trans_basic">Basic Settings</string>
-    <string name="title_ai_trans_auto_ignore_chinese">Automatically Skip Chinese Lyrics</string>
+    <string name="title_ai_trans_skip_languages">Automatically Skip Languages</string>
+    <string name="summary_ai_trans_skip_languages">Lyrics detected as selected languages will not be sent for AI translation</string>
+    <string name="summary_ai_trans_skip_languages_disabled">None (off)</string>
+    <string name="label_ai_trans_language_chinese">中文</string>
+    <string name="label_ai_trans_language_english">English</string>
+    <string name="label_ai_trans_language_japanese">日本語</string>
+    <string name="label_ai_trans_language_korean">한국어</string>
+    <string name="label_ai_trans_language_spanish">Español</string>
     <string name="title_ai_trans_skip_existing">Auto Skip Songs with Translation</string>
     <string name="title_ai_trans_force_override">Force AI Translation</string>
     <string name="summary_ai_trans_force_override">Replace existing translations from the lyric source with AI translations</string>
