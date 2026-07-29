@@ -82,21 +82,39 @@ internal object FakeIslandTransitionHooker {
     class VisibilityHook : Hooker {
         override fun intercept(chain: Chain): Any? {
             val visibility = (chain.args.getOrNull(0) as? Number)?.toInt()
-            val result = chain.proceed()
+            val fakeView = chain.thisObject as? ViewGroup
+            val realView = if (visibility == View.INVISIBLE && fakeView != null) {
+                IslandTextHookerSupport.callNoArgMethodResult(
+                    fakeView,
+                    "getRealView"
+                ) as? ViewGroup
+            } else {
+                null
+            }
 
-            if (visibility == View.INVISIBLE) {
+            if (fakeView != null && realView != null) {
                 runCatching {
-                    val fakeView = chain.thisObject as? ViewGroup ?: return@runCatching
-                    val realView = IslandTextHookerSupport.callNoArgMethodResult(
-                        fakeView,
-                        "getRealView"
-                    ) as? ViewGroup ?: return@runCatching
-                    IslandPresentationCoordinator.onFakeTransitionEnded(
+                    IslandPresentationCoordinator.onFakeTransitionHandoff(
                         fakeOwner = fakeView,
                         realRoot = realView
                     )
-                }.onFailure { e ->
-                    HookLogger.e(TAG, "过渡视图隐藏后恢复真实岛失败", e)
+                }.onFailure { error ->
+                    HookLogger.e(TAG, "过渡视图隐藏前准备真实岛冻结帧失败", error)
+                }
+            }
+
+            val result = chain.proceed()
+
+            if (fakeView != null && realView != null) {
+                realView.postOnAnimation {
+                    runCatching {
+                        IslandPresentationCoordinator.onFakeTransitionEnded(
+                            fakeOwner = fakeView,
+                            realRoot = realView
+                        )
+                    }.onFailure { error ->
+                        HookLogger.e(TAG, "过渡视图隐藏后恢复真实岛失败", error)
+                    }
                 }
             }
 

@@ -69,9 +69,13 @@ object BaseIslandRenderer : IslandRenderer {
 
         val activeViews = IslandPresentationCoordinator.snapshotAttachedHosts(lyricPkg)
         activeViews.forEach { token ->
+            if (IslandPresentationCoordinator.isHostFrozenForFakeTransition(token)) {
+                return@forEach
+            }
             val cv = token.root
             cv.post {
-                if (LyriconDataBridge.versionCounter.get() != expectedLyricVersion ||
+                if (IslandPresentationCoordinator.isHostFrozenForFakeTransition(token) ||
+                    LyriconDataBridge.versionCounter.get() != expectedLyricVersion ||
                     LyriconDataBridge.currentLyricPackageName != lyricPkg
                 ) {
                     return@post
@@ -107,9 +111,13 @@ object BaseIslandRenderer : IslandRenderer {
 
         IslandPresentationCoordinator.snapshotAttachedHosts(lyricPkg)
             .forEach { token ->
+                if (IslandPresentationCoordinator.isHostFrozenForFakeTransition(token)) {
+                    return@forEach
+                }
                 val cv = token.root
                 cv.post {
-                    if (LyriconDataBridge.versionCounter.get() != expectedLyricVersion ||
+                    if (IslandPresentationCoordinator.isHostFrozenForFakeTransition(token) ||
+                        LyriconDataBridge.versionCounter.get() != expectedLyricVersion ||
                         LyriconDataBridge.currentLyricPackageName != lyricPkg
                     ) {
                         return@post
@@ -146,10 +154,14 @@ object BaseIslandRenderer : IslandRenderer {
         IslandPresentationCoordinator.snapshotAttachedInjectedHosts(lyricPkg)
             .forEach { snapshot ->
                 val token = snapshot.host
+                if (IslandPresentationCoordinator.isHostFrozenForFakeTransition(token)) {
+                    return@forEach
+                }
                 val cv = token.root
                 val indexedViews = snapshot.injectedViews
                 cv.post {
                     if (!IslandPresentationCoordinator.isCurrentHost(token) ||
+                        IslandPresentationCoordinator.isHostFrozenForFakeTransition(token) ||
                         !IslandPresentationCoordinator.isCurrentPresentation(
                             expectedPresentationRevision
                         ) ||
@@ -233,9 +245,13 @@ object BaseIslandRenderer : IslandRenderer {
         }
 
         activeViews.forEach { token ->
+            if (IslandPresentationCoordinator.isHostFrozenForFakeTransition(token)) {
+                return@forEach
+            }
             val cv = token.root
             cv.post {
-                if (!shouldRenderInjectedIsland() ||
+                if (IslandPresentationCoordinator.isHostFrozenForFakeTransition(token) ||
+                    !shouldRenderInjectedIsland() ||
                     !IslandPresentationCoordinator.isCurrentPresentation(
                         expectedPresentationRevision
                     ) ||
@@ -291,11 +307,15 @@ object BaseIslandRenderer : IslandRenderer {
         IslandPresentationCoordinator.snapshotAttachedInjectedHosts(lyricPkg)
             .forEach { snapshot ->
                 val token = snapshot.host
+                if (IslandPresentationCoordinator.isHostFrozenForFakeTransition(token)) {
+                    return@forEach
+                }
                 val cv = token.root
                 val indexedViews = snapshot.injectedViews
                 cv.post {
                     val currentLyricPackage = LyriconDataBridge.currentLyricPackageName
                     if (!IslandPresentationCoordinator.isCurrentHost(token) ||
+                        IslandPresentationCoordinator.isHostFrozenForFakeTransition(token) ||
                         !IslandPresentationCoordinator.isCurrentPresentation(
                             expectedPresentationRevision
                         ) ||

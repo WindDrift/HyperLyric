@@ -235,6 +235,21 @@ internal object IslandLyricTextInjector {
         }
     }
 
+    fun resumeInjectedLyricProgress(rootView: ViewGroup, position: Long) {
+        val prefs = HookEntry.instance?.prefs ?: return
+        val config = IslandSlotRuntimeConfig.from(prefs)
+
+        if (config.leftMode == 7) {
+            resumeLyricView(rootView.findViewWithTag(IslandProbeUtils.LEFT_TEST_VIEW_TAG), position)
+        }
+        if (config.rightMode == 7) {
+            resumeLyricView(
+                rootView.findViewWithTag(IslandProbeUtils.RIGHT_TEST_VIEW_TAG),
+                position
+            )
+        }
+    }
+
     private fun freezeLyricView(view: View?, position: Long) {
         when (view) {
             is RichLyricLineView -> {
@@ -247,6 +262,20 @@ internal object IslandLyricTextInjector {
                 view.setPlaybackActive(false)
                 view.setPosition(position)
                 view.setPlaybackActive(false)
+            }
+        }
+    }
+
+    private fun resumeLyricView(view: View?, position: Long) {
+        when (view) {
+            is RichLyricLineView -> {
+                view.setPlaybackActive(true)
+                view.setPosition(position)
+            }
+
+            is SpaceGateRichLyricLineView -> {
+                view.setPlaybackActive(true)
+                view.setPosition(position)
             }
         }
     }

@@ -156,12 +156,43 @@ internal object IslandInjectionReconciler {
     }
 
     fun prepareFrozenSnapshot(root: ViewGroup, position: Long): Result {
-        val result = show(
+        return prepareFrozenTransitionHost(
             root = root,
             target = Target.FakeSnapshot,
+            position = position
+        )
+    }
+
+    fun prepareFrozenRealHost(root: ViewGroup, position: Long): Result {
+        return prepareFrozenTransitionHost(
+            root = root,
+            target = Target.RealRoot,
+            position = position,
+            content = ContentMode.FORCE
+        )
+    }
+
+    fun restoreFrozenRealHost(root: ViewGroup, position: Long): Result {
+        return prepareFrozenTransitionHost(
+            root = root,
+            target = Target.RealRoot,
+            position = position,
+            content = ContentMode.NONE
+        )
+    }
+
+    private fun prepareFrozenTransitionHost(
+        root: ViewGroup,
+        target: Target,
+        position: Long,
+        content: ContentMode = ContentMode.FORCE
+    ): Result {
+        val result = show(
+            root = root,
+            target = target,
             options = ShowOptions(
                 structure = StructureMode.RESTORE_OR_ENSURE,
-                content = ContentMode.FORCE,
+                content = content,
                 suppressAnimation = true,
                 reconfigureExisting = false
             )
