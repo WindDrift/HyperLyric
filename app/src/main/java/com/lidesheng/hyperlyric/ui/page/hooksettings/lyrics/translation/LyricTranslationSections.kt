@@ -49,11 +49,45 @@ fun LazyListScope.translationSections(
     prompt: String,
     onPromptClick: () -> Unit
 ) {
-    item(key = "translation") {
-        val supportsNextLyricLine =
-            (lyricSource == "lyricon" || lyricSource == "lyricinfo") && lyricMode == 0
-        val translationControlsEnabled =
-            !supportsNextLyricLine || !nextLyricLine || autoSwitchTranslation
+    val supportsNextLyricLine =
+        (lyricSource == "lyricon" || lyricSource == "lyricinfo") && lyricMode == 0
+    val translationControlsEnabled =
+        !supportsNextLyricLine || !nextLyricLine || autoSwitchTranslation
+
+    if (supportsNextLyricLine) {
+        item(key = "next_lyric_line_title") {
+            SmallTitle(text = stringResource(id = R.string.title_next_lyric))
+        }
+        item(key = "next_lyric_line_content") {
+            Card(
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 12.dp)
+                    .fillMaxWidth()
+            ) {
+                Column {
+                    SwitchPreference(
+                        title = stringResource(id = R.string.title_next_lyric_line),
+                        summary = stringResource(id = R.string.summary_next_lyric_line),
+                        checked = nextLyricLine,
+                        onCheckedChange = onNextLyricLineChange
+                    )
+                    SwitchPreference(
+                        title = stringResource(id = R.string.title_auto_switch_translation),
+                        summary = stringResource(id = R.string.summary_auto_switch_translation),
+                        checked = autoSwitchTranslation,
+                        onCheckedChange = onAutoSwitchTranslationChange,
+                        enabled = nextLyricLine
+                    )
+                }
+            }
+        }
+    }
+
+    item(key = "translation_title") {
+        SmallTitle(text = stringResource(id = R.string.title_translation))
+    }
+    item(key = "translation_content") {
         val translationActionColor = if (translationControlsEnabled) {
             MiuixTheme.colorScheme.onSurfaceVariantActions
         } else {
@@ -61,31 +95,6 @@ fun LazyListScope.translationSections(
         }
 
         Column {
-            SmallTitle(text = stringResource(id = R.string.title_translation))
-            if (supportsNextLyricLine) {
-                Card(
-                    modifier = Modifier
-                        .padding(horizontal = 12.dp)
-                        .padding(bottom = 12.dp)
-                        .fillMaxWidth()
-                ) {
-                    Column {
-                        SwitchPreference(
-                            title = stringResource(id = R.string.title_next_lyric_line),
-                            summary = stringResource(id = R.string.summary_next_lyric_line),
-                            checked = nextLyricLine,
-                            onCheckedChange = onNextLyricLineChange
-                        )
-                        SwitchPreference(
-                            title = stringResource(id = R.string.title_auto_switch_translation),
-                            summary = stringResource(id = R.string.summary_auto_switch_translation),
-                            checked = autoSwitchTranslation,
-                            onCheckedChange = onAutoSwitchTranslationChange,
-                            enabled = nextLyricLine
-                        )
-                    }
-                }
-            }
             Card(
                 modifier = Modifier
                     .padding(horizontal = 12.dp)

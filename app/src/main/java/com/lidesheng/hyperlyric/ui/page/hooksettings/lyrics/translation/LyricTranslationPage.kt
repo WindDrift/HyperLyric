@@ -211,7 +211,7 @@ fun LyricTranslationPage() {
         )
     }
 
-    XposedLyricSettingPage(title = stringResource(id = R.string.title_translation)) {
+    XposedLyricSettingPage(title = stringResource(id = R.string.title_double_line_content)) {
         translationSections(
             lyricSource = lyricSource,
             lyricMode = lyricMode,
