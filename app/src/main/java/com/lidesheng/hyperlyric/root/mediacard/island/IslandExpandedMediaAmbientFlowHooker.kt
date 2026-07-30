@@ -78,6 +78,9 @@ object IslandExpandedMediaAmbientFlowHooker {
     private val seekBarThemeStates = Collections.synchronizedMap(
         WeakHashMap<View, SeekBarThemeState>()
     )
+    private val islandSeekBars = Collections.synchronizedSet(
+        Collections.newSetFromMap(WeakHashMap<View, Boolean>())
+    )
     private val seekBarTrackStates = Collections.synchronizedMap(
         WeakHashMap<View, SeekBarTrackState>()
     )
@@ -196,6 +199,9 @@ object IslandExpandedMediaAmbientFlowHooker {
                     activeBinders.add(binder)
                 }
                 return result
+            }
+            if (action == Action.ATTACH || action == Action.BIND) {
+                enforceHeadGlowPreference(binder)
             }
             // Keep XiaomiHelper's timing exactly: intercept the native setter
             // before it can restore this view on a fresh real/dummy holder.
@@ -335,6 +341,7 @@ object IslandExpandedMediaAmbientFlowHooker {
             val api = nativeApi ?: return result
             val listener = chain.thisObject ?: return result
             val seekBar = api.getHeadAlphaListenerSeekBar(listener)
+            if (!islandSeekBars.contains(seekBar)) return result
             if (
                 shouldSuppressHeadGlowByPreference() ||
                 seekBarThemeStates[seekBar]?.suppressHeadGlow == true
@@ -522,7 +529,6 @@ object IslandExpandedMediaAmbientFlowHooker {
     }
 
     private fun enforceHeadGlowPreference(binder: Any) {
-        if (!shouldSuppressHeadGlowByPreference()) return
         val api = nativeApi ?: return
         api.getHolders(binder).forEach { holder ->
             enforceHeadGlowPreference(api, holder)
@@ -530,8 +536,10 @@ object IslandExpandedMediaAmbientFlowHooker {
     }
 
     private fun enforceHeadGlowPreference(api: NativeApi, holder: Any) {
+        val seekBar = api.getSeekBar(holder)
+        islandSeekBars.add(seekBar)
         if (!shouldSuppressHeadGlowByPreference()) return
-        api.setSeekBarHeadGlowAlpha(api.getSeekBar(holder), 0f)
+        api.setSeekBarHeadGlowAlpha(seekBar, 0f)
     }
 
     private fun shouldSuppressHeadGlowByPreference(): Boolean {
@@ -935,6 +943,10 @@ object IslandExpandedMediaAmbientFlowHooker {
         binderStates.remove(binder)?.request?.incrementAndGet()
         nativeApi?.getMusicBgViews(binder)?.forEach(::restoreViewAlpha)
         nativeApi?.removeHolderBackgrounds(binder)
+        val api = nativeApi ?: return
+        api.getHolders(binder).forEach { holder ->
+            islandSeekBars.remove(api.getSeekBar(holder))
+        }
     }
 
     private fun restoreViewAlpha(view: View) {
