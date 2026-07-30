@@ -60,7 +60,7 @@ internal class CountdownDotsRenderer : LineRenderer {
     fun contentWidth(): Float {
         val radius = baseRadius()
         val maxRadius = radius * MAX_SCALE
-        val gap = radius * GAP_FACTOR
+        val gap = dotGap()
         return maxRadius * 2f * DOT_COUNT + gap * (DOT_COUNT - 1)
     }
 
@@ -106,10 +106,16 @@ internal class CountdownDotsRenderer : LineRenderer {
             progressAnimator.jumpTo(exactProgress)
         }
 
-        val segment = (exactProgress * DOT_COUNT).toInt().coerceIn(0, DOT_COUNT - 1)
-        val target = (segment + 1).toFloat() / DOT_COUNT
+        val fadeStart = FADE_START_PROGRESS
+        val target = if (fadeStart > 0f && exactProgress < fadeStart) {
+            val dotProgress = exactProgress / fadeStart
+            val segment = (dotProgress * DOT_COUNT).toInt().coerceIn(0, DOT_COUNT - 1)
+            fadeStart * (segment + 1).toFloat() / DOT_COUNT
+        } else {
+            1f
+        }
         if (target != progressAnimator.targetWidth || !progressAnimator.isAnimating) {
-            progressAnimator.animateTo(target, remainingSegmentDuration(posMs, model, segment))
+            progressAnimator.animateTo(target, remainingPhaseDuration(posMs, model, target))
         }
         lastPosition = posMs
     }
@@ -132,33 +138,51 @@ internal class CountdownDotsRenderer : LineRenderer {
         if (textSize <= 0f || viewWidth <= 0 || viewHeight <= 0) return
 
         val radius = baseRadius()
-        val maxRadius = radius * MAX_SCALE
-        val gap = radius * GAP_FACTOR
-        val width = contentWidth()
-        val startX = when {
-            model.isAlignedRight -> viewWidth - width
-            centerIfPossible -> (viewWidth - width) / 2f
-            else -> 0f
-        }.coerceAtLeast(0f)
+        val gap = dotGap()
+        val maxWidth = contentWidth()
+        val shaderStartX = alignedStart(maxWidth, model, viewWidth)
         val centerY = viewHeight / 2f
 
-        updateShaders(startX, startX + width)
+        updateShaders(shaderStartX, shaderStartX + maxWidth)
 
         val progress = progressAnimator.currentWidth
+        val fadeStart = FADE_START_PROGRESS
+        val lightingProgress = if (fadeStart > 0f) {
+            (progress / fadeStart).coerceIn(0f, 1f)
+        } else {
+            1f
+        }
+        val fadeProgress = if (fadeStart < 1f && progress > fadeStart) {
+            ((progress - fadeStart) / (1f - fadeStart)).coerceIn(0f, 1f)
+        } else {
+            0f
+        }
+        val exitAlpha = 1f - smoothStep(fadeProgress)
+        val backgroundBaseAlpha = backgroundPaint.alpha
+        val highlightBaseAlpha = highlightPaint.alpha
+        backgroundPaint.alpha = (backgroundBaseAlpha * exitAlpha).toInt()
+        var cursorX = alignedStart(
+            dotsWidth(radius, gap, lightingProgress),
+            model,
+            viewWidth
+        )
+
         repeat(DOT_COUNT) { index ->
-            val localProgress = (progress * DOT_COUNT - index).coerceIn(0f, 1f)
+            val localProgress = dotProgress(lightingProgress, index)
             val easedProgress = smoothStep(localProgress)
             val currentRadius = radius * (1f + SCALE_AMOUNT * easedProgress)
-            val highlightAlpha = (easedProgress * 255f).toInt()
-            val centerX = startX + maxRadius + index * (maxRadius * 2f + gap)
+            val highlightAlpha = (highlightBaseAlpha * easedProgress * exitAlpha).toInt()
+            val centerX = cursorX + currentRadius
 
             canvas.drawCircle(centerX, centerY, currentRadius, backgroundPaint)
-            if (highlightAlpha <= 0) return@repeat
-
-            highlightPaint.alpha = highlightAlpha
-            canvas.drawCircle(centerX, centerY, currentRadius, highlightPaint)
+            if (highlightAlpha > 0) {
+                highlightPaint.alpha = highlightAlpha
+                canvas.drawCircle(centerX, centerY, currentRadius, highlightPaint)
+            }
+            cursorX += currentRadius * 2f + gap
         }
-        highlightPaint.alpha = 255
+        backgroundPaint.alpha = backgroundBaseAlpha
+        highlightPaint.alpha = highlightBaseAlpha
     }
 
     override fun reset(state: LineState) {
@@ -168,23 +192,46 @@ internal class CountdownDotsRenderer : LineRenderer {
     }
 
     private fun progressAt(posMs: Long, model: LyricModel): Float {
-        val span = (model.end - model.begin).takeIf { it > 0L } ?: model.duration
+        val span = durationOf(model)
         if (span <= 0L) return 0f
         return ((posMs - model.begin).toFloat() / span.toFloat()).coerceIn(0f, 1f)
     }
 
-    private fun remainingSegmentDuration(
+    private fun remainingPhaseDuration(
         posMs: Long,
         model: LyricModel,
-        segment: Int
+        targetProgress: Float
     ): Long {
-        val span = (model.end - model.begin).takeIf { it > 0L } ?: model.duration
+        val span = durationOf(model)
         if (span <= 0L) return 0L
-        val segmentEnd = model.begin + span * (segment + 1) / DOT_COUNT
-        return (segmentEnd - posMs).coerceAtLeast(0L)
+        val phaseEnd = model.begin + (span * targetProgress).toLong()
+        return (phaseEnd - posMs).coerceAtLeast(0L)
     }
 
+    private fun durationOf(model: LyricModel): Long =
+        (model.end - model.begin).takeIf { it > 0L } ?: model.duration
+
+    private fun alignedStart(width: Float, model: LyricModel, viewWidth: Int): Float = when {
+        model.isAlignedRight -> viewWidth - width
+        centerIfPossible -> (viewWidth - width) / 2f
+        else -> 0f
+    }.coerceAtLeast(0f)
+
+    private fun dotsWidth(radius: Float, gap: Float, lightingProgress: Float): Float {
+        var width = gap * (DOT_COUNT - 1)
+        repeat(DOT_COUNT) { index ->
+            val easedProgress = smoothStep(dotProgress(lightingProgress, index))
+            width += radius * (1f + SCALE_AMOUNT * easedProgress) * 2f
+        }
+        return width
+    }
+
+    private fun dotProgress(lightingProgress: Float, index: Int): Float =
+        (lightingProgress * DOT_COUNT - index).coerceIn(0f, 1f)
+
     private fun baseRadius(): Float = textSize * RADIUS_TEXT_SIZE_FACTOR
+
+    private fun dotGap(): Float = textSize * DOT_GAP_TEXT_SIZE_FACTOR
 
     private fun updateShaders(start: Float, end: Float) {
         val backgroundHash = backgroundColors.contentHashCode()
@@ -236,9 +283,10 @@ internal class CountdownDotsRenderer : LineRenderer {
 
     private companion object {
         const val DOT_COUNT = 3
-        const val RADIUS_TEXT_SIZE_FACTOR = 0.375f
-        const val GAP_FACTOR = 0.55f
-        const val SCALE_AMOUNT = 0.2f
+        const val RADIUS_TEXT_SIZE_FACTOR = 0.25f
+        const val DOT_GAP_TEXT_SIZE_FACTOR = 0.34f
+        const val SCALE_AMOUNT = 0.4f
         const val MAX_SCALE = 1f + SCALE_AMOUNT
+        const val FADE_START_PROGRESS = 3f / 5f
     }
 }
