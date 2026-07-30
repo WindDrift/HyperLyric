@@ -52,7 +52,6 @@ fun MultiSelectDialog(
         title = title,
         summary = summary,
         show = true,
-        insideMargin = DpSize(width = 12.dp, height = 24.dp),
         onDismissRequest = onDismiss
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
