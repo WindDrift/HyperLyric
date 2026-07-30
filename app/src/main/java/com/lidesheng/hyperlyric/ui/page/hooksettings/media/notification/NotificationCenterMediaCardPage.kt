@@ -304,7 +304,16 @@ fun NotificationCenterMediaCardPage() {
                                 backgroundStyle = notificationBackgroundStyle,
                                 backgroundBlur = notificationBackgroundBlur,
                                 softCoverTone = notificationSoftCoverTone,
-                                ambientFlowMode = notificationAmbientFlowMode
+                                ambientFlowMode = notificationAmbientFlowMode,
+                                waveProgress =
+                                    notificationProgressStyle ==
+                                        RootConstants.NOTIFICATION_MEDIA_PROGRESS_STYLE_WAVE,
+                                verticalProgressThumb =
+                                    notificationThumbStyle ==
+                                        RootConstants.NOTIFICATION_MEDIA_THUMB_STYLE_VERTICAL,
+                                hideProgressThumb =
+                                    notificationThumbStyle ==
+                                        RootConstants.NOTIFICATION_MEDIA_THUMB_STYLE_HIDDEN
                             )
                             TabRow(
                                 tabs = tabs,

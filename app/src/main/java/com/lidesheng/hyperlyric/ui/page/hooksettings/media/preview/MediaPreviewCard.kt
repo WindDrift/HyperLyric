@@ -1,9 +1,11 @@
 package com.lidesheng.hyperlyric.ui.page.hooksettings.media.preview
 
+import android.content.res.ColorStateList
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -34,6 +36,9 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -48,6 +53,8 @@ import androidx.constraintlayout.compose.Dimension
 import androidx.constraintlayout.compose.Visibility
 import androidx.constraintlayout.compose.layoutId
 import com.lidesheng.hyperlyric.R
+import com.lidesheng.hyperlyric.root.mediacard.progress.view.SquigglySeekBar
+import com.lidesheng.hyperlyric.root.mediacard.progress.view.ThumbStyle
 import com.lidesheng.hyperlyric.ui.anim.albumArtFlip
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Card
@@ -70,7 +77,10 @@ fun MediaPreviewCard(
     backgroundStyle: Int = 0,
     backgroundBlur: Int = 10,
     softCoverTone: Int = 1,
-    ambientFlowMode: Int = 0
+    ambientFlowMode: Int = 0,
+    waveProgress: Boolean = false,
+    verticalProgressThumb: Boolean = false,
+    hideProgressThumb: Boolean = false
 ) {
     val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
 
@@ -765,22 +775,19 @@ fun MediaPreviewCard(
                         .layoutId("time_start")
                 )
 
-                Box(
+                MediaProgressPreview(
+                    wave = waveProgress,
+                    thumbStyle = when {
+                        hideProgressThumb -> ThumbStyle.Hidden
+                        verticalProgressThumb -> ThumbStyle.VerticalBar
+                        else -> ThumbStyle.Circle
+                    },
+                    color = onSurfaceColor,
+                    playing = playAtEnd,
                     modifier = Modifier
                         .layoutId("seekbar")
                         .height(38.dp)
-                        .padding(vertical = 16.dp)
-                        .clip(RoundedCornerShape(50))
-                        .background(onSurfaceColor.copy(alpha = 0.2f))
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .fillMaxWidth(0.3f)
-                            .clip(RoundedCornerShape(50))
-                            .background(onSurfaceColor)
-                    )
-                }
+                )
 
                 Text(
                     text = trackDurations[currentTrackIndex],
@@ -795,3 +802,67 @@ fun MediaPreviewCard(
         }
     }
 }
+
+@Composable
+private fun MediaProgressPreview(
+    wave: Boolean,
+    thumbStyle: ThumbStyle,
+    color: Color,
+    playing: Boolean,
+    modifier: Modifier = Modifier
+) {
+    if (wave) {
+        AndroidView(
+            factory = { context ->
+                val density = context.resources.displayMetrics.density
+                SquigglySeekBar(context).apply {
+                    max = PREVIEW_DURATION
+                    progress = PREVIEW_PROGRESS
+                    waveLength = 20f * density
+                    lineAmplitude = 1.5f * density
+                    phaseSpeed = 8f * density
+                    strokeWidth = 2f * density
+                    isEnabled = false
+                    setOnTouchListener { _, _ -> true }
+                }
+            },
+            update = { seekBar ->
+                if (seekBar.progress != PREVIEW_PROGRESS) {
+                    seekBar.progress = PREVIEW_PROGRESS
+                }
+                seekBar.progressTintList = ColorStateList.valueOf(color.toArgb())
+                if (seekBar.thumbStyle != thumbStyle) {
+                    seekBar.thumbStyle = thumbStyle
+                }
+                seekBar.animate = playing
+            },
+            modifier = modifier
+        )
+        return
+    }
+
+    Canvas(modifier = modifier) {
+        val trackHeight = 6.dp.toPx()
+        val trackTop = (size.height - trackHeight) / 2f
+        val activeEnd = size.width * PREVIEW_PROGRESS_FRACTION
+        val trackRadius = CornerRadius(trackHeight / 2f)
+
+        drawRoundRect(
+            color = color.copy(alpha = 0.2f),
+            topLeft = Offset(0f, trackTop),
+            size = Size(size.width, trackHeight),
+            cornerRadius = trackRadius
+        )
+
+        drawRoundRect(
+            color = color,
+            topLeft = Offset(0f, trackTop),
+            size = Size(activeEnd, trackHeight),
+            cornerRadius = trackRadius
+        )
+    }
+}
+
+private const val PREVIEW_DURATION = 250_000
+private const val PREVIEW_PROGRESS = 75_000
+private const val PREVIEW_PROGRESS_FRACTION = 0.3f

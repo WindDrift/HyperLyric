@@ -296,7 +296,16 @@ fun IslandExpandedMediaCardPage() {
                                 backgroundStyle = islandExpandedBackgroundStyle,
                                 backgroundBlur = islandExpandedBackgroundBlur,
                                 softCoverTone = islandExpandedSoftCoverTone,
-                                ambientFlowMode = mappedAmbientFlowMode
+                                ambientFlowMode = mappedAmbientFlowMode,
+                                waveProgress =
+                                    islandExpandedProgressStyle ==
+                                        RootConstants.ISLAND_EXPANDED_MEDIA_PROGRESS_STYLE_WAVE,
+                                verticalProgressThumb =
+                                    islandExpandedThumbStyle ==
+                                        RootConstants.ISLAND_EXPANDED_MEDIA_THUMB_STYLE_VERTICAL,
+                                hideProgressThumb =
+                                    islandExpandedThumbStyle ==
+                                        RootConstants.ISLAND_EXPANDED_MEDIA_THUMB_STYLE_HIDDEN
                             )
                             TabRow(
                                 tabs = tabs,
