@@ -247,6 +247,7 @@ object IslandExpandedMediaAmbientFlowHooker {
                     Action.DETACH -> Unit
                 }
                 if (action != Action.DETACH) {
+                    enforceHeadGlowPreference(binder)
                     IslandAlbumCoverStyleHooker.onPlaybackStateChanged(
                         requireNotNull(nativeApi).isPlaying(binder)
                     )
@@ -296,12 +297,19 @@ object IslandExpandedMediaAmbientFlowHooker {
                     HookLogger.e(TAG, "保持展开态媒体前景色失败", error)
                     false
                 }
-                return if (foregroundApplied) null else chain.proceed()
+                if (foregroundApplied) {
+                    enforceHeadGlowPreference(api, holder)
+                    return null
+                }
+                val result = chain.proceed()
+                enforceHeadGlowPreference(api, holder)
+                return result
             }
             val api = nativeApi ?: return chain.proceed()
             if (!shouldUseLightTheme(binder)) {
                 val result = chain.proceed()
                 syncMusicWave(binder, holder, api)
+                enforceHeadGlowPreference(api, holder)
                 return result
             }
             return try {
@@ -309,10 +317,13 @@ object IslandExpandedMediaAmbientFlowHooker {
                     .withNightMode(Configuration.UI_MODE_NIGHT_NO)
                 applyLightForeground(api, holder, CardColors.from(lightContext))
                 syncMusicWave(binder, holder, api)
+                enforceHeadGlowPreference(api, holder)
                 null
             } catch (error: Throwable) {
                 HookLogger.e(TAG, "应用原生浅色前景失败", error)
-                chain.proceed()
+                val result = chain.proceed()
+                enforceHeadGlowPreference(api, holder)
+                result
             }
         }
     }
@@ -324,7 +335,10 @@ object IslandExpandedMediaAmbientFlowHooker {
             val api = nativeApi ?: return result
             val listener = chain.thisObject ?: return result
             val seekBar = api.getHeadAlphaListenerSeekBar(listener)
-            if (seekBarThemeStates[seekBar]?.suppressHeadGlow == true) {
+            if (
+                shouldSuppressHeadGlowByPreference() ||
+                seekBarThemeStates[seekBar]?.suppressHeadGlow == true
+            ) {
                 api.setSeekBarHeadGlowAlpha(seekBar, 0f)
             }
             return result
@@ -505,6 +519,26 @@ object IslandExpandedMediaAmbientFlowHooker {
         }
         state.suppressHeadGlow = true
         api.applyLightForeground(holder, colors)
+    }
+
+    private fun enforceHeadGlowPreference(binder: Any) {
+        if (!shouldSuppressHeadGlowByPreference()) return
+        val api = nativeApi ?: return
+        api.getHolders(binder).forEach { holder ->
+            enforceHeadGlowPreference(api, holder)
+        }
+    }
+
+    private fun enforceHeadGlowPreference(api: NativeApi, holder: Any) {
+        if (!shouldSuppressHeadGlowByPreference()) return
+        api.setSeekBarHeadGlowAlpha(api.getSeekBar(holder), 0f)
+    }
+
+    private fun shouldSuppressHeadGlowByPreference(): Boolean {
+        val config = MediaCardRuntimeConfig.current.islandExpanded
+        val usesDefaultStyle =
+            config.progressStyle == RootConstants.ISLAND_EXPANDED_MEDIA_PROGRESS_STYLE_DEFAULT
+        return usesDefaultStyle && !config.progressHeadGlow
     }
 
     private fun applyLightExpandedBackground(

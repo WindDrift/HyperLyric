@@ -52,6 +52,8 @@ import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Refresh
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
+private const val LEGACY_NOTIFICATION_MEDIA_PROGRESS_STYLE_GLOW = 2
+
 @Composable
 fun NotificationCenterMediaCardPage() {
     val context = LocalContext.current
@@ -184,15 +186,30 @@ fun NotificationCenterMediaCardPage() {
             )
         )
     }
+    val storedNotificationProgressStyle = prefs.getInt(
+        RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_PROGRESS_STYLE,
+        RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_PROGRESS_STYLE
+    )
     var notificationProgressStyle by remember {
         mutableIntStateOf(
-            prefs.getInt(
-                RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_PROGRESS_STYLE,
-                RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_PROGRESS_STYLE
-            ).coerceIn(
-                RootConstants.NOTIFICATION_MEDIA_PROGRESS_STYLE_DEFAULT,
+            if (
+                storedNotificationProgressStyle ==
                 RootConstants.NOTIFICATION_MEDIA_PROGRESS_STYLE_WAVE
-            )
+            ) {
+                RootConstants.NOTIFICATION_MEDIA_PROGRESS_STYLE_WAVE
+            } else {
+                RootConstants.NOTIFICATION_MEDIA_PROGRESS_STYLE_DEFAULT
+            }
+        )
+    }
+    var notificationProgressHeadGlow by remember {
+        mutableStateOf(
+            prefs.getBoolean(
+                RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_PROGRESS_HEAD_GLOW,
+                RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_PROGRESS_HEAD_GLOW
+            ) ||
+                storedNotificationProgressStyle ==
+                LEGACY_NOTIFICATION_MEDIA_PROGRESS_STYLE_GLOW
         )
     }
     var notificationThumbStyle by remember {
@@ -553,6 +570,20 @@ fun NotificationCenterMediaCardPage() {
                                     PrefsBridge.putInt(
                                         RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_PROGRESS_STYLE,
                                         style
+                                    )
+                                },
+                                progressHeadGlow = notificationProgressHeadGlow,
+                                onProgressHeadGlowChange = { enabled ->
+                                    notificationProgressHeadGlow = enabled
+                                    prefs.edit {
+                                        putBoolean(
+                                            RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_PROGRESS_HEAD_GLOW,
+                                            enabled
+                                        )
+                                    }
+                                    PrefsBridge.putBoolean(
+                                        RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_PROGRESS_HEAD_GLOW,
+                                        enabled
                                     )
                                 },
                                 thumbStyle = notificationThumbStyle,

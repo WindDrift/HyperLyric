@@ -23,6 +23,7 @@ import com.lidesheng.hyperlyric.root.mediacard.island.IslandExpandedMediaAmbient
 import com.lidesheng.hyperlyric.root.mediacard.island.layout.IslandExpandedMediaLayoutHooker
 import com.lidesheng.hyperlyric.root.mediacard.notification.NotificationMediaAmbientFlowHooker
 import com.lidesheng.hyperlyric.root.mediacard.notification.NotificationMediaCoverStyleHooker
+import com.lidesheng.hyperlyric.root.mediacard.progress.MediaProgressStyleHooker
 import com.lidesheng.hyperlyric.root.source.LyricInfoSource
 import com.lidesheng.hyperlyric.root.source.LyriconSource
 import com.lidesheng.hyperlyric.root.source.RootLyricSink
@@ -207,6 +208,7 @@ class HookEntry : XposedModule() {
         if (packageName == "com.android.systemui") {
             StatusBarTextColorHooker.hook(this, param.defaultClassLoader)
             MediaCardRuntimeConfig.load(prefs)
+            MediaProgressStyleHooker.hook(this, param.defaultClassLoader)
             MediaCardElementBehaviorHooker.hook(this, param.defaultClassLoader)
             IslandExpandedMediaAmbientFlowHooker.hook(this, param.defaultClassLoader)
             IslandExpandedMediaLayoutHooker.hook(this, param.defaultClassLoader)

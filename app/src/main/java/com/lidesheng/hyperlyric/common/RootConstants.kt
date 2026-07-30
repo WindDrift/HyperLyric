@@ -45,6 +45,8 @@ object RootConstants {
         "key_hook_notification_media_disable_cover_flip"
     const val KEY_HOOK_NOTIFICATION_MEDIA_PROGRESS_STYLE =
         "key_hook_notification_media_progress_style"
+    const val KEY_HOOK_NOTIFICATION_MEDIA_PROGRESS_HEAD_GLOW =
+        "key_hook_notification_media_progress_head_glow"
     const val KEY_HOOK_NOTIFICATION_MEDIA_THUMB_STYLE =
         "key_hook_notification_media_thumb_style"
     const val KEY_HOOK_NOTIFICATION_MEDIA_ACTION_ALIGN_LEFT =
@@ -77,6 +79,8 @@ object RootConstants {
         "key_hook_island_expanded_media_disable_cover_flip"
     const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_PROGRESS_STYLE =
         "key_hook_island_expanded_media_progress_style"
+    const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_PROGRESS_HEAD_GLOW =
+        "key_hook_island_expanded_media_progress_head_glow"
     const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_THUMB_STYLE =
         "key_hook_island_expanded_media_thumb_style"
     const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_ACTION_ALIGN_LEFT =
@@ -274,6 +278,7 @@ object RootConstants {
     const val NOTIFICATION_MEDIA_PROGRESS_STYLE_DEFAULT = 0
     const val NOTIFICATION_MEDIA_PROGRESS_STYLE_WAVE = 1
     const val DEFAULT_HOOK_NOTIFICATION_MEDIA_PROGRESS_STYLE = NOTIFICATION_MEDIA_PROGRESS_STYLE_DEFAULT
+    const val DEFAULT_HOOK_NOTIFICATION_MEDIA_PROGRESS_HEAD_GLOW = false
     const val NOTIFICATION_MEDIA_THUMB_STYLE_DEFAULT = 0
     const val NOTIFICATION_MEDIA_THUMB_STYLE_VERTICAL = 1
     const val NOTIFICATION_MEDIA_THUMB_STYLE_HIDDEN = 2
@@ -312,6 +317,7 @@ object RootConstants {
     const val ISLAND_EXPANDED_MEDIA_PROGRESS_STYLE_DEFAULT = 0
     const val ISLAND_EXPANDED_MEDIA_PROGRESS_STYLE_WAVE = 1
     const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_PROGRESS_STYLE = ISLAND_EXPANDED_MEDIA_PROGRESS_STYLE_DEFAULT
+    const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_PROGRESS_HEAD_GLOW = true
     const val ISLAND_EXPANDED_MEDIA_THUMB_STYLE_DEFAULT = 0
     const val ISLAND_EXPANDED_MEDIA_THUMB_STYLE_VERTICAL = 1
     const val ISLAND_EXPANDED_MEDIA_THUMB_STYLE_HIDDEN = 2

@@ -188,6 +188,14 @@ fun IslandExpandedMediaCardPage() {
             )
         )
     }
+    var islandExpandedProgressHeadGlow by remember {
+        mutableStateOf(
+            prefs.getBoolean(
+                RootConstants.KEY_HOOK_ISLAND_EXPANDED_MEDIA_PROGRESS_HEAD_GLOW,
+                RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_PROGRESS_HEAD_GLOW
+            )
+        )
+    }
     var islandExpandedThumbStyle by remember {
         mutableIntStateOf(
             prefs.getInt(
@@ -540,6 +548,20 @@ fun IslandExpandedMediaCardPage() {
                                     PrefsBridge.putInt(
                                         RootConstants.KEY_HOOK_ISLAND_EXPANDED_MEDIA_PROGRESS_STYLE,
                                         style
+                                    )
+                                },
+                                progressHeadGlow = islandExpandedProgressHeadGlow,
+                                onProgressHeadGlowChange = { enabled ->
+                                    islandExpandedProgressHeadGlow = enabled
+                                    prefs.edit {
+                                        putBoolean(
+                                            RootConstants.KEY_HOOK_ISLAND_EXPANDED_MEDIA_PROGRESS_HEAD_GLOW,
+                                            enabled
+                                        )
+                                    }
+                                    PrefsBridge.putBoolean(
+                                        RootConstants.KEY_HOOK_ISLAND_EXPANDED_MEDIA_PROGRESS_HEAD_GLOW,
+                                        enabled
                                     )
                                 },
                                 thumbStyle = islandExpandedThumbStyle,

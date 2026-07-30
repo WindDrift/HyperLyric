@@ -157,6 +157,8 @@
     <string name="title_media_progress_style">Progress bar style</string>
     <string name="option_media_progress_style_default">Default</string>
     <string name="option_media_progress_style_wave">Wave</string>
+    <string name="title_media_progress_head_glow">Progress tail glow</string>
+    <string name="summary_media_progress_head_glow">Use Xiaomi Super Island media card progress trail effect</string>
     <string name="title_media_thumb_style">Thumb style</string>
     <string name="option_media_thumb_style_default">Default</string>
     <string name="option_media_thumb_style_vertical">Vertical</string>

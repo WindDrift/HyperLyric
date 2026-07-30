@@ -40,6 +40,8 @@ fun LazyListScope.notificationCenterMediaElementSection(
     onHideTimeChange: (Boolean) -> Unit,
     progressStyle: Int,
     onProgressStyleChange: (Int) -> Unit,
+    progressHeadGlow: Boolean,
+    onProgressHeadGlowChange: (Boolean) -> Unit,
     thumbStyle: Int,
     onThumbStyleChange: (Int) -> Unit
 ) {
@@ -131,6 +133,20 @@ fun LazyListScope.notificationCenterMediaElementSection(
                         onProgressStyleChange(progressStyleValues[index])
                     }
                 )
+
+                AnimatedVisibility(
+                    visible =
+                        progressStyle == RootConstants.NOTIFICATION_MEDIA_PROGRESS_STYLE_DEFAULT
+                ) {
+                    Column {
+                        SwitchPreference(
+                            title = stringResource(R.string.title_media_progress_head_glow),
+                            summary = stringResource(R.string.summary_media_progress_head_glow),
+                            checked = progressHeadGlow,
+                            onCheckedChange = onProgressHeadGlowChange
+                        )
+                    }
+                }
 
                 AnimatedVisibility(
                     visible = progressStyle == RootConstants.NOTIFICATION_MEDIA_PROGRESS_STYLE_WAVE

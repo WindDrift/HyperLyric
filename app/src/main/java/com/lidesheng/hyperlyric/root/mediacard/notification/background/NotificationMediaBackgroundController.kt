@@ -190,14 +190,22 @@ internal object NotificationMediaBackgroundController {
     fun applySeekBarColor(seekBar: Any) {
         val view = seekBar as? SeekBar ?: return
         val color = seekBarColors[view] ?: return
-        val filter = PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN)
-        (readField(view, "mPaint") as? Paint)?.colorFilter = filter
-        (readField(view, "mProgressDrawable") as? Drawable)?.colorFilter = filter
+        applySeekBarColor(view, color)
+    }
+
+    fun applySeekBarColor(view: SeekBar, color: Int) {
+        applySeekBarForegroundColor(view, color)
         (readField(view, "mBackgroundDrawable") as? Drawable)?.colorFilter =
             PorterDuffColorFilter(
                 color and 0x00ffffff or (0x33 shl 24),
                 PorterDuff.Mode.SRC_IN
             )
+    }
+
+    fun applySeekBarForegroundColor(view: SeekBar, color: Int) {
+        val filter = PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN)
+        (readField(view, "mPaint") as? Paint)?.colorFilter = filter
+        (readField(view, "mProgressDrawable") as? Drawable)?.colorFilter = filter
     }
 
     private fun applyBackground(mediaBg: ImageView, bitmap: Bitmap) {

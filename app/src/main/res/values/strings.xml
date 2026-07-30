@@ -181,6 +181,8 @@
     <string name="title_media_progress_style">进度条样式</string>
     <string name="option_media_progress_style_default">默认</string>
     <string name="option_media_progress_style_wave">波浪</string>
+    <string name="title_media_progress_head_glow">进度条尾部光辉</string>
+    <string name="summary_media_progress_head_glow">使用小米超级岛媒体卡片进度条拖尾效果</string>
     <string name="title_media_thumb_style">滑块样式</string>
     <string name="option_media_thumb_style_default">默认</string>
     <string name="option_media_thumb_style_vertical">竖线</string>

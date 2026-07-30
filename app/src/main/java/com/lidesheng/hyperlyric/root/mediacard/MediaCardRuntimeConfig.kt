@@ -39,6 +39,9 @@ internal object MediaCardRuntimeConfig {
         val ambientFlowMode: Int,
         val cardTheme: Int,
         val coverStyle: Int,
+        val progressStyle: Int,
+        val progressHeadGlow: Boolean,
+        val thumbStyle: Int,
         val hideCoverSource: Boolean,
         val hideCoverShadow: Boolean,
         val disableCoverFlip: Boolean,
@@ -58,6 +61,10 @@ internal object MediaCardRuntimeConfig {
                 ambientFlowMode = RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_AMBIENT_FLOW_MODE,
                 cardTheme = RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_CARD_THEME,
                 coverStyle = RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_COVER_STYLE,
+                progressStyle = RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_PROGRESS_STYLE,
+                progressHeadGlow =
+                    RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_PROGRESS_HEAD_GLOW,
+                thumbStyle = RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_THUMB_STYLE,
                 hideCoverSource = RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_HIDE_COVER_SOURCE,
                 hideCoverShadow =
                     RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_HIDE_COVER_SHADOW,
@@ -100,6 +107,30 @@ internal object MediaCardRuntimeConfig {
                 ).coerceIn(
                     RootConstants.NOTIFICATION_MEDIA_COVER_STYLE_DEFAULT,
                     RootConstants.NOTIFICATION_MEDIA_COVER_STYLE_HIDDEN
+                ),
+                progressStyle = prefs.getInt(
+                    RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_PROGRESS_STYLE,
+                    RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_PROGRESS_STYLE
+                ).let { style ->
+                    if (style == RootConstants.NOTIFICATION_MEDIA_PROGRESS_STYLE_WAVE) {
+                        RootConstants.NOTIFICATION_MEDIA_PROGRESS_STYLE_WAVE
+                    } else {
+                        RootConstants.NOTIFICATION_MEDIA_PROGRESS_STYLE_DEFAULT
+                    }
+                },
+                progressHeadGlow = prefs.getBoolean(
+                    RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_PROGRESS_HEAD_GLOW,
+                    RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_PROGRESS_HEAD_GLOW
+                ) || prefs.getInt(
+                    RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_PROGRESS_STYLE,
+                    RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_PROGRESS_STYLE
+                ) == LEGACY_NOTIFICATION_MEDIA_PROGRESS_STYLE_GLOW,
+                thumbStyle = prefs.getInt(
+                    RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_THUMB_STYLE,
+                    RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_THUMB_STYLE
+                ).coerceIn(
+                    RootConstants.NOTIFICATION_MEDIA_THUMB_STYLE_DEFAULT,
+                    RootConstants.NOTIFICATION_MEDIA_THUMB_STYLE_HIDDEN
                 ),
                 hideCoverSource = prefs.getBoolean(
                     RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_HIDE_COVER_SOURCE,
@@ -170,6 +201,9 @@ internal object MediaCardRuntimeConfig {
         val ambientFlowMode: Int,
         val cardTheme: Int,
         val coverStyle: Int,
+        val progressStyle: Int,
+        val progressHeadGlow: Boolean,
+        val thumbStyle: Int,
         val hideCoverSource: Boolean,
         val disableCoverFlip: Boolean,
         val hideDeviceSwitch: Boolean,
@@ -189,6 +223,10 @@ internal object MediaCardRuntimeConfig {
                     RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_AMBIENT_FLOW_MODE,
                 cardTheme = RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_CARD_THEME,
                 coverStyle = RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_COVER_STYLE,
+                progressStyle = RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_PROGRESS_STYLE,
+                progressHeadGlow =
+                    RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_PROGRESS_HEAD_GLOW,
+                thumbStyle = RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_THUMB_STYLE,
                 hideCoverSource =
                     RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_HIDE_COVER_SOURCE,
                 disableCoverFlip =
@@ -232,6 +270,24 @@ internal object MediaCardRuntimeConfig {
                 ).coerceIn(
                     RootConstants.ISLAND_EXPANDED_MEDIA_COVER_STYLE_DEFAULT,
                     RootConstants.ISLAND_EXPANDED_MEDIA_COVER_STYLE_HIDDEN
+                ),
+                progressStyle = prefs.getInt(
+                    RootConstants.KEY_HOOK_ISLAND_EXPANDED_MEDIA_PROGRESS_STYLE,
+                    RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_PROGRESS_STYLE
+                ).coerceIn(
+                    RootConstants.ISLAND_EXPANDED_MEDIA_PROGRESS_STYLE_DEFAULT,
+                    RootConstants.ISLAND_EXPANDED_MEDIA_PROGRESS_STYLE_WAVE
+                ),
+                progressHeadGlow = prefs.getBoolean(
+                    RootConstants.KEY_HOOK_ISLAND_EXPANDED_MEDIA_PROGRESS_HEAD_GLOW,
+                    RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_PROGRESS_HEAD_GLOW
+                ),
+                thumbStyle = prefs.getInt(
+                    RootConstants.KEY_HOOK_ISLAND_EXPANDED_MEDIA_THUMB_STYLE,
+                    RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_THUMB_STYLE
+                ).coerceIn(
+                    RootConstants.ISLAND_EXPANDED_MEDIA_THUMB_STYLE_DEFAULT,
+                    RootConstants.ISLAND_EXPANDED_MEDIA_THUMB_STYLE_HIDDEN
                 ),
                 hideCoverSource = prefs.getBoolean(
                     RootConstants.KEY_HOOK_ISLAND_EXPANDED_MEDIA_HIDE_COVER_SOURCE,
@@ -294,6 +350,7 @@ internal object MediaCardRuntimeConfig {
         }
     }
 
+    private const val LEGACY_NOTIFICATION_MEDIA_PROGRESS_STYLE_GLOW = 2
 
     private fun SharedPreferences.float(
         key: String,

@@ -38,6 +38,8 @@ fun LazyListScope.islandExpandedMediaElementSection(
     onHideTimeChange: (Boolean) -> Unit,
     progressStyle: Int,
     onProgressStyleChange: (Int) -> Unit,
+    progressHeadGlow: Boolean,
+    onProgressHeadGlowChange: (Boolean) -> Unit,
     thumbStyle: Int,
     onThumbStyleChange: (Int) -> Unit
 ) {
@@ -124,6 +126,18 @@ fun LazyListScope.islandExpandedMediaElementSection(
                         onProgressStyleChange(progressStyleValues[index])
                     }
                 )
+
+                AnimatedVisibility(
+                    visible = progressStyle == RootConstants.ISLAND_EXPANDED_MEDIA_PROGRESS_STYLE_DEFAULT
+                ) {
+                    Column {
+                        SwitchPreference(
+                            title = stringResource(R.string.title_media_progress_head_glow),
+                            checked = progressHeadGlow,
+                            onCheckedChange = onProgressHeadGlowChange
+                        )
+                    }
+                }
 
                 AnimatedVisibility(
                     visible = progressStyle == RootConstants.ISLAND_EXPANDED_MEDIA_PROGRESS_STYLE_WAVE
