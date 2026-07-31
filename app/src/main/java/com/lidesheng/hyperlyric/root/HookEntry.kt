@@ -65,7 +65,6 @@ class HookEntry : XposedModule() {
             RootConstants.KEY_HOOK_ISLAND_LEFT_PADDING_RIGHT,
             RootConstants.KEY_HOOK_ISLAND_RIGHT_PADDING_LEFT,
             RootConstants.KEY_HOOK_ISLAND_RIGHT_PADDING_RIGHT,
-            RootConstants.KEY_HOOK_ISLAND_LEFT_CONTENT_MAX_WIDTH,
             RootConstants.KEY_HOOK_ISLAND_RIGHT_CONTENT_MAX_WIDTH,
             RootConstants.KEY_HOOK_ISLAND_BEHAVIOR_AFTER_PAUSE,
             RootConstants.KEY_HOOK_ISLAND_GLOW_EXTRACT_COLOR,

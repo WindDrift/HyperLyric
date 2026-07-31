@@ -3,6 +3,7 @@ package com.lidesheng.hyperlyric.root.island
 import android.content.SharedPreferences
 import android.view.View
 import com.lidesheng.hyperlyric.common.RootConstants
+import com.lidesheng.hyperlyric.common.SuperIslandWidthPolicy
 
 internal data class IslandSlotRuntimeConfig(
     val activeMode: Int,
@@ -143,6 +144,22 @@ internal data class IslandSlotRuntimeConfig(
                 RootConstants.KEY_HOOK_LYRIC_MODE,
                 RootConstants.DEFAULT_HOOK_LYRIC_MODE
             )
+            val showAlbum = prefs.getBoolean(
+                RootConstants.KEY_HOOK_ISLAND_LEFT_ALBUM,
+                RootConstants.DEFAULT_HOOK_ISLAND_LEFT_ALBUM
+            )
+            val showRhythm = prefs.getBoolean(
+                RootConstants.KEY_HOOK_ISLAND_RIGHT_ICON,
+                RootConstants.DEFAULT_HOOK_ISLAND_RIGHT_ICON
+            )
+            val islandWidth = SuperIslandWidthPolicy.normalizeIslandWidth(
+                islandWidth = prefs.getInt(
+                    RootConstants.KEY_HOOK_ISLAND_RIGHT_CONTENT_MAX_WIDTH,
+                    RootConstants.DEFAULT_HOOK_ISLAND_RIGHT_CONTENT_MAX_WIDTH
+                ),
+                showAlbum = showAlbum,
+                showRhythm = showRhythm
+            )
             return IslandSlotRuntimeConfig(
                 activeMode = activeMode,
                 leftMode = if (activeMode == 1) 7 else prefs.getInt(
@@ -153,14 +170,8 @@ internal data class IslandSlotRuntimeConfig(
                     RootConstants.KEY_HOOK_ISLAND_CONTENT_RIGHT,
                     RootConstants.DEFAULT_HOOK_ISLAND_CONTENT_RIGHT
                 ),
-                showAlbum = prefs.getBoolean(
-                    RootConstants.KEY_HOOK_ISLAND_LEFT_ALBUM,
-                    RootConstants.DEFAULT_HOOK_ISLAND_LEFT_ALBUM
-                ),
-                showRhythm = prefs.getBoolean(
-                    RootConstants.KEY_HOOK_ISLAND_RIGHT_ICON,
-                    RootConstants.DEFAULT_HOOK_ISLAND_RIGHT_ICON
-                ),
+                showAlbum = showAlbum,
+                showRhythm = showRhythm,
                 leftPaddingLeftDp = prefs.getInt(
                     RootConstants.KEY_HOOK_ISLAND_LEFT_PADDING_LEFT,
                     RootConstants.DEFAULT_HOOK_ISLAND_LEFT_PADDING_LEFT
@@ -177,14 +188,12 @@ internal data class IslandSlotRuntimeConfig(
                     RootConstants.KEY_HOOK_ISLAND_RIGHT_PADDING_RIGHT,
                     RootConstants.DEFAULT_HOOK_ISLAND_RIGHT_PADDING_RIGHT
                 ),
-                leftMaxWidthDp = prefs.getInt(
-                    RootConstants.KEY_HOOK_ISLAND_LEFT_CONTENT_MAX_WIDTH,
-                    RootConstants.DEFAULT_HOOK_ISLAND_LEFT_CONTENT_MAX_WIDTH
+                leftMaxWidthDp = SuperIslandWidthPolicy.leftContentWidth(
+                    islandWidth = islandWidth,
+                    showAlbum = showAlbum,
+                    showRhythm = showRhythm
                 ),
-                rightMaxWidthDp = prefs.getInt(
-                    RootConstants.KEY_HOOK_ISLAND_RIGHT_CONTENT_MAX_WIDTH,
-                    RootConstants.DEFAULT_HOOK_ISLAND_RIGHT_CONTENT_MAX_WIDTH
-                ),
+                rightMaxWidthDp = islandWidth,
                 pauseBehavior = prefs.getInt(
                     RootConstants.KEY_HOOK_ISLAND_BEHAVIOR_AFTER_PAUSE,
                     RootConstants.DEFAULT_HOOK_ISLAND_BEHAVIOR_AFTER_PAUSE

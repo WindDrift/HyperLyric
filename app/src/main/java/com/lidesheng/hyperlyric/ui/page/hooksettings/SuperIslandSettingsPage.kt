@@ -24,6 +24,7 @@ import androidx.core.content.edit
 import com.lidesheng.hyperlyric.R
 import com.lidesheng.hyperlyric.common.PrefsBridge
 import com.lidesheng.hyperlyric.common.RootConstants
+import com.lidesheng.hyperlyric.common.SuperIslandWidthPolicy
 import com.lidesheng.hyperlyric.common.UIConstants
 import com.lidesheng.hyperlyric.ui.component.NumberInputDialog
 import com.lidesheng.hyperlyric.ui.component.PaddingInputDialog
@@ -36,6 +37,8 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.Slider
+import top.yukonga.miuix.kmp.basic.SliderDefaults
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TopAppBar
@@ -46,6 +49,7 @@ import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import kotlin.math.roundToInt
 
 @Composable
 fun SuperIslandSettingsPage() {
@@ -153,20 +157,16 @@ fun SuperIslandSettingsPage() {
             )
         )
     }
-    var leftContentWidth by remember {
+    var islandWidth by remember {
         mutableIntStateOf(
-            prefs.getInt(
-                RootConstants.KEY_HOOK_ISLAND_LEFT_CONTENT_MAX_WIDTH,
-                RootConstants.DEFAULT_HOOK_ISLAND_LEFT_CONTENT_MAX_WIDTH
-            ).coerceIn(20, 100)
-        )
-    }
-    var rightContentWidth by remember {
-        mutableIntStateOf(
-            prefs.getInt(
-                RootConstants.KEY_HOOK_ISLAND_RIGHT_CONTENT_MAX_WIDTH,
-                RootConstants.DEFAULT_HOOK_ISLAND_RIGHT_CONTENT_MAX_WIDTH
-            ).coerceIn(20, 100)
+            SuperIslandWidthPolicy.normalizeIslandWidth(
+                islandWidth = prefs.getInt(
+                    RootConstants.KEY_HOOK_ISLAND_RIGHT_CONTENT_MAX_WIDTH,
+                    RootConstants.DEFAULT_HOOK_ISLAND_RIGHT_CONTENT_MAX_WIDTH
+                ),
+                showAlbum = audioCover,
+                showRhythm = audioRhythm
+            )
         )
     }
     var afterPauseBehavior by remember {
@@ -215,8 +215,7 @@ fun SuperIslandSettingsPage() {
 
     var showLeftPaddingDialog by remember { mutableStateOf(false) }
     var showRightPaddingDialog by remember { mutableStateOf(false) }
-    var showLeftContentWidthDialog by remember { mutableStateOf(false) }
-    var showRightContentWidthDialog by remember { mutableStateOf(false) }
+    var showIslandWidthDialog by remember { mutableStateOf(false) }
 
     fun saveConfig(key: String, value: Any) {
         prefs.edit {
@@ -229,6 +228,36 @@ fun SuperIslandSettingsPage() {
             is Int -> PrefsBridge.putInt(key, value)
             is Boolean -> PrefsBridge.putBoolean(key, value)
         }
+    }
+
+    fun commitIslandWidth(
+        value: Int,
+        showAlbum: Boolean = audioCover,
+        showRhythm: Boolean = audioRhythm
+    ) {
+        islandWidth = SuperIslandWidthPolicy.normalizeIslandWidth(
+            islandWidth = value,
+            showAlbum = showAlbum,
+            showRhythm = showRhythm
+        )
+        saveConfig(RootConstants.KEY_HOOK_ISLAND_RIGHT_CONTENT_MAX_WIDTH, islandWidth)
+    }
+
+    fun clampIslandWidthIfNeeded(showAlbum: Boolean, showRhythm: Boolean) {
+        val normalizedWidth = SuperIslandWidthPolicy.normalizeIslandWidth(
+            islandWidth = islandWidth,
+            showAlbum = showAlbum,
+            showRhythm = showRhythm
+        )
+        if (normalizedWidth != islandWidth) {
+            commitIslandWidth(normalizedWidth, showAlbum, showRhythm)
+        }
+    }
+
+    val islandWidthMin = SuperIslandWidthPolicy.minIslandWidth(audioCover, audioRhythm)
+    val islandWidthMax = SuperIslandWidthPolicy.maxIslandWidth(audioRhythm)
+    val islandWidthKeyPoints = remember(islandWidthMin, islandWidthMax) {
+        (islandWidthMin..islandWidthMax step 20).map(Int::toFloat)
     }
 
     val contentOptions = remember {
@@ -300,30 +329,18 @@ fun SuperIslandSettingsPage() {
     ) { innerPadding ->
         val lazyListState = rememberLazyListState()
         NumberInputDialog(
-            show = showLeftContentWidthDialog,
-            title = stringResource(id = R.string.title_left_content_width),
-            label = stringResource(id = R.string.label_content_width_range),
-            initialValue = leftContentWidth,
-            min = 20,
-            max = 100,
-            onDismiss = { showLeftContentWidthDialog = false },
-            onConfirm = { value ->
-                leftContentWidth =
-                    value; saveConfig(RootConstants.KEY_HOOK_ISLAND_LEFT_CONTENT_MAX_WIDTH, value)
-            }
-        )
-        NumberInputDialog(
-            show = showRightContentWidthDialog,
-            title = stringResource(id = R.string.title_right_content_width),
-            label = stringResource(id = R.string.label_content_width_range),
-            initialValue = rightContentWidth,
-            min = 20,
-            max = 100,
-            onDismiss = { showRightContentWidthDialog = false },
-            onConfirm = { value ->
-                rightContentWidth =
-                    value; saveConfig(RootConstants.KEY_HOOK_ISLAND_RIGHT_CONTENT_MAX_WIDTH, value)
-            }
+            show = showIslandWidthDialog,
+            title = stringResource(id = R.string.title_super_island_width),
+            label = stringResource(
+                id = R.string.label_content_width_range,
+                islandWidthMin,
+                islandWidthMax
+            ),
+            initialValue = islandWidth,
+            min = islandWidthMin,
+            max = islandWidthMax,
+            onDismiss = { showIslandWidthDialog = false },
+            onConfirm = { commitIslandWidth(it) }
         )
         PaddingInputDialog(
             show = showLeftPaddingDialog,
@@ -375,26 +392,33 @@ fun SuperIslandSettingsPage() {
                     ) {
                         Column {
                             ArrowPreference(
-                                title = stringResource(id = R.string.title_left_content_width),
+                                title = stringResource(id = R.string.title_super_island_width),
                                 endActions = {
                                     Text(
-                                        "$leftContentWidth",
+                                        "$islandWidth",
                                         fontSize = MiuixTheme.textStyles.body2.fontSize,
                                         color = MiuixTheme.colorScheme.onSurfaceVariantActions
                                     )
                                 },
-                                onClick = { showLeftContentWidthDialog = true }
-                            )
-                            ArrowPreference(
-                                title = stringResource(id = R.string.title_right_content_width),
-                                endActions = {
-                                    Text(
-                                        "$rightContentWidth",
-                                        fontSize = MiuixTheme.textStyles.body2.fontSize,
-                                        color = MiuixTheme.colorScheme.onSurfaceVariantActions
+                                bottomAction = {
+                                    Slider(
+                                        value = islandWidth.toFloat(),
+                                        onValueChange = {
+                                            islandWidth = it.roundToInt()
+                                                .coerceIn(islandWidthMin, islandWidthMax)
+                                        },
+                                        valueRange = islandWidthMin.toFloat()..islandWidthMax.toFloat(),
+                                        steps = 0,
+                                        onValueChangeFinished = {
+                                            commitIslandWidth(islandWidth)
+                                        },
+                                        showKeyPoints = true,
+                                        keyPoints = islandWidthKeyPoints,
+                                        magnetThreshold = 0f,
+                                        hapticEffect = SliderDefaults.SliderHapticEffect.Step
                                     )
                                 },
-                                onClick = { showRightContentWidthDialog = true }
+                                onClick = { showIslandWidthDialog = true }
                             )
                             ArrowPreference(
                                 title = stringResource(id = R.string.title_left_padding),
@@ -442,8 +466,12 @@ fun SuperIslandSettingsPage() {
                                 title = stringResource(id = R.string.title_audio_cover),
                                 checked = audioCover,
                                 onCheckedChange = {
-                                    audioCover =
-                                        it; saveConfig(RootConstants.KEY_HOOK_ISLAND_LEFT_ALBUM, it)
+                                    audioCover = it
+                                    saveConfig(RootConstants.KEY_HOOK_ISLAND_LEFT_ALBUM, it)
+                                    clampIslandWidthIfNeeded(
+                                        showAlbum = it,
+                                        showRhythm = audioRhythm
+                                    )
                                 })
                             AnimatedVisibility(visible = audioCover) {
                                 Column {
@@ -468,8 +496,12 @@ fun SuperIslandSettingsPage() {
                                 title = stringResource(id = R.string.title_audio_rhythm),
                                 checked = audioRhythm,
                                 onCheckedChange = {
-                                    audioRhythm =
-                                        it; saveConfig(RootConstants.KEY_HOOK_ISLAND_RIGHT_ICON, it)
+                                    audioRhythm = it
+                                    saveConfig(RootConstants.KEY_HOOK_ISLAND_RIGHT_ICON, it)
+                                    clampIslandWidthIfNeeded(
+                                        showAlbum = audioCover,
+                                        showRhythm = it
+                                    )
                                 })
                             AnimatedVisibility(visible = audioRhythm) {
                                 Column {
