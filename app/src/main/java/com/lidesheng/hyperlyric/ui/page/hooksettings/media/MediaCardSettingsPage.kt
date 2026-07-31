@@ -19,7 +19,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.content.edit
 import com.lidesheng.hyperlyric.R
+import com.lidesheng.hyperlyric.common.PrefsBridge
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.common.UIConstants
 import com.lidesheng.hyperlyric.root.utils.ShellUtils
@@ -44,7 +46,17 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Refresh
 import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+
+private val notificationMediaLayoutStyles = listOf(
+    RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_SYSTEM,
+    RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_IOS,
+    RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS,
+    RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI,
+    RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_MIUI,
+    RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_PIXEL
+)
 
 @Composable
 fun MediaCardSettingsPage() {
@@ -53,6 +65,23 @@ fun MediaCardSettingsPage() {
     val prefs = remember {
         context.getSharedPreferences(UIConstants.PREF_NAME, Context.MODE_PRIVATE)
     }
+    var notificationLayoutStyle by remember {
+        mutableIntStateOf(
+            prefs.getInt(
+                RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_LAYOUT_STYLE,
+                RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_LAYOUT_STYLE
+            ).takeIf { it in notificationMediaLayoutStyles }
+                ?: RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_LAYOUT_STYLE
+        )
+    }
+    val notificationMediaLayoutOptions = listOf(
+        stringResource(R.string.option_notification_media_layout_system),
+        stringResource(R.string.option_notification_media_layout_ios),
+        stringResource(R.string.option_notification_media_layout_coloros),
+        stringResource(R.string.option_notification_media_layout_oneui),
+        stringResource(R.string.option_notification_media_layout_miui),
+        stringResource(R.string.option_notification_media_layout_pixelos)
+    )
 
     val backdrop = rememberBlurBackdrop()
     val blurActive = backdrop != null
@@ -103,7 +132,37 @@ fun MediaCardSettingsPage() {
                 ),
                 contentPadding = innerPadding
             ) {
-                // 第一张卡片：通知中心和超级岛配置入口
+                item(key = "notification_media_layout_style") {
+                    Card(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = 12.dp)
+                            .fillMaxWidth()
+                    ) {
+                        OverlayDropdownPreference(
+                            title = stringResource(R.string.title_notification_media_layout_style),
+                            items = notificationMediaLayoutOptions,
+                            selectedIndex = notificationMediaLayoutStyles
+                                .indexOf(notificationLayoutStyle)
+                                .coerceAtLeast(0),
+                            onSelectedIndexChange = { index ->
+                                val layoutStyle = notificationMediaLayoutStyles[index]
+                                notificationLayoutStyle = layoutStyle
+                                prefs.edit {
+                                    putInt(
+                                        RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_LAYOUT_STYLE,
+                                        layoutStyle
+                                    )
+                                }
+                                PrefsBridge.putInt(
+                                    RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_LAYOUT_STYLE,
+                                    layoutStyle
+                                )
+                            }
+                        )
+                    }
+                }
+
                 item(key = "media_card_sections") {
                     Card(
                         modifier = Modifier
