@@ -67,8 +67,7 @@ internal object IslandProgressGlowHooker {
     fun setMediaProgress(
         backgroundView: View,
         fraction: Float,
-        progressStartColor: Int,
-        progressEndColor: Int,
+        progressColors: IntArray,
         trackColor: Int,
         progressStyle: Int
     ) {
@@ -78,12 +77,16 @@ internal object IslandProgressGlowHooker {
             }
         }
         val normalizedFraction = fraction.coerceIn(0f, 1f)
+        val normalizedColors = if (progressColors.isEmpty()) {
+            intArrayOf(DEFAULT_PROGRESS_COLOR)
+        } else {
+            IntArray(progressColors.size) { index -> opaque(progressColors[index]) }
+        }
         val changed = synchronized(state) {
             if (
                 state.initialized &&
                 state.fraction == normalizedFraction &&
-                state.progressStartColor == progressStartColor &&
-                state.progressEndColor == progressEndColor &&
+                state.progressColors.contentEquals(normalizedColors) &&
                 state.trackColor == trackColor &&
                 state.progressStyle == progressStyle
             ) {
@@ -91,8 +94,7 @@ internal object IslandProgressGlowHooker {
             } else {
                 state.initialized = true
                 state.fraction = normalizedFraction
-                state.progressStartColor = progressStartColor
-                state.progressEndColor = progressEndColor
+                state.progressColors = normalizedColors
                 state.trackColor = trackColor
                 state.progressStyle = progressStyle
                 true
@@ -185,10 +187,7 @@ internal object IslandProgressGlowHooker {
         var fraction: Float = 0f
 
         @Volatile
-        var progressStartColor: Int = DEFAULT_PROGRESS_COLOR
-
-        @Volatile
-        var progressEndColor: Int = DEFAULT_PROGRESS_COLOR
+        var progressColors: IntArray = intArrayOf(DEFAULT_PROGRESS_COLOR)
 
         @Volatile
         var trackColor: Int = DEFAULT_TRACK_COLOR
@@ -199,8 +198,7 @@ internal object IslandProgressGlowHooker {
         private var progressShader: LinearGradient? = null
         private var shaderLeft = Float.NaN
         private var shaderRight = Float.NaN
-        private var shaderStartColor = 0
-        private var shaderEndColor = 0
+        private var shaderColors = intArrayOf()
 
         fun draw(canvas: Canvas) {
             val nativeStroke = (strokeWidth.invokeInt() ?: return).toFloat()
@@ -327,11 +325,11 @@ internal object IslandProgressGlowHooker {
         }
 
         private fun updateProgressPaint(pathLeft: Float, pathRight: Float) {
-            val startColor = opaque(progressStartColor)
-            val endColor = opaque(progressEndColor)
-            if (startColor == endColor) {
+            val colors = progressColors
+            val firstColor = colors.firstOrNull() ?: DEFAULT_PROGRESS_COLOR
+            if (colors.size == 1 || colors.all { it == firstColor }) {
                 progressPaint.shader = null
-                progressPaint.color = startColor
+                progressPaint.color = firstColor
                 return
             }
 
@@ -339,29 +337,23 @@ internal object IslandProgressGlowHooker {
                 progressShader == null ||
                 shaderLeft != pathLeft ||
                 shaderRight != pathRight ||
-                shaderStartColor != startColor ||
-                shaderEndColor != endColor
+                !shaderColors.contentEquals(colors)
             ) {
                 progressShader = LinearGradient(
                     pathLeft,
                     0f,
                     pathRight,
                     0f,
-                    intArrayOf(startColor, startColor, endColor),
-                    floatArrayOf(0f, PROGRESS_MAIN_COLOR_STOP, 1f),
+                    colors,
+                    null,
                     Shader.TileMode.CLAMP
                 )
                 shaderLeft = pathLeft
                 shaderRight = pathRight
-                shaderStartColor = startColor
-                shaderEndColor = endColor
+                shaderColors = colors.copyOf()
             }
             progressPaint.color = Color.WHITE
             progressPaint.shader = progressShader
-        }
-
-        private fun opaque(color: Int): Int {
-            return Color.rgb(Color.red(color), Color.green(color), Color.blue(color))
         }
 
         private fun Method.invokeInt(): Int? {
@@ -433,7 +425,6 @@ internal object IslandProgressGlowHooker {
     private const val DEFAULT_TRACK_COLOR = 0x66757575
     private const val PROGRESS_ALPHA = 255
     private const val STROKE_WIDTH_RATIO = 1f
-    private const val PROGRESS_MAIN_COLOR_STOP = 0.7f
     private const val TOP_START_FRACTION = 0f
     private const val BOTTOM_START_FRACTION = 0.5f
     private const val LEFT_START_FRACTION = 0.75f
@@ -441,4 +432,8 @@ internal object IslandProgressGlowHooker {
     private const val ISLAND_DIMEN_CLASS = "miui.systemui.dynamicisland.R\$dimen"
     private const val ISLAND_RADIUS_FIELD = "island_radius"
     private const val DEFAULT_ISLAND_RADIUS_DP = 30f
+
+    private fun opaque(color: Int): Int {
+        return Color.rgb(Color.red(color), Color.green(color), Color.blue(color))
+    }
 }
