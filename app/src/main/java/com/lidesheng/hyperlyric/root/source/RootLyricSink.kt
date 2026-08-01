@@ -199,6 +199,7 @@ class RootLyricSink(
         if (previousRevision != current.revision) {
             IslandSlotContentAssembler.invalidate()
             IslandMusicWaveColorHooker.refresh()
+            renderer.updateTextColors()
         }
     }
 

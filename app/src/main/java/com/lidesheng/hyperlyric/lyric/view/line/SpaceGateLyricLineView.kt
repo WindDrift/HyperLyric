@@ -363,11 +363,7 @@ open class SpaceGateLyricLineView(context: Context, attrs: AttributeSet? = null)
         primaryColors = primary
         backgroundColors = background
         highlightColors = highlight
-
-        updatePlainTextColors()
-        syncRenderer.setColors(background, highlight)
-        countdownRenderer.setColors(background, highlight)
-        invalidate()
+        applyColors()
     }
 
     fun reset() {
@@ -546,8 +542,15 @@ open class SpaceGateLyricLineView(context: Context, attrs: AttributeSet? = null)
 
     private fun updateColorsIfReady() {
         if (primaryColors.isNotEmpty() && backgroundColors.isNotEmpty() && highlightColors.isNotEmpty()) {
-            updateColor(primaryColors, backgroundColors, highlightColors)
+            applyColors()
         }
+    }
+
+    private fun applyColors() {
+        updatePlainTextColors()
+        syncRenderer.setColors(backgroundColors, highlightColors)
+        countdownRenderer.setColors(backgroundColors, highlightColors)
+        invalidate()
     }
 
     private fun updatePlainTextColors() {
