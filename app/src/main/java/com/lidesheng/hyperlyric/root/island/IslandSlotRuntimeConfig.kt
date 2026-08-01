@@ -3,6 +3,7 @@ package com.lidesheng.hyperlyric.root.island
 import android.content.SharedPreferences
 import android.view.View
 import com.lidesheng.hyperlyric.common.RootConstants
+import com.lidesheng.hyperlyric.common.SuperIslandContentStylePolicy
 import com.lidesheng.hyperlyric.common.SuperIslandWidthPolicy
 
 internal data class IslandSlotRuntimeConfig(
@@ -144,13 +145,11 @@ internal data class IslandSlotRuntimeConfig(
                 RootConstants.KEY_HOOK_LYRIC_MODE,
                 RootConstants.DEFAULT_HOOK_LYRIC_MODE
             )
-            val showAlbum = prefs.getBoolean(
-                RootConstants.KEY_HOOK_ISLAND_LEFT_ALBUM,
-                RootConstants.DEFAULT_HOOK_ISLAND_LEFT_ALBUM
+            val showAlbum = SuperIslandContentStylePolicy.isAlbumCoverVisible(
+                SuperIslandContentStylePolicy.readAlbumCoverStyle(prefs)
             )
-            val showRhythm = prefs.getBoolean(
-                RootConstants.KEY_HOOK_ISLAND_RIGHT_ICON,
-                RootConstants.DEFAULT_HOOK_ISLAND_RIGHT_ICON
+            val showRhythm = SuperIslandContentStylePolicy.isMusicWaveVisible(
+                SuperIslandContentStylePolicy.readMusicWaveStyle(prefs)
             )
             val islandWidth = SuperIslandWidthPolicy.normalizeIslandWidth(
                 islandWidth = prefs.getInt(

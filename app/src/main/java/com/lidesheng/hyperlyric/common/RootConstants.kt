@@ -10,7 +10,6 @@ object RootConstants {
     const val KEY_HOOK_LYRICON_PROVIDER_DELAY_PREFIX = "key_hook_lyricon_provider_delay_"
 
 
-    const val KEY_HOOK_ISLAND_LEFT_ALBUM = "key_hook_island_left_album"
     const val KEY_HOOK_ISLAND_ALBUM_COVER_STYLE = "key_hook_island_album_cover_style"
     const val KEY_HOOK_ISLAND_CONTENT_LEFT = "key_hook_island_content_left"
     const val KEY_HOOK_ISLAND_CONTENT_RIGHT = "key_hook_island_content_right"
@@ -147,9 +146,7 @@ object RootConstants {
     const val KEY_HOOK_GRADIENT_PROGRESS = "key_hook_gradient_progress"
     const val KEY_HOOK_CENTER_LYRIC = "key_hook_center_lyric"
     const val KEY_HOOK_PLACEHOLDER_FORMAT = "key_hook_placeholder_format"
-    const val KEY_HOOK_ISLAND_RIGHT_ICON = "key_hook_island_right_icon"
-    const val KEY_HOOK_ISLAND_MUSIC_WAVE_COLOR = "key_hook_island_music_wave_color"
-    const val KEY_HOOK_ISLAND_MUSIC_WAVE_GRADIENT = "key_hook_island_music_wave_gradient"
+    const val KEY_HOOK_ISLAND_MUSIC_WAVE_STYLE = "key_hook_island_music_wave_style"
 
     // ================= ANIMATION & MARQUEE KEYS =================
     const val KEY_HOOK_ANIM_ENABLE = "key_hook_anim_enable"
@@ -220,11 +217,11 @@ object RootConstants {
 
     const val DEFAULT_HOOK_ENABLE_SUPER_ISLAND = false
     const val DEFAULT_HOOK_ENABLE_DYNAMIC_ISLAND = false
-    const val DEFAULT_HOOK_ISLAND_LEFT_ALBUM = true
     const val ISLAND_ALBUM_COVER_STYLE_DEFAULT = 0
     const val ISLAND_ALBUM_COVER_STYLE_CIRCLE = 1
     const val ISLAND_ALBUM_COVER_STYLE_APP_ICON = 2
     const val ISLAND_ALBUM_COVER_STYLE_ROTATING_CIRCLE = 3
+    const val ISLAND_ALBUM_COVER_STYLE_HIDDEN = 4
     const val DEFAULT_HOOK_ISLAND_ALBUM_COVER_STYLE = ISLAND_ALBUM_COVER_STYLE_DEFAULT
     const val DEFAULT_HOOK_REMOVE_FOCUS_WHITELIST = false
     const val DEFAULT_HOOK_REMOVE_ISLAND_WHITELIST = false
@@ -370,10 +367,11 @@ object RootConstants {
     const val PLACEHOLDER_FORMAT_TITLE = 2
     const val PLACEHOLDER_FORMAT_COUNTDOWN = 3
     const val DEFAULT_HOOK_PLACEHOLDER_FORMAT = PLACEHOLDER_FORMAT_COUNTDOWN
-    const val DEFAULT_HOOK_ISLAND_RIGHT_ICON = true
-    const val DEFAULT_HOOK_ISLAND_MUSIC_WAVE_COLOR = false
-    const val DEFAULT_HOOK_ISLAND_MUSIC_WAVE_GRADIENT = false
-
+    const val ISLAND_MUSIC_WAVE_STYLE_DEFAULT = 0
+    const val ISLAND_MUSIC_WAVE_STYLE_COVER_COLOR = 1
+    const val ISLAND_MUSIC_WAVE_STYLE_COVER_GRADIENT = 2
+    const val ISLAND_MUSIC_WAVE_STYLE_HIDDEN = 3
+    const val DEFAULT_HOOK_ISLAND_MUSIC_WAVE_STYLE = ISLAND_MUSIC_WAVE_STYLE_DEFAULT
     const val DEFAULT_HOOK_ANIM_ENABLE = false
     const val DEFAULT_HOOK_ANIM_ID = "default"
     const val DEFAULT_HOOK_MARQUEE_MODE = false

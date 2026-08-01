@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewOutlineProvider
 import android.widget.ImageView
 import com.lidesheng.hyperlyric.common.RootConstants
+import com.lidesheng.hyperlyric.common.SuperIslandContentStylePolicy
 import com.lidesheng.hyperlyric.root.HookEntry
 import com.lidesheng.hyperlyric.root.SystemUiEnhancementGate
 import com.lidesheng.hyperlyric.root.utils.HookLogger
@@ -202,20 +203,7 @@ internal object IslandAlbumCoverStyleHooker {
             return RootConstants.ISLAND_ALBUM_COVER_STYLE_DEFAULT
         }
         val sharedPrefs = prefs ?: return RootConstants.DEFAULT_HOOK_ISLAND_ALBUM_COVER_STYLE
-        if (!sharedPrefs.getBoolean(
-                RootConstants.KEY_HOOK_ISLAND_LEFT_ALBUM,
-                RootConstants.DEFAULT_HOOK_ISLAND_LEFT_ALBUM
-            )
-        ) {
-            return RootConstants.ISLAND_ALBUM_COVER_STYLE_DEFAULT
-        }
-        return sharedPrefs.getInt(
-            RootConstants.KEY_HOOK_ISLAND_ALBUM_COVER_STYLE,
-            RootConstants.DEFAULT_HOOK_ISLAND_ALBUM_COVER_STYLE
-        ).coerceIn(
-            RootConstants.ISLAND_ALBUM_COVER_STYLE_DEFAULT,
-            RootConstants.ISLAND_ALBUM_COVER_STYLE_ROTATING_CIRCLE
-        )
+        return SuperIslandContentStylePolicy.readAlbumCoverStyle(sharedPrefs)
     }
 
     private fun runOnMain(block: () -> Unit) {

@@ -5,7 +5,7 @@ import android.graphics.Bitmap
 import android.os.Handler
 import android.os.Looper
 import android.view.View
-import com.lidesheng.hyperlyric.common.RootConstants
+import com.lidesheng.hyperlyric.common.SuperIslandContentStylePolicy
 import com.lidesheng.hyperlyric.root.HookEntry
 import com.lidesheng.hyperlyric.root.SystemUiEnhancementGate
 import com.lidesheng.hyperlyric.root.utils.CoverColorHelper
@@ -185,13 +185,10 @@ internal object IslandMusicWaveColorHooker {
     }
 
     private fun isEnabled(sharedPrefs: SharedPreferences): Boolean {
-        return SystemUiEnhancementGate.isEnabled() && sharedPrefs.getBoolean(
-            RootConstants.KEY_HOOK_ISLAND_RIGHT_ICON,
-            RootConstants.DEFAULT_HOOK_ISLAND_RIGHT_ICON
-        ) && sharedPrefs.getBoolean(
-            RootConstants.KEY_HOOK_ISLAND_MUSIC_WAVE_COLOR,
-            RootConstants.DEFAULT_HOOK_ISLAND_MUSIC_WAVE_COLOR
-        )
+        return SystemUiEnhancementGate.isEnabled() &&
+                SuperIslandContentStylePolicy.usesMusicWaveCoverColor(
+                    SuperIslandContentStylePolicy.readMusicWaveStyle(sharedPrefs)
+                )
     }
 
     private fun colorsFromPalette(colors: List<Int>, useGradient: Boolean): WaveColors? {
@@ -208,9 +205,8 @@ internal object IslandMusicWaveColorHooker {
         colorSession: CoverColorHelper.ColorSession
     ): Boolean {
         if (!CoverColorHelper.isCurrentSession(colorSession)) return false
-        val useGradient = sharedPrefs.getBoolean(
-            RootConstants.KEY_HOOK_ISLAND_MUSIC_WAVE_GRADIENT,
-            RootConstants.DEFAULT_HOOK_ISLAND_MUSIC_WAVE_GRADIENT
+        val useGradient = SuperIslandContentStylePolicy.usesMusicWaveGradient(
+            SuperIslandContentStylePolicy.readMusicWaveStyle(sharedPrefs)
         )
         val colors = CoverColorHelper
             .getCachedColors(useGradient = true, session = colorSession)
@@ -227,9 +223,8 @@ internal object IslandMusicWaveColorHooker {
         artworkRequest: CoverColorHelper.ArtworkRequest
     ): Boolean {
         if (!CoverColorHelper.isCurrentArtwork(artworkRequest)) return false
-        val useGradient = sharedPrefs.getBoolean(
-            RootConstants.KEY_HOOK_ISLAND_MUSIC_WAVE_GRADIENT,
-            RootConstants.DEFAULT_HOOK_ISLAND_MUSIC_WAVE_GRADIENT
+        val useGradient = SuperIslandContentStylePolicy.usesMusicWaveGradient(
+            SuperIslandContentStylePolicy.readMusicWaveStyle(sharedPrefs)
         )
         val colors = CoverColorHelper
             .getCachedColors(useGradient = true, request = artworkRequest)

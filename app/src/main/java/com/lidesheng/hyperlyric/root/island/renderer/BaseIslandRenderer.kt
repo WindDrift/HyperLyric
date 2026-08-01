@@ -5,6 +5,7 @@ import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
 import com.lidesheng.hyperlyric.common.RootConstants
+import com.lidesheng.hyperlyric.common.SuperIslandContentStylePolicy
 import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
 import com.lidesheng.hyperlyric.lyric.view.RichLyricLineView
 import com.lidesheng.hyperlyric.lyric.view.SpaceGateRichLyricLineView
@@ -426,9 +427,8 @@ object BaseIslandRenderer : IslandRenderer {
                 RootConstants.KEY_HOOK_EXTRACT_COVER_TEXT_COLOR,
                 RootConstants.DEFAULT_HOOK_EXTRACT_COVER_TEXT_COLOR
             ) ||
-                    prefs.getBoolean(
-                        RootConstants.KEY_HOOK_ISLAND_MUSIC_WAVE_COLOR,
-                        RootConstants.DEFAULT_HOOK_ISLAND_MUSIC_WAVE_COLOR
+                    SuperIslandContentStylePolicy.usesMusicWaveCoverColor(
+                        SuperIslandContentStylePolicy.readMusicWaveStyle(prefs)
                     ) ||
                     prefs.getBoolean(
                         RootConstants.KEY_HOOK_ISLAND_GLOW_EXTRACT_COLOR,

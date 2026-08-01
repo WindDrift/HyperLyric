@@ -24,6 +24,7 @@ import androidx.core.content.edit
 import com.lidesheng.hyperlyric.R
 import com.lidesheng.hyperlyric.common.PrefsBridge
 import com.lidesheng.hyperlyric.common.RootConstants
+import com.lidesheng.hyperlyric.common.SuperIslandContentStylePolicy
 import com.lidesheng.hyperlyric.common.SuperIslandWidthPolicy
 import com.lidesheng.hyperlyric.common.UIConstants
 import com.lidesheng.hyperlyric.ui.component.NumberInputDialog
@@ -82,49 +83,18 @@ fun SuperIslandSettingsPage() {
             )
         )
     }
-    var audioCover by remember {
-        mutableStateOf(
-            prefs.getBoolean(
-                RootConstants.KEY_HOOK_ISLAND_LEFT_ALBUM,
-                RootConstants.DEFAULT_HOOK_ISLAND_LEFT_ALBUM
-            )
-        )
-    }
     var audioCoverStyle by remember {
         mutableIntStateOf(
-            prefs.getInt(
-                RootConstants.KEY_HOOK_ISLAND_ALBUM_COVER_STYLE,
-                RootConstants.DEFAULT_HOOK_ISLAND_ALBUM_COVER_STYLE
-            ).coerceIn(
-                RootConstants.ISLAND_ALBUM_COVER_STYLE_DEFAULT,
-                RootConstants.ISLAND_ALBUM_COVER_STYLE_ROTATING_CIRCLE
-            )
+            SuperIslandContentStylePolicy.readAlbumCoverStyle(prefs)
         )
     }
-    var audioRhythm by remember {
-        mutableStateOf(
-            prefs.getBoolean(
-                RootConstants.KEY_HOOK_ISLAND_RIGHT_ICON,
-                RootConstants.DEFAULT_HOOK_ISLAND_RIGHT_ICON
-            )
+    var audioRhythmStyle by remember {
+        mutableIntStateOf(
+            SuperIslandContentStylePolicy.readMusicWaveStyle(prefs)
         )
     }
-    var optimizeMusicWaveColor by remember {
-        mutableStateOf(
-            prefs.getBoolean(
-                RootConstants.KEY_HOOK_ISLAND_MUSIC_WAVE_COLOR,
-                RootConstants.DEFAULT_HOOK_ISLAND_MUSIC_WAVE_COLOR
-            )
-        )
-    }
-    var musicWaveGradient by remember {
-        mutableStateOf(
-            prefs.getBoolean(
-                RootConstants.KEY_HOOK_ISLAND_MUSIC_WAVE_GRADIENT,
-                RootConstants.DEFAULT_HOOK_ISLAND_MUSIC_WAVE_GRADIENT
-            )
-        )
-    }
+    val audioCover = SuperIslandContentStylePolicy.isAlbumCoverVisible(audioCoverStyle)
+    val audioRhythm = SuperIslandContentStylePolicy.isMusicWaveVisible(audioRhythmStyle)
     var leftPaddingLeft by remember {
         mutableIntStateOf(
             prefs.getInt(
@@ -254,6 +224,20 @@ fun SuperIslandSettingsPage() {
         }
     }
 
+    fun saveAudioCoverStyle(style: Int) {
+        val visible = SuperIslandContentStylePolicy.isAlbumCoverVisible(style)
+        audioCoverStyle = style
+        saveConfig(RootConstants.KEY_HOOK_ISLAND_ALBUM_COVER_STYLE, style)
+        clampIslandWidthIfNeeded(showAlbum = visible, showRhythm = audioRhythm)
+    }
+
+    fun saveAudioRhythmStyle(style: Int) {
+        val visible = SuperIslandContentStylePolicy.isMusicWaveVisible(style)
+        audioRhythmStyle = style
+        saveConfig(RootConstants.KEY_HOOK_ISLAND_MUSIC_WAVE_STYLE, style)
+        clampIslandWidthIfNeeded(showAlbum = audioCover, showRhythm = visible)
+    }
+
     val islandWidthMin = SuperIslandWidthPolicy.minIslandWidth(audioCover, audioRhythm)
     val islandWidthMax = SuperIslandWidthPolicy.maxIslandWidth(audioRhythm)
     val islandWidthKeyPoints = remember(islandWidthMin, islandWidthMax) {
@@ -280,7 +264,8 @@ fun SuperIslandSettingsPage() {
             RootConstants.ISLAND_ALBUM_COVER_STYLE_DEFAULT,
             RootConstants.ISLAND_ALBUM_COVER_STYLE_CIRCLE,
             RootConstants.ISLAND_ALBUM_COVER_STYLE_ROTATING_CIRCLE,
-            RootConstants.ISLAND_ALBUM_COVER_STYLE_APP_ICON
+            RootConstants.ISLAND_ALBUM_COVER_STYLE_APP_ICON,
+            RootConstants.ISLAND_ALBUM_COVER_STYLE_HIDDEN
         )
     }
     val audioCoverStyleOptions = remember {
@@ -288,7 +273,24 @@ fun SuperIslandSettingsPage() {
             R.string.option_audio_cover_style_default,
             R.string.option_audio_cover_style_circle,
             R.string.option_audio_cover_style_rotating_circle,
-            R.string.option_audio_cover_style_app_icon
+            R.string.option_audio_cover_style_app_icon,
+            R.string.option_island_component_hidden
+        )
+    }.map { stringResource(id = it) }
+    val audioRhythmStyleValues = remember {
+        listOf(
+            RootConstants.ISLAND_MUSIC_WAVE_STYLE_DEFAULT,
+            RootConstants.ISLAND_MUSIC_WAVE_STYLE_COVER_COLOR,
+            RootConstants.ISLAND_MUSIC_WAVE_STYLE_COVER_GRADIENT,
+            RootConstants.ISLAND_MUSIC_WAVE_STYLE_HIDDEN
+        )
+    }
+    val audioRhythmStyleOptions = remember {
+        listOf(
+            R.string.option_audio_rhythm_default,
+            R.string.option_audio_rhythm_cover_color,
+            R.string.option_audio_rhythm_cover_gradient,
+            R.string.option_island_component_hidden
         )
     }.map { stringResource(id = it) }
     val progressStyleOptions = remember {
@@ -454,7 +456,7 @@ fun SuperIslandSettingsPage() {
                     }
                 }
                 item(key = "content_title") { SmallTitle(text = stringResource(id = R.string.title_content)) }
-                item(key = "media_components") {
+                item(key = "left_content") {
                     Card(
                         modifier = Modifier
                             .padding(horizontal = 12.dp)
@@ -462,89 +464,17 @@ fun SuperIslandSettingsPage() {
                             .fillMaxWidth()
                     ) {
                         Column {
-                            SwitchPreference(
+                            OverlayDropdownPreference(
                                 title = stringResource(id = R.string.title_audio_cover),
-                                checked = audioCover,
-                                onCheckedChange = {
-                                    audioCover = it
-                                    saveConfig(RootConstants.KEY_HOOK_ISLAND_LEFT_ALBUM, it)
-                                    clampIslandWidthIfNeeded(
-                                        showAlbum = it,
-                                        showRhythm = audioRhythm
-                                    )
-                                })
-                            AnimatedVisibility(visible = audioCover) {
-                                Column {
-                                    OverlayDropdownPreference(
-                                        title = stringResource(id = R.string.title_audio_cover_style),
-                                        items = audioCoverStyleOptions,
-                                        selectedIndex = audioCoverStyleValues.indexOf(
-                                            audioCoverStyle
-                                        ).coerceAtLeast(0),
-                                        onSelectedIndexChange = { index ->
-                                            val style = audioCoverStyleValues[index]
-                                            audioCoverStyle = style
-                                            saveConfig(
-                                                RootConstants.KEY_HOOK_ISLAND_ALBUM_COVER_STYLE,
-                                                style
-                                            )
-                                        }
-                                    )
+                                items = audioCoverStyleOptions,
+                                selectedIndex = audioCoverStyleValues.indexOf(
+                                    audioCoverStyle
+                                ).coerceAtLeast(0),
+                                onSelectedIndexChange = { index ->
+                                    saveAudioCoverStyle(audioCoverStyleValues[index])
                                 }
-                            }
-                            SwitchPreference(
-                                title = stringResource(id = R.string.title_audio_rhythm),
-                                checked = audioRhythm,
-                                onCheckedChange = {
-                                    audioRhythm = it
-                                    saveConfig(RootConstants.KEY_HOOK_ISLAND_RIGHT_ICON, it)
-                                    clampIslandWidthIfNeeded(
-                                        showAlbum = audioCover,
-                                        showRhythm = it
-                                    )
-                                })
-                            AnimatedVisibility(visible = audioRhythm) {
-                                Column {
-                                    SwitchPreference(
-                                        title = stringResource(id = R.string.title_audio_rhythm_cover_color),
-                                        checked = optimizeMusicWaveColor,
-                                        onCheckedChange = {
-                                            optimizeMusicWaveColor = it
-                                            saveConfig(
-                                                RootConstants.KEY_HOOK_ISLAND_MUSIC_WAVE_COLOR,
-                                                it
-                                            )
-                                        }
-                                    )
-                                    AnimatedVisibility(visible = optimizeMusicWaveColor) {
-                                        Column {
-                                            SwitchPreference(
-                                                title = stringResource(id = R.string.title_audio_rhythm_gradient_color),
-                                                checked = musicWaveGradient,
-                                                onCheckedChange = {
-                                                    musicWaveGradient = it
-                                                    saveConfig(
-                                                        RootConstants.KEY_HOOK_ISLAND_MUSIC_WAVE_GRADIENT,
-                                                        it
-                                                    )
-                                                }
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                if (lyricMode == 0) {
-                    item(key = "content_options") {
-                        Card(
-                            modifier = Modifier
-                                .padding(horizontal = 12.dp)
-                                .padding(bottom = 12.dp)
-                                .fillMaxWidth()
-                        ) {
-                            Column {
+                            )
+                            if (lyricMode == 0) {
                                 OverlayDropdownPreference(
                                     title = stringResource(id = R.string.title_super_island_left),
                                     items = contentOptions,
@@ -556,6 +486,19 @@ fun SuperIslandSettingsPage() {
                                     )
                                     }
                                 )
+                            }
+                        }
+                    }
+                }
+                item(key = "right_content") {
+                    Card(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = 12.dp)
+                            .fillMaxWidth()
+                    ) {
+                        Column {
+                            if (lyricMode == 0) {
                                 OverlayDropdownPreference(
                                     title = stringResource(id = R.string.title_super_island_right),
                                     items = contentOptions,
@@ -568,6 +511,16 @@ fun SuperIslandSettingsPage() {
                                     }
                                 )
                             }
+                            OverlayDropdownPreference(
+                                title = stringResource(id = R.string.title_audio_rhythm),
+                                items = audioRhythmStyleOptions,
+                                selectedIndex = audioRhythmStyleValues.indexOf(
+                                    audioRhythmStyle
+                                ).coerceAtLeast(0),
+                                onSelectedIndexChange = { index ->
+                                    saveAudioRhythmStyle(audioRhythmStyleValues[index])
+                                }
+                            )
                         }
                     }
                 }

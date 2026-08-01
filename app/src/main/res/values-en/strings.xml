@@ -397,8 +397,10 @@
     <string name="option_audio_cover_style_app_icon">App icon</string>
     <string name="option_audio_cover_style_hidden">Hide cover</string>
     <string name="title_audio_rhythm">Audio Rhythm</string>
-    <string name="title_audio_rhythm_cover_color">Audio rhythm cover color</string>
-    <string name="title_audio_rhythm_gradient_color">Audio rhythm cover gradient</string>
+    <string name="option_audio_rhythm_default">Default</string>
+    <string name="option_audio_rhythm_cover_color">Cover color</string>
+    <string name="option_audio_rhythm_cover_gradient">Cover gradient</string>
+    <string name="option_island_component_hidden">Hidden</string>
     <string name="title_super_island_left">HyperIsland Left</string>
     <string name="title_super_island_right">HyperIsland Right</string>
     <string name="option_content_none">None</string>

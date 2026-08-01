@@ -3,7 +3,7 @@ package com.lidesheng.hyperlyric.root.island
 import android.content.SharedPreferences
 import android.view.View
 import android.view.ViewGroup
-import com.lidesheng.hyperlyric.common.RootConstants
+import com.lidesheng.hyperlyric.common.SuperIslandContentStylePolicy
 import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
 import com.lidesheng.hyperlyric.root.HookIslandGlow
 import com.lidesheng.hyperlyric.root.utils.HookLogger
@@ -28,13 +28,11 @@ internal object IslandHostFacade {
     }
 
     fun applyHostSettings(rootView: ViewGroup, prefs: SharedPreferences) {
-        val showAlbum = prefs.getBoolean(
-            RootConstants.KEY_HOOK_ISLAND_LEFT_ALBUM,
-            RootConstants.DEFAULT_HOOK_ISLAND_LEFT_ALBUM
+        val showAlbum = SuperIslandContentStylePolicy.isAlbumCoverVisible(
+            SuperIslandContentStylePolicy.readAlbumCoverStyle(prefs)
         )
-        val showRhythm = prefs.getBoolean(
-            RootConstants.KEY_HOOK_ISLAND_RIGHT_ICON,
-            RootConstants.DEFAULT_HOOK_ISLAND_RIGHT_ICON
+        val showRhythm = SuperIslandContentStylePolicy.isMusicWaveVisible(
+            SuperIslandContentStylePolicy.readMusicWaveStyle(prefs)
         )
 
         IslandViewHelper.toggleContainer(

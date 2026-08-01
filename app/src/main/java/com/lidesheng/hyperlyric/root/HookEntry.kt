@@ -370,25 +370,15 @@ class HookEntry : XposedModule() {
                             }
                         }
 
-                        RootConstants.KEY_HOOK_ISLAND_ALBUM_COVER_STYLE,
-                        RootConstants.KEY_HOOK_ISLAND_LEFT_ALBUM -> {
+                        RootConstants.KEY_HOOK_ISLAND_ALBUM_COVER_STYLE -> {
                             Handler(Looper.getMainLooper()).post {
                                 IslandAlbumCoverStyleHooker.refresh()
                                 BaseIslandRenderer.refreshActiveIsland()
                             }
                         }
 
-                        RootConstants.KEY_HOOK_ISLAND_MUSIC_WAVE_COLOR,
-                        RootConstants.KEY_HOOK_ISLAND_MUSIC_WAVE_GRADIENT -> {
+                        RootConstants.KEY_HOOK_ISLAND_MUSIC_WAVE_STYLE -> {
                             Handler(Looper.getMainLooper()).post {
-                                IslandAlbumCoverStyleHooker.refresh()
-                                IslandMusicWaveColorHooker.refresh()
-                            }
-                        }
-
-                        RootConstants.KEY_HOOK_ISLAND_RIGHT_ICON -> {
-                            Handler(Looper.getMainLooper()).post {
-                                IslandAlbumCoverStyleHooker.refresh()
                                 IslandMusicWaveColorHooker.refresh()
                                 BaseIslandRenderer.refreshActiveIsland()
                             }
