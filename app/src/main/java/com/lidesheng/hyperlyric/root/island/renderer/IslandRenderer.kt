@@ -8,6 +8,7 @@ package com.lidesheng.hyperlyric.root.island.renderer
 interface IslandRenderer {
     fun refreshActiveIsland()
     fun updateLyricLine()
+    fun updateTextColors()
     fun updatePosition(position: Long)
     fun onPlaybackStateChanged(isPlaying: Boolean)
     fun clearAllViews()

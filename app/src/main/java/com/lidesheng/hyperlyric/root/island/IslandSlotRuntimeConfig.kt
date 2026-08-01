@@ -96,7 +96,6 @@ internal data class IslandSlotRuntimeConfig(
         swapTranslation,
         nextLyricLine,
         autoSwitchTranslation,
-        textColorStyle,
         customFontPath,
         wordMotionEnabled,
         wordMotionCjkLift,

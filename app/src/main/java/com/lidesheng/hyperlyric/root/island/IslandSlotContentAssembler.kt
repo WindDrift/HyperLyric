@@ -25,15 +25,18 @@ import java.util.WeakHashMap
 internal object IslandSlotContentAssembler {
     private val lastContentSignatures = WeakHashMap<View, String>()
     private val lastStyleSignatures = WeakHashMap<View, String>()
+    private val lastColorSignatures = WeakHashMap<View, String>()
 
     fun invalidate(view: View? = null) {
         if (view == null) {
             synchronized(lastContentSignatures) { lastContentSignatures.clear() }
             synchronized(lastStyleSignatures) { lastStyleSignatures.clear() }
+            synchronized(lastColorSignatures) { lastColorSignatures.clear() }
             return
         }
         synchronized(lastContentSignatures) { lastContentSignatures.remove(view) }
         synchronized(lastStyleSignatures) { lastStyleSignatures.remove(view) }
+        synchronized(lastColorSignatures) { lastColorSignatures.remove(view) }
     }
 
     fun configureView(
@@ -65,20 +68,26 @@ internal object IslandSlotContentAssembler {
         } else {
             null
         }
-        val signature = listOf(
+        val styleSignature = listOf(
             config.styleSignature,
             mode,
+            mediaInfo.title,
+            mediaInfo.artist,
+            mediaInfo.album
+        ).joinToString("|")
+        val colorSignature = listOf(
+            config.textColorStyle,
             statusBarTextColor,
             colorSession?.revision,
             colorSession?.mediaKey,
             artworkRequest?.revision,
-            mediaInfo.title,
-            mediaInfo.artist,
-            mediaInfo.album,
             albumBitmap?.generationId ?: 0
         ).joinToString("|")
 
-        if (!force && lastStyleSignatures[view] == signature) return
+        val styleChanged = force || lastStyleSignatures[view] != styleSignature
+        val colorChanged = force || lastColorSignatures[view] != colorSignature
+        if (!styleChanged && !colorChanged) return
+
         val style = LyricStyleHelper.buildStyle(
             prefs = prefs,
             res = view.resources,
@@ -89,18 +98,35 @@ internal object IslandSlotContentAssembler {
         )
         when (view) {
             is RichLyricLineView -> {
-                view.displayTranslation = !disableAll
-                view.displayRoma = !disableAll && !translationOnly
-                view.setStyle(style)
+                if (styleChanged) {
+                    view.displayTranslation = !disableAll
+                    view.displayRoma = !disableAll && !translationOnly
+                    view.setStyle(style)
+                } else {
+                    view.updateColor(
+                        style.primary.color,
+                        style.highlight.background,
+                        style.highlight.foreground
+                    )
+                }
             }
 
             is SpaceGateRichLyricLineView -> {
-                view.displayTranslation = !disableAll
-                view.displayRoma = !disableAll && !translationOnly
-                view.setStyle(style)
+                if (styleChanged) {
+                    view.displayTranslation = !disableAll
+                    view.displayRoma = !disableAll && !translationOnly
+                    view.setStyle(style)
+                } else {
+                    view.updateColor(
+                        style.primary.color,
+                        style.highlight.background,
+                        style.highlight.foreground
+                    )
+                }
             }
         }
-        lastStyleSignatures[view] = signature
+        lastStyleSignatures[view] = styleSignature
+        lastColorSignatures[view] = colorSignature
     }
 
     fun applySlotContent(

@@ -354,6 +354,11 @@ open class SpaceGateLyricLineView(context: Context, attrs: AttributeSet? = null)
     }
 
     override fun updateColor(primary: IntArray, background: IntArray, highlight: IntArray) {
+        if (primaryColors.contentEquals(primary) &&
+            backgroundColors.contentEquals(background) &&
+            highlightColors.contentEquals(highlight)
+        ) return
+
         primaryColors = primary
         backgroundColors = background
         highlightColors = highlight

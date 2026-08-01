@@ -27,6 +27,7 @@ object BaseIslandRenderer : IslandRenderer {
     private const val REFRESH_DEBOUNCE_MS = 32L
     private val mainHandler = Handler(Looper.getMainLooper())
     private val refreshRunnable = Runnable { performRefreshActiveIsland() }
+    private val textColorRefreshRunnable = Runnable { performUpdateTextColors() }
 
     @Volatile
     private var clearedByPause = false
@@ -138,6 +139,34 @@ object BaseIslandRenderer : IslandRenderer {
                     updateLyricContentForView(cv, currentPrefs, currentConfig)
                 }
             }
+    }
+
+    override fun updateTextColors() {
+        mainHandler.removeCallbacks(textColorRefreshRunnable)
+        mainHandler.post(textColorRefreshRunnable)
+    }
+
+    private fun performUpdateTextColors() {
+        forEachActiveHost { cv, packageName, prefs, config ->
+            val mediaInfo = MediaMetadataHelper.getMediaInfo(cv.context, packageName, HookLogger)
+            prepareSharedCoverPalette(packageName, mediaInfo, prefs)
+            updateSlotColors(
+                cv,
+                IslandProbeUtils.LEFT_TEST_VIEW_TAG,
+                config.leftMode,
+                prefs,
+                config,
+                mediaInfo
+            )
+            updateSlotColors(
+                cv,
+                IslandProbeUtils.RIGHT_TEST_VIEW_TAG,
+                config.rightMode,
+                prefs,
+                config,
+                mediaInfo
+            )
+        }
     }
 
     override fun updatePosition(position: Long) {
@@ -368,6 +397,7 @@ object BaseIslandRenderer : IslandRenderer {
 
     override fun clearAllViews() {
         mainHandler.removeCallbacks(refreshRunnable)
+        mainHandler.removeCallbacks(textColorRefreshRunnable)
         IslandPresentationCoordinator.updatePlaybackState(false)
         val expectedPresentationRevision =
             IslandPresentationCoordinator.invalidatePresentation()
@@ -411,6 +441,44 @@ object BaseIslandRenderer : IslandRenderer {
             mediaInfo
         )
         IslandMusicWaveColorHooker.refresh()
+    }
+
+    private fun forEachActiveHost(
+        update: (
+            ViewGroup,
+            String,
+            android.content.SharedPreferences,
+            IslandSlotRuntimeConfig
+        ) -> Unit
+    ) {
+        if (!shouldRenderInjectedIsland()) return
+        val packageName = LyriconDataBridge.currentLyricPackageName
+            ?.takeIf { it.isNotEmpty() }
+            ?: return
+        val expectedLyricVersion = LyriconDataBridge.versionCounter.get()
+        val expectedPresentationRevision =
+            IslandPresentationCoordinator.currentPresentationRevision()
+
+        IslandPresentationCoordinator.snapshotAttachedHosts(packageName).forEach { token ->
+            if (IslandPresentationCoordinator.isHostFrozenForFakeTransition(token)) {
+                return@forEach
+            }
+            token.root.post {
+                if (!IslandPresentationCoordinator.isCurrentHost(token) ||
+                    IslandPresentationCoordinator.isHostFrozenForFakeTransition(token) ||
+                    !IslandPresentationCoordinator.isCurrentPresentation(
+                        expectedPresentationRevision
+                    ) ||
+                    LyriconDataBridge.versionCounter.get() != expectedLyricVersion ||
+                    LyriconDataBridge.currentLyricPackageName != packageName ||
+                    !shouldRenderInjectedIsland()
+                ) {
+                    return@post
+                }
+                val prefs = HookEntry.instance?.prefs ?: return@post
+                update(token.root, packageName, prefs, IslandSlotRuntimeConfig.from(prefs))
+            }
+        }
     }
 
     /**
@@ -505,6 +573,25 @@ object BaseIslandRenderer : IslandRenderer {
             mode = mode,
             lineOverride = lineOverride,
             playbackActive = IslandPresentationCoordinator.isPlaybackActive(),
+            mediaInfo = mediaInfo
+        )
+    }
+
+    private fun updateSlotColors(
+        cv: ViewGroup,
+        tag: String,
+        mode: Int,
+        prefs: android.content.SharedPreferences,
+        config: IslandSlotRuntimeConfig,
+        mediaInfo: MediaMetadataHelper.MediaInfo
+    ) {
+        if (mode == 0) return
+        val view = cv.findViewWithTag<View>(tag) ?: return
+        IslandSlotContentAssembler.configureView(
+            view = view,
+            prefs = prefs,
+            config = config,
+            mode = mode,
             mediaInfo = mediaInfo
         )
     }

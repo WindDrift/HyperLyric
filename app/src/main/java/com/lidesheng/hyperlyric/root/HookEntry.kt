@@ -96,7 +96,6 @@ class HookEntry : XposedModule() {
             RootConstants.KEY_HOOK_TRANSLATION_ONLY,
             RootConstants.KEY_HOOK_SWAP_TRANSLATION,
             RootConstants.KEY_HOOK_NEXT_LYRIC_LINE,
-            RootConstants.KEY_HOOK_TEXT_COLOR_STYLE,
             RootConstants.KEY_HOOK_CUSTOM_FONT_PATH,
             RootConstants.KEY_HOOK_WORD_MOTION_ENABLED,
             RootConstants.KEY_HOOK_WORD_MOTION_CJK_LIFT,
@@ -379,6 +378,12 @@ class HookEntry : XposedModule() {
                             Handler(Looper.getMainLooper()).post {
                                 IslandMusicWaveColorHooker.refresh()
                                 BaseIslandRenderer.refreshActiveIsland()
+                            }
+                        }
+
+                        RootConstants.KEY_HOOK_TEXT_COLOR_STYLE -> {
+                            Handler(Looper.getMainLooper()).post {
+                                BaseIslandRenderer.updateTextColors()
                             }
                         }
 

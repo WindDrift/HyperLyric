@@ -162,7 +162,7 @@ internal object StatusBarTextColorHooker {
 
         val prefs = HookEntry.instance?.prefs ?: return
         if (LyricTextColorStylePolicy.followsStatusBar(LyricTextColorStylePolicy.read(prefs))) {
-            BaseIslandRenderer.refreshActiveIsland()
+            BaseIslandRenderer.updateTextColors()
         }
     }
 
