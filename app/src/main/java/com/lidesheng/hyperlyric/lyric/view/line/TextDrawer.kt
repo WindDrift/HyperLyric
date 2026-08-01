@@ -181,6 +181,8 @@ internal class TextDrawer {
                     drawX = word.startPosition,
                     unitStart = word.startPosition,
                     unitEnd = word.endPosition,
+                    motionStart = word.startPosition,
+                    motionEnd = word.endPosition,
                     highlightWidth = highlightWidth,
                     clipStart = clipStart,
                     clipEnd = clipEnd,
@@ -192,9 +194,24 @@ internal class TextDrawer {
                 return@forEach
             }
 
+            val evenMotionWidth = if (motionSpec.distributeCharsEvenly) {
+                word.textWidth / word.chars.size.coerceAtLeast(1)
+            } else {
+                0f
+            }
             for (i in word.chars.indices) {
                 val charStart = word.charStartPositions[i]
                 val charEnd = word.charEndPositions[i]
+                val motionStart = if (motionSpec.distributeCharsEvenly) {
+                    word.startPosition + evenMotionWidth * i
+                } else {
+                    charStart
+                }
+                val motionEnd = if (motionSpec.distributeCharsEvenly) {
+                    motionStart + evenMotionWidth
+                } else {
+                    charEnd
+                }
                 drawAnimatedTextUnit(
                     canvas = canvas,
                     text = word.text,
@@ -203,6 +220,8 @@ internal class TextDrawer {
                     drawX = charStart,
                     unitStart = charStart,
                     unitEnd = charEnd,
+                    motionStart = motionStart,
+                    motionEnd = motionEnd,
                     highlightWidth = highlightWidth,
                     clipStart = clipStart,
                     clipEnd = clipEnd,
@@ -223,6 +242,8 @@ internal class TextDrawer {
         drawX: Float,
         unitStart: Float,
         unitEnd: Float,
+        motionStart: Float,
+        motionEnd: Float,
         highlightWidth: Float,
         clipStart: Float,
         clipEnd: Float,
@@ -235,7 +256,13 @@ internal class TextDrawer {
 
         val visibleLeft = unitStart.coerceAtLeast(clipStart)
         val visibleRight = unitEnd.coerceAtMost(clipEnd)
-        val liftY = computeUnitLift(highlightWidth, unitStart, unitEnd, paint.textSize, motionSpec)
+        val liftY = computeUnitLift(
+            highlightWidth,
+            motionStart,
+            motionEnd,
+            paint.textSize,
+            motionSpec
+        )
 
         canvas.withSave {
             clipRect(visibleLeft, 0f, visibleRight, viewHeight.toFloat())
@@ -259,10 +286,16 @@ internal class TextDrawer {
 
     private fun WordModel.motionSpec(): MotionSpec {
         return if (text.any { it.isCjk() }) {
-            MotionSpec(animateByChar = true, liftFactor = cjkLiftFactor, waveFactor = cjkWaveFactor)
+            MotionSpec(
+                animateByChar = true,
+                distributeCharsEvenly = false,
+                liftFactor = cjkLiftFactor,
+                waveFactor = cjkWaveFactor
+            )
         } else {
             MotionSpec(
-                animateByChar = false,
+                animateByChar = true,
+                distributeCharsEvenly = true,
                 liftFactor = latinLiftFactor,
                 waveFactor = latinWaveFactor
             )
@@ -289,6 +322,7 @@ internal class TextDrawer {
 
     private data class MotionSpec(
         val animateByChar: Boolean,
+        val distributeCharsEvenly: Boolean,
         val liftFactor: Float,
         val waveFactor: Float
     )
