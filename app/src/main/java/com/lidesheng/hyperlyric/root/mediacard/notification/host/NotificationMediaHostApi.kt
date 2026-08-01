@@ -1,0 +1,326 @@
+package com.lidesheng.hyperlyric.root.mediacard.notification.host
+
+import android.content.Context
+import android.view.View
+import android.widget.ImageButton
+import android.widget.ImageView
+import android.widget.TextView
+import com.lidesheng.hyperlyric.root.mediacard.notification.layout.NotificationMediaConstraintBridge
+import java.lang.reflect.Field
+import java.lang.reflect.Method
+
+internal object NotificationMediaHostClasses {
+    const val VIEW_CONTROLLER =
+        "com.android.systemui.statusbar.notification.mediacontrol.MiuiMediaViewControllerImpl"
+    const val LAYOUT_CONTROLLER =
+        "com.android.systemui.statusbar.notification.mediacontrol.MiuiMediaNotificationControllerImpl"
+    const val HOLDER =
+        "com.android.systemui.statusbar.notification.mediacontrol.MiuiMediaViewHolder"
+    const val MEDIA_HEADER_VIEW =
+        "com.android.systemui.statusbar.notification.mediacontrol.MiuiMediaHeaderView"
+    const val ACTION_BUTTON_UTILS =
+        "com.android.systemui.statusbar.notification.mediacontrol.MiuiMediaActionButtonUtils"
+    const val MEDIA_DATA = "com.android.systemui.media.controls.shared.model.MediaData"
+    const val MEDIA_ACTION = "com.android.systemui.media.controls.shared.model.MediaAction"
+}
+
+internal class NotificationMediaHostApi private constructor(
+    val hookMethods: List<Method>,
+    private val holderField: Field,
+    private val controllerMediaDataField: Field,
+    private val albumViewField: Field,
+    private val albumImageField: Field,
+    private val actionButtonFields: List<Field>,
+    private val seekBarField: Field?,
+    private val elapsedTimeViewField: Field?,
+    private val totalTimeViewField: Field?,
+    private val seekBarPaddingOffsetField: Field?,
+    private val seekBarTrackPositionField: Field?,
+    private val seekBarRuntimeShaderField: Field?,
+    private val mediaDataIsPlayingField: Field,
+    private val layoutContextField: Field,
+    private val normalLayoutField: Field,
+    private val normalAlbumLayoutField: Field,
+    private val setVisibilityMethod: Method,
+    private val setGoneMarginMethod: Method,
+    private val connectMethod: Method,
+    private val setMarginMethod: Method,
+    private val clearMethod: Method?,
+    private val constrainWidthMethod: Method?,
+    private val constrainHeightMethod: Method?
+) : NotificationMediaConstraintBridge {
+    override val supportsFullLayout: Boolean
+        get() = clearMethod != null &&
+                constrainWidthMethod != null &&
+                constrainHeightMethod != null
+
+    fun getHolder(controller: Any): Any? = holderField.get(controller)
+
+    fun getMediaData(controller: Any): Any? = controllerMediaDataField.get(controller)
+
+    fun getAlbumView(holder: Any): View = albumViewField.get(holder) as View
+
+    fun getAlbumImage(holder: Any): ImageView = albumImageField.get(holder) as ImageView
+
+    fun getActionButtons(holder: Any): List<ImageButton> {
+        return actionButtonFields.mapNotNull { field ->
+            runCatching { field.get(holder) as? ImageButton }.getOrNull()
+        }
+    }
+
+    fun getSeekBar(holder: Any): View? = seekBarField?.get(holder) as? View
+
+    fun getElapsedTimeView(holder: Any): TextView? =
+        elapsedTimeViewField?.get(holder) as? TextView
+
+    fun getTotalTimeView(holder: Any): TextView? =
+        totalTimeViewField?.get(holder) as? TextView
+
+    fun getLayoutContext(controller: Any): Context = layoutContextField.get(controller) as Context
+
+    fun getNormalLayout(controller: Any): Any? = normalLayoutField.get(controller)
+
+    fun getNormalAlbumLayout(controller: Any): Any? = normalAlbumLayoutField.get(controller)
+
+    fun removeSeekBarTrackInset(seekBar: View) {
+        val paddingField = seekBarPaddingOffsetField ?: return
+        val trackPositionField = seekBarTrackPositionField ?: return
+        val trackPosition = trackPositionField.get(seekBar) as? FloatArray ?: return
+        if (trackPosition.isEmpty()) return
+        val paddingChanged = paddingField.getInt(seekBar) != 0
+        val positionChanged = trackPosition[0] != 0f
+        if (!paddingChanged && !positionChanged) return
+
+        if (paddingChanged) paddingField.setInt(seekBar, 0)
+        if (positionChanged) trackPosition[0] = 0f
+        runCatching {
+            val shader = seekBarRuntimeShaderField?.get(seekBar) ?: return@runCatching
+            val setFloatUniform = shader.javaClass.methods.find { method ->
+                method.name == "setFloatUniform" &&
+                        method.parameterCount == 2 &&
+                        method.parameterTypes[0] == String::class.java &&
+                        method.parameterTypes[1] == FloatArray::class.java
+            } ?: return@runCatching
+            setFloatUniform.invoke(shader, "uTrackPosition", trackPosition)
+        }
+        seekBar.requestLayout()
+        seekBar.invalidate()
+    }
+
+    fun isPlaying(mediaData: Any?): Boolean {
+        return mediaData?.let { mediaDataIsPlayingField.get(it) == true } ?: false
+    }
+
+    override fun setVisibility(layout: Any, viewId: Int, visibility: Int) {
+        setVisibilityMethod.invoke(layout, viewId, visibility)
+    }
+
+    override fun setGoneMargin(layout: Any, viewId: Int, side: Int, margin: Int) {
+        setGoneMarginMethod.invoke(layout, viewId, side, margin)
+    }
+
+    override fun connect(
+        layout: Any,
+        startId: Int,
+        startSide: Int,
+        endId: Int,
+        endSide: Int
+    ) {
+        connectMethod.invoke(layout, startId, startSide, endId, endSide)
+    }
+
+    override fun setMargin(layout: Any, viewId: Int, side: Int, margin: Int) {
+        setMarginMethod.invoke(layout, viewId, side, margin)
+    }
+
+    override fun clear(layout: Any, viewId: Int, side: Int) {
+        requireNotNull(clearMethod).invoke(layout, viewId, side)
+    }
+
+    override fun constrainWidth(layout: Any, viewId: Int, width: Int) {
+        requireNotNull(constrainWidthMethod).invoke(layout, viewId, width)
+    }
+
+    override fun constrainHeight(layout: Any, viewId: Int, height: Int) {
+        requireNotNull(constrainHeightMethod).invoke(layout, viewId, height)
+    }
+
+    companion object {
+        fun create(classLoader: ClassLoader): NotificationMediaHostApi {
+            val viewControllerClass = classLoader.loadClass(
+                NotificationMediaHostClasses.VIEW_CONTROLLER
+            )
+            val layoutControllerClass = classLoader.loadClass(
+                NotificationMediaHostClasses.LAYOUT_CONTROLLER
+            )
+            val holderClass = classLoader.loadClass(NotificationMediaHostClasses.HOLDER)
+            val mediaDataClass = classLoader.loadClass(NotificationMediaHostClasses.MEDIA_DATA)
+            val actionButtonUtilsClass = classLoader.loadClass(
+                NotificationMediaHostClasses.ACTION_BUTTON_UTILS
+            )
+            val mediaActionClass = classLoader.loadClass(NotificationMediaHostClasses.MEDIA_ACTION)
+            val semanticActionMethod = actionButtonUtilsClass.declaredMethods.find { method ->
+                method.name == "setSemanticButton" &&
+                        method.parameterCount == 2 &&
+                        method.parameterTypes[0] == ImageButton::class.java &&
+                        method.parameterTypes[1] == mediaActionClass
+            }?.apply { isAccessible = true }
+            val commonActionMethod = actionButtonUtilsClass.declaredMethods.find { method ->
+                method.name == "bindButtonsCommon" &&
+                        method.parameterCount == 3 &&
+                        method.parameterTypes[0] == ImageButton::class.java &&
+                        method.parameterTypes[1] == mediaActionClass
+            }?.apply { isAccessible = true }
+            val setAnimateHeight = runCatching {
+                classLoader.loadClass(NotificationMediaHostClasses.MEDIA_HEADER_VIEW)
+                    .getDeclaredMethod(
+                        "setAnimateHeight",
+                        Int::class.javaPrimitiveType
+                    ).apply { isAccessible = true }
+            }.getOrNull()
+            val constraintSetClass = classLoader.loadClass(
+                "androidx.constraintlayout.widget.ConstraintSet"
+            )
+
+            val attach = viewControllerClass.getDeclaredMethod(
+                "attach",
+                holderClass
+            ).apply { isAccessible = true }
+            val bind = viewControllerClass.getDeclaredMethod(
+                "bindMediaData",
+                mediaDataClass
+            ).apply { isAccessible = true }
+            val detach = viewControllerClass.getDeclaredMethod("detach").apply {
+                isAccessible = true
+            }
+            val onFullAodStateChanged = viewControllerClass.declaredMethods.find { method ->
+                method.name == "onFullAodStateChanged" &&
+                        method.parameterCount == 1 &&
+                        method.parameterTypes[0] == Boolean::class.javaPrimitiveType
+            }?.apply { isAccessible = true }
+            val setSeamless = viewControllerClass.getDeclaredMethod(
+                "setSeamless",
+                mediaDataClass
+            ).apply { isAccessible = true }
+            val loadLayout = layoutControllerClass.getDeclaredMethod("loadLayout\$1").apply {
+                isAccessible = true
+            }
+            val seekBarField = runCatching {
+                holderClass.getDeclaredField("seekBar").apply { isAccessible = true }
+            }.getOrNull()
+            val seekBarClass = seekBarField?.type
+            val seekBarPaddingOffsetField = runCatching {
+                seekBarClass?.getDeclaredField("mProgressPaddingOffset")?.apply {
+                    isAccessible = true
+                }
+            }.getOrNull()
+            val seekBarTrackPositionField = runCatching {
+                seekBarClass?.getDeclaredField("uTrackPosition")?.apply {
+                    isAccessible = true
+                }
+            }.getOrNull()
+            val seekBarRuntimeShaderField = runCatching {
+                seekBarClass?.getDeclaredField("runtimeShader")?.apply {
+                    isAccessible = true
+                }
+            }.getOrNull()
+
+            return NotificationMediaHostApi(
+                hookMethods = listOf(attach, bind, detach, setSeamless) + listOfNotNull(
+                    onFullAodStateChanged,
+                    semanticActionMethod,
+                    commonActionMethod,
+                    setAnimateHeight
+                ) + loadLayout,
+                holderField = viewControllerClass.getDeclaredField("holder").apply {
+                    isAccessible = true
+                },
+                controllerMediaDataField = viewControllerClass.getDeclaredField("mediaData")
+                    .apply { isAccessible = true },
+                albumViewField = holderClass.getDeclaredField("albumView").apply {
+                    isAccessible = true
+                },
+                albumImageField = holderClass.getDeclaredField("albumImageView").apply {
+                    isAccessible = true
+                },
+                actionButtonFields = (0..4).mapNotNull { index ->
+                    runCatching {
+                        holderClass.getDeclaredField("action$index").apply {
+                            isAccessible = true
+                        }
+                    }.getOrNull()
+                },
+                seekBarField = seekBarField,
+                elapsedTimeViewField = runCatching {
+                    holderClass.getDeclaredField("elapsedTimeView").apply {
+                        isAccessible = true
+                    }
+                }.getOrNull(),
+                totalTimeViewField = runCatching {
+                    holderClass.getDeclaredField("totalTimeView").apply {
+                        isAccessible = true
+                    }
+                }.getOrNull(),
+                seekBarPaddingOffsetField = seekBarPaddingOffsetField,
+                seekBarTrackPositionField = seekBarTrackPositionField,
+                seekBarRuntimeShaderField = seekBarRuntimeShaderField,
+                mediaDataIsPlayingField = mediaDataClass.getDeclaredField("isPlaying").apply {
+                    isAccessible = true
+                },
+                layoutContextField = layoutControllerClass.getDeclaredField("context").apply {
+                    isAccessible = true
+                },
+                normalLayoutField = layoutControllerClass.getDeclaredField("normalLayout")
+                    .apply { isAccessible = true },
+                normalAlbumLayoutField = layoutControllerClass.getDeclaredField(
+                    "normalAlbumLayout"
+                ).apply { isAccessible = true },
+                setVisibilityMethod = constraintSetClass.getDeclaredMethod(
+                    "setVisibility",
+                    Int::class.javaPrimitiveType,
+                    Int::class.javaPrimitiveType
+                ).apply { isAccessible = true },
+                setGoneMarginMethod = constraintSetClass.getDeclaredMethod(
+                    "setGoneMargin",
+                    Int::class.javaPrimitiveType,
+                    Int::class.javaPrimitiveType,
+                    Int::class.javaPrimitiveType
+                ).apply { isAccessible = true },
+                connectMethod = constraintSetClass.getDeclaredMethod(
+                    "connect",
+                    Int::class.javaPrimitiveType,
+                    Int::class.javaPrimitiveType,
+                    Int::class.javaPrimitiveType,
+                    Int::class.javaPrimitiveType
+                ).apply { isAccessible = true },
+                setMarginMethod = constraintSetClass.getDeclaredMethod(
+                    "setMargin",
+                    Int::class.javaPrimitiveType,
+                    Int::class.javaPrimitiveType,
+                    Int::class.javaPrimitiveType
+                ).apply { isAccessible = true },
+                clearMethod = runCatching {
+                    constraintSetClass.getDeclaredMethod(
+                        "clear",
+                        Int::class.javaPrimitiveType,
+                        Int::class.javaPrimitiveType
+                    ).apply { isAccessible = true }
+                }.getOrNull(),
+                constrainWidthMethod = runCatching {
+                    constraintSetClass.getDeclaredMethod(
+                        "constrainWidth",
+                        Int::class.javaPrimitiveType,
+                        Int::class.javaPrimitiveType
+                    ).apply { isAccessible = true }
+                }.getOrNull(),
+                constrainHeightMethod = runCatching {
+                    constraintSetClass.getDeclaredMethod(
+                        "constrainHeight",
+                        Int::class.javaPrimitiveType,
+                        Int::class.javaPrimitiveType
+                    ).apply { isAccessible = true }
+                }.getOrNull()
+            )
+        }
+    }
+}

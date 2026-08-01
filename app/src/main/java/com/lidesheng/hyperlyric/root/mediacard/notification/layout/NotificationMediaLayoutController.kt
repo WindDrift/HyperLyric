@@ -3,6 +3,7 @@ package com.lidesheng.hyperlyric.root.mediacard.notification.layout
 import android.content.Context
 import android.view.View
 import com.lidesheng.hyperlyric.common.RootConstants
+import com.lidesheng.hyperlyric.root.mediacard.notification.layout.presets.ios.NotificationMediaIosLayoutPreset
 
 
 internal object NotificationMediaLayoutController {
@@ -12,18 +13,29 @@ internal object NotificationMediaLayoutController {
         normalAlbumLayout: Any?,
         ids: NotificationMediaLayoutResourceIds,
         context: Context,
+        layoutStyle: Int,
         coverStyle: Int,
         hideSource: Boolean,
         hideDevice: Boolean,
-        moveDevice: Boolean,
-        keepAction4: Boolean,
         hideCustomActions: Boolean,
         hideTime: Boolean,
         actionsLeftAligned: Boolean,
         actionsOrder: Int
     ) {
         val coverHidden = coverStyle == RootConstants.NOTIFICATION_MEDIA_COVER_STYLE_HIDDEN
-        val hasCustomTopSlot = false
+        if (bridge.supportsFullLayout) {
+            presetFor(layoutStyle)?.apply(
+                NotificationMediaLayoutEnvironment(
+                    bridge = bridge,
+                    normalLayout = normalLayout,
+                    normalAlbumLayout = normalAlbumLayout,
+                    ids = ids,
+                    context = context,
+                    coverHidden = coverHidden,
+                    hideDevice = hideDevice
+                )
+            )
+        }
 
         if (coverHidden) {
             bridge.setGoneMargin(
@@ -38,31 +50,29 @@ internal object NotificationMediaLayoutController {
                 NotificationMediaConstraintSide.START,
                 context.dp(26f)
             )
-            bridge.setGoneMargin(
-                normalLayout,
-                ids.actions,
-                NotificationMediaConstraintSide.TOP,
-                context.dp(67.5f)
-            )
-            bridge.setGoneMargin(
-                normalLayout,
-                ids.action0,
-                NotificationMediaConstraintSide.TOP,
-                context.dp(78.5f)
-            )
+            if (layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_SYSTEM) {
+                bridge.setGoneMargin(
+                    normalLayout,
+                    ids.actions,
+                    NotificationMediaConstraintSide.TOP,
+                    context.dp(67.5f)
+                )
+                bridge.setGoneMargin(
+                    normalLayout,
+                    ids.action0,
+                    NotificationMediaConstraintSide.TOP,
+                    context.dp(78.5f)
+                )
+            }
             bridge.setVisibility(normalLayout, ids.albumArt, View.GONE)
         }
         if (hideSource && normalAlbumLayout != null) {
             bridge.setVisibility(normalAlbumLayout, ids.coverSource, View.GONE)
         }
-        if (hasCustomTopSlot) {
-            bridge.setVisibility(normalLayout, ids.mediaSeamless, View.VISIBLE)
-        } else if (hideDevice) {
+        if (hideDevice) {
             bridge.setVisibility(normalLayout, ids.mediaSeamless, View.GONE)
-        } else if (moveDevice) {
-            bridge.setVisibility(normalLayout, ids.mediaSeamless, View.VISIBLE)
         }
-        if (hideDevice || moveDevice) {
+        if (hideDevice) {
             bridge.setGoneMargin(
                 normalLayout,
                 ids.headerTitle,
@@ -81,7 +91,6 @@ internal object NotificationMediaLayoutController {
             layout = normalLayout,
             ids = ids,
             context = context,
-            keepAction4 = keepAction4,
             hideCustomActions = hideCustomActions,
             actionsLeftAligned = actionsLeftAligned,
             actionsOrder = actionsOrder
@@ -124,12 +133,20 @@ internal object NotificationMediaLayoutController {
         }
     }
 
+    private fun presetFor(style: Int): NotificationMediaLayoutPreset? {
+        return when (style) {
+            RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_IOS ->
+                NotificationMediaIosLayoutPreset
+
+            else -> null
+        }
+    }
+
     private fun applyActionOverrides(
         bridge: NotificationMediaConstraintBridge,
         layout: Any,
         ids: NotificationMediaLayoutResourceIds,
         context: Context,
-        keepAction4: Boolean,
         hideCustomActions: Boolean,
         actionsLeftAligned: Boolean,
         actionsOrder: Int
@@ -195,9 +212,7 @@ internal object NotificationMediaLayoutController {
         }
         if (hideCustomActions) {
             bridge.setVisibility(layout, action0, View.INVISIBLE)
-            if (!keepAction4) {
-                bridge.setVisibility(layout, action4, View.INVISIBLE)
-            }
+            bridge.setVisibility(layout, action4, View.INVISIBLE)
         }
     }
 

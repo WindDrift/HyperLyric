@@ -36,6 +36,7 @@ internal object MediaCardRuntimeConfig {
     }
 
     data class Notification(
+        val layoutStyle: Int,
         val ambientFlowMode: Int,
         val cardTheme: Int,
         val coverStyle: Int,
@@ -58,6 +59,7 @@ internal object MediaCardRuntimeConfig {
     ) {
         companion object {
             fun defaults() = Notification(
+                layoutStyle = RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_LAYOUT_STYLE,
                 ambientFlowMode = RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_AMBIENT_FLOW_MODE,
                 cardTheme = RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_CARD_THEME,
                 coverStyle = RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_COVER_STYLE,
@@ -87,6 +89,16 @@ internal object MediaCardRuntimeConfig {
             )
 
             fun from(prefs: SharedPreferences) = Notification(
+                layoutStyle = prefs.getInt(
+                    RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_LAYOUT_STYLE,
+                    RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_LAYOUT_STYLE
+                ).let { style ->
+                    if (style == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_IOS) {
+                        style
+                    } else {
+                        RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_SYSTEM
+                    }
+                },
                 ambientFlowMode = prefs.getInt(
                     RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_AMBIENT_FLOW_MODE,
                     RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_AMBIENT_FLOW_MODE
