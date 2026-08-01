@@ -115,6 +115,7 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
             syncRenderer.isCharMotionEnabled = value.enabled
             syncRenderer.cjkMotionLiftFactor = value.cjkLiftFactor
             syncRenderer.cjkMotionWaveFactor = value.cjkWaveFactor
+            syncRenderer.latinMotionByCharacter = value.latinByCharacter
             syncRenderer.latinMotionLiftFactor = value.latinLiftFactor
             syncRenderer.latinMotionWaveFactor = value.latinWaveFactor
             requestLayout()

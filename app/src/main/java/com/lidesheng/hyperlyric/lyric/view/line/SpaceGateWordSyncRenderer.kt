@@ -42,6 +42,12 @@ internal class SpaceGateWordSyncRenderer(private val view: SpaceGateLyricLineVie
             textDrawer.cjkWaveFactor = value
         }
 
+    var latinMotionByCharacter: Boolean
+        get() = textDrawer.latinByCharacter
+        set(value) {
+            textDrawer.latinByCharacter = value
+        }
+
     var latinMotionLiftFactor: Float
         get() = textDrawer.latinLiftFactor
         set(value) {

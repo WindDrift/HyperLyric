@@ -51,6 +51,14 @@ fun VerbatimLyricPage() {
             )
         )
     }
+    var wordMotionLatinByCharacter by remember {
+        mutableStateOf(
+            prefs.getBoolean(
+                RootConstants.KEY_HOOK_WORD_MOTION_LATIN_BY_CHARACTER,
+                RootConstants.DEFAULT_HOOK_WORD_MOTION_LATIN_BY_CHARACTER
+            )
+        )
+    }
     var wordMotionCjkLift by remember {
         mutableFloatStateOf(
             prefs.getFloat(
@@ -163,6 +171,11 @@ fun VerbatimLyricPage() {
             onWordMotionEnabledChange = {
                 wordMotionEnabled = it
                 saveConfig(RootConstants.KEY_HOOK_WORD_MOTION_ENABLED, it)
+            },
+            wordMotionLatinByCharacter = wordMotionLatinByCharacter,
+            onWordMotionLatinByCharacterChange = {
+                wordMotionLatinByCharacter = it
+                saveConfig(RootConstants.KEY_HOOK_WORD_MOTION_LATIN_BY_CHARACTER, it)
             },
             wordMotionCjkLift = wordMotionCjkLift,
             onWordMotionCjkLiftClick = { showWordMotionCjkLiftDialog = true },

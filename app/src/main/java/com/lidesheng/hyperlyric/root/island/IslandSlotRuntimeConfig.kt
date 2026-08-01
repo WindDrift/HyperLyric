@@ -52,6 +52,7 @@ internal data class IslandSlotRuntimeConfig(
     val wordMotionEnabled: Boolean,
     val wordMotionCjkLift: Float,
     val wordMotionCjkWave: Float,
+    val wordMotionLatinByCharacter: Boolean,
     val wordMotionLatinLift: Float,
     val wordMotionLatinWave: Float
 ) {
@@ -100,6 +101,7 @@ internal data class IslandSlotRuntimeConfig(
         wordMotionEnabled,
         wordMotionCjkLift,
         wordMotionCjkWave,
+        wordMotionLatinByCharacter,
         wordMotionLatinLift,
         wordMotionLatinWave
     ).joinToString("|")
@@ -324,6 +326,10 @@ internal data class IslandSlotRuntimeConfig(
                 wordMotionCjkWave = prefs.getFloat(
                     RootConstants.KEY_HOOK_WORD_MOTION_CJK_WAVE,
                     RootConstants.DEFAULT_HOOK_WORD_MOTION_CJK_WAVE
+                ),
+                wordMotionLatinByCharacter = prefs.getBoolean(
+                    RootConstants.KEY_HOOK_WORD_MOTION_LATIN_BY_CHARACTER,
+                    RootConstants.DEFAULT_HOOK_WORD_MOTION_LATIN_BY_CHARACTER
                 ),
                 wordMotionLatinLift = prefs.getFloat(
                     RootConstants.KEY_HOOK_WORD_MOTION_LATIN_LIFT,

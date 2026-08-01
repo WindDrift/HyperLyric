@@ -76,8 +76,9 @@ data class WordMotion(
     val enabled: Boolean = true,
     val cjkLiftFactor: Float = 0.055f,
     val cjkWaveFactor: Float = 2.8f,
-    val latinLiftFactor: Float = 0.065f,
-    val latinWaveFactor: Float = 3.6f,
+    val latinByCharacter: Boolean = false,
+    val latinLiftFactor: Float = 0.08f,
+    val latinWaveFactor: Float = 2.0f,
 )
 
 data class AnimParams(

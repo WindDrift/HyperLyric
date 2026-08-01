@@ -25,6 +25,8 @@ fun LazyListScope.verbatimLyricSections(
     onSyllableHighlightChange: (Boolean) -> Unit,
     wordMotionEnabled: Boolean,
     onWordMotionEnabledChange: (Boolean) -> Unit,
+    wordMotionLatinByCharacter: Boolean,
+    onWordMotionLatinByCharacterChange: (Boolean) -> Unit,
     wordMotionCjkLift: Float,
     onWordMotionCjkLiftClick: () -> Unit,
     wordMotionCjkWave: Float,
@@ -76,6 +78,16 @@ fun LazyListScope.verbatimLyricSections(
                     )
                     AnimatedVisibility(visible = wordMotionEnabled) {
                         Column {
+                            SwitchPreference(
+                                title = stringResource(
+                                    id = R.string.title_word_motion_latin_by_character
+                                ),
+                                summary = stringResource(
+                                    id = R.string.summary_word_motion_latin_by_character
+                                ),
+                                checked = wordMotionLatinByCharacter,
+                                onCheckedChange = onWordMotionLatinByCharacterChange
+                            )
                             ArrowPreference(
                                 title = stringResource(id = R.string.title_word_motion_cjk_lift),
                                 onClick = onWordMotionCjkLiftClick,

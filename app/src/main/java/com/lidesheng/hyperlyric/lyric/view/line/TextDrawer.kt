@@ -26,6 +26,7 @@ internal class TextDrawer {
 
     var cjkLiftFactor = DEFAULT_CJK_LIFT_FACTOR
     var cjkWaveFactor = DEFAULT_CJK_WAVE_FACTOR
+    var latinByCharacter = false
     var latinLiftFactor = DEFAULT_LATIN_LIFT_FACTOR
     var latinWaveFactor = DEFAULT_LATIN_WAVE_FACTOR
 
@@ -294,8 +295,8 @@ internal class TextDrawer {
             )
         } else {
             MotionSpec(
-                animateByChar = true,
-                distributeCharsEvenly = true,
+                animateByChar = latinByCharacter,
+                distributeCharsEvenly = latinByCharacter,
                 liftFactor = latinLiftFactor,
                 waveFactor = latinWaveFactor
             )
@@ -357,8 +358,8 @@ internal class TextDrawer {
     private companion object {
         const val DEFAULT_CJK_LIFT_FACTOR = 0.055f
         const val DEFAULT_CJK_WAVE_FACTOR = 2.8f
-        const val DEFAULT_LATIN_LIFT_FACTOR = 0.065f
-        const val DEFAULT_LATIN_WAVE_FACTOR = 3.6f
+        const val DEFAULT_LATIN_LIFT_FACTOR = 0.08f
+        const val DEFAULT_LATIN_WAVE_FACTOR = 2.0f
     }
 }
 

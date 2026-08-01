@@ -335,6 +335,8 @@
     <string name="title_auto_switch_translation">Auto Switch Translation</string>
     <string name="summary_auto_switch_translation">Show translation when available, otherwise next line</string>
     <string name="title_word_motion">Word Lift Animation</string>
+    <string name="title_word_motion_latin_by_character">Lift Latin Text by Letter</string>
+    <string name="summary_word_motion_latin_by_character">When off, each word lifts as a whole</string>
     <string name="title_word_motion_cjk_lift">CJK Lift Coefficient</string>
     <string name="title_word_motion_cjk_wave">CJK Wavelength Coefficient</string>
     <string name="title_word_motion_latin_lift">Latin Lift Coefficient</string>

@@ -188,6 +188,8 @@ object RootConstants {
     const val KEY_HOOK_WORD_MOTION_ENABLED = "key_hook_word_motion_enabled"
     const val KEY_HOOK_WORD_MOTION_CJK_LIFT = "key_hook_word_motion_cjk_lift"
     const val KEY_HOOK_WORD_MOTION_CJK_WAVE = "key_hook_word_motion_cjk_wave"
+    const val KEY_HOOK_WORD_MOTION_LATIN_BY_CHARACTER =
+        "key_hook_word_motion_latin_by_character"
     const val KEY_HOOK_WORD_MOTION_LATIN_LIFT = "key_hook_word_motion_latin_lift"
     const val KEY_HOOK_WORD_MOTION_LATIN_WAVE = "key_hook_word_motion_latin_wave"
 
@@ -411,8 +413,9 @@ object RootConstants {
     const val DEFAULT_HOOK_WORD_MOTION_ENABLED = false
     const val DEFAULT_HOOK_WORD_MOTION_CJK_LIFT = 0.05f
     const val DEFAULT_HOOK_WORD_MOTION_CJK_WAVE = 2.8f
-    const val DEFAULT_HOOK_WORD_MOTION_LATIN_LIFT = 0.06f
-    const val DEFAULT_HOOK_WORD_MOTION_LATIN_WAVE = 3.6f
+    const val DEFAULT_HOOK_WORD_MOTION_LATIN_BY_CHARACTER = false
+    const val DEFAULT_HOOK_WORD_MOTION_LATIN_LIFT = 0.08f
+    const val DEFAULT_HOOK_WORD_MOTION_LATIN_WAVE = 2.0f
     const val DEFAULT_HOOK_AI_TRANS_ENABLE = false
     const val DEFAULT_HOOK_AI_TRANS_AUTO_IGNORE_CHINESE = false
     val DEFAULT_HOOK_AI_TRANS_SKIP_LANGUAGES: Set<String> = emptySet()

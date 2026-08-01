@@ -216,6 +216,10 @@ object LyricStyleHelper {
                     RootConstants.KEY_HOOK_WORD_MOTION_CJK_WAVE,
                     RootConstants.DEFAULT_HOOK_WORD_MOTION_CJK_WAVE
                 ),
+                latinByCharacter = prefs.getBoolean(
+                    RootConstants.KEY_HOOK_WORD_MOTION_LATIN_BY_CHARACTER,
+                    RootConstants.DEFAULT_HOOK_WORD_MOTION_LATIN_BY_CHARACTER
+                ),
                 latinLiftFactor = prefs.getFloat(
                     RootConstants.KEY_HOOK_WORD_MOTION_LATIN_LIFT,
                     RootConstants.DEFAULT_HOOK_WORD_MOTION_LATIN_LIFT
