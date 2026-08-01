@@ -2,6 +2,7 @@ package com.lidesheng.hyperlyric.root.island
 
 import android.content.SharedPreferences
 import android.view.View
+import com.lidesheng.hyperlyric.common.LyricTextColorStylePolicy
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.common.SuperIslandContentStylePolicy
 import com.lidesheng.hyperlyric.common.SuperIslandWidthPolicy
@@ -46,9 +47,7 @@ internal data class IslandSlotRuntimeConfig(
     val swapTranslation: Boolean,
     val nextLyricLine: Boolean,
     val autoSwitchTranslation: Boolean,
-    val extractCoverTextColor: Boolean,
-    val extractCoverTextGradient: Boolean,
-    val followStatusBarTextColor: Boolean,
+    val textColorStyle: Int,
     val customFontPath: String,
     val wordMotionEnabled: Boolean,
     val wordMotionCjkLift: Float,
@@ -58,6 +57,15 @@ internal data class IslandSlotRuntimeConfig(
 ) {
     val isSplitMode: Boolean
         get() = activeMode == 1
+
+    val extractCoverTextColor: Boolean
+        get() = LyricTextColorStylePolicy.usesCoverColor(textColorStyle)
+
+    val extractCoverTextGradient: Boolean
+        get() = LyricTextColorStylePolicy.usesCoverGradient(textColorStyle)
+
+    val followStatusBarTextColor: Boolean
+        get() = LyricTextColorStylePolicy.followsStatusBar(textColorStyle)
 
     val styleSignature: String = listOf(
         activeMode,
@@ -88,9 +96,7 @@ internal data class IslandSlotRuntimeConfig(
         swapTranslation,
         nextLyricLine,
         autoSwitchTranslation,
-        extractCoverTextColor,
-        extractCoverTextGradient,
-        followStatusBarTextColor,
+        textColorStyle,
         customFontPath,
         wordMotionEnabled,
         wordMotionCjkLift,
@@ -305,18 +311,7 @@ internal data class IslandSlotRuntimeConfig(
                     RootConstants.KEY_HOOK_AUTO_SWITCH_TRANSLATION,
                     RootConstants.DEFAULT_HOOK_AUTO_SWITCH_TRANSLATION
                 ),
-                extractCoverTextColor = prefs.getBoolean(
-                    RootConstants.KEY_HOOK_EXTRACT_COVER_TEXT_COLOR,
-                    RootConstants.DEFAULT_HOOK_EXTRACT_COVER_TEXT_COLOR
-                ),
-                extractCoverTextGradient = prefs.getBoolean(
-                    RootConstants.KEY_HOOK_EXTRACT_COVER_TEXT_GRADIENT,
-                    RootConstants.DEFAULT_HOOK_EXTRACT_COVER_TEXT_GRADIENT
-                ),
-                followStatusBarTextColor = prefs.getBoolean(
-                    RootConstants.KEY_HOOK_FOLLOW_STATUS_BAR_TEXT_COLOR,
-                    RootConstants.DEFAULT_HOOK_FOLLOW_STATUS_BAR_TEXT_COLOR
-                ),
+                textColorStyle = LyricTextColorStylePolicy.read(prefs),
                 customFontPath = prefs.getString(RootConstants.KEY_HOOK_CUSTOM_FONT_PATH, null)
                     .orEmpty(),
                 wordMotionEnabled = prefs.getBoolean(

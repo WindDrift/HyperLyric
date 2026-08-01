@@ -3,6 +3,7 @@ package com.lidesheng.hyperlyric.root.island
 import android.graphics.Color
 import android.widget.TextView
 import com.lidesheng.hyperlyric.common.RootConstants
+import com.lidesheng.hyperlyric.common.LyricTextColorStylePolicy
 import com.lidesheng.hyperlyric.root.HookEntry
 import com.lidesheng.hyperlyric.root.island.renderer.BaseIslandRenderer
 import com.lidesheng.hyperlyric.root.utils.HookLogger
@@ -160,12 +161,7 @@ internal object StatusBarTextColorHooker {
         textColor = color
 
         val prefs = HookEntry.instance?.prefs ?: return
-        if (
-            prefs.getBoolean(
-                RootConstants.KEY_HOOK_FOLLOW_STATUS_BAR_TEXT_COLOR,
-                RootConstants.DEFAULT_HOOK_FOLLOW_STATUS_BAR_TEXT_COLOR
-            )
-        ) {
+        if (LyricTextColorStylePolicy.followsStatusBar(LyricTextColorStylePolicy.read(prefs))) {
             BaseIslandRenderer.refreshActiveIsland()
         }
     }

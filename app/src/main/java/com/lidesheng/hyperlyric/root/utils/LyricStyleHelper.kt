@@ -5,6 +5,7 @@ import android.content.res.Resources
 import android.graphics.Color
 import android.util.TypedValue
 import com.lidesheng.hyperlyric.common.RootConstants
+import com.lidesheng.hyperlyric.common.LyricTextColorStylePolicy
 import com.lidesheng.hyperlyric.lyric.view.Highlight
 import com.lidesheng.hyperlyric.lyric.view.LyricViewStyle
 import com.lidesheng.hyperlyric.lyric.view.Marquee
@@ -113,15 +114,9 @@ object LyricStyleHelper {
             true
         }
 
-        // Determine text colors: use cover colors if enabled, otherwise white
-        val useCoverColor = prefs.getBoolean(
-            RootConstants.KEY_HOOK_EXTRACT_COVER_TEXT_COLOR,
-            RootConstants.DEFAULT_HOOK_EXTRACT_COVER_TEXT_COLOR
-        )
-        val useCoverGradient = prefs.getBoolean(
-            RootConstants.KEY_HOOK_EXTRACT_COVER_TEXT_GRADIENT,
-            RootConstants.DEFAULT_HOOK_EXTRACT_COVER_TEXT_GRADIENT
-        )
+        val textColorStyle = LyricTextColorStylePolicy.read(prefs)
+        val useCoverColor = LyricTextColorStylePolicy.usesCoverColor(textColorStyle)
+        val useCoverGradient = LyricTextColorStylePolicy.usesCoverGradient(textColorStyle)
 
         val primaryColors: IntArray
         val bgColors: IntArray

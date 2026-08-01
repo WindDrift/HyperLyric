@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.SharedPreferences
 import android.view.View
 import com.lidesheng.hyperlyric.common.RootConstants
+import com.lidesheng.hyperlyric.common.LyricTextColorStylePolicy
 import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
 import com.lidesheng.hyperlyric.root.island.IslandProbeUtils
 import com.lidesheng.hyperlyric.root.utils.CoverColorHelper
@@ -113,9 +114,8 @@ object HookIslandGlow {
                     bitmap = it
                 )
             }
-            val useGradient = sharedPrefs.getBoolean(
-                RootConstants.KEY_HOOK_EXTRACT_COVER_TEXT_GRADIENT,
-                RootConstants.DEFAULT_HOOK_EXTRACT_COVER_TEXT_GRADIENT
+            val useGradient = LyricTextColorStylePolicy.usesCoverGradient(
+                LyricTextColorStylePolicy.read(sharedPrefs)
             )
             val matchingArtworkRequest = artworkRequest?.takeIf {
                 it.colorSession.revision == colorSession.revision

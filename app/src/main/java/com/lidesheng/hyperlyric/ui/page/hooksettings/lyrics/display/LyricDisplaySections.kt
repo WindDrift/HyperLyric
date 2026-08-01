@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.lidesheng.hyperlyric.R
+import com.lidesheng.hyperlyric.common.RootConstants
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
@@ -25,12 +26,8 @@ fun LazyListScope.lyricDisplaySections(
     onFadingEdgeClick: () -> Unit,
     placeholderFormat: Int,
     onPlaceholderFormatChange: (Int) -> Unit,
-    extractCoverColor: Boolean,
-    onExtractCoverColorChange: (Boolean) -> Unit,
-    extractCoverGradient: Boolean,
-    onExtractCoverGradientChange: (Boolean) -> Unit,
-    followStatusBarColor: Boolean,
-    onFollowStatusBarColorChange: (Boolean) -> Unit,
+    textColorStyle: Int,
+    onTextColorStyleChange: (Int) -> Unit,
     customFontPath: String,
     onFontPathClick: () -> Unit,
     fontWeight: Int,
@@ -49,6 +46,12 @@ fun LazyListScope.lyricDisplaySections(
             stringResource(id = R.string.option_placeholder_title_artist),
             stringResource(id = R.string.option_placeholder_title),
             stringResource(id = R.string.option_placeholder_countdown)
+        )
+        val textColorOptions = listOf(
+            stringResource(id = R.string.option_text_color_default),
+            stringResource(id = R.string.option_text_color_cover_color),
+            stringResource(id = R.string.option_text_color_cover_gradient),
+            stringResource(id = R.string.option_text_color_follow_status_bar)
         )
         Card(
             modifier = Modifier
@@ -104,36 +107,14 @@ fun LazyListScope.lyricDisplaySections(
                     selectedIndex = placeholderFormat,
                     onSelectedIndexChange = onPlaceholderFormatChange
                 )
-            }
-        }
-    }
-
-    item(key = "text_color_title") {
-        SmallTitle(text = stringResource(id = R.string.title_text_color))
-    }
-    item(key = "text_color_content") {
-        Card(
-            modifier = Modifier
-                .padding(horizontal = 12.dp)
-                .padding(bottom = 12.dp)
-                .fillMaxWidth()
-        ) {
-            Column {
-                SwitchPreference(
-                    title = stringResource(id = R.string.title_extract_cover_color),
-                    checked = extractCoverColor,
-                    onCheckedChange = onExtractCoverColorChange
-                )
-                SwitchPreference(
-                    title = stringResource(id = R.string.title_extract_cover_gradient),
-                    checked = extractCoverGradient,
-                    onCheckedChange = onExtractCoverGradientChange,
-                    enabled = extractCoverColor
-                )
-                SwitchPreference(
-                    title = stringResource(id = R.string.title_follow_status_bar_color),
-                    checked = followStatusBarColor,
-                    onCheckedChange = onFollowStatusBarColorChange
+                OverlayDropdownPreference(
+                    title = stringResource(id = R.string.title_text_color),
+                    items = textColorOptions,
+                    selectedIndex = textColorStyle.coerceIn(
+                        RootConstants.TEXT_COLOR_STYLE_DEFAULT,
+                        RootConstants.TEXT_COLOR_STYLE_FOLLOW_STATUS_BAR
+                    ),
+                    onSelectedIndexChange = onTextColorStyleChange
                 )
             }
         }

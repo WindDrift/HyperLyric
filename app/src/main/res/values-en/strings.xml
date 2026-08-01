@@ -279,6 +279,10 @@
     <string name="title_text">Text Style</string>
     <string name="title_basic_style">Basic Style</string>
     <string name="title_text_color">Text Color</string>
+    <string name="option_text_color_default">Default</string>
+    <string name="option_text_color_cover_color">Cover color</string>
+    <string name="option_text_color_cover_gradient">Cover gradient</string>
+    <string name="option_text_color_follow_status_bar">Follow status bar color</string>
     <string name="title_font_style">Font Style</string>
     <string name="title_placeholder_format">Placeholder Format</string>
     <string name="option_placeholder_none">None</string>
@@ -330,9 +334,6 @@
     <string name="summary_next_lyric_line">Uses the second line. Translations will not be displayed when enabled.</string>
     <string name="title_auto_switch_translation">Auto Switch Translation</string>
     <string name="summary_auto_switch_translation">Show translation when available, otherwise next line</string>
-    <string name="title_extract_cover_color">Extract Cover Color</string>
-    <string name="title_extract_cover_gradient">Extract Cover Gradient</string>
-    <string name="title_follow_status_bar_color">Follow Status Bar Color</string>
     <string name="title_word_motion">Word Lift Animation</string>
     <string name="title_word_motion_cjk_lift">CJK Lift Coefficient</string>
     <string name="title_word_motion_cjk_wave">CJK Wavelength Coefficient</string>

@@ -5,6 +5,7 @@ import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
 import com.lidesheng.hyperlyric.common.RootConstants
+import com.lidesheng.hyperlyric.common.LyricTextColorStylePolicy
 import com.lidesheng.hyperlyric.common.SuperIslandContentStylePolicy
 import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
 import com.lidesheng.hyperlyric.lyric.view.RichLyricLineView
@@ -423,9 +424,8 @@ object BaseIslandRenderer : IslandRenderer {
         prefs: android.content.SharedPreferences
     ) {
         val usesCoverPalette =
-            prefs.getBoolean(
-                RootConstants.KEY_HOOK_EXTRACT_COVER_TEXT_COLOR,
-                RootConstants.DEFAULT_HOOK_EXTRACT_COVER_TEXT_COLOR
+            LyricTextColorStylePolicy.usesCoverColor(
+                LyricTextColorStylePolicy.read(prefs)
             ) ||
                     SuperIslandContentStylePolicy.usesMusicWaveCoverColor(
                         SuperIslandContentStylePolicy.readMusicWaveStyle(prefs)

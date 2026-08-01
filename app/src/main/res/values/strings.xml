@@ -303,6 +303,10 @@
     <string name="title_text">文字样式</string>
     <string name="title_basic_style">基础样式</string>
     <string name="title_text_color">文字颜色</string>
+    <string name="option_text_color_default">默认</string>
+    <string name="option_text_color_cover_color">封面色</string>
+    <string name="option_text_color_cover_gradient">封面渐变色</string>
+    <string name="option_text_color_follow_status_bar">跟随状态栏颜色</string>
     <string name="title_font_style">字体样式</string>
     <string name="title_placeholder_format">占位符格式</string>
     <string name="option_placeholder_none">无</string>
@@ -354,9 +358,6 @@
     <string name="summary_next_lyric_line">占用第二行，开启后不显示翻译</string>
     <string name="title_auto_switch_translation">自动切换翻译</string>
     <string name="summary_auto_switch_translation">有翻译的歌曲，显示歌词翻译</string>
-    <string name="title_extract_cover_color">提取封面色</string>
-    <string name="title_extract_cover_gradient">提取封面渐变色</string>
-    <string name="title_follow_status_bar_color">跟随状态栏颜色</string>
     <string name="title_word_motion">字词上浮动画</string>
     <string name="title_word_motion_cjk_lift">中日韩上浮系数</string>
     <string name="title_word_motion_cjk_wave">中日韩波长系数</string>
