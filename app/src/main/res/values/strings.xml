@@ -117,6 +117,7 @@
     <string name="summary_media_cards">更新后需重启系统界面</string>
     <string name="title_notification_center_media_card">通知中心媒体卡片</string>
     <string name="title_notification_media_layout_style">卡片布局样式</string>
+    <string name="prompt_notification_media_layout_style">当前卡片布局样式仅适配通知中心媒体卡片；其余自定义卡片布局样式可能与通知中心相关元素布局等设置不兼容甚至冲突，请谨慎更改并测试。</string>
     <string name="option_notification_media_layout_system">系统默认</string>
     <string name="option_notification_media_layout_ios">iOS 风格</string>
     <string name="option_notification_media_layout_coloros">ColorOS 风格</string>
