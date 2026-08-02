@@ -5,6 +5,7 @@ import android.view.View
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.presets.NotificationMediaColorOsLayout
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.presets.ios.NotificationMediaIosLayoutPreset
+import com.lidesheng.hyperlyric.root.mediacard.notification.layout.presets.NotificationMediaOneUiLayout
 
 
 internal object NotificationMediaLayoutController {
@@ -70,7 +71,10 @@ internal object NotificationMediaLayoutController {
         if (hideSource && normalAlbumLayout != null) {
             bridge.setVisibility(normalAlbumLayout, ids.coverSource, View.GONE)
         }
-        if (layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS) {
+        if (
+            layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS ||
+                layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI
+        ) {
             bridge.setVisibility(normalLayout, ids.mediaSeamless, View.VISIBLE)
         } else if (hideDevice) {
             bridge.setVisibility(normalLayout, ids.mediaSeamless, View.GONE)
@@ -145,6 +149,9 @@ internal object NotificationMediaLayoutController {
 
             RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS ->
                 NotificationMediaColorOsLayout
+
+            RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI ->
+                NotificationMediaOneUiLayout
 
             else -> null
         }

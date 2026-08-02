@@ -116,7 +116,8 @@ internal object MediaCardRuntimeConfig {
                 ).let { style ->
                     when (style) {
                         RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_IOS,
-                        RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS -> style
+                        RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS,
+                        RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI -> style
 
                         else -> RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_SYSTEM
                     }

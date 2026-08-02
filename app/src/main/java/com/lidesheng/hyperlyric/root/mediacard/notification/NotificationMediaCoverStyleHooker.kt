@@ -16,6 +16,7 @@ import com.lidesheng.hyperlyric.root.mediacard.notification.host.NotificationMed
 import com.lidesheng.hyperlyric.root.mediacard.notification.host.NotificationMediaHostClasses
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.NotificationMediaLayoutController
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.NotificationMediaLayoutResourceIds
+import com.lidesheng.hyperlyric.root.mediacard.notification.oneui.NotificationMediaOneUiStyle
 import com.lidesheng.hyperlyric.root.mediacard.notification.style.NotificationMediaCoverStyler
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import io.github.libxposed.api.XposedInterface.Chain
@@ -150,15 +151,19 @@ object NotificationMediaCoverStyleHooker {
                 "detach" ->
                     config.coverStyle ==
                             RootConstants.NOTIFICATION_MEDIA_COVER_STYLE_ROTATING_CIRCLE ||
-                            config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS
+                            config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS ||
+                            config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI
                 "setSeamless" ->
                     config.hideDeviceSwitch ||
-                            config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS
+                            config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS ||
+                            config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI
                 "onFullAodStateChanged" -> shouldKeepExpandedInFullAod()
                 else -> false
             }
 
-            NotificationMediaHostClasses.ACTION_BUTTON_UTILS -> config.hideCustomActions
+            NotificationMediaHostClasses.ACTION_BUTTON_UTILS ->
+                config.hideCustomActions ||
+                        config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI
             NotificationMediaHostClasses.MEDIA_HEADER_VIEW -> shouldKeepExpandedInFullAod()
             NotificationMediaHostClasses.LAYOUT_CONTROLLER -> needsConstraintLayout(config)
             else -> false
@@ -183,7 +188,9 @@ object NotificationMediaCoverStyleHooker {
                 methodName == "setSeamless" &&
                 runtimeConfig.notification.hideDeviceSwitch &&
                     runtimeConfig.notification.layoutStyle !=
-                    RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS
+                    RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS &&
+                    runtimeConfig.notification.layoutStyle !=
+                    RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI
             ) {
                 return null
             }
@@ -210,6 +217,13 @@ object NotificationMediaCoverStyleHooker {
                 runCatching { applyColorOsAppIcon(controller) }
                     .onFailure { HookLogger.e(TAG, "应用 ColorOS 媒体卡片应用图标失败", it) }
             }
+            if (methodName == "setSeamless" &&
+                runtimeConfig.notification.layoutStyle ==
+                RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI
+            ) {
+                runCatching { applyOneUiStyle(controller) }
+                    .onFailure { HookLogger.e(TAG, "应用 One UI 媒体卡片应用身份失败", it) }
+            }
             return result
         }
     }
@@ -218,10 +232,17 @@ object NotificationMediaCoverStyleHooker {
         override fun intercept(chain: Chain): Any? {
             val result = chain.proceed()
             (chain.args.firstOrNull() as? ImageButton)?.let { button ->
-                if (button.isColorOsDeviceSwitch()) {
-                    applyColorOsDeviceSwitchForButton(button)
-                } else {
-                    applyCustomActionVisibility(button)
+                when {
+                    button.isColorOsDeviceSwitch() -> applyColorOsDeviceSwitchForButton(button)
+                    runtimeConfig.notification.layoutStyle ==
+                            RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI -> {
+                        NotificationMediaOneUiStyle.applyActionButton(button)
+                        if (runtimeConfig.notification.hideCustomActions) {
+                            applyCustomActionVisibility(button)
+                        }
+                    }
+
+                    else -> applyCustomActionVisibility(button)
                 }
             }
             return result
@@ -247,21 +268,28 @@ object NotificationMediaCoverStyleHooker {
         val albumView = api.getAlbumView(holder)
         val albumImage = api.getAlbumImage(holder)
         val config = runtimeConfig.notification
+        val layoutStyle = config.layoutStyle
 
         api.getSeekBar(holder)?.let { seekBar ->
             if (
-                config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_IOS ||
-                    config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS
+                layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_IOS ||
+                    layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS ||
+                    layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI
             ) {
                 api.removeSeekBarTrackInset(seekBar)
             }
-            if (config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS) {
-                applyColorOsSeekBarPadding(seekBar)
+            if (
+                layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS ||
+                    layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI
+            ) {
+                applyExpandedMediaSeekBarPadding(seekBar)
             }
         }
-        if (config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS) {
+        if (layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS) {
             applyColorOsTimeAlignment(api, holder)
             applyColorOsAppIcon(api, controller, holder)
+        } else if (layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI) {
+            NotificationMediaOneUiStyle.apply(api, controller, holder, mediaData)
         }
         if (config.hideTime) {
             api.getElapsedTimeView(holder)?.visibility = View.GONE
@@ -271,7 +299,10 @@ object NotificationMediaCoverStyleHooker {
             api.getActionButtons(holder).forEach(::applyCustomActionVisibility)
         }
 
-        when (config.coverStyle) {
+        if (layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI) {
+            MediaCoverRotationController.detach(albumImage)
+            albumView.visibility = View.GONE
+        } else when (config.coverStyle) {
             RootConstants.NOTIFICATION_MEDIA_COVER_STYLE_CIRCLE -> {
                 MediaCoverRotationController.detach(albumImage)
                 NotificationMediaCoverStyler.applyCircle(albumView, albumImage)
@@ -293,7 +324,7 @@ object NotificationMediaCoverStyleHooker {
         }
     }
 
-    private fun applyColorOsSeekBarPadding(seekBar: View) {
+    private fun applyExpandedMediaSeekBarPadding(seekBar: View) {
         val verticalPadding = (16f * seekBar.resources.displayMetrics.density).roundToInt()
         if (
             seekBar.paddingTop == verticalPadding &&
@@ -333,6 +364,12 @@ object NotificationMediaCoverStyleHooker {
         applyColorOsDeviceSwitch(api, holder)
     }
 
+    private fun applyOneUiStyle(controller: Any) {
+        val api = resolveApi(controller.javaClass.classLoader) ?: return
+        val holder = api.getHolder(controller) ?: return
+        NotificationMediaOneUiStyle.apply(api, controller, holder, null)
+    }
+
     private fun applyColorOsDeviceSwitch(api: NotificationMediaHostApi, holder: Any) {
         val action4 = api.getAction4(holder) ?: return
         if (runtimeConfig.notification.hideDeviceSwitch) {
@@ -367,6 +404,7 @@ object NotificationMediaCoverStyleHooker {
     private fun cleanupStyle(controller: Any) {
         val api = resolveApi(controller.javaClass.classLoader) ?: return
         val holder = api.getHolder(controller) ?: return
+        NotificationMediaOneUiStyle.restore(api, holder)
         api.getSeamlessContainer(holder)?.let { container ->
             colorOsAppIconStates.remove(container)?.restore()
         }
@@ -471,9 +509,11 @@ object NotificationMediaCoverStyleHooker {
                 (
                     runtimeConfig.notification.layoutStyle ==
                         RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_IOS ||
-                        runtimeConfig.notification.layoutStyle ==
-                            RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS ||
-                        runtimeConfig.alwaysOnDisplay.disableMediaCardCollapsing
+                  runtimeConfig.notification.layoutStyle ==
+                      RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS ||
+                  runtimeConfig.notification.layoutStyle ==
+                      RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI ||
+                  runtimeConfig.alwaysOnDisplay.disableMediaCardCollapsing
                 )
     }
 

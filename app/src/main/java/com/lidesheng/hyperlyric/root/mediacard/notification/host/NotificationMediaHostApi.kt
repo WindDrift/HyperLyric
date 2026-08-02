@@ -2,6 +2,7 @@ package com.lidesheng.hyperlyric.root.mediacard.notification.host
 
 import android.content.Context
 import android.graphics.drawable.Drawable
+import android.graphics.drawable.Icon
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageButton
@@ -10,6 +11,14 @@ import android.widget.TextView
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.NotificationMediaConstraintBridge
 import java.lang.reflect.Field
 import java.lang.reflect.Method
+
+private val iconLoadDrawableAsUserMethod = runCatching {
+    Icon::class.java.getDeclaredMethod(
+        "loadDrawableAsUser",
+        Context::class.java,
+        Int::class.javaPrimitiveType
+    ).apply { isAccessible = true }
+}.getOrNull()
 
 internal object NotificationMediaHostClasses {
     const val VIEW_CONTROLLER =
@@ -33,6 +42,7 @@ internal class NotificationMediaHostApi private constructor(
     private val controllerAppIconDrawableField: Field?,
     private val albumViewField: Field,
     private val albumImageField: Field,
+    private val artistTextField: Field?,
     private val actionButtonFields: List<Field>,
     private val seamlessContainerField: Field?,
     private val seamlessIconField: Field?,
@@ -43,6 +53,10 @@ internal class NotificationMediaHostApi private constructor(
     private val seekBarTrackPositionField: Field?,
     private val seekBarRuntimeShaderField: Field?,
     private val mediaDataIsPlayingField: Field,
+    private val mediaDataPackageNameField: Field?,
+    private val mediaDataAppNameField: Field?,
+    private val mediaDataAppIconField: Field?,
+    private val mediaDataUserIdField: Field?,
     private val layoutContextField: Field,
     private val normalLayoutField: Field,
     private val normalAlbumLayoutField: Field,
@@ -65,6 +79,40 @@ internal class NotificationMediaHostApi private constructor(
 
     fun getAppIconDrawable(controller: Any): Drawable? =
         controllerAppIconDrawableField?.get(controller) as? Drawable
+
+    fun getApplicationName(mediaData: Any?, context: Context): CharSequence? {
+        if (mediaData == null) return null
+        val mediaName = mediaDataAppNameField?.let { field ->
+            runCatching { field.get(mediaData) as? CharSequence }.getOrNull()
+        }
+        if (!mediaName.isNullOrBlank()) return mediaName
+        val packageName = mediaDataPackageNameField?.let { field ->
+            runCatching { field.get(mediaData) as? String }.getOrNull()
+        } ?: return null
+        return runCatching {
+            val packageManager = context.packageManager
+            packageManager.getApplicationLabel(
+                packageManager.getApplicationInfo(packageName, 0)
+            )
+        }.getOrElse { packageName.substringAfterLast('.') }
+    }
+
+    fun getAppIdentityIcon(
+        controller: Any,
+        mediaData: Any?,
+        context: Context
+    ): Drawable? {
+        return getAppIconDrawable(controller)
+            ?: getMediaSourceIcon(mediaData, context)
+            ?: getApplicationIcon(mediaData, context)
+    }
+
+    fun getMediaForegroundColor(holder: Any): Int? {
+        return getSeamlessIcon(holder)?.imageTintList?.defaultColor
+            ?: artistTextField?.let { field ->
+                runCatching { (field.get(holder) as? TextView)?.currentTextColor }.getOrNull()
+            }
+    }
 
     fun getAlbumView(holder: Any): View = albumViewField.get(holder) as View
 
@@ -128,6 +176,30 @@ internal class NotificationMediaHostApi private constructor(
 
     fun isPlaying(mediaData: Any?): Boolean {
         return mediaData?.let { mediaDataIsPlayingField.get(it) == true } ?: false
+    }
+
+    private fun getMediaSourceIcon(mediaData: Any?, context: Context): Drawable? {
+        if (mediaData == null) return null
+        val icon = mediaDataAppIconField?.let { field ->
+            runCatching { field.get(mediaData) as? Icon }.getOrNull()
+        } ?: return null
+        val userId = mediaDataUserIdField?.let { field ->
+            runCatching { field.getInt(mediaData) }.getOrNull()
+        }
+        return runCatching {
+            val drawableForUser = userId?.let { id ->
+                iconLoadDrawableAsUserMethod?.invoke(icon, context, id) as? Drawable
+            }
+            drawableForUser ?: icon.loadDrawable(context)
+        }.getOrNull()
+    }
+
+    private fun getApplicationIcon(mediaData: Any?, context: Context): Drawable? {
+        if (mediaData == null) return null
+        val packageName = mediaDataPackageNameField?.let { field ->
+            runCatching { field.get(mediaData) as? String }.getOrNull()
+        } ?: return null
+        return runCatching { context.packageManager.getApplicationIcon(packageName) }.getOrNull()
     }
 
     override fun setVisibility(layout: Any, viewId: Int, visibility: Int) {
@@ -267,6 +339,11 @@ internal class NotificationMediaHostApi private constructor(
                 albumImageField = holderClass.getDeclaredField("albumImageView").apply {
                     isAccessible = true
                 },
+                artistTextField = runCatching {
+                    holderClass.getDeclaredField("artistText").apply {
+                        isAccessible = true
+                    }
+                }.getOrNull(),
                 actionButtonFields = (0..4).mapNotNull { index ->
                     runCatching {
                         holderClass.getDeclaredField("action$index").apply {
@@ -297,6 +374,26 @@ internal class NotificationMediaHostApi private constructor(
                 mediaDataIsPlayingField = mediaDataClass.getDeclaredField("isPlaying").apply {
                     isAccessible = true
                 },
+                mediaDataPackageNameField = runCatching {
+                    mediaDataClass.getDeclaredField("packageName").apply {
+                        isAccessible = true
+                    }
+                }.getOrNull(),
+                mediaDataAppNameField = runCatching {
+                    mediaDataClass.getDeclaredField("app").apply {
+                        isAccessible = true
+                    }
+                }.getOrNull(),
+                mediaDataAppIconField = runCatching {
+                    mediaDataClass.getDeclaredField("appIcon").apply {
+                        isAccessible = true
+                    }
+                }.getOrNull(),
+                mediaDataUserIdField = runCatching {
+                    mediaDataClass.getDeclaredField("userId").apply {
+                        isAccessible = true
+                    }
+                }.getOrNull(),
                 layoutContextField = layoutControllerClass.getDeclaredField("context").apply {
                     isAccessible = true
                 },
