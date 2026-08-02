@@ -63,6 +63,12 @@ internal object NotificationMediaOneUiStyle {
         }.apply(appIcon, appName, textColor)
     }
 
+    fun refreshAppNameColor(api: NotificationMediaHostApi, holder: Any) {
+        val container = api.getSeamlessContainer(holder) ?: return
+        val textColor = api.getMediaForegroundColor(holder) ?: return
+        appIdentityStates[container]?.applyTextColor(textColor)
+    }
+
     fun applyActionButton(button: ImageButton) {
         val state = actionButtonPaddingStates.getOrPut(button) {
             ActionButtonPaddingState.capture(button)
@@ -190,6 +196,11 @@ internal object NotificationMediaOneUiStyle {
             (container as? LinearLayout)?.gravity = Gravity.CENTER_VERTICAL
             container.visibility = View.VISIBLE
             identityRow.visibility = View.VISIBLE
+        }
+
+        fun applyTextColor(textColor: Int) {
+            label?.setTextColor(textColor)
+            label?.invalidate()
         }
 
         fun restore() {

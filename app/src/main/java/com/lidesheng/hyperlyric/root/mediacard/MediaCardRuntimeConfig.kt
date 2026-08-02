@@ -117,7 +117,8 @@ internal object MediaCardRuntimeConfig {
                     when (style) {
                         RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_IOS,
                         RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS,
-                        RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI -> style
+                        RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI,
+                        RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_MIUI -> style
 
                         else -> RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_SYSTEM
                     }

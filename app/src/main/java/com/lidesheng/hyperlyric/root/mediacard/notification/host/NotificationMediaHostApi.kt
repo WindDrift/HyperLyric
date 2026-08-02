@@ -40,8 +40,10 @@ internal class NotificationMediaHostApi private constructor(
     private val holderField: Field,
     private val controllerMediaDataField: Field,
     private val controllerAppIconDrawableField: Field?,
+    private val playerField: Field?,
     private val albumViewField: Field,
     private val albumImageField: Field,
+    private val titleTextField: Field?,
     private val artistTextField: Field?,
     private val actionButtonFields: List<Field>,
     private val seamlessContainerField: Field?,
@@ -64,6 +66,7 @@ internal class NotificationMediaHostApi private constructor(
     private val setGoneMarginMethod: Method,
     private val connectMethod: Method,
     private val setMarginMethod: Method,
+    private val setHorizontalChainStyleMethod: Method?,
     private val clearMethod: Method?,
     private val constrainWidthMethod: Method?,
     private val constrainHeightMethod: Method?
@@ -106,6 +109,15 @@ internal class NotificationMediaHostApi private constructor(
             ?: getMediaSourceIcon(mediaData, context)
             ?: getApplicationIcon(mediaData, context)
     }
+
+    fun getPlayer(holder: Any): ViewGroup? =
+        playerField?.get(holder) as? ViewGroup
+
+    fun getTitleText(holder: Any): TextView? =
+        titleTextField?.get(holder) as? TextView
+
+    fun getArtistText(holder: Any): TextView? =
+        artistTextField?.get(holder) as? TextView
 
     fun getMediaForegroundColor(holder: Any): Int? {
         return getSeamlessIcon(holder)?.imageTintList?.defaultColor
@@ -224,6 +236,10 @@ internal class NotificationMediaHostApi private constructor(
         setMarginMethod.invoke(layout, viewId, side, margin)
     }
 
+    override fun setHorizontalChainStyle(layout: Any, viewId: Int, chainStyle: Int) {
+        setHorizontalChainStyleMethod?.invoke(layout, viewId, chainStyle)
+    }
+
     override fun clear(layout: Any, viewId: Int, side: Int) {
         requireNotNull(clearMethod).invoke(layout, viewId, side)
     }
@@ -289,6 +305,9 @@ internal class NotificationMediaHostApi private constructor(
                         method.parameterCount == 1 &&
                         method.parameterTypes[0] == Boolean::class.javaPrimitiveType
             }?.apply { isAccessible = true }
+            val updateForegroundColors = viewControllerClass.declaredMethods.find { method ->
+                method.name == "updateForegroundColors" && method.parameterCount == 0
+            }?.apply { isAccessible = true }
             val setSeamless = viewControllerClass.getDeclaredMethod(
                 "setSeamless",
                 mediaDataClass
@@ -319,6 +338,7 @@ internal class NotificationMediaHostApi private constructor(
             return NotificationMediaHostApi(
                 hookMethods = listOf(attach, bind, detach, setSeamless) + listOfNotNull(
                     onFullAodStateChanged,
+                    updateForegroundColors,
                     semanticActionMethod,
                     commonActionMethod,
                     setAnimateHeight
@@ -333,12 +353,18 @@ internal class NotificationMediaHostApi private constructor(
                         isAccessible = true
                     }
                 }.getOrNull(),
+                playerField = runCatching {
+                    holderClass.getDeclaredField("player").apply { isAccessible = true }
+                }.getOrNull(),
                 albumViewField = holderClass.getDeclaredField("albumView").apply {
                     isAccessible = true
                 },
                 albumImageField = holderClass.getDeclaredField("albumImageView").apply {
                     isAccessible = true
                 },
+                titleTextField = runCatching {
+                    holderClass.getDeclaredField("titleText").apply { isAccessible = true }
+                }.getOrNull(),
                 artistTextField = runCatching {
                     holderClass.getDeclaredField("artistText").apply {
                         isAccessible = true
@@ -426,6 +452,13 @@ internal class NotificationMediaHostApi private constructor(
                     Int::class.javaPrimitiveType,
                     Int::class.javaPrimitiveType
                 ).apply { isAccessible = true },
+                setHorizontalChainStyleMethod = runCatching {
+                    constraintSetClass.getDeclaredMethod(
+                        "setHorizontalChainStyle",
+                        Int::class.javaPrimitiveType,
+                        Int::class.javaPrimitiveType
+                    ).apply { isAccessible = true }
+                }.getOrNull(),
                 clearMethod = runCatching {
                     constraintSetClass.getDeclaredMethod(
                         "clear",

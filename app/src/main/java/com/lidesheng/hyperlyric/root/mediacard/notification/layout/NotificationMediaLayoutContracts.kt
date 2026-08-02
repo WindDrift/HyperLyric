@@ -22,6 +22,8 @@ internal interface NotificationMediaConstraintBridge {
 
     fun setMargin(layout: Any, viewId: Int, side: Int, margin: Int)
 
+    fun setHorizontalChainStyle(layout: Any, viewId: Int, chainStyle: Int)
+
     fun clear(layout: Any, viewId: Int, side: Int)
 
     fun constrainWidth(layout: Any, viewId: Int, width: Int)
@@ -85,7 +87,8 @@ internal data class NotificationMediaLayoutEnvironment(
     val ids: NotificationMediaLayoutResourceIds,
     val context: Context,
     val coverHidden: Boolean,
-    val hideDevice: Boolean
+    val hideDevice: Boolean,
+    val actionsOrder: Int
 )
 
 internal fun interface NotificationMediaLayoutPreset {

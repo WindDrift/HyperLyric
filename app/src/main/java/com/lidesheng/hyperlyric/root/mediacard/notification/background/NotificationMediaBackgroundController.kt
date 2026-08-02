@@ -35,6 +35,8 @@ internal object NotificationMediaBackgroundController {
     )
     private val seekBarColors = Collections.synchronizedMap(WeakHashMap<SeekBar, Int>())
     private val seekBarStates = Collections.synchronizedMap(WeakHashMap<SeekBar, SeekBarState>())
+    @Volatile
+    private var foregroundColorsAppliedListener: ((Any) -> Unit)? = null
 
     private val executor: ExecutorService = newExecutor()
 
@@ -46,6 +48,10 @@ internal object NotificationMediaBackgroundController {
 
     fun setNativeHooksAvailable(classLoader: ClassLoader, available: Boolean) {
         if (available) supportedLoaders.add(classLoader) else supportedLoaders.remove(classLoader)
+    }
+
+    fun setForegroundColorsAppliedListener(listener: ((Any) -> Unit)?) {
+        foregroundColorsAppliedListener = listener
     }
 
     fun onBind(controller: Any, mediaData: Any?) {
@@ -131,6 +137,10 @@ internal object NotificationMediaBackgroundController {
                 }
                 applyBackground(mediaBg, rendered.bitmap)
                 applyForeground(holder, rendered.colors)
+                runCatching { foregroundColorsAppliedListener?.invoke(controller) }
+                    .onFailure { error ->
+                        HookLogger.e(TAG, "通知中心媒体前景色同步回调失败", error)
+                    }
                 state.customApplied = true
                 state.appliedToken = token
                 state.artworkFingerprint = rendered.artworkFingerprint
