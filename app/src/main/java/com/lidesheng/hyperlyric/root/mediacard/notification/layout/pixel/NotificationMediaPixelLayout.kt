@@ -1,4 +1,4 @@
-package com.lidesheng.hyperlyric.root.mediacard.notification.layout.presets
+package com.lidesheng.hyperlyric.root.mediacard.notification.layout.pixel
 
 import android.view.View
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.NotificationMediaConstraintBridge

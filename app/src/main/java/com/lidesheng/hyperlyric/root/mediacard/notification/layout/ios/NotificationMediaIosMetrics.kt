@@ -1,4 +1,4 @@
-package com.lidesheng.hyperlyric.root.mediacard.notification.layout.presets.ios
+package com.lidesheng.hyperlyric.root.mediacard.notification.layout.ios
 
 internal object NotificationMediaIosMetrics {
     const val COVER_SIZE_DP = 60f

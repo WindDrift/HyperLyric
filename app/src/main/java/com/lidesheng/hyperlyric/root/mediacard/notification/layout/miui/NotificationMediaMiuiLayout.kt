@@ -1,4 +1,4 @@
-package com.lidesheng.hyperlyric.root.mediacard.notification.layout.presets
+package com.lidesheng.hyperlyric.root.mediacard.notification.layout.miui
 
 import android.view.View
 import android.view.ViewGroup
@@ -9,7 +9,6 @@ import com.lidesheng.hyperlyric.root.mediacard.notification.layout.NotificationM
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.clearAll
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.dimenPx
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.dp
-import com.lidesheng.hyperlyric.root.mediacard.notification.miui.NotificationMediaMiuiStyle
 import kotlin.math.roundToInt
 
 internal object NotificationMediaMiuiLayout : NotificationMediaLayoutPreset {

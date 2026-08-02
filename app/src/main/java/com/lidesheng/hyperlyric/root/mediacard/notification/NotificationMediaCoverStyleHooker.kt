@@ -13,13 +13,11 @@ import com.lidesheng.hyperlyric.root.mediacard.MediaCoverRotationController
 import com.lidesheng.hyperlyric.root.mediacard.notification.aod.NotificationMediaFullAodAnimatedHeightHook
 import com.lidesheng.hyperlyric.root.mediacard.notification.aod.NotificationMediaFullAodHook
 import com.lidesheng.hyperlyric.root.mediacard.notification.background.NotificationMediaBackgroundController
-import com.lidesheng.hyperlyric.root.mediacard.notification.host.NotificationMediaHostApi
-import com.lidesheng.hyperlyric.root.mediacard.notification.host.NotificationMediaHostClasses
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.NotificationMediaLayoutController
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.NotificationMediaLayoutResourceIds
-import com.lidesheng.hyperlyric.root.mediacard.notification.miui.NotificationMediaMiuiStyle
-import com.lidesheng.hyperlyric.root.mediacard.notification.oneui.NotificationMediaOneUiStyle
-import com.lidesheng.hyperlyric.root.mediacard.notification.pixel.NotificationMediaPixelStyle
+import com.lidesheng.hyperlyric.root.mediacard.notification.layout.miui.NotificationMediaMiuiStyle
+import com.lidesheng.hyperlyric.root.mediacard.notification.layout.oneui.NotificationMediaOneUiStyle
+import com.lidesheng.hyperlyric.root.mediacard.notification.layout.pixel.NotificationMediaPixelStyle
 import com.lidesheng.hyperlyric.root.mediacard.notification.style.NotificationMediaCoverStyler
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import io.github.libxposed.api.XposedInterface.Chain

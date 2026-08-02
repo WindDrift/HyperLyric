@@ -1,4 +1,4 @@
-package com.lidesheng.hyperlyric.root.mediacard.notification.layout.presets
+package com.lidesheng.hyperlyric.root.mediacard.notification.layout.coloros
 
 import android.view.ViewGroup
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.NotificationMediaConstraintSide

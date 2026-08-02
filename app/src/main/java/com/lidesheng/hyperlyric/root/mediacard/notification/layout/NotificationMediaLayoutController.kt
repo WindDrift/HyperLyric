@@ -3,11 +3,11 @@ package com.lidesheng.hyperlyric.root.mediacard.notification.layout
 import android.content.Context
 import android.view.View
 import com.lidesheng.hyperlyric.common.RootConstants
-import com.lidesheng.hyperlyric.root.mediacard.notification.layout.presets.NotificationMediaColorOsLayout
-import com.lidesheng.hyperlyric.root.mediacard.notification.layout.presets.NotificationMediaMiuiLayout
-import com.lidesheng.hyperlyric.root.mediacard.notification.layout.presets.NotificationMediaPixelLayout
-import com.lidesheng.hyperlyric.root.mediacard.notification.layout.presets.ios.NotificationMediaIosLayoutPreset
-import com.lidesheng.hyperlyric.root.mediacard.notification.layout.presets.NotificationMediaOneUiLayout
+import com.lidesheng.hyperlyric.root.mediacard.notification.layout.coloros.NotificationMediaColorOsLayout
+import com.lidesheng.hyperlyric.root.mediacard.notification.layout.ios.NotificationMediaIosLayoutPreset
+import com.lidesheng.hyperlyric.root.mediacard.notification.layout.miui.NotificationMediaMiuiLayout
+import com.lidesheng.hyperlyric.root.mediacard.notification.layout.oneui.NotificationMediaOneUiLayout
+import com.lidesheng.hyperlyric.root.mediacard.notification.layout.pixel.NotificationMediaPixelLayout
 
 
 internal object NotificationMediaLayoutController {

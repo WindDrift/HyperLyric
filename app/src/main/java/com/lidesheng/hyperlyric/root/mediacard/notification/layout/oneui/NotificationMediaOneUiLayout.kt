@@ -1,4 +1,4 @@
-package com.lidesheng.hyperlyric.root.mediacard.notification.layout.presets
+package com.lidesheng.hyperlyric.root.mediacard.notification.layout.oneui
 
 import android.view.View
 import android.view.ViewGroup
@@ -9,7 +9,6 @@ import com.lidesheng.hyperlyric.root.mediacard.notification.layout.anchorActionR
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.clearAll
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.dimenPx
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.dp
-import com.lidesheng.hyperlyric.root.mediacard.notification.oneui.NotificationMediaOneUiStyle
 import kotlin.math.roundToInt
 
 internal object NotificationMediaOneUiLayout : NotificationMediaLayoutPreset {

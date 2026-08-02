@@ -1,4 +1,4 @@
-package com.lidesheng.hyperlyric.root.mediacard.notification.oneui
+package com.lidesheng.hyperlyric.root.mediacard.notification.layout.oneui
 
 import android.graphics.drawable.Drawable
 import android.util.TypedValue
@@ -9,7 +9,7 @@ import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.lidesheng.hyperlyric.root.mediacard.notification.host.NotificationMediaHostApi
+import com.lidesheng.hyperlyric.root.mediacard.notification.NotificationMediaHostApi
 import java.util.Collections
 import java.util.WeakHashMap
 import kotlin.math.roundToInt

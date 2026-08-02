@@ -1,11 +1,11 @@
-package com.lidesheng.hyperlyric.root.mediacard.notification.pixel
+package com.lidesheng.hyperlyric.root.mediacard.notification.layout.pixel
 
 import android.graphics.drawable.Drawable
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageButton
 import android.widget.ImageView
-import com.lidesheng.hyperlyric.root.mediacard.notification.host.NotificationMediaHostApi
+import com.lidesheng.hyperlyric.root.mediacard.notification.NotificationMediaHostApi
 import java.util.Collections
 import java.util.WeakHashMap
 import kotlin.math.roundToInt

@@ -1,4 +1,4 @@
-package com.lidesheng.hyperlyric.root.mediacard.notification.layout.presets.ios
+package com.lidesheng.hyperlyric.root.mediacard.notification.layout.ios
 
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.NotificationMediaLayoutEnvironment
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.NotificationMediaLayoutPreset

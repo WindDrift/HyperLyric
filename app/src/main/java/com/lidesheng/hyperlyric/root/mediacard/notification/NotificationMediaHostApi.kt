@@ -1,4 +1,4 @@
-package com.lidesheng.hyperlyric.root.mediacard.notification.host
+package com.lidesheng.hyperlyric.root.mediacard.notification
 
 import android.content.Context
 import android.graphics.drawable.Drawable
