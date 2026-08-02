@@ -3,6 +3,7 @@ package com.lidesheng.hyperlyric.root.mediacard.notification.layout
 import android.content.Context
 import android.view.View
 import com.lidesheng.hyperlyric.common.RootConstants
+import com.lidesheng.hyperlyric.root.mediacard.notification.layout.presets.NotificationMediaColorOsLayout
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.presets.ios.NotificationMediaIosLayoutPreset
 
 
@@ -69,7 +70,9 @@ internal object NotificationMediaLayoutController {
         if (hideSource && normalAlbumLayout != null) {
             bridge.setVisibility(normalAlbumLayout, ids.coverSource, View.GONE)
         }
-        if (hideDevice) {
+        if (layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS) {
+            bridge.setVisibility(normalLayout, ids.mediaSeamless, View.VISIBLE)
+        } else if (hideDevice) {
             bridge.setVisibility(normalLayout, ids.mediaSeamless, View.GONE)
         }
         if (hideDevice) {
@@ -92,6 +95,8 @@ internal object NotificationMediaLayoutController {
             ids = ids,
             context = context,
             hideCustomActions = hideCustomActions,
+            keepAction4 = layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS &&
+                    !hideDevice,
             actionsLeftAligned = actionsLeftAligned,
             actionsOrder = actionsOrder
         )
@@ -138,6 +143,9 @@ internal object NotificationMediaLayoutController {
             RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_IOS ->
                 NotificationMediaIosLayoutPreset
 
+            RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS ->
+                NotificationMediaColorOsLayout
+
             else -> null
         }
     }
@@ -148,6 +156,7 @@ internal object NotificationMediaLayoutController {
         ids: NotificationMediaLayoutResourceIds,
         context: Context,
         hideCustomActions: Boolean,
+        keepAction4: Boolean,
         actionsLeftAligned: Boolean,
         actionsOrder: Int
     ) {
@@ -212,7 +221,9 @@ internal object NotificationMediaLayoutController {
         }
         if (hideCustomActions) {
             bridge.setVisibility(layout, action0, View.INVISIBLE)
-            bridge.setVisibility(layout, action4, View.INVISIBLE)
+            if (!keepAction4) {
+                bridge.setVisibility(layout, action4, View.INVISIBLE)
+            }
         }
     }
 

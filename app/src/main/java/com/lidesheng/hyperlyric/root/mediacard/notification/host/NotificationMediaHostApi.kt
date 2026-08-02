@@ -1,7 +1,9 @@
 package com.lidesheng.hyperlyric.root.mediacard.notification.host
 
 import android.content.Context
+import android.graphics.drawable.Drawable
 import android.view.View
+import android.view.ViewGroup
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
@@ -28,9 +30,12 @@ internal class NotificationMediaHostApi private constructor(
     val hookMethods: List<Method>,
     private val holderField: Field,
     private val controllerMediaDataField: Field,
+    private val controllerAppIconDrawableField: Field?,
     private val albumViewField: Field,
     private val albumImageField: Field,
     private val actionButtonFields: List<Field>,
+    private val seamlessContainerField: Field?,
+    private val seamlessIconField: Field?,
     private val seekBarField: Field?,
     private val elapsedTimeViewField: Field?,
     private val totalTimeViewField: Field?,
@@ -58,6 +63,9 @@ internal class NotificationMediaHostApi private constructor(
 
     fun getMediaData(controller: Any): Any? = controllerMediaDataField.get(controller)
 
+    fun getAppIconDrawable(controller: Any): Drawable? =
+        controllerAppIconDrawableField?.get(controller) as? Drawable
+
     fun getAlbumView(holder: Any): View = albumViewField.get(holder) as View
 
     fun getAlbumImage(holder: Any): ImageView = albumImageField.get(holder) as ImageView
@@ -67,6 +75,17 @@ internal class NotificationMediaHostApi private constructor(
             runCatching { field.get(holder) as? ImageButton }.getOrNull()
         }
     }
+
+    fun getAction4(holder: Any): ImageButton? =
+        actionButtonFields.getOrNull(4)?.let { field ->
+            runCatching { field.get(holder) as? ImageButton }.getOrNull()
+        }
+
+    fun getSeamlessContainer(holder: Any): ViewGroup? =
+        seamlessContainerField?.get(holder) as? ViewGroup
+
+    fun getSeamlessIcon(holder: Any): ImageView? =
+        seamlessIconField?.get(holder) as? ImageView
 
     fun getSeekBar(holder: Any): View? = seekBarField?.get(holder) as? View
 
@@ -237,6 +256,11 @@ internal class NotificationMediaHostApi private constructor(
                 },
                 controllerMediaDataField = viewControllerClass.getDeclaredField("mediaData")
                     .apply { isAccessible = true },
+                controllerAppIconDrawableField = runCatching {
+                    viewControllerClass.getDeclaredField("appIconDrawable").apply {
+                        isAccessible = true
+                    }
+                }.getOrNull(),
                 albumViewField = holderClass.getDeclaredField("albumView").apply {
                     isAccessible = true
                 },
@@ -250,6 +274,12 @@ internal class NotificationMediaHostApi private constructor(
                         }
                     }.getOrNull()
                 },
+                seamlessContainerField = runCatching {
+                    holderClass.getDeclaredField("seamless").apply { isAccessible = true }
+                }.getOrNull(),
+                seamlessIconField = runCatching {
+                    holderClass.getDeclaredField("seamlessIcon").apply { isAccessible = true }
+                }.getOrNull(),
                 seekBarField = seekBarField,
                 elapsedTimeViewField = runCatching {
                     holderClass.getDeclaredField("elapsedTimeView").apply {

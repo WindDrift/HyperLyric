@@ -1,6 +1,10 @@
 package com.lidesheng.hyperlyric.root.mediacard.notification
 
+import android.graphics.drawable.Drawable
+import android.graphics.drawable.InsetDrawable
+import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.widget.ImageButton
 import android.widget.ImageView
 import com.lidesheng.hyperlyric.common.RootConstants
@@ -22,6 +26,7 @@ import java.lang.reflect.Executable
 import java.lang.reflect.Method
 import java.util.Collections
 import java.util.WeakHashMap
+import kotlin.math.roundToInt
 
 object NotificationMediaCoverStyleHooker {
     private const val TAG = "NotificationMediaCoverStyleHooker"
@@ -33,6 +38,10 @@ object NotificationMediaCoverStyleHooker {
     )
     private val nativeApis =
         Collections.synchronizedMap(WeakHashMap<ClassLoader, NotificationMediaHostApi>())
+    private val colorOsAppIconStates =
+        Collections.synchronizedMap(WeakHashMap<ViewGroup, ColorOsAppIconState>())
+    private val colorOsDeviceSwitchSources =
+        Collections.synchronizedMap(WeakHashMap<ImageButton, ImageView>())
 
     fun hook(xposedModule: XposedModule, classLoader: ClassLoader) {
         if (!hookedClassLoaders.add(classLoader)) return
@@ -135,14 +144,16 @@ object NotificationMediaCoverStyleHooker {
             NotificationMediaHostClasses.VIEW_CONTROLLER -> when (method.name) {
                 "attach", "bindMediaData" ->
                     config.coverStyle != RootConstants.NOTIFICATION_MEDIA_COVER_STYLE_DEFAULT ||
-                            config.layoutStyle ==
-                            RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_IOS ||
+                            config.layoutStyle != RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_SYSTEM ||
                             config.hideTime ||
                             config.hideCustomActions
                 "detach" ->
                     config.coverStyle ==
-                            RootConstants.NOTIFICATION_MEDIA_COVER_STYLE_ROTATING_CIRCLE
-                "setSeamless" -> config.hideDeviceSwitch
+                            RootConstants.NOTIFICATION_MEDIA_COVER_STYLE_ROTATING_CIRCLE ||
+                            config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS
+                "setSeamless" ->
+                    config.hideDeviceSwitch ||
+                            config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS
                 "onFullAodStateChanged" -> shouldKeepExpandedInFullAod()
                 else -> false
             }
@@ -170,7 +181,9 @@ object NotificationMediaCoverStyleHooker {
             val controller = chain.thisObject ?: return chain.proceed()
             if (
                 methodName == "setSeamless" &&
-                runtimeConfig.notification.hideDeviceSwitch
+                runtimeConfig.notification.hideDeviceSwitch &&
+                    runtimeConfig.notification.layoutStyle !=
+                    RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS
             ) {
                 return null
             }
@@ -190,6 +203,13 @@ object NotificationMediaCoverStyleHooker {
                     applyStyle(controller, mediaData)
                 }.onFailure { HookLogger.e(TAG, "应用通知中心媒体卡片样式失败", it) }
             }
+            if (methodName == "setSeamless" &&
+                runtimeConfig.notification.layoutStyle ==
+                RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS
+            ) {
+                runCatching { applyColorOsAppIcon(controller) }
+                    .onFailure { HookLogger.e(TAG, "应用 ColorOS 媒体卡片应用图标失败", it) }
+            }
             return result
         }
     }
@@ -197,7 +217,13 @@ object NotificationMediaCoverStyleHooker {
     private class ActionButtonHook : Hooker {
         override fun intercept(chain: Chain): Any? {
             val result = chain.proceed()
-            (chain.args.firstOrNull() as? ImageButton)?.let(::applyCustomActionVisibility)
+            (chain.args.firstOrNull() as? ImageButton)?.let { button ->
+                if (button.isColorOsDeviceSwitch()) {
+                    applyColorOsDeviceSwitchForButton(button)
+                } else {
+                    applyCustomActionVisibility(button)
+                }
+            }
             return result
         }
     }
@@ -222,8 +248,20 @@ object NotificationMediaCoverStyleHooker {
         val albumImage = api.getAlbumImage(holder)
         val config = runtimeConfig.notification
 
-        if (config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_IOS) {
-            api.getSeekBar(holder)?.let(api::removeSeekBarTrackInset)
+        api.getSeekBar(holder)?.let { seekBar ->
+            if (
+                config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_IOS ||
+                    config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS
+            ) {
+                api.removeSeekBarTrackInset(seekBar)
+            }
+            if (config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS) {
+                applyColorOsSeekBarPadding(seekBar)
+            }
+        }
+        if (config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS) {
+            applyColorOsTimeAlignment(api, holder)
+            applyColorOsAppIcon(api, controller, holder)
         }
         if (config.hideTime) {
             api.getElapsedTimeView(holder)?.visibility = View.GONE
@@ -255,14 +293,103 @@ object NotificationMediaCoverStyleHooker {
         }
     }
 
+    private fun applyColorOsSeekBarPadding(seekBar: View) {
+        val verticalPadding = (10f * seekBar.resources.displayMetrics.density).roundToInt()
+        if (
+            seekBar.paddingTop == verticalPadding &&
+                seekBar.paddingBottom == verticalPadding
+        ) return
+        seekBar.setPadding(
+            seekBar.paddingLeft,
+            verticalPadding,
+            seekBar.paddingRight,
+            verticalPadding
+        )
+    }
+
+    private fun applyColorOsTimeAlignment(api: NotificationMediaHostApi, holder: Any) {
+        api.getElapsedTimeView(holder)?.gravity = Gravity.START or Gravity.CENTER_VERTICAL
+        api.getTotalTimeView(holder)?.gravity = Gravity.END or Gravity.CENTER_VERTICAL
+    }
+
+    private fun applyColorOsAppIcon(controller: Any) {
+        val api = resolveApi(controller.javaClass.classLoader) ?: return
+        val holder = api.getHolder(controller) ?: return
+        applyColorOsAppIcon(api, controller, holder)
+    }
+
+    private fun applyColorOsAppIcon(
+        api: NotificationMediaHostApi,
+        controller: Any,
+        holder: Any
+    ) {
+        val container = api.getSeamlessContainer(holder) ?: return
+        val sourceIcon = api.getSeamlessIcon(holder) ?: return
+        api.getAppIconDrawable(controller)?.let { drawable ->
+            colorOsAppIconStates.getOrPut(container) {
+                ColorOsAppIconState(container, sourceIcon)
+            }.apply(drawable)
+        }
+        applyColorOsDeviceSwitch(api, holder)
+    }
+
+    private fun applyColorOsDeviceSwitch(api: NotificationMediaHostApi, holder: Any) {
+        val action4 = api.getAction4(holder) ?: return
+        if (runtimeConfig.notification.hideDeviceSwitch) {
+            colorOsDeviceSwitchSources.remove(action4)
+            return
+        }
+        val sourceIcon = api.getSeamlessIcon(holder) ?: return
+        colorOsDeviceSwitchSources[action4] = sourceIcon
+        applyColorOsDeviceSwitch(action4, sourceIcon)
+    }
+
+    private fun applyColorOsDeviceSwitchForButton(button: ImageButton) {
+        colorOsDeviceSwitchSources[button]?.let { sourceIcon ->
+            applyColorOsDeviceSwitch(button, sourceIcon)
+        }
+    }
+
+    private fun applyColorOsDeviceSwitch(button: ImageButton, sourceIcon: ImageView) {
+        val drawable = sourceIcon.drawable ?: return
+        val copy = runCatching {
+            drawable.constantState
+                ?.newDrawable(button.resources, button.context.theme)
+                ?.mutate()
+        }.getOrNull() ?: drawable
+        button.setImageDrawable(InsetDrawable(copy, 0.05f))
+        button.contentDescription = sourceIcon.contentDescription
+        button.isEnabled = true
+        button.visibility = View.VISIBLE
+        button.setOnClickListener { sourceIcon.performClick() }
+    }
+
     private fun cleanupStyle(controller: Any) {
         val api = resolveApi(controller.javaClass.classLoader) ?: return
         val holder = api.getHolder(controller) ?: return
+        api.getSeamlessContainer(holder)?.let { container ->
+            colorOsAppIconStates.remove(container)?.restore()
+        }
+        api.getAction4(holder)?.let(colorOsDeviceSwitchSources::remove)
         MediaCoverRotationController.detach(api.getAlbumImage(holder))
     }
 
     private fun applyCustomActionVisibility(button: ImageButton) {
+        if (button.isColorOsDeviceSwitch()) {
+            button.visibility = View.VISIBLE
+            return
+        }
         if (button.isCustomActionSlot()) button.visibility = View.INVISIBLE
+    }
+
+    private fun ImageButton.isColorOsDeviceSwitch(): Boolean {
+        return runCatching {
+            runtimeConfig.notification.layoutStyle ==
+                    RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS &&
+                    !runtimeConfig.notification.hideDeviceSwitch &&
+                    resources.getResourceEntryName(id) == "action4" &&
+                    colorOsDeviceSwitchSources.containsKey(this)
+        }.getOrDefault(false)
     }
 
     private fun ImageButton.isCustomActionSlot(): Boolean {
@@ -291,6 +418,52 @@ object NotificationMediaCoverStyleHooker {
             actionsLeftAligned = config.actionAlignLeft,
             actionsOrder = config.actionOrder
         )
+    }
+
+    private data class ColorOsAppIconState(
+        val container: ViewGroup,
+        val sourceIcon: ImageView,
+        val originalSourceVisibility: Int = sourceIcon.visibility,
+        val originalContainerVisibility: Int = container.visibility,
+        val originalContainerBackground: Drawable? = container.background,
+        var appIconView: ImageView? = null
+    ) {
+        fun apply(drawable: Drawable) {
+            val iconView = appIconView ?: ImageView(container.context).also { view ->
+                view.layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+                view.scaleType = ImageView.ScaleType.FIT_CENTER
+                view.isClickable = false
+                view.isFocusable = false
+                view.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                container.addView(view)
+                appIconView = view
+            }
+            val copy = runCatching {
+                drawable.constantState
+                    ?.newDrawable(iconView.resources, iconView.context.theme)
+                    ?.mutate()
+            }.getOrNull() ?: drawable
+            iconView.setImageDrawable(copy)
+            iconView.imageTintList = null
+            iconView.alpha = 1f
+            iconView.visibility = View.VISIBLE
+            container.background = null
+            sourceIcon.visibility = View.GONE
+            container.visibility = View.VISIBLE
+        }
+
+        fun restore() {
+            appIconView?.let { view ->
+                (view.parent as? ViewGroup)?.removeView(view)
+            }
+            appIconView = null
+            container.background = originalContainerBackground
+            sourceIcon.visibility = originalSourceVisibility
+            container.visibility = originalContainerVisibility
+        }
     }
 
     private fun shouldKeepExpandedInFullAod(): Boolean {

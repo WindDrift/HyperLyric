@@ -114,10 +114,11 @@ internal object MediaCardRuntimeConfig {
                     RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_LAYOUT_STYLE,
                     RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_LAYOUT_STYLE
                 ).let { style ->
-                    if (style == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_IOS) {
-                        style
-                    } else {
-                        RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_SYSTEM
+                    when (style) {
+                        RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_IOS,
+                        RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS -> style
+
+                        else -> RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_SYSTEM
                     }
                 },
                 ambientFlowMode = prefs.getInt(
