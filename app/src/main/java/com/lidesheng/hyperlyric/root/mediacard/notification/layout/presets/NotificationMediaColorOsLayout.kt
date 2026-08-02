@@ -21,12 +21,13 @@ internal object NotificationMediaColorOsLayout : NotificationMediaLayoutPreset {
                     albumLayout == null
             ) return
 
-            val horizontalOuterMargin = context.dp(16f)
-            val topMargin = context.dp(16f)
+            val horizontalOuterMargin = context.dp(17f)
+            val topMargin = context.dp(17f)
             val contentGap = context.dp(12f)
-            val contentEndMargin = context.dp(15f)
-            val appIconEndMargin = context.dp(16f)
-            val coverSize = context.dp(80f)
+            val contentEndMargin = context.dp(17f)
+            val appIconEndMargin = context.dp(17f)
+            val progressOverlap = context.dp(8f)
+            val coverSize = context.dp(83f)
             val appIconWidth = context.dp(22f)
 
             bridge.constrainWidth(normalLayout, ids.albumArt, coverSize)
@@ -179,11 +180,11 @@ internal object NotificationMediaColorOsLayout : NotificationMediaLayoutPreset {
                 normalLayout,
                 ids.headerArtist,
                 NotificationMediaConstraintSide.TOP,
-                context.dp(3f)
+                context.dp(5f)
             )
 
             bridge.constrainWidth(normalLayout, progressBarId, 0)
-            bridge.constrainHeight(normalLayout, progressBarId, context.dp(26f))
+            bridge.constrainHeight(normalLayout, progressBarId, context.dp(38f))
             bridge.clearAll(normalLayout, progressBarId)
             bridge.connect(
                 normalLayout,
@@ -218,6 +219,12 @@ internal object NotificationMediaColorOsLayout : NotificationMediaLayoutPreset {
                 NotificationMediaConstraintSide.END,
                 contentEndMargin
             )
+            bridge.setMargin(
+                normalLayout,
+                progressBarId,
+                NotificationMediaConstraintSide.TOP,
+                -progressOverlap
+            )
 
             bridge.constrainWidth(
                 normalLayout,
@@ -238,6 +245,12 @@ internal object NotificationMediaColorOsLayout : NotificationMediaLayoutPreset {
                 NotificationMediaConstraintSide.TOP,
                 progressBarId,
                 NotificationMediaConstraintSide.BOTTOM
+            )
+            bridge.setMargin(
+                normalLayout,
+                ids.mediaElapsedTime,
+                NotificationMediaConstraintSide.TOP,
+                -progressOverlap
             )
 
             bridge.constrainWidth(
@@ -260,8 +273,14 @@ internal object NotificationMediaColorOsLayout : NotificationMediaLayoutPreset {
                 progressBarId,
                 NotificationMediaConstraintSide.BOTTOM
             )
+            bridge.setMargin(
+                normalLayout,
+                ids.mediaTotalTime,
+                NotificationMediaConstraintSide.TOP,
+                -progressOverlap
+            )
 
-            bridge.anchorActionRowToBottom(normalLayout, ids.action0, context, 16f)
+            bridge.anchorActionRowToBottom(normalLayout, ids.action0, context, 14f)
         }
     }
 }

@@ -294,7 +294,7 @@ object NotificationMediaCoverStyleHooker {
     }
 
     private fun applyColorOsSeekBarPadding(seekBar: View) {
-        val verticalPadding = (10f * seekBar.resources.displayMetrics.density).roundToInt()
+        val verticalPadding = (16f * seekBar.resources.displayMetrics.density).roundToInt()
         if (
             seekBar.paddingTop == verticalPadding &&
                 seekBar.paddingBottom == verticalPadding
@@ -471,6 +471,8 @@ object NotificationMediaCoverStyleHooker {
                 (
                     runtimeConfig.notification.layoutStyle ==
                         RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_IOS ||
+                        runtimeConfig.notification.layoutStyle ==
+                            RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS ||
                         runtimeConfig.alwaysOnDisplay.disableMediaCardCollapsing
                 )
     }
