@@ -385,6 +385,7 @@
     <string name="title_layout">Layout</string>
     <string name="title_content">Content</string>
     <string name="title_super_island_width">Super Island Width</string>
+    <string name="summary_super_island_width">Maximum width depends on system limits. It will not continue to grow once a certain threshold is reached. This is expected behavior.</string>
     <string name="label_content_width_range">Range: %1$d ~ %2$d</string>
     <string name="title_left_padding">Left Content Padding</string>
     <string name="title_right_padding">Right Content Padding</string>

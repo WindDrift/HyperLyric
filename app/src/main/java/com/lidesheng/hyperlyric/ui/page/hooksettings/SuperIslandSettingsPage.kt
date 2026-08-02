@@ -395,6 +395,7 @@ fun SuperIslandSettingsPage() {
                         Column {
                             ArrowPreference(
                                 title = stringResource(id = R.string.title_super_island_width),
+                                summary = stringResource(id = R.string.summary_super_island_width),
                                 endActions = {
                                     Text(
                                         "$islandWidth",
