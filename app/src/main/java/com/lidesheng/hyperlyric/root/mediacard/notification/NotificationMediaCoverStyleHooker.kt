@@ -108,7 +108,7 @@ object NotificationMediaCoverStyleHooker {
         return when (method.declaringClass.name) {
             NotificationMediaHostClasses.VIEW_CONTROLLER -> when (method.name) {
                 "onFullAodStateChanged" -> NotificationMediaFullAodHook(
-                    keepExpanded = ::usesIosLayout,
+                    keepExpanded = ::shouldKeepExpandedInFullAod,
                     onApplied = { controller -> applyStyle(controller, null) },
                     onFailure = { error ->
                         HookLogger.e(TAG, "应用通知中心 Full AOD 媒体样式失败", error)
@@ -120,7 +120,9 @@ object NotificationMediaCoverStyleHooker {
 
             NotificationMediaHostClasses.ACTION_BUTTON_UTILS -> ActionButtonHook()
             NotificationMediaHostClasses.MEDIA_HEADER_VIEW ->
-                NotificationMediaFullAodAnimatedHeightHook(keepExpanded = ::usesIosLayout)
+                NotificationMediaFullAodAnimatedHeightHook(
+                    keepExpanded = ::shouldKeepExpandedInFullAod
+                )
             NotificationMediaHostClasses.LAYOUT_CONTROLLER -> LayoutLoadHook()
             else -> null
         }
@@ -141,14 +143,12 @@ object NotificationMediaCoverStyleHooker {
                     config.coverStyle ==
                             RootConstants.NOTIFICATION_MEDIA_COVER_STYLE_ROTATING_CIRCLE
                 "setSeamless" -> config.hideDeviceSwitch
-                "onFullAodStateChanged" ->
-                    config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_IOS
+                "onFullAodStateChanged" -> shouldKeepExpandedInFullAod()
                 else -> false
             }
 
             NotificationMediaHostClasses.ACTION_BUTTON_UTILS -> config.hideCustomActions
-            NotificationMediaHostClasses.MEDIA_HEADER_VIEW ->
-                config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_IOS
+            NotificationMediaHostClasses.MEDIA_HEADER_VIEW -> shouldKeepExpandedInFullAod()
             NotificationMediaHostClasses.LAYOUT_CONTROLLER -> needsConstraintLayout(config)
             else -> false
         }
@@ -293,10 +293,13 @@ object NotificationMediaCoverStyleHooker {
         )
     }
 
-    private fun usesIosLayout(): Boolean {
+    private fun shouldKeepExpandedInFullAod(): Boolean {
         return runtimeConfig.enabled &&
-                runtimeConfig.notification.layoutStyle ==
-                RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_IOS
+                (
+                    runtimeConfig.notification.layoutStyle ==
+                        RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_IOS ||
+                        runtimeConfig.alwaysOnDisplay.disableMediaCardCollapsing
+                )
     }
 
     private fun resolveApi(classLoader: ClassLoader?): NotificationMediaHostApi? {

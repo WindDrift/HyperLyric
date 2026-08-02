@@ -4,13 +4,12 @@ import android.view.View
 import io.github.libxposed.api.XposedInterface.Chain
 import io.github.libxposed.api.XposedInterface.Hooker
 
-/** Prevents the Full AOD transition from temporarily compressing an iOS media card. */
+/** Prevents the Full AOD transition from temporarily compressing a media card. */
 internal class NotificationMediaFullAodAnimatedHeightHook(
     private val keepExpanded: () -> Boolean
 ) : Hooker {
     override fun intercept(chain: Chain): Any? {
-        val requestedHeight = chain.args.firstOrNull() as? Int ?: return chain.proceed()
-        if (requestedHeight == 0 || !keepExpanded()) return chain.proceed()
+        if (!keepExpanded()) return chain.proceed()
 
         val mediaHeader = chain.thisObject as? View ?: return chain.proceed()
         val expandedHeight = mediaHeader.expandedMediaHeightOrNull() ?: return chain.proceed()

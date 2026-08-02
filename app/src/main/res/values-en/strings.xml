@@ -112,6 +112,8 @@
     <string name="subtitle_super_island">Takes effect after music paused or changed</string>
     <string name="title_media_cards">Media cards</string>
     <string name="title_notification_center">Notification Center</string>
+    <string name="title_always_on_display">Always On Display</string>
+    <string name="title_disable_media_card_collapsing">Disable media card collapsing</string>
     <string name="summary_media_cards">Requires restarting the system UI after update</string>
     <string name="title_notification_center_media_card">Notification center media card</string>
     <string name="title_notification_media_layout_style">Card layout style</string>

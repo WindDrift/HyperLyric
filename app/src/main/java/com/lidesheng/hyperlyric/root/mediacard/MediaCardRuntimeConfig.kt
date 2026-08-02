@@ -15,13 +15,15 @@ internal object MediaCardRuntimeConfig {
     data class Snapshot(
         val enabled: Boolean,
         val notification: Notification,
-        val islandExpanded: IslandExpanded
+        val islandExpanded: IslandExpanded,
+        val alwaysOnDisplay: AlwaysOnDisplay
     ) {
         companion object {
             fun defaults() = Snapshot(
                 enabled = RootConstants.DEFAULT_HOOK_ENABLE_SUPER_ISLAND,
                 notification = Notification.defaults(),
-                islandExpanded = IslandExpanded.defaults()
+                islandExpanded = IslandExpanded.defaults(),
+                alwaysOnDisplay = AlwaysOnDisplay.defaults()
             )
 
             fun from(prefs: SharedPreferences) = Snapshot(
@@ -30,7 +32,26 @@ internal object MediaCardRuntimeConfig {
                     RootConstants.DEFAULT_HOOK_ENABLE_SUPER_ISLAND
                 ),
                 notification = Notification.from(prefs),
-                islandExpanded = IslandExpanded.from(prefs)
+                islandExpanded = IslandExpanded.from(prefs),
+                alwaysOnDisplay = AlwaysOnDisplay.from(prefs)
+            )
+        }
+    }
+
+    data class AlwaysOnDisplay(
+        val disableMediaCardCollapsing: Boolean
+    ) {
+        companion object {
+            fun defaults() = AlwaysOnDisplay(
+                disableMediaCardCollapsing =
+                    RootConstants.DEFAULT_HOOK_AOD_DISABLE_MEDIA_CARD_COLLAPSING
+            )
+
+            fun from(prefs: SharedPreferences) = AlwaysOnDisplay(
+                disableMediaCardCollapsing = prefs.getBoolean(
+                    RootConstants.KEY_HOOK_AOD_DISABLE_MEDIA_CARD_COLLAPSING,
+                    RootConstants.DEFAULT_HOOK_AOD_DISABLE_MEDIA_CARD_COLLAPSING
+                )
             )
         }
     }

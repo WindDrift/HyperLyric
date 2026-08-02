@@ -179,6 +179,10 @@ fun MediaCardSettingsPage() {
                                 title = stringResource(id = R.string.title_super_island),
                                 onClick = { navigator.navigate(Route.SuperIslandMediaCardSettings) }
                             )
+                            ArrowPreference(
+                                title = stringResource(id = R.string.title_always_on_display),
+                                onClick = { navigator.navigate(Route.AlwaysOnDisplaySettings) }
+                            )
                         }
                     }
                 }

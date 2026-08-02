@@ -57,6 +57,9 @@ sealed interface Route : NavKey {
     data object SuperIslandMediaCardSettings : Route
 
     @Serializable
+    data object AlwaysOnDisplaySettings : Route
+
+    @Serializable
     data object Licenses : Route
 
     @Serializable

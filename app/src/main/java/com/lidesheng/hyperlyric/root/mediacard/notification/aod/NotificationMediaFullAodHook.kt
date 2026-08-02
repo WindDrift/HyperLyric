@@ -4,9 +4,9 @@ import io.github.libxposed.api.XposedInterface.Chain
 import io.github.libxposed.api.XposedInterface.Hooker
 
 /**
- * Keeps an iOS-style notification media card in its expanded presentation while Full AOD is
- * active. The target method otherwise hides the progress row and switches the card to the
- * dedicated 138dp Full AOD height.
+ * Keeps a notification media card in its expanded presentation while Full AOD is active. The
+ * target method otherwise hides the progress row and switches the card to the dedicated 138dp
+ * Full AOD height.
  */
 internal class NotificationMediaFullAodHook(
     private val keepExpanded: () -> Boolean,

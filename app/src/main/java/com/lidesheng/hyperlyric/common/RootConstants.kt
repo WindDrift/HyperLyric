@@ -25,6 +25,8 @@ object RootConstants {
         "key_hook_island_expanded_media_ambient_flow_mode"
     const val KEY_HOOK_NOTIFICATION_MEDIA_CARD_THEME =
         "key_hook_notification_media_card_theme"
+    const val KEY_HOOK_AOD_DISABLE_MEDIA_CARD_COLLAPSING =
+        "key_hook_aod_disable_media_card_collapsing"
     const val KEY_HOOK_NOTIFICATION_MEDIA_LAYOUT_STYLE =
         "key_hook_notification_media_layout_style"
     const val KEY_HOOK_NOTIFICATION_MEDIA_COVER_STYLE =
@@ -250,6 +252,7 @@ object RootConstants {
     const val MEDIA_CARD_THEME_ALWAYS_DARK = 2
     const val DEFAULT_HOOK_NOTIFICATION_MEDIA_CARD_THEME = MEDIA_CARD_THEME_FOLLOW_SYSTEM
     const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_CARD_THEME = MEDIA_CARD_THEME_ALWAYS_DARK
+    const val DEFAULT_HOOK_AOD_DISABLE_MEDIA_CARD_COLLAPSING = false
     const val NOTIFICATION_MEDIA_LAYOUT_STYLE_SYSTEM = 0
     const val NOTIFICATION_MEDIA_LAYOUT_STYLE_IOS = 1
     const val NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS = 2
