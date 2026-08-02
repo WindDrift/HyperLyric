@@ -106,7 +106,9 @@ class LyricInfoSource(private val context: Context) : LyricSource {
                         onMetadataUpdate(ctrl)
 
                     override fun onPlaybackStateChanged(state: PlaybackState?) {
-                        if (ctrl.sessionToken == activeController?.sessionToken) {
+                        if (state?.state == PlaybackState.STATE_PLAYING && !isCurrentController(ctrl)) {
+                            onMetadataUpdate(ctrl, state)
+                        } else if (isCurrentController(ctrl)) {
                             handlePlaybackState(ctrl, state)
                         }
                     }
@@ -120,18 +122,31 @@ class LyricInfoSource(private val context: Context) : LyricSource {
                 }
             }
         }
+
+        // Existing controllers do not receive a registration-time metadata callback here.
+        // If the selected session disappeared while another session is already playing,
+        // explicitly give that session a chance to take over.
+        if (activeToken != null && controllers.none { it.sessionToken == activeToken }) {
+            controllers.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
+                ?.let { onMetadataUpdate(it) }
+        }
     }
 
     /**
-     * 纯靠 lyricInfo 判断：有就注入，没有就清理。
+     * 只有当前歌词会话可以继续更新歌词；其他会话必须先进入播放状态才能接管。
      */
-    /**
-     * 纯靠 lyricInfo 判断：有就注入，没有就清理。
-     * 只处理有歌词的包，不同包的 MediaSession 互不干扰。
-     */
-    private fun onMetadataUpdate(controller: MediaController) {
+    private fun onMetadataUpdate(
+        controller: MediaController,
+        playbackStateOverride: PlaybackState? = null
+    ) {
         val metadata = controller.metadata ?: return
         val pkg = controller.packageName ?: return
+        val isCurrent = isCurrentController(controller)
+        val playbackState = playbackStateOverride ?: controller.playbackState
+
+        // Opening another music app can publish its lyricInfo while it is paused. That
+        // metadata must not replace the session that is currently feeding the island.
+        if (!isCurrent && playbackState?.state != PlaybackState.STATE_PLAYING) return
 
         val lyricInfoRaw = try {
             metadata.getString("lyricInfo")
@@ -141,11 +156,10 @@ class LyricInfoSource(private val context: Context) : LyricSource {
         val currentHash = lyricInfoRaw?.hashCode() ?: 0
 
         if (!lyricInfoRaw.isNullOrBlank() && currentHash != 0) {
-            // 有 lyricInfo → 注入（不同包的歌词互相覆盖，以最后更新的为准）
             if (currentHash == lastLyricHash && pkg == activePkg) {
-                if (controller.sessionToken != activeController?.sessionToken) {
+                if (!isCurrent) {
                     activeController = controller
-                    handlePlaybackState(controller, controller.playbackState)
+                    handlePlaybackState(controller, playbackState)
                 }
                 return
             }
@@ -163,20 +177,23 @@ class LyricInfoSource(private val context: Context) : LyricSource {
                 LyriconDataBridge.updateLyricPackage(pkg)
                 sink?.onSongChanged(song)
                 sink?.onMetadata(title = songName, artist = artist, album = "", publisher = pkg)
-                handlePlaybackState(controller, controller.playbackState)
+                handlePlaybackState(controller, playbackState)
                 HookLogger.d(
                     "LyricInfoSource",
                     "歌词已就绪: song=$songName, lines=${song.lyrics!!.size}"
                 )
             }
-        } else if (hasLyrics && pkg == activePkg) {
-            // 只清理当前有歌词的包，不影响其他包
+        } else if (hasLyrics && pkg == activePkg && isCurrent) {
+            // Only the selected session may clear the lyrics it supplied.
             sink?.onStop()
             LyriconDataBridge.clearState()
             clearLyrics()
             HookLogger.d("LyricInfoSource", "歌词已清除: package=$pkg")
         }
     }
+
+    private fun isCurrentController(controller: MediaController): Boolean =
+        controller.sessionToken == activeController?.sessionToken
 
     private fun logDiagnosis(json: String) {
         val d = LyricInfoParser.diagnose(json) ?: return
