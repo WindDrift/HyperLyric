@@ -118,7 +118,8 @@ internal object MediaCardRuntimeConfig {
                         RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_IOS,
                         RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS,
                         RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI,
-                        RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_MIUI -> style
+                        RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_MIUI,
+                        RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_PIXEL -> style
 
                         else -> RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_SYSTEM
                     }

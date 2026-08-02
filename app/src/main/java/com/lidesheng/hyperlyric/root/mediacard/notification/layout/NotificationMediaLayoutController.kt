@@ -5,6 +5,7 @@ import android.view.View
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.presets.NotificationMediaColorOsLayout
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.presets.NotificationMediaMiuiLayout
+import com.lidesheng.hyperlyric.root.mediacard.notification.layout.presets.NotificationMediaPixelLayout
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.presets.ios.NotificationMediaIosLayoutPreset
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.presets.NotificationMediaOneUiLayout
 
@@ -95,24 +96,26 @@ internal object NotificationMediaLayoutController {
                 context.dp(26f)
             )
         }
-        applyActionOverrides(
-            bridge = bridge,
-            layout = normalLayout,
-            ids = ids,
-            context = context,
-            hideCustomActions = hideCustomActions,
-            keepAction4 = layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS &&
-                    !hideDevice,
-            actionsLeftAligned = actionsLeftAligned,
-            actionsOrder = if (
-                layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_MIUI
-            ) {
-                RootConstants.NOTIFICATION_MEDIA_ACTION_ORDER_DEFAULT
-            } else {
-                actionsOrder
-            }
-        )
-        if (hideTime) {
+        if (layoutStyle != RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_PIXEL) {
+            applyActionOverrides(
+                bridge = bridge,
+                layout = normalLayout,
+                ids = ids,
+                context = context,
+                hideCustomActions = hideCustomActions,
+                keepAction4 = layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS &&
+                        !hideDevice,
+                actionsLeftAligned = actionsLeftAligned,
+                actionsOrder = if (
+                    layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_MIUI
+                ) {
+                    RootConstants.NOTIFICATION_MEDIA_ACTION_ORDER_DEFAULT
+                } else {
+                    actionsOrder
+                }
+            )
+        }
+        if (hideTime && layoutStyle != RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_PIXEL) {
             if (ids.mediaProgressBar != 0) {
                 bridge.connect(
                     normalLayout,
@@ -163,6 +166,9 @@ internal object NotificationMediaLayoutController {
 
             RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_MIUI ->
                 NotificationMediaMiuiLayout
+
+            RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_PIXEL ->
+                NotificationMediaPixelLayout
 
             else -> null
         }

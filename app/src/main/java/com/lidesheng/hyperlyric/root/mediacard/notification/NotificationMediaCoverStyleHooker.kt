@@ -19,6 +19,7 @@ import com.lidesheng.hyperlyric.root.mediacard.notification.layout.NotificationM
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.NotificationMediaLayoutResourceIds
 import com.lidesheng.hyperlyric.root.mediacard.notification.miui.NotificationMediaMiuiStyle
 import com.lidesheng.hyperlyric.root.mediacard.notification.oneui.NotificationMediaOneUiStyle
+import com.lidesheng.hyperlyric.root.mediacard.notification.pixel.NotificationMediaPixelStyle
 import com.lidesheng.hyperlyric.root.mediacard.notification.style.NotificationMediaCoverStyler
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import io.github.libxposed.api.XposedInterface.Chain
@@ -167,22 +168,26 @@ object NotificationMediaCoverStyleHooker {
                             RootConstants.NOTIFICATION_MEDIA_COVER_STYLE_ROTATING_CIRCLE ||
                             config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS ||
                             config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI ||
-                            config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_MIUI
+                            config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_MIUI ||
+                            config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_PIXEL
                 "setSeamless" ->
                     config.hideDeviceSwitch ||
-                            config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS ||
-                            config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI
+                        config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS ||
+                        config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI ||
+                        config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_PIXEL
                 "onFullAodStateChanged" -> shouldKeepExpandedInFullAod()
                 "updateForegroundColors" ->
                     config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_MIUI ||
-                            config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI
+                        config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI ||
+                        config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_PIXEL
                 else -> false
             }
 
             NotificationMediaHostClasses.ACTION_BUTTON_UTILS ->
                 config.hideCustomActions ||
-                        config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI ||
-                        config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_MIUI
+                    config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI ||
+                    config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_MIUI ||
+                    config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_PIXEL
             NotificationMediaHostClasses.MEDIA_HEADER_VIEW -> shouldKeepExpandedInFullAod()
             NotificationMediaHostClasses.LAYOUT_CONTROLLER -> needsConstraintLayout(config)
             else -> false
@@ -243,15 +248,31 @@ object NotificationMediaCoverStyleHooker {
                 runCatching { applyOneUiStyle(controller) }
                     .onFailure { HookLogger.e(TAG, "应用 One UI 媒体卡片应用身份失败", it) }
             }
+            if (methodName == "setSeamless" &&
+                runtimeConfig.notification.layoutStyle ==
+                RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_PIXEL
+            ) {
+                runCatching { refreshPixelAppIcon(controller) }
+                    .onFailure { HookLogger.e(TAG, "刷新 Pixel 媒体卡片应用图标失败", it) }
+            }
             if (
                 methodName == "updateForegroundColors" &&
                     (runtimeConfig.notification.layoutStyle ==
                         RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_MIUI ||
                         runtimeConfig.notification.layoutStyle ==
-                            RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI)
+                            RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI ||
+                        runtimeConfig.notification.layoutStyle ==
+                            RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_PIXEL)
             ) {
-                runCatching { refreshAppNameColor(controller) }
-                    .onFailure { HookLogger.e(TAG, "刷新媒体卡片应用名称颜色失败", it) }
+                runCatching {
+                    if (runtimeConfig.notification.layoutStyle ==
+                        RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_PIXEL
+                    ) {
+                        refreshPixelAppIcon(controller)
+                    } else {
+                        refreshAppNameColor(controller)
+                    }
+                }.onFailure { HookLogger.e(TAG, "刷新媒体卡片应用身份失败", it) }
             }
             return result
         }
@@ -274,6 +295,14 @@ object NotificationMediaCoverStyleHooker {
                     runtimeConfig.notification.layoutStyle ==
                             RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_MIUI -> {
                         NotificationMediaMiuiStyle.applyActionButton(button)
+                        if (runtimeConfig.notification.hideCustomActions) {
+                            applyCustomActionVisibility(button)
+                        }
+                    }
+
+                    runtimeConfig.notification.layoutStyle ==
+                            RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_PIXEL -> {
+                        NotificationMediaPixelStyle.applyActionButton(button)
                         if (runtimeConfig.notification.hideCustomActions) {
                             applyCustomActionVisibility(button)
                         }
@@ -312,13 +341,15 @@ object NotificationMediaCoverStyleHooker {
                 layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_IOS ||
                     layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS ||
                     layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI ||
-                    layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_MIUI
+                    layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_MIUI ||
+                    layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_PIXEL
             ) {
                 api.removeSeekBarTrackInset(seekBar)
             }
             if (
                 layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS ||
-                    layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI
+                    layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI ||
+                    layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_PIXEL
             ) {
                 applyExpandedMediaSeekBarPadding(seekBar)
             } else if (layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_MIUI) {
@@ -332,8 +363,10 @@ object NotificationMediaCoverStyleHooker {
             NotificationMediaOneUiStyle.apply(api, controller, holder, mediaData)
         } else if (layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_MIUI) {
             NotificationMediaMiuiStyle.apply(api, controller, holder, mediaData)
+        } else if (layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_PIXEL) {
+            NotificationMediaPixelStyle.apply(api, controller, holder, mediaData)
         }
-        if (config.hideTime) {
+        if (config.hideTime || layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_PIXEL) {
             api.getElapsedTimeView(holder)?.visibility = View.GONE
             api.getTotalTimeView(holder)?.visibility = View.GONE
         }
@@ -343,7 +376,8 @@ object NotificationMediaCoverStyleHooker {
 
         if (
             layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI ||
-                layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_MIUI
+                layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_MIUI ||
+                layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_PIXEL
         ) {
             MediaCoverRotationController.detach(albumImage)
             albumView.visibility = View.GONE
@@ -441,6 +475,12 @@ object NotificationMediaCoverStyleHooker {
         }
     }
 
+    private fun refreshPixelAppIcon(controller: Any) {
+        val api = resolveApi(controller.javaClass.classLoader) ?: return
+        val holder = api.getHolder(controller) ?: return
+        NotificationMediaPixelStyle.refreshAppIcon(api, controller, holder)
+    }
+
     private fun applyColorOsDeviceSwitch(api: NotificationMediaHostApi, holder: Any) {
         val action4 = api.getAction4(holder) ?: return
         if (runtimeConfig.notification.hideDeviceSwitch) {
@@ -477,6 +517,7 @@ object NotificationMediaCoverStyleHooker {
         val holder = api.getHolder(controller) ?: return
         NotificationMediaOneUiStyle.restore(api, holder)
         NotificationMediaMiuiStyle.restore(api, holder)
+        NotificationMediaPixelStyle.restore(api, holder)
         api.getSeamlessContainer(holder)?.let { container ->
             colorOsAppIconStates.remove(container)?.restore()
         }
@@ -587,6 +628,8 @@ object NotificationMediaCoverStyleHooker {
                       RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI ||
                   runtimeConfig.notification.layoutStyle ==
                       RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_MIUI ||
+                  runtimeConfig.notification.layoutStyle ==
+                      RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_PIXEL ||
                   runtimeConfig.alwaysOnDisplay.disableMediaCardCollapsing
                 )
     }
