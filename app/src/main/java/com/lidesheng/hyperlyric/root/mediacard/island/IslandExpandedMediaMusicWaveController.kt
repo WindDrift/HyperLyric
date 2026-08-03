@@ -4,7 +4,7 @@ import android.content.Context
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
-import com.lidesheng.hyperlyric.common.RootConstants
+import com.lidesheng.hyperlyric.root.mediacard.island.layout.ios.IslandExpandedMediaIosMetrics
 
 import java.lang.reflect.Constructor
 import java.lang.reflect.Method
@@ -131,17 +131,17 @@ internal object IslandExpandedMediaMusicWaveController {
         fun updateLayout(view: ImageView, player: ViewGroup) {
             val density = player.resources.displayMetrics.density
             val size = (
-                    RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_IOS_MUSIC_WAVE_SIZE * density
+                    IslandExpandedMediaIosMetrics.MUSIC_WAVE_SIZE_DP * density
                     ).roundToInt()
             val params =
                 layoutParamsConstructor.newInstance(size, size) as ViewGroup.MarginLayoutParams
             topToTopField.setInt(params, 0)
             endToEndField.setInt(params, 0)
             params.topMargin = (
-                    RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_IOS_MUSIC_WAVE_TOP * density
+                    IslandExpandedMediaIosMetrics.MUSIC_WAVE_TOP_DP * density
                     ).roundToInt()
             params.marginEnd = (
-                    RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_IOS_MUSIC_WAVE_END * density
+                    IslandExpandedMediaIosMetrics.MUSIC_WAVE_END_DP * density
                     ).roundToInt()
             view.layoutParams = params
             view.requestLayout()

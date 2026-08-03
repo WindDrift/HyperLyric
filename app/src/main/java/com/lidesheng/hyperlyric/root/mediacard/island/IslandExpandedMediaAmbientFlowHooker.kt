@@ -645,7 +645,10 @@ object IslandExpandedMediaAmbientFlowHooker {
                 hideDeviceSwitch = false,
                 hideCustomActions = false,
                 hideTime = false,
-                keepAction4Slot = false,
+                keepAction4Slot =
+                    currentLayoutStyle() ==
+                        RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_IOS &&
+                        !hideDeviceSwitch(),
                 playbackActive = playbackActive
             )
             applySeekBarTrackOffset(api, holder)
@@ -655,7 +658,17 @@ object IslandExpandedMediaAmbientFlowHooker {
 
     private fun syncMusicWave(binder: Any, holder: Any, api: NativeApi) {
         val player = api.getPlayer(holder) as? ViewGroup ?: return
-        IslandExpandedMediaMusicWaveController.remove(player)
+        if (
+            currentLayoutStyle() == RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_IOS
+        ) {
+            IslandExpandedMediaMusicWaveController.apply(
+                player = player,
+                color = api.getMusicWaveColor(holder),
+                playing = api.isPlaying(binder)
+            )
+        } else {
+            IslandExpandedMediaMusicWaveController.remove(player)
+        }
     }
 
     private fun restoreMediaElements(binder: Any) {
@@ -670,7 +683,19 @@ object IslandExpandedMediaAmbientFlowHooker {
     }
 
     private fun applySeekBarTrackOffset(api: NativeApi, holder: Any) {
-        restoreSeekBarTrackOffset(api, holder)
+        if (
+            currentLayoutStyle() != RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_IOS
+        ) {
+            restoreSeekBarTrackOffset(api, holder)
+            return
+        }
+        val seekBar = api.getSeekBar(holder)
+        val state = seekBarTrackStates[seekBar] ?: api.captureSeekBarTrackState(seekBar)?.also {
+            seekBarTrackStates[seekBar] = it
+        } ?: return
+        if (state.applied) return
+        api.setSeekBarTrackOffset(seekBar, paddingOffset = 0, trackPositionX = 0f)
+        state.applied = true
     }
 
     private fun restoreSeekBarTrackOffset(api: NativeApi, holder: Any) {
@@ -689,7 +714,9 @@ object IslandExpandedMediaAmbientFlowHooker {
         val hideDeviceSwitch = hideDeviceSwitch()
         val hideCustomActions = hideCustomActions()
         val hideTime = hideTime()
-        val keepAction4Slot = false
+        val keepAction4Slot =
+            currentLayoutStyle() == RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_IOS &&
+                !hideDeviceSwitch
         if (
             coverStyle == RootConstants.ISLAND_EXPANDED_MEDIA_COVER_STYLE_DEFAULT &&
             !hideCoverSource &&

@@ -4,7 +4,8 @@ import android.content.Context
 import android.view.View
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.root.mediacard.MediaCardRuntimeConfig
-
+import com.lidesheng.hyperlyric.root.mediacard.island.layout.ios.IslandExpandedMediaIosAlbumArtSync
+import com.lidesheng.hyperlyric.root.mediacard.island.layout.ios.IslandExpandedMediaIosLayoutPreset
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import io.github.libxposed.api.XposedInterface.Chain
 import io.github.libxposed.api.XposedInterface.HookHandle
@@ -82,7 +83,7 @@ object IslandExpandedMediaLayoutHooker {
                 val context = api.readContext(controller) ?: return@runCatching
                 val layout = api.readNormalLayout(controller) ?: return@runCatching
                 api.applyCurrentLayout(layout, context)
-                api.applyToPlayers(controller, layout)
+                api.applyToPlayers(controller, layout, context)
                 api.hideCoverSourceOnPlayers(controller)
             }.onFailure { HookLogger.e(TAG, "同步超级岛 real/dummy 媒体布局失败", it) }
             return result
@@ -99,6 +100,7 @@ object IslandExpandedMediaLayoutHooker {
                 val context = chain.args.firstOrNull() as? Context ?: return@runCatching
                 api.readNormalLayout(player)?.let { layout ->
                     api.applyCurrentLayout(layout, context)
+                    api.syncIosAlbumArt(player, context)
                 }
             }.onFailure { HookLogger.e(TAG, "初始化超级岛媒体布局失败", it) }
             return result
@@ -129,7 +131,25 @@ object IslandExpandedMediaLayoutHooker {
         fun applyCurrentLayout(constraintSet: Any, context: Context) {
             if (!MediaCardRuntimeConfig.current.enabled) return
             runCatching {
-                applyElementOverrides(constraintSet, context)
+                val ids = IslandExpandedMediaLayoutResourceIds.from(context)
+                if (
+                    MediaCardRuntimeConfig.current.islandExpanded.layoutStyle ==
+                        RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_IOS
+                ) {
+                    IslandExpandedMediaIosLayoutPreset.apply(
+                        IslandExpandedMediaLayoutEnvironment(
+                            bridge = this,
+                            layout = constraintSet,
+                            ids = ids,
+                            context = context,
+                            coverHidden =
+                                MediaCardRuntimeConfig.current.islandExpanded.coverStyle ==
+                                    RootConstants.ISLAND_EXPANDED_MEDIA_COVER_STYLE_HIDDEN,
+                            hideDeviceSwitch = hideDeviceSwitch()
+                        )
+                    )
+                }
+                applyElementOverrides(constraintSet, context, ids)
             }.onFailure { HookLogger.e(TAG, "应用超级岛媒体布局失败", it) }
         }
 
@@ -139,7 +159,15 @@ object IslandExpandedMediaLayoutHooker {
         fun readNormalLayout(owner: Any): Any? =
             findField(owner.javaClass, "normalLayoutIsland")?.get(owner)
 
-        fun applyToPlayers(controller: Any, constraintSet: Any) {
+        fun applyToPlayers(controller: Any, constraintSet: Any, context: Context) {
+            val ids = if (
+                MediaCardRuntimeConfig.current.islandExpanded.layoutStyle ==
+                    RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_IOS
+            ) {
+                runCatching { IslandExpandedMediaLayoutResourceIds.from(context) }.getOrNull()
+            } else {
+                null
+            }
             listOf("miuiPlayerHolder", "miuiDummyPlayerHolder")
                 .mapNotNull { fieldName ->
                     findField(controller.javaClass, fieldName)?.get(
@@ -147,7 +175,27 @@ object IslandExpandedMediaLayoutHooker {
                     )
                 }
                 .mapNotNull { holder -> findField(holder.javaClass, "player")?.get(holder) }
-                .forEach { player -> applyTo(constraintSet, player) }
+                .forEach { player ->
+                    applyTo(constraintSet, player)
+                    if (ids != null) {
+                        (player as? View)?.let {
+                            IslandExpandedMediaIosAlbumArtSync.apply(it, context, ids)
+                        }
+                    }
+                }
+        }
+
+        fun syncIosAlbumArt(player: Any, context: Context) {
+            if (
+                MediaCardRuntimeConfig.current.islandExpanded.layoutStyle !=
+                    RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_IOS
+            ) {
+                return
+            }
+            val view = player as? View ?: return
+            val ids = runCatching { IslandExpandedMediaLayoutResourceIds.from(context) }
+                .getOrNull() ?: return
+            IslandExpandedMediaIosAlbumArtSync.apply(view, context, ids)
         }
 
         fun applyTo(constraintSet: Any, player: Any) {
@@ -171,9 +219,12 @@ object IslandExpandedMediaLayoutHooker {
                 .forEach { source -> source.visibility = View.GONE }
         }
 
-        fun applyElementOverrides(constraintSet: Any, context: Context) {
+        fun applyElementOverrides(
+            constraintSet: Any,
+            context: Context,
+            ids: IslandExpandedMediaLayoutResourceIds
+        ) {
             val config = MediaCardRuntimeConfig.current.islandExpanded
-            val ids = IslandExpandedMediaLayoutResourceIds.from(context)
             val standardMargin = context.islandExpandedMediaDp(26f)
             val action0 = ids.actionButtons[0]
             val action1 = ids.actionButtons[1]
@@ -240,7 +291,10 @@ object IslandExpandedMediaLayoutHooker {
             }
             if (config.hideCustomActions) {
                 setVisibility(constraintSet, action0, View.INVISIBLE)
-                val keepAction4Slot = false
+                val keepAction4Slot =
+                    MediaCardRuntimeConfig.current.islandExpanded.layoutStyle ==
+                        RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_IOS &&
+                        !config.hideDeviceSwitch
                 if (!keepAction4Slot) {
                     setVisibility(constraintSet, action4, View.INVISIBLE)
                 }

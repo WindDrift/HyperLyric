@@ -36,6 +36,7 @@ internal interface IslandExpandedMediaConstraintBridge {
 
 internal data class IslandExpandedMediaLayoutResourceIds(
     val albumArt: Int,
+    val albumArtImage: Int,
     val headerTitle: Int,
     val headerArtist: Int,
     val actions: Int,
@@ -51,6 +52,7 @@ internal data class IslandExpandedMediaLayoutResourceIds(
         fun from(context: Context): IslandExpandedMediaLayoutResourceIds {
             return IslandExpandedMediaLayoutResourceIds(
                 albumArt = context.requireSystemUiId("album_art"),
+                albumArtImage = context.findSystemUiId("album_art_image"),
                 headerTitle = context.requireSystemUiId("header_title"),
                 headerArtist = context.requireSystemUiId("header_artist"),
                 actions = context.requireSystemUiId("actions"),
@@ -72,6 +74,11 @@ internal data class IslandExpandedMediaLayoutResourceIds(
             require(id != 0) { "Missing SystemUI id resource: $name" }
             return id
         }
+
+        @Suppress("DiscouragedApi")
+        private fun Context.findSystemUiId(name: String): Int {
+            return resources.getIdentifier(name, "id", packageName)
+        }
     }
 }
 
@@ -80,6 +87,7 @@ internal data class IslandExpandedMediaLayoutEnvironment(
     val layout: Any,
     val ids: IslandExpandedMediaLayoutResourceIds,
     val context: Context,
+    val coverHidden: Boolean,
     val hideDeviceSwitch: Boolean
 )
 
@@ -97,4 +105,12 @@ internal fun IslandExpandedMediaConstraintBridge.clearHorizontal(layout: Any, vi
 
 internal fun Context.islandExpandedMediaDp(value: Float): Int {
     return (value * resources.displayMetrics.density).roundToInt()
+}
+
+@Suppress("DiscouragedApi")
+internal fun Context.islandExpandedMediaDimenPx(name: String, fallbackDp: Float): Int {
+    val id = resources.getIdentifier(name, "dimen", packageName)
+    return if (id != 0) resources.getDimensionPixelSize(id) else {
+        islandExpandedMediaDp(fallbackDp)
+    }
 }
