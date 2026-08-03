@@ -5,6 +5,7 @@ import com.lidesheng.hyperlyric.root.mediacard.notification.layout.NotificationM
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.clearVertical
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.dimenPx
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.dp
+import com.lidesheng.hyperlyric.root.mediacard.layout.common.MediaLayoutSharedMetrics
 import kotlin.math.min
 
 internal object NotificationMediaIosActionLayout {
@@ -35,11 +36,17 @@ internal object NotificationMediaIosActionLayout {
             val coverTop = context.dimenPx("media_margin_left", 15f)
             val coverHeight = context.dp(NotificationMediaIosMetrics.COVER_SIZE_DP)
             val progressTop = context.dp(NotificationMediaIosMetrics.PROGRESS_TOP_MARGIN_DP)
-            val progressHeight = context.dimenPx("media_hyper_seekbar_height", 38f)
+            val progressHeight = context.dimenPx(
+                "media_hyper_seekbar_height",
+                MediaLayoutSharedMetrics.STANDARD_PROGRESS_HEIGHT_DP
+            )
             val actionGap = context.dp(
                 NotificationMediaIosMetrics.ACTION_MIN_GAP_AFTER_PROGRESS_DP
             )
-            val actionHeight = context.dimenPx("media_action_height", 50f)
+            val actionHeight = context.dimenPx(
+                "media_action_height",
+                MediaLayoutSharedMetrics.NATIVE_ACTION_HEIGHT_FALLBACK_DP
+            )
             val minimumActionTop =
                 coverTop + coverHeight + progressTop + progressHeight + actionGap
             val maximumBottomMargin =

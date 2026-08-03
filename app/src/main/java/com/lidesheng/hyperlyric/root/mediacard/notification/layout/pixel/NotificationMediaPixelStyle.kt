@@ -6,16 +6,12 @@ import android.view.ViewGroup
 import android.widget.ImageButton
 import android.widget.ImageView
 import com.lidesheng.hyperlyric.root.mediacard.notification.NotificationMediaHostApi
+import com.lidesheng.hyperlyric.root.mediacard.layout.common.MediaLayoutSharedMetrics
 import java.util.Collections
 import java.util.WeakHashMap
 import kotlin.math.roundToInt
 
 internal object NotificationMediaPixelStyle {
-    private const val BOTTOM_ACTION_SCALE = 0.6f
-    private const val PRIMARY_ACTION_SCALE = 0.9f
-    private const val APP_ICON_SIZE_DP = 24f
-    private const val APP_ICON_MARGIN_DP = 17f
-
     private val actionButtonPaddingStates =
         Collections.synchronizedMap(WeakHashMap<ImageButton, ActionButtonPaddingState>())
     private val appIconStates =
@@ -52,9 +48,9 @@ internal object NotificationMediaPixelStyle {
 
     fun applyActionButton(button: ImageButton) {
         val scale = if (button.isPrimaryAction()) {
-            PRIMARY_ACTION_SCALE
+            MediaLayoutSharedMetrics.PIXEL_PRIMARY_ACTION_SCALE
         } else {
-            BOTTOM_ACTION_SCALE
+            MediaLayoutSharedMetrics.PIXEL_SECONDARY_ACTION_SCALE
         }
         val state = actionButtonPaddingStates.getOrPut(button) {
             ActionButtonPaddingState.capture(button)
@@ -126,7 +122,9 @@ internal object NotificationMediaPixelStyle {
             fun create(player: ViewGroup): PixelAppIconState? = runCatching {
                 val context = player.context
                 val density = context.resources.displayMetrics.density
-                val iconSize = (APP_ICON_SIZE_DP * density).roundToInt()
+                val iconSize = (
+                    MediaLayoutSharedMetrics.PIXEL_APP_ICON_SIZE_DP * density
+                    ).roundToInt()
                 val icon = ImageView(context).apply {
                     id = View.generateViewId()
                     scaleType = ImageView.ScaleType.FIT_CENTER
@@ -146,8 +144,12 @@ internal object NotificationMediaPixelStyle {
                 layoutParamsClass.getField("startToStart").setInt(layoutParams, 0)
                 layoutParamsClass.getField("topToTop").setInt(layoutParams, 0)
                 layoutParams.apply {
-                    marginStart = (APP_ICON_MARGIN_DP * density).roundToInt()
-                    topMargin = (APP_ICON_MARGIN_DP * density).roundToInt()
+                    marginStart = (
+                        MediaLayoutSharedMetrics.PIXEL_CONTENT_MARGIN_DP * density
+                        ).roundToInt()
+                    topMargin = (
+                        MediaLayoutSharedMetrics.PIXEL_CONTENT_MARGIN_DP * density
+                        ).roundToInt()
                 }
                 player.addView(icon, layoutParams)
                 PixelAppIconState(icon)

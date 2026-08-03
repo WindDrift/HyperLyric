@@ -3,6 +3,7 @@ package com.lidesheng.hyperlyric.root.mediacard.island.layout.pixel
 import com.lidesheng.hyperlyric.root.mediacard.island.layout.IslandExpandedMediaConstraintSide
 import com.lidesheng.hyperlyric.root.mediacard.island.layout.IslandExpandedMediaLayoutEnvironment
 import com.lidesheng.hyperlyric.root.mediacard.island.layout.clearAll
+import com.lidesheng.hyperlyric.root.mediacard.layout.common.MediaLayoutSharedMetrics
 import com.lidesheng.hyperlyric.root.mediacard.island.layout.islandExpandedMediaDimenPx
 import com.lidesheng.hyperlyric.root.mediacard.island.layout.islandExpandedMediaDp
 import kotlin.math.roundToInt
@@ -12,11 +13,11 @@ internal object IslandExpandedMediaPixelActionLayout {
         with(environment) {
             val nativeActionWidth = context.islandExpandedMediaDimenPx(
                 "media_action_width",
-                60f
+                MediaLayoutSharedMetrics.NATIVE_ACTION_WIDTH_FALLBACK_DP
             )
             val nativeActionHeight = context.islandExpandedMediaDimenPx(
                 "media_action_height",
-                50f
+                MediaLayoutSharedMetrics.NATIVE_ACTION_HEIGHT_FALLBACK_DP
             )
             val primaryWidth = (
                 nativeActionWidth * IslandExpandedMediaPixelMetrics.PRIMARY_ACTION_SCALE

@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageButton
 import android.widget.TextView
+import com.lidesheng.hyperlyric.root.mediacard.layout.common.MediaLayoutSharedMetrics
 import com.lidesheng.hyperlyric.root.mediacard.notification.NotificationMediaHostApi
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.dimenPx
 import java.lang.reflect.Field
@@ -15,7 +16,7 @@ import java.util.WeakHashMap
 import kotlin.math.roundToInt
 
 internal object NotificationMediaMiuiStyle {
-    const val ACTION_BUTTON_SCALE = 0.8f
+    const val ACTION_BUTTON_SCALE = MediaLayoutSharedMetrics.COMPACT_ACTION_SCALE
     const val HORIZONTAL_MARGIN_DP = 21f
 
     private const val TIME_TEXT_SIZE_SP = 8f

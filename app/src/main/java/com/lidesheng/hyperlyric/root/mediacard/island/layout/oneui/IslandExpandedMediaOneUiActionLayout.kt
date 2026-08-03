@@ -5,17 +5,24 @@ import com.lidesheng.hyperlyric.root.mediacard.island.layout.IslandExpandedMedia
 import com.lidesheng.hyperlyric.root.mediacard.island.layout.clearVertical
 import com.lidesheng.hyperlyric.root.mediacard.island.layout.islandExpandedMediaDimenPx
 import com.lidesheng.hyperlyric.root.mediacard.island.layout.islandExpandedMediaDp
+import com.lidesheng.hyperlyric.root.mediacard.layout.common.MediaLayoutSharedMetrics
 import kotlin.math.roundToInt
 
 internal object IslandExpandedMediaOneUiActionLayout {
     fun apply(environment: IslandExpandedMediaLayoutEnvironment) {
         with(environment) {
             val actionWidth = (
-                context.islandExpandedMediaDimenPx("media_action_width", 60f) *
+                context.islandExpandedMediaDimenPx(
+                    "media_action_width",
+                    MediaLayoutSharedMetrics.NATIVE_ACTION_WIDTH_FALLBACK_DP
+                ) *
                     IslandExpandedMediaOneUiMetrics.ACTION_BUTTON_SCALE
                 ).roundToInt()
             val actionHeight = (
-                context.islandExpandedMediaDimenPx("media_action_height", 50f) *
+                context.islandExpandedMediaDimenPx(
+                    "media_action_height",
+                    MediaLayoutSharedMetrics.NATIVE_ACTION_HEIGHT_FALLBACK_DP
+                ) *
                     IslandExpandedMediaOneUiMetrics.ACTION_BUTTON_SCALE
                 ).roundToInt()
             val actionGap = context.islandExpandedMediaDp(

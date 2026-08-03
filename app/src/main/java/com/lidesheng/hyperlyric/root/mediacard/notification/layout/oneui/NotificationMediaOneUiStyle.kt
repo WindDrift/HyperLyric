@@ -9,13 +9,15 @@ import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.lidesheng.hyperlyric.root.mediacard.layout.common.MediaActionIconScaler
+import com.lidesheng.hyperlyric.root.mediacard.layout.common.MediaLayoutSharedMetrics
 import com.lidesheng.hyperlyric.root.mediacard.notification.NotificationMediaHostApi
 import java.util.Collections
 import java.util.WeakHashMap
 import kotlin.math.roundToInt
 
 internal object NotificationMediaOneUiStyle {
-    const val ACTION_BUTTON_SCALE = 0.8f
+    const val ACTION_BUTTON_SCALE = MediaLayoutSharedMetrics.COMPACT_ACTION_SCALE
 
     private const val APP_ICON_SIZE_DP = 16f
     private const val APP_NAME_GAP_DP = 6f
@@ -70,6 +72,7 @@ internal object NotificationMediaOneUiStyle {
     }
 
     fun applyActionButton(button: ImageButton) {
+        MediaActionIconScaler.apply(button, ACTION_BUTTON_SCALE)
         val state = actionButtonPaddingStates.getOrPut(button) {
             ActionButtonPaddingState.capture(button)
         }
@@ -95,6 +98,7 @@ internal object NotificationMediaOneUiStyle {
     }
 
     private fun restoreActionButton(button: ImageButton) {
+        MediaActionIconScaler.restore(button)
         actionButtonPaddingStates.remove(button)?.restore(button)
     }
 

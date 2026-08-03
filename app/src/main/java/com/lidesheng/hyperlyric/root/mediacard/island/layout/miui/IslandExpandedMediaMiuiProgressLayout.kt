@@ -6,14 +6,24 @@ import com.lidesheng.hyperlyric.root.mediacard.island.layout.IslandExpandedMedia
 import com.lidesheng.hyperlyric.root.mediacard.island.layout.clearAll
 import com.lidesheng.hyperlyric.root.mediacard.island.layout.islandExpandedMediaDimenPx
 import com.lidesheng.hyperlyric.root.mediacard.island.layout.islandExpandedMediaDp
+import kotlin.math.min
 
 internal object IslandExpandedMediaMiuiProgressLayout {
     fun apply(environment: IslandExpandedMediaLayoutEnvironment) {
         with(environment) {
             val progress = ids.mediaProgressBar
-            val bottomMargin = context.islandExpandedMediaDimenPx(
+            val systemBottomMargin = context.islandExpandedMediaDimenPx(
                 "media_control_seekbar_bottom_margin",
                 IslandExpandedMediaMiuiMetrics.PROGRESS_BOTTOM_FALLBACK_DP
+            )
+            // The notification resource is normally 16dp.  Cap it for the
+            // 168dp island host; otherwise the bottom-anchored progress row
+            // leaves the upper action chain unnecessarily compressed.
+            val bottomMargin = min(
+                systemBottomMargin,
+                context.islandExpandedMediaDp(
+                    IslandExpandedMediaMiuiMetrics.PROGRESS_BOTTOM_FALLBACK_DP
+                )
             )
             bridge.constrainWidth(layout, progress, 0)
             bridge.constrainHeight(

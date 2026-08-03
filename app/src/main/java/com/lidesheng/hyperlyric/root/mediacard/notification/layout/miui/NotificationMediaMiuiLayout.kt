@@ -3,6 +3,7 @@ package com.lidesheng.hyperlyric.root.mediacard.notification.layout.miui
 import android.view.View
 import android.view.ViewGroup
 import com.lidesheng.hyperlyric.common.RootConstants
+import com.lidesheng.hyperlyric.root.mediacard.layout.common.MediaLayoutSharedMetrics
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.NotificationMediaConstraintSide
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.NotificationMediaLayoutEnvironment
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.NotificationMediaLayoutPreset
@@ -31,17 +32,25 @@ internal object NotificationMediaMiuiLayout : NotificationMediaLayoutPreset {
                 "media_control_seekbar_bottom_margin",
                 16f
             )
-            val progressOverlap = context.dp(8f)
+            val progressOverlap = context.dp(
+                MediaLayoutSharedMetrics.STANDARD_PROGRESS_OVERLAP_DP
+            )
             val actionWidth = (
-                context.dimenPx("media_action_width", 60f) *
+                context.dimenPx(
+                    "media_action_width",
+                    MediaLayoutSharedMetrics.NATIVE_ACTION_WIDTH_FALLBACK_DP
+                ) *
                     NotificationMediaMiuiStyle.ACTION_BUTTON_SCALE
                 ).roundToInt()
             val actionHeight = (
-                context.dimenPx("media_action_height", 50f) *
+                context.dimenPx(
+                    "media_action_height",
+                    MediaLayoutSharedMetrics.NATIVE_ACTION_HEIGHT_FALLBACK_DP
+                ) *
                     NotificationMediaMiuiStyle.ACTION_BUTTON_SCALE
                 ).roundToInt()
             val deviceSize = context.dimenPx("media_control_seamless", 34f)
-            val progressHeight = context.dp(38f)
+            val progressHeight = context.dp(MediaLayoutSharedMetrics.STANDARD_PROGRESS_HEIGHT_DP)
             val orderedActionIds = when (actionsOrder) {
                 RootConstants.NOTIFICATION_MEDIA_ACTION_ORDER_CUSTOM_RIGHT -> listOf(
                     ids.actionButtons[1],

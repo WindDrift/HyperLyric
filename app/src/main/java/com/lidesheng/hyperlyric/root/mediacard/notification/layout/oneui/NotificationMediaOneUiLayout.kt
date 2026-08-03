@@ -2,6 +2,7 @@ package com.lidesheng.hyperlyric.root.mediacard.notification.layout.oneui
 
 import android.view.View
 import android.view.ViewGroup
+import com.lidesheng.hyperlyric.root.mediacard.layout.common.MediaLayoutSharedMetrics
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.NotificationMediaConstraintSide
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.NotificationMediaLayoutEnvironment
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.NotificationMediaLayoutPreset
@@ -23,13 +24,21 @@ internal object NotificationMediaOneUiLayout : NotificationMediaLayoutPreset {
 
             val horizontalMargin = context.dp(25f)
             val topMargin = context.dp(17f)
-            val progressOverlap = context.dp(8f)
+            val progressOverlap = context.dp(
+                MediaLayoutSharedMetrics.STANDARD_PROGRESS_OVERLAP_DP
+            )
             val actionWidth = (
-                context.dimenPx("media_action_width", 60f) *
+                context.dimenPx(
+                    "media_action_width",
+                    MediaLayoutSharedMetrics.NATIVE_ACTION_WIDTH_FALLBACK_DP
+                ) *
                     NotificationMediaOneUiStyle.ACTION_BUTTON_SCALE
                 ).roundToInt()
             val actionHeight = (
-                context.dimenPx("media_action_height", 50f) *
+                context.dimenPx(
+                    "media_action_height",
+                    MediaLayoutSharedMetrics.NATIVE_ACTION_HEIGHT_FALLBACK_DP
+                ) *
                     NotificationMediaOneUiStyle.ACTION_BUTTON_SCALE
                 ).roundToInt()
             val actionGap = context.dp(4f)
@@ -154,7 +163,11 @@ internal object NotificationMediaOneUiLayout : NotificationMediaLayoutPreset {
             )
 
             bridge.constrainWidth(normalLayout, progressBarId, 0)
-            bridge.constrainHeight(normalLayout, progressBarId, context.dp(38f))
+            bridge.constrainHeight(
+                normalLayout,
+                progressBarId,
+                context.dp(MediaLayoutSharedMetrics.STANDARD_PROGRESS_HEIGHT_DP)
+            )
             bridge.clearAll(normalLayout, progressBarId)
             bridge.connect(
                 normalLayout,

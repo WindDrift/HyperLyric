@@ -1,6 +1,7 @@
 package com.lidesheng.hyperlyric.root.mediacard.notification.layout.pixel
 
 import android.view.View
+import com.lidesheng.hyperlyric.root.mediacard.layout.common.MediaLayoutSharedMetrics
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.NotificationMediaConstraintBridge
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.NotificationMediaConstraintSide
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.NotificationMediaLayoutEnvironment
@@ -15,32 +16,56 @@ import kotlin.math.roundToInt
  * Pixel 风格只重排宿主已有控件，进度条仍由 SystemUI 原生控件负责绘制、拖动和动画。
  */
 internal object NotificationMediaPixelLayout : NotificationMediaLayoutPreset {
-    private const val BOTTOM_ACTION_SCALE = 0.6f
-    private const val PRIMARY_ACTION_SCALE = 0.9f
-    private const val COMPONENT_GAP_DP = 8.5f
-
     override fun apply(environment: NotificationMediaLayoutEnvironment) {
         with(environment) {
             val progressBarId = ids.mediaProgressBar
             if (progressBarId == 0) return
 
-            val middleHorizontalMargin = context.dp(17f)
-            val bottomHorizontalMargin = context.dp(8f)
-            val topMargin = context.dimenPx("media_control_top_margin", 17f)
-            val deviceEndMargin = context.dimenPx("media_control_seamless_end_margin", 17f)
-            val bottomMargin = context.dp(10f)
-            val artistTopGap = context.dimenPx("header_artist_margin_top", 4f)
-            val titleEndGap = context.dimenPx("media_header_title_margin_end", 6f)
+            val middleHorizontalMargin = context.dp(
+                MediaLayoutSharedMetrics.PIXEL_CONTENT_MARGIN_DP
+            )
+            val bottomHorizontalMargin = context.dp(
+                MediaLayoutSharedMetrics.PIXEL_BOTTOM_MARGIN_DP
+            )
+            val topMargin = context.dimenPx(
+                "media_control_top_margin",
+                MediaLayoutSharedMetrics.PIXEL_TOP_MARGIN_DP
+            )
+            val deviceEndMargin = context.dimenPx(
+                "media_control_seamless_end_margin",
+                MediaLayoutSharedMetrics.PIXEL_CONTENT_MARGIN_DP
+            )
+            val bottomMargin = context.dp(MediaLayoutSharedMetrics.PIXEL_BOTTOM_OFFSET_DP)
+            val artistTopGap = context.dimenPx(
+                "header_artist_margin_top",
+                MediaLayoutSharedMetrics.PIXEL_ARTIST_GAP_DP
+            )
+            val titleEndGap = context.dimenPx(
+                "media_header_title_margin_end",
+                MediaLayoutSharedMetrics.PIXEL_TITLE_END_GAP_DP
+            )
             val middleTopMargin = context.dp(70f)
-            val actionWidth = context.dimenPx("media_action_width", 60f)
-            val actionHeight = context.dimenPx("media_action_height", 50f)
-            val primaryActionWidth = (actionWidth * PRIMARY_ACTION_SCALE).roundToInt()
-            val primaryActionHeight = (actionHeight * PRIMARY_ACTION_SCALE).roundToInt()
-            val bottomActionWidth = (actionWidth * BOTTOM_ACTION_SCALE).roundToInt()
+            val actionWidth = context.dimenPx(
+                "media_action_width",
+                MediaLayoutSharedMetrics.NATIVE_ACTION_WIDTH_FALLBACK_DP
+            )
+            val actionHeight = context.dimenPx(
+                "media_action_height",
+                MediaLayoutSharedMetrics.NATIVE_ACTION_HEIGHT_FALLBACK_DP
+            )
+            val primaryActionWidth = (
+                actionWidth * MediaLayoutSharedMetrics.PIXEL_PRIMARY_ACTION_SCALE
+                ).roundToInt()
+            val primaryActionHeight = (
+                actionHeight * MediaLayoutSharedMetrics.PIXEL_PRIMARY_ACTION_SCALE
+                ).roundToInt()
+            val bottomActionWidth = (
+                actionWidth * MediaLayoutSharedMetrics.PIXEL_SECONDARY_ACTION_SCALE
+                ).roundToInt()
             // Keep the whole bottom row aligned with the explicitly sized progress container.
-            val progressHeight = context.dp(38f)
+            val progressHeight = context.dp(MediaLayoutSharedMetrics.STANDARD_PROGRESS_HEIGHT_DP)
             val bottomActionHeight = progressHeight
-            val componentGap = context.dp(COMPONENT_GAP_DP)
+            val componentGap = context.dp(MediaLayoutSharedMetrics.PIXEL_COMPONENT_GAP_DP)
 
             bridge.setVisibility(normalLayout, ids.albumArt, View.GONE)
             hideTimeView(bridge, normalLayout, ids.mediaElapsedTime)

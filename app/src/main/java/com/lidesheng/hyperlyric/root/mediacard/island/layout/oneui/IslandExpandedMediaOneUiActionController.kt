@@ -2,6 +2,7 @@ package com.lidesheng.hyperlyric.root.mediacard.island.layout.oneui
 
 import android.view.View
 import com.lidesheng.hyperlyric.root.mediacard.island.IslandExpandedMediaElements
+import com.lidesheng.hyperlyric.root.mediacard.layout.common.MediaActionIconScaler
 import java.util.Collections
 import java.util.WeakHashMap
 import kotlin.math.roundToInt
@@ -32,6 +33,10 @@ internal object IslandExpandedMediaOneUiActionController {
 
     private fun apply(view: View?) {
         view ?: return
+        MediaActionIconScaler.apply(
+            view,
+            IslandExpandedMediaOneUiMetrics.ACTION_BUTTON_SCALE
+        )
         val state = states.getOrPut(view) { ActionPaddingState.capture(view) }
         view.setPadding(
             (state.left * IslandExpandedMediaOneUiMetrics.ACTION_BUTTON_SCALE).roundToInt(),
@@ -43,6 +48,7 @@ internal object IslandExpandedMediaOneUiActionController {
 
     private fun restore(view: View?) {
         view ?: return
+        MediaActionIconScaler.restore(view)
         states.remove(view)?.restore(view)
     }
 
