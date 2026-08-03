@@ -42,6 +42,9 @@ import com.lidesheng.hyperlyric.root.mediacard.island.layout.oneui.IslandExpande
 import com.lidesheng.hyperlyric.root.mediacard.island.layout.oneui.IslandExpandedMediaOneUiAccessoryViews
 import com.lidesheng.hyperlyric.root.mediacard.island.layout.oneui.IslandExpandedMediaOneUiTimeController
 import com.lidesheng.hyperlyric.root.mediacard.island.layout.oneui.IslandExpandedMediaOneUiActionController
+import com.lidesheng.hyperlyric.root.mediacard.island.layout.miui.IslandExpandedMediaMiuiAppNameController
+import com.lidesheng.hyperlyric.root.mediacard.island.layout.miui.IslandExpandedMediaMiuiActionController
+import com.lidesheng.hyperlyric.root.mediacard.island.layout.miui.IslandExpandedMediaMiuiTimeController
 import com.lidesheng.hyperlyric.root.mediacard.notification.background.NotificationMediaColorConfig
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import io.github.libxposed.api.XposedInterface.Chain
@@ -638,13 +641,14 @@ object IslandExpandedMediaAmbientFlowHooker {
         val layoutStyle = currentLayoutStyle()
         val coverStyle = currentCoverStyle()
         val isOneUi = layoutStyle == RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_ONEUI
+        val isMiui = layoutStyle == RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_MIUI
         // Hidden cover is now expressed exclusively by the shared ConstraintSet
         // (the same lifecycle XiaomiHelper uses).  Applying the legacy View
         // mutation afterwards derives margins from the real holder's transient
         // height and makes RealView diverge from the dummy/FakeView.
-        val directCoverStyle = if (isOneUi) {
-            // One UI is an information-first template; its ConstraintSet and
-            // runtime holder both keep the album column out of the island.
+        val directCoverStyle = if (isOneUi || isMiui) {
+            // One UI and MIUI are information-first templates; their
+            // ConstraintSet and runtime holders keep the album column out.
             RootConstants.ISLAND_EXPANDED_MEDIA_COVER_STYLE_HIDDEN
         } else if (
             coverStyle == RootConstants.ISLAND_EXPANDED_MEDIA_COVER_STYLE_HIDDEN
@@ -683,6 +687,10 @@ object IslandExpandedMediaAmbientFlowHooker {
                 val elements = api.getMediaElements(holder)
                 IslandExpandedMediaOneUiTimeController.apply(elements)
                 IslandExpandedMediaOneUiActionController.apply(elements)
+            } else if (isMiui) {
+                val elements = api.getMediaElements(holder)
+                IslandExpandedMediaMiuiTimeController.apply(elements)
+                IslandExpandedMediaMiuiActionController.apply(elements)
             }
             syncLayoutAccessory(binder, holder, api)
         }
@@ -717,6 +725,18 @@ object IslandExpandedMediaAmbientFlowHooker {
     private fun syncLayoutAccessory(binder: Any, holder: Any, api: NativeApi) {
         syncColorOsAccessory(holder, api)
         syncOneUiAccessory(binder, holder, api)
+        syncMiuiAppName(binder, holder, api)
+    }
+
+    private fun syncMiuiAppName(binder: Any, holder: Any, api: NativeApi) {
+        if (currentLayoutStyle() != RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_MIUI) {
+            return
+        }
+        val elements = api.getMediaElements(holder)
+        IslandExpandedMediaMiuiAppNameController.apply(
+            elements = elements,
+            appName = api.getApplicationName(binder, api.getContext(binder))
+        )
     }
 
     private fun syncMusicWave(binder: Any, holder: Any, api: NativeApi) {
@@ -747,6 +767,9 @@ object IslandExpandedMediaAmbientFlowHooker {
             IslandExpandedMediaColorOsTimeController.restore(elements)
             IslandExpandedMediaOneUiTimeController.restore(elements)
             IslandExpandedMediaOneUiActionController.restore(elements)
+            IslandExpandedMediaMiuiTimeController.restore(elements)
+            IslandExpandedMediaMiuiActionController.restore(elements)
+            IslandExpandedMediaMiuiAppNameController.restore(elements)
             IslandExpandedMediaElementController.restore(elements)
             restoreSeekBarTrackOffset(api, holder)
             (api.getPlayer(holder) as? ViewGroup)?.let {
@@ -759,7 +782,8 @@ object IslandExpandedMediaAmbientFlowHooker {
         if (
             currentLayoutStyle() != RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_IOS &&
             currentLayoutStyle() != RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_COLOROS &&
-            currentLayoutStyle() != RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_ONEUI
+            currentLayoutStyle() != RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_ONEUI &&
+            currentLayoutStyle() != RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_MIUI
         ) {
             restoreSeekBarTrackOffset(api, holder)
             return
@@ -791,9 +815,11 @@ object IslandExpandedMediaAmbientFlowHooker {
         val hideTime = hideTime()
         val isOneUi =
             currentLayoutStyle() == RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_ONEUI
+        val isMiui =
+            currentLayoutStyle() == RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_MIUI
         val isColorOs =
             currentLayoutStyle() == RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_COLOROS
-        val effectiveCoverStyle = if (isOneUi) {
+        val effectiveCoverStyle = if (isOneUi || isMiui) {
             RootConstants.ISLAND_EXPANDED_MEDIA_COVER_STYLE_HIDDEN
         } else {
             coverStyle
@@ -811,7 +837,8 @@ object IslandExpandedMediaAmbientFlowHooker {
             !hideCustomActions &&
             !hideTime &&
             !isColorOs &&
-            !isOneUi
+            !isOneUi &&
+            !isMiui
         ) {
             return true
         }
@@ -827,7 +854,8 @@ object IslandExpandedMediaAmbientFlowHooker {
             coverStyle = effectiveCoverStyle,
             hideCoverSource = hideCoverSource,
             // The One UI identity row owns the seamless container and hides
-            // only the native source affordance.
+            // only the native source affordance. MIUI keeps its independent
+            // device-switch slot, so the generic visibility flag remains.
             hideDeviceSwitch = hideDeviceSwitch && !isOneUi,
             hideCustomActions = hideCustomActions,
             hideTime = hideTime,
@@ -873,6 +901,24 @@ object IslandExpandedMediaAmbientFlowHooker {
                     )
                 }
             }
+        }
+        if (isMiui) {
+            IslandExpandedMediaMiuiTimeController.applyToFakeView(
+                fakeExpandedView = fakeExpandedView,
+                referenceElements = referenceElements
+            )
+            IslandExpandedMediaMiuiActionController.applyToFakeView(
+                fakeExpandedView = fakeExpandedView,
+                referenceElements = referenceElements
+            )
+            IslandExpandedMediaMiuiAppNameController.applyToFakeView(
+                fakeExpandedView = fakeExpandedView,
+                referenceElements = referenceElements,
+                appName = api.getApplicationName(
+                    activeBinder,
+                    api.getContext(activeBinder)
+                )
+            )
         }
         return true
     }

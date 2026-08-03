@@ -9,6 +9,7 @@ import com.lidesheng.hyperlyric.root.mediacard.island.layout.coloros.IslandExpan
 import com.lidesheng.hyperlyric.root.mediacard.island.layout.ios.IslandExpandedMediaIosLayoutPreset
 import com.lidesheng.hyperlyric.root.mediacard.island.layout.ios.IslandExpandedMediaIosMetrics
 import com.lidesheng.hyperlyric.root.mediacard.island.layout.oneui.IslandExpandedMediaOneUiLayoutPreset
+import com.lidesheng.hyperlyric.root.mediacard.island.layout.miui.IslandExpandedMediaMiuiLayoutPreset
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import io.github.libxposed.api.XposedInterface.Chain
 import io.github.libxposed.api.XposedInterface.HookHandle
@@ -154,6 +155,9 @@ object IslandExpandedMediaLayoutHooker {
 
                     RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_ONEUI ->
                         IslandExpandedMediaOneUiLayoutPreset.apply(environment)
+
+                    RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_MIUI ->
+                        IslandExpandedMediaMiuiLayoutPreset.apply(environment)
                 }
                 applyElementOverrides(constraintSet, context, ids)
             }.onFailure { HookLogger.e(TAG, "应用超级岛媒体布局失败", it) }
@@ -170,7 +174,8 @@ object IslandExpandedMediaLayoutHooker {
             val albumArtSizeDp = albumArtSizeDp(style)
             if (
                 albumArtSizeDp == null &&
-                style != RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_ONEUI
+                style != RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_ONEUI &&
+                style != RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_MIUI
             ) return
             val ids = runCatching {
                 IslandExpandedMediaLayoutResourceIds.from(context)
