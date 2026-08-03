@@ -45,6 +45,7 @@ import com.lidesheng.hyperlyric.root.mediacard.island.layout.oneui.IslandExpande
 import com.lidesheng.hyperlyric.root.mediacard.island.layout.miui.IslandExpandedMediaMiuiAppNameController
 import com.lidesheng.hyperlyric.root.mediacard.island.layout.miui.IslandExpandedMediaMiuiActionController
 import com.lidesheng.hyperlyric.root.mediacard.island.layout.miui.IslandExpandedMediaMiuiTimeController
+import com.lidesheng.hyperlyric.root.mediacard.island.layout.pixel.IslandExpandedMediaPixelStyleController
 import com.lidesheng.hyperlyric.root.mediacard.notification.background.NotificationMediaColorConfig
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import io.github.libxposed.api.XposedInterface.Chain
@@ -642,11 +643,12 @@ object IslandExpandedMediaAmbientFlowHooker {
         val coverStyle = currentCoverStyle()
         val isOneUi = layoutStyle == RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_ONEUI
         val isMiui = layoutStyle == RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_MIUI
+        val isPixel = layoutStyle == RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_PIXEL
         // Hidden cover is now expressed exclusively by the shared ConstraintSet
         // (the same lifecycle XiaomiHelper uses).  Applying the legacy View
         // mutation afterwards derives margins from the real holder's transient
         // height and makes RealView diverge from the dummy/FakeView.
-        val directCoverStyle = if (isOneUi || isMiui) {
+        val directCoverStyle = if (isOneUi || isMiui || isPixel) {
             // One UI and MIUI are information-first templates; their
             // ConstraintSet and runtime holders keep the album column out.
             RootConstants.ISLAND_EXPANDED_MEDIA_COVER_STYLE_HIDDEN
@@ -726,6 +728,7 @@ object IslandExpandedMediaAmbientFlowHooker {
         syncColorOsAccessory(holder, api)
         syncOneUiAccessory(binder, holder, api)
         syncMiuiAppName(binder, holder, api)
+        syncPixelStyle(binder, holder, api)
     }
 
     private fun syncMiuiAppName(binder: Any, holder: Any, api: NativeApi) {
@@ -736,6 +739,17 @@ object IslandExpandedMediaAmbientFlowHooker {
         IslandExpandedMediaMiuiAppNameController.apply(
             elements = elements,
             appName = api.getApplicationName(binder, api.getContext(binder))
+        )
+    }
+
+    private fun syncPixelStyle(binder: Any, holder: Any, api: NativeApi) {
+        if (currentLayoutStyle() != RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_PIXEL) {
+            return
+        }
+        val context = api.getContext(binder)
+        IslandExpandedMediaPixelStyleController.apply(
+            elements = api.getMediaElements(holder),
+            appIcon = api.getAppIdentityDrawable(binder, holder, context)
         )
     }
 
@@ -770,6 +784,7 @@ object IslandExpandedMediaAmbientFlowHooker {
             IslandExpandedMediaMiuiTimeController.restore(elements)
             IslandExpandedMediaMiuiActionController.restore(elements)
             IslandExpandedMediaMiuiAppNameController.restore(elements)
+            IslandExpandedMediaPixelStyleController.restore(elements)
             IslandExpandedMediaElementController.restore(elements)
             restoreSeekBarTrackOffset(api, holder)
             (api.getPlayer(holder) as? ViewGroup)?.let {
@@ -783,7 +798,8 @@ object IslandExpandedMediaAmbientFlowHooker {
             currentLayoutStyle() != RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_IOS &&
             currentLayoutStyle() != RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_COLOROS &&
             currentLayoutStyle() != RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_ONEUI &&
-            currentLayoutStyle() != RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_MIUI
+            currentLayoutStyle() != RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_MIUI &&
+            currentLayoutStyle() != RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_PIXEL
         ) {
             restoreSeekBarTrackOffset(api, holder)
             return
@@ -817,9 +833,11 @@ object IslandExpandedMediaAmbientFlowHooker {
             currentLayoutStyle() == RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_ONEUI
         val isMiui =
             currentLayoutStyle() == RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_MIUI
+        val isPixel =
+            currentLayoutStyle() == RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_PIXEL
         val isColorOs =
             currentLayoutStyle() == RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_COLOROS
-        val effectiveCoverStyle = if (isOneUi || isMiui) {
+        val effectiveCoverStyle = if (isOneUi || isMiui || isPixel) {
             RootConstants.ISLAND_EXPANDED_MEDIA_COVER_STYLE_HIDDEN
         } else {
             coverStyle
@@ -838,7 +856,8 @@ object IslandExpandedMediaAmbientFlowHooker {
             !hideTime &&
             !isColorOs &&
             !isOneUi &&
-            !isMiui
+            !isMiui &&
+            !isPixel
         ) {
             return true
         }
@@ -919,6 +938,24 @@ object IslandExpandedMediaAmbientFlowHooker {
                     api.getContext(activeBinder)
                 )
             )
+        }
+        if (isPixel) {
+            val referenceHolder = api.getHolders(activeBinder).firstOrNull { holder ->
+                runCatching {
+                    api.getMediaElements(holder).player === referenceElements.player
+                }.getOrDefault(false)
+            } ?: api.getHolders(activeBinder).firstOrNull()
+            referenceHolder?.let { holder ->
+                IslandExpandedMediaPixelStyleController.applyToFakeView(
+                    fakeExpandedView = fakeExpandedView,
+                    referenceElements = referenceElements,
+                    appIcon = api.getAppIdentityDrawable(
+                        activeBinder,
+                        holder,
+                        api.getContext(activeBinder)
+                    )
+                )
+            }
         }
         return true
     }
