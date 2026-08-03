@@ -60,6 +60,21 @@ fun IslandExpandedMediaCardPage() {
         context.getSharedPreferences(UIConstants.PREF_NAME, Context.MODE_PRIVATE)
     }
 
+    var islandExpandedLayoutStyle by remember {
+        mutableIntStateOf(
+            prefs.getInt(
+                RootConstants.KEY_HOOK_ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE,
+                RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE
+            ).takeIf { it in islandExpandedMediaLayoutStyles }
+                ?: RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE
+        )
+    }
+    var islandExpandedLayoutPromptDismissed by remember {
+        mutableStateOf(
+            prefs.getBoolean("hide_island_expanded_media_layout_prompt", false)
+        )
+    }
+
     var islandExpandedAmbientFlowMode by remember {
         mutableIntStateOf(
             prefs.getInt(
@@ -592,6 +607,30 @@ fun IslandExpandedMediaCardPage() {
 
                         2 -> {
                             islandExpandedMediaLayoutSection(
+                                layoutStyle = islandExpandedLayoutStyle,
+                                onLayoutStyleChange = { style ->
+                                    islandExpandedLayoutStyle = style
+                                    prefs.edit {
+                                        putInt(
+                                            RootConstants.KEY_HOOK_ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE,
+                                            style
+                                        )
+                                    }
+                                    PrefsBridge.putInt(
+                                        RootConstants.KEY_HOOK_ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE,
+                                        style
+                                    )
+                                },
+                                layoutPromptDismissed = islandExpandedLayoutPromptDismissed,
+                                onLayoutPromptDismissed = {
+                                    islandExpandedLayoutPromptDismissed = true
+                                    prefs.edit {
+                                        putBoolean(
+                                            "hide_island_expanded_media_layout_prompt",
+                                            true
+                                        )
+                                    }
+                                },
                                 actionAlignLeft = islandExpandedActionAlignLeft,
                                 onActionAlignLeftChange = { alignLeft ->
                                     islandExpandedActionAlignLeft = alignLeft

@@ -235,6 +235,7 @@ internal object MediaCardRuntimeConfig {
     }
 
     data class IslandExpanded(
+        val layoutStyle: Int,
         val ambientFlowMode: Int,
         val cardTheme: Int,
         val coverStyle: Int,
@@ -256,6 +257,7 @@ internal object MediaCardRuntimeConfig {
     ) {
         companion object {
             fun defaults() = IslandExpanded(
+                layoutStyle = RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE,
                 ambientFlowMode =
                     RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_AMBIENT_FLOW_MODE,
                 cardTheme = RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_CARD_THEME,
@@ -287,6 +289,20 @@ internal object MediaCardRuntimeConfig {
             )
 
             fun from(prefs: SharedPreferences) = IslandExpanded(
+                layoutStyle = prefs.getInt(
+                    RootConstants.KEY_HOOK_ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE,
+                    RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE
+                ).let { style ->
+                    when (style) {
+                        RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_IOS,
+                        RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_COLOROS,
+                        RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_ONEUI,
+                        RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_MIUI,
+                        RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_PIXEL -> style
+
+                        else -> RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_SYSTEM
+                    }
+                },
                 ambientFlowMode = prefs.getInt(
                     RootConstants.KEY_HOOK_ISLAND_EXPANDED_MEDIA_AMBIENT_FLOW_MODE,
                     RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_AMBIENT_FLOW_MODE

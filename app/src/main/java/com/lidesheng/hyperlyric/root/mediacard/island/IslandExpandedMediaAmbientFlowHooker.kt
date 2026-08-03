@@ -1000,7 +1000,10 @@ object IslandExpandedMediaAmbientFlowHooker {
     }
 
     private fun currentLayoutStyle(): Int {
-        return RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_SYSTEM
+        if (!MediaCardRuntimeConfig.current.enabled) {
+            return RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE
+        }
+        return MediaCardRuntimeConfig.current.islandExpanded.layoutStyle
     }
 
     private fun hideCoverSource(): Boolean {

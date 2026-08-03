@@ -243,6 +243,20 @@ fun NotificationCenterMediaCardPage() {
             )
         )
     }
+    var notificationLayoutStyle by remember {
+        mutableIntStateOf(
+            prefs.getInt(
+                RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_LAYOUT_STYLE,
+                RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_LAYOUT_STYLE
+            ).takeIf { it in notificationMediaLayoutStyles }
+                ?: RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_LAYOUT_STYLE
+        )
+    }
+    var notificationLayoutPromptDismissed by remember {
+        mutableStateOf(
+            prefs.getBoolean("hide_notification_media_layout_prompt", false)
+        )
+    }
 
     val backdrop = rememberBlurBackdrop()
     val blurActive = backdrop != null
@@ -614,6 +628,30 @@ fun NotificationCenterMediaCardPage() {
 
                         2 -> {
                             notificationCenterMediaLayoutSection(
+                                layoutStyle = notificationLayoutStyle,
+                                onLayoutStyleChange = { style ->
+                                    notificationLayoutStyle = style
+                                    prefs.edit {
+                                        putInt(
+                                            RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_LAYOUT_STYLE,
+                                            style
+                                        )
+                                    }
+                                    PrefsBridge.putInt(
+                                        RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_LAYOUT_STYLE,
+                                        style
+                                    )
+                                },
+                                layoutPromptDismissed = notificationLayoutPromptDismissed,
+                                onLayoutPromptDismissed = {
+                                    notificationLayoutPromptDismissed = true
+                                    prefs.edit {
+                                        putBoolean(
+                                            "hide_notification_media_layout_prompt",
+                                            true
+                                        )
+                                    }
+                                },
                                 actionAlignLeft = notificationActionAlignLeft,
                                 onActionAlignLeftChange = { alignLeft ->
                                     notificationActionAlignLeft = alignLeft

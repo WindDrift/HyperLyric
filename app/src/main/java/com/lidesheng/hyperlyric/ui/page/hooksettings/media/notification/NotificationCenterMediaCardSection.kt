@@ -1,23 +1,37 @@
 package com.lidesheng.hyperlyric.ui.page.hooksettings.media.notification
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.lidesheng.hyperlyric.R
 import com.lidesheng.hyperlyric.common.RootConstants
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Slider
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Close
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -358,11 +372,94 @@ fun LazyListScope.notificationCenterMediaBackgroundSection(
 }
 
 fun LazyListScope.notificationCenterMediaLayoutSection(
+    layoutStyle: Int,
+    onLayoutStyleChange: (Int) -> Unit,
+    layoutPromptDismissed: Boolean,
+    onLayoutPromptDismissed: () -> Unit,
     actionAlignLeft: Boolean,
     onActionAlignLeftChange: (Boolean) -> Unit,
     actionOrder: Int,
     onActionOrderChange: (Int) -> Unit
 ) {
+    item(key = "notification_center_media_layout_style") {
+        Card(
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp)
+                .fillMaxWidth()
+        ) {
+            OverlayDropdownPreference(
+                title = stringResource(R.string.title_notification_media_layout_style),
+                items = listOf(
+                    stringResource(R.string.option_notification_media_layout_system),
+                    stringResource(R.string.option_notification_media_layout_ios),
+                    stringResource(R.string.option_notification_media_layout_coloros),
+                    stringResource(R.string.option_notification_media_layout_oneui),
+                    stringResource(R.string.option_notification_media_layout_miui),
+                    stringResource(R.string.option_notification_media_layout_pixelos)
+                ),
+                selectedIndex = notificationMediaLayoutStyles.indexOf(layoutStyle)
+                    .coerceAtLeast(0),
+                onSelectedIndexChange = { index ->
+                    onLayoutStyleChange(notificationMediaLayoutStyles[index])
+                }
+            )
+        }
+    }
+
+    item(key = "notification_center_media_layout_prompt") {
+        AnimatedVisibility(
+            visible = !layoutPromptDismissed,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
+        ) {
+            Card(
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 12.dp)
+                    .fillMaxWidth(),
+                colors = CardDefaults.defaultColors(
+                    color = MiuixTheme.colorScheme.tertiaryContainer,
+                    contentColor = MiuixTheme.colorScheme.onTertiaryContainer
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .padding(
+                            start = 16.dp,
+                            end = 16.dp,
+                            top = 12.dp,
+                            bottom = 12.dp
+                        )
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(R.string.prompt_notification_media_layout_style),
+                        color = MiuixTheme.colorScheme.onTertiaryContainer,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 8.dp)
+                    )
+                    IconButton(
+                        onClick = onLayoutPromptDismissed,
+                        minWidth = 16.dp,
+                        minHeight = 16.dp
+                    ) {
+                        Icon(
+                            imageVector = MiuixIcons.Demibold.Close,
+                            contentDescription = stringResource(R.string.close),
+                            tint = MiuixTheme.colorScheme.onTertiaryContainer,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     item(key = "notification_center_media_card_layout") {
         Column {
             Card(
@@ -398,3 +495,12 @@ fun LazyListScope.notificationCenterMediaLayoutSection(
         }
     }
 }
+
+internal val notificationMediaLayoutStyles = listOf(
+    RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_SYSTEM,
+    RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_IOS,
+    RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS,
+    RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI,
+    RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_MIUI,
+    RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_PIXEL
+)

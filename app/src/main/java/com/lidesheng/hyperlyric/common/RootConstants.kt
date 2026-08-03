@@ -23,6 +23,8 @@ object RootConstants {
         "key_hook_notification_media_ambient_flow_mode"
     const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_AMBIENT_FLOW_MODE =
         "key_hook_island_expanded_media_ambient_flow_mode"
+    const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE =
+        "key_hook_island_expanded_media_layout_style"
     const val KEY_HOOK_NOTIFICATION_MEDIA_CARD_THEME =
         "key_hook_notification_media_card_theme"
     const val KEY_HOOK_AOD_DISABLE_MEDIA_CARD_COLLAPSING =
@@ -261,6 +263,14 @@ object RootConstants {
     const val NOTIFICATION_MEDIA_LAYOUT_STYLE_PIXEL = 5
     const val DEFAULT_HOOK_NOTIFICATION_MEDIA_LAYOUT_STYLE =
         NOTIFICATION_MEDIA_LAYOUT_STYLE_SYSTEM
+    const val ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_SYSTEM = 0
+    const val ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_IOS = 1
+    const val ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_COLOROS = 2
+    const val ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_ONEUI = 3
+    const val ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_MIUI = 4
+    const val ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_PIXEL = 5
+    const val DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE =
+        ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_SYSTEM
     const val NOTIFICATION_MEDIA_COVER_STYLE_DEFAULT = 0
     const val NOTIFICATION_MEDIA_COVER_STYLE_CIRCLE = 1
     const val NOTIFICATION_MEDIA_COVER_STYLE_ROTATING_CIRCLE = 2
