@@ -117,8 +117,7 @@
     <string name="summary_media_cards">Requires restarting the system UI after update</string>
     <string name="title_notification_center_media_card">Notification center media card</string>
     <string name="title_notification_media_layout_style">Card layout style</string>
-    <string name="prompt_notification_media_layout_style">The selected layout style only applies to notification center media cards. Other custom card layout styles may be incompatible with or even conflict with notification center element layout settings; change and test with caution.</string>
-    <string name="prompt_island_expanded_media_layout_style">The selected layout style only applies to expanded Super Island media cards. Other custom card layout styles may be incompatible with or even conflict with Super Island element layout settings; change and test with caution.</string>
+    <string name="prompt_media_layout_style">Custom card layout styles may be incompatible with or even conflict with changes to related element or layout settings. Please change and test with caution. Related issues are not currently handled.</string>
     <string name="option_notification_media_layout_system">System default</string>
     <string name="option_notification_media_layout_ios">iOS style</string>
     <string name="option_notification_media_layout_coloros">ColorOS style</string>

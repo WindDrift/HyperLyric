@@ -420,7 +420,7 @@ fun LazyListScope.islandExpandedMediaLayoutSection(
                 ) {
                     Text(
                         text = stringResource(
-                            R.string.prompt_island_expanded_media_layout_style
+                            R.string.prompt_media_layout_style
                         ),
                         color = MiuixTheme.colorScheme.onTertiaryContainer,
                         fontSize = 14.sp,

@@ -435,7 +435,7 @@ fun LazyListScope.notificationCenterMediaLayoutSection(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = stringResource(R.string.prompt_notification_media_layout_style),
+                        text = stringResource(R.string.prompt_media_layout_style),
                         color = MiuixTheme.colorScheme.onTertiaryContainer,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
