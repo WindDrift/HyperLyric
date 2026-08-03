@@ -204,19 +204,10 @@ internal object NotificationMediaMiuiStyle {
                     isFocusable = false
                     importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
                 }
-                val layoutParamsClass = Class.forName(
-                    "androidx.constraintlayout.widget.ConstraintLayout\$LayoutParams",
-                    false,
-                    player.javaClass.classLoader
-                )
-                val layoutParams = layoutParamsClass.getConstructor(
-                    Int::class.javaPrimitiveType,
-                    Int::class.javaPrimitiveType
-                ).newInstance(0, ViewGroup.LayoutParams.WRAP_CONTENT)
-                    as ViewGroup.MarginLayoutParams
-                layoutParamsClass.getField("startToStart").setInt(layoutParams, 0)
-                layoutParamsClass.getField("endToEnd").setInt(layoutParams, 0)
-                layoutParamsClass.getField("topToTop").setInt(layoutParams, 0)
+                val layoutParams = createLayoutParams(player, title)
+                layoutParams.javaClass.getField("startToStart").setInt(layoutParams, 0)
+                layoutParams.javaClass.getField("endToEnd").setInt(layoutParams, 0)
+                layoutParams.javaClass.getField("topToTop").setInt(layoutParams, 0)
                 layoutParams.apply {
                     marginStart = horizontalMargin
                     marginEnd = horizontalMargin
@@ -229,6 +220,23 @@ internal object NotificationMediaMiuiStyle {
                 AppNameState(label, titleConstraintState, titleGap)
             }.getOrNull()
         }
+    }
+
+    private fun createLayoutParams(
+        player: ViewGroup,
+        title: TextView
+    ): ViewGroup.MarginLayoutParams {
+        val paramsClass = title.layoutParams?.javaClass
+            ?: Class.forName(
+                "androidx.constraintlayout.widget.ConstraintLayout\$LayoutParams",
+                false,
+                player.javaClass.classLoader
+            )
+        return paramsClass.getConstructor(
+            Int::class.javaPrimitiveType,
+            Int::class.javaPrimitiveType
+        ).newInstance(0, ViewGroup.LayoutParams.WRAP_CONTENT)
+            as ViewGroup.MarginLayoutParams
     }
 
     private data class TitleVerticalConstraintState(
