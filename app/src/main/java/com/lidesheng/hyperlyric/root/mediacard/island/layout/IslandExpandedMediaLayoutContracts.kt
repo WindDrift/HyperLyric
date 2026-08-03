@@ -103,6 +103,11 @@ internal fun IslandExpandedMediaConstraintBridge.clearHorizontal(layout: Any, vi
     clear(layout, viewId, IslandExpandedMediaConstraintSide.END)
 }
 
+internal fun IslandExpandedMediaConstraintBridge.clearAll(layout: Any, viewId: Int) {
+    clearHorizontal(layout, viewId)
+    clearVertical(layout, viewId)
+}
+
 internal fun Context.islandExpandedMediaDp(value: Float): Int {
     return (value * resources.displayMetrics.density).roundToInt()
 }
