@@ -23,6 +23,7 @@ import com.lidesheng.hyperlyric.root.mediacard.island.IslandExpandedMediaAmbient
 import com.lidesheng.hyperlyric.root.mediacard.island.layout.IslandExpandedMediaLayoutHooker
 import com.lidesheng.hyperlyric.root.mediacard.notification.NotificationMediaAmbientFlowHooker
 import com.lidesheng.hyperlyric.root.mediacard.notification.NotificationMediaCoverStyleHooker
+import com.lidesheng.hyperlyric.root.mediacard.notification.switcher.NotificationMediaSingleCardSwitcherHooker
 import com.lidesheng.hyperlyric.root.mediacard.progress.MediaProgressStyleHooker
 import com.lidesheng.hyperlyric.root.source.LyricInfoSource
 import com.lidesheng.hyperlyric.root.source.LyriconSource
@@ -211,6 +212,7 @@ class HookEntry : XposedModule() {
             IslandExpandedMediaLayoutHooker.hook(this, param.defaultClassLoader)
             NotificationMediaAmbientFlowHooker.hook(this, param.defaultClassLoader)
             NotificationMediaCoverStyleHooker.hook(this, param.defaultClassLoader)
+            NotificationMediaSingleCardSwitcherHooker.hook(this, param.defaultClassLoader)
             try {
                 UnlockIslandWhitelist.hook(this, param.defaultClassLoader)
             } catch (e: Exception) {
