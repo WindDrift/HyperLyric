@@ -10,7 +10,7 @@ object ChangelogData {
     fun getChangelog(): List<ChangelogItem> {
         return listOf(
             ChangelogItem(
-                version = "6.8-1935",
+                version = "6.8-1936",
                 title = "",
                 summary = "- 新增媒体卡片进度条样式和尾部光辉功能\n" +
                         "- 新增媒体卡片布局样式选择\n" +
