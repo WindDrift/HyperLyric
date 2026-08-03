@@ -38,6 +38,10 @@ import com.lidesheng.hyperlyric.root.mediacard.island.background.IslandMediaBack
 import com.lidesheng.hyperlyric.root.mediacard.island.layout.coloros.IslandExpandedMediaColorOsAccessoryController
 import com.lidesheng.hyperlyric.root.mediacard.island.layout.coloros.IslandExpandedMediaColorOsAccessoryViews
 import com.lidesheng.hyperlyric.root.mediacard.island.layout.coloros.IslandExpandedMediaColorOsTimeController
+import com.lidesheng.hyperlyric.root.mediacard.island.layout.oneui.IslandExpandedMediaOneUiAccessoryController
+import com.lidesheng.hyperlyric.root.mediacard.island.layout.oneui.IslandExpandedMediaOneUiAccessoryViews
+import com.lidesheng.hyperlyric.root.mediacard.island.layout.oneui.IslandExpandedMediaOneUiTimeController
+import com.lidesheng.hyperlyric.root.mediacard.island.layout.oneui.IslandExpandedMediaOneUiActionController
 import com.lidesheng.hyperlyric.root.mediacard.notification.background.NotificationMediaColorConfig
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import io.github.libxposed.api.XposedInterface.Chain
@@ -208,7 +212,12 @@ object IslandExpandedMediaAmbientFlowHooker {
             }
             // Keep XiaomiHelper's timing exactly: intercept the native setter
             // before it can restore this view on a fresh real/dummy holder.
-            if (action == Action.SEAMLESS && hideDeviceSwitch()) {
+            if (
+                action == Action.SEAMLESS &&
+                hideDeviceSwitch() &&
+                currentLayoutStyle() != RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_COLOROS &&
+                currentLayoutStyle() != RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_ONEUI
+            ) {
                 return null
             }
             if (action == Action.DETACH) cleanupBinder(binder)
@@ -301,7 +310,7 @@ object IslandExpandedMediaAmbientFlowHooker {
                             api
                         )
                     syncMusicWave(binder, holder, api)
-                    syncColorOsAccessory(holder, api)
+                    syncLayoutAccessory(binder, holder, api)
                     foregroundApplied
                 }.getOrElse { error ->
                     HookLogger.e(TAG, "保持展开态媒体前景色失败", error)
@@ -319,7 +328,7 @@ object IslandExpandedMediaAmbientFlowHooker {
             if (!shouldUseLightTheme(binder)) {
                 val result = chain.proceed()
                 syncMusicWave(binder, holder, api)
-                syncColorOsAccessory(holder, api)
+                syncLayoutAccessory(binder, holder, api)
                 enforceHeadGlowPreference(api, holder)
                 return result
             }
@@ -328,7 +337,7 @@ object IslandExpandedMediaAmbientFlowHooker {
                     .withNightMode(Configuration.UI_MODE_NIGHT_NO)
                 applyLightForeground(api, holder, CardColors.from(lightContext))
                 syncMusicWave(binder, holder, api)
-                syncColorOsAccessory(holder, api)
+                syncLayoutAccessory(binder, holder, api)
                 enforceHeadGlowPreference(api, holder)
                 null
             } catch (error: Throwable) {
@@ -628,11 +637,16 @@ object IslandExpandedMediaAmbientFlowHooker {
         val api = nativeApi ?: return
         val layoutStyle = currentLayoutStyle()
         val coverStyle = currentCoverStyle()
+        val isOneUi = layoutStyle == RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_ONEUI
         // Hidden cover is now expressed exclusively by the shared ConstraintSet
         // (the same lifecycle XiaomiHelper uses).  Applying the legacy View
         // mutation afterwards derives margins from the real holder's transient
         // height and makes RealView diverge from the dummy/FakeView.
-        val directCoverStyle = if (
+        val directCoverStyle = if (isOneUi) {
+            // One UI is an information-first template; its ConstraintSet and
+            // runtime holder both keep the album column out of the island.
+            RootConstants.ISLAND_EXPANDED_MEDIA_COVER_STYLE_HIDDEN
+        } else if (
             coverStyle == RootConstants.ISLAND_EXPANDED_MEDIA_COVER_STYLE_HIDDEN
         ) {
             RootConstants.ISLAND_EXPANDED_MEDIA_COVER_STYLE_DEFAULT
@@ -665,7 +679,12 @@ object IslandExpandedMediaAmbientFlowHooker {
             if (layoutStyle == RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_COLOROS) {
                 IslandExpandedMediaColorOsTimeController.apply(api.getMediaElements(holder))
             }
-            syncColorOsAccessory(holder, api)
+            if (isOneUi) {
+                val elements = api.getMediaElements(holder)
+                IslandExpandedMediaOneUiTimeController.apply(elements)
+                IslandExpandedMediaOneUiActionController.apply(elements)
+            }
+            syncLayoutAccessory(binder, holder, api)
         }
     }
 
@@ -679,6 +698,25 @@ object IslandExpandedMediaAmbientFlowHooker {
             hideDeviceSwitch = hideDeviceSwitch(),
             hideCustomActions = hideCustomActions()
         )
+    }
+
+    private fun syncOneUiAccessory(binder: Any, holder: Any, api: NativeApi) {
+        if (currentLayoutStyle() != RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_ONEUI) {
+            return
+        }
+        val views = api.getOneUiAccessoryViews(holder) ?: return
+        val context = api.getContext(binder)
+        IslandExpandedMediaOneUiAccessoryController.apply(
+            views = views,
+            appIcon = api.getAppIdentityDrawable(binder, holder, context),
+            appName = api.getApplicationName(binder, context),
+            textColor = api.getIdentityTextColor(holder)
+        )
+    }
+
+    private fun syncLayoutAccessory(binder: Any, holder: Any, api: NativeApi) {
+        syncColorOsAccessory(holder, api)
+        syncOneUiAccessory(binder, holder, api)
     }
 
     private fun syncMusicWave(binder: Any, holder: Any, api: NativeApi) {
@@ -702,8 +740,13 @@ object IslandExpandedMediaAmbientFlowHooker {
             api.getColorOsAccessoryViews(holder)?.let(
                 IslandExpandedMediaColorOsAccessoryController::restore
             )
+            api.getOneUiAccessoryViews(holder)?.let(
+                IslandExpandedMediaOneUiAccessoryController::restore
+            )
             val elements = api.getMediaElements(holder)
             IslandExpandedMediaColorOsTimeController.restore(elements)
+            IslandExpandedMediaOneUiTimeController.restore(elements)
+            IslandExpandedMediaOneUiActionController.restore(elements)
             IslandExpandedMediaElementController.restore(elements)
             restoreSeekBarTrackOffset(api, holder)
             (api.getPlayer(holder) as? ViewGroup)?.let {
@@ -715,7 +758,8 @@ object IslandExpandedMediaAmbientFlowHooker {
     private fun applySeekBarTrackOffset(api: NativeApi, holder: Any) {
         if (
             currentLayoutStyle() != RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_IOS &&
-            currentLayoutStyle() != RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_COLOROS
+            currentLayoutStyle() != RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_COLOROS &&
+            currentLayoutStyle() != RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_ONEUI
         ) {
             restoreSeekBarTrackOffset(api, holder)
             return
@@ -745,8 +789,15 @@ object IslandExpandedMediaAmbientFlowHooker {
         val hideDeviceSwitch = hideDeviceSwitch()
         val hideCustomActions = hideCustomActions()
         val hideTime = hideTime()
+        val isOneUi =
+            currentLayoutStyle() == RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_ONEUI
         val isColorOs =
             currentLayoutStyle() == RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_COLOROS
+        val effectiveCoverStyle = if (isOneUi) {
+            RootConstants.ISLAND_EXPANDED_MEDIA_COVER_STYLE_HIDDEN
+        } else {
+            coverStyle
+        }
         val keepAction4Slot =
             (
                 currentLayoutStyle() == RootConstants.ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE_IOS ||
@@ -759,7 +810,8 @@ object IslandExpandedMediaAmbientFlowHooker {
             !hideDeviceSwitch &&
             !hideCustomActions &&
             !hideTime &&
-            !isColorOs
+            !isColorOs &&
+            !isOneUi
         ) {
             return true
         }
@@ -772,9 +824,11 @@ object IslandExpandedMediaAmbientFlowHooker {
         IslandExpandedMediaElementController.applyToFakeView(
             fakeExpandedView = fakeExpandedView,
             referenceElements = referenceElements,
-            coverStyle = coverStyle,
+            coverStyle = effectiveCoverStyle,
             hideCoverSource = hideCoverSource,
-            hideDeviceSwitch = hideDeviceSwitch,
+            // The One UI identity row owns the seamless container and hides
+            // only the native source affordance.
+            hideDeviceSwitch = hideDeviceSwitch && !isOneUi,
             hideCustomActions = hideCustomActions,
             hideTime = hideTime,
             keepAction4Slot = keepAction4Slot
@@ -791,6 +845,33 @@ object IslandExpandedMediaAmbientFlowHooker {
                     hideDeviceSwitch = hideDeviceSwitch,
                     hideCustomActions = hideCustomActions
                 )
+            }
+        }
+        if (isOneUi) {
+            IslandExpandedMediaOneUiTimeController.applyToFakeView(
+                fakeExpandedView = fakeExpandedView,
+                referenceElements = referenceElements
+            )
+            IslandExpandedMediaOneUiActionController.applyToFakeView(
+                fakeExpandedView = fakeExpandedView,
+                referenceElements = referenceElements
+            )
+            val referenceHolder = api.getHolders(activeBinder).firstOrNull { holder ->
+                runCatching {
+                    api.getMediaElements(holder).player === referenceElements.player
+                }.getOrDefault(false)
+            } ?: api.getHolders(activeBinder).firstOrNull()
+            referenceHolder?.let { holder ->
+                val context = api.getContext(activeBinder)
+                api.getOneUiAccessoryViews(holder)?.let { referenceAccessory ->
+                    IslandExpandedMediaOneUiAccessoryController.applyToFakeView(
+                        fakeExpandedView = fakeExpandedView,
+                        reference = referenceAccessory,
+                        appIcon = api.getAppIdentityDrawable(activeBinder, holder, context),
+                        appName = api.getApplicationName(activeBinder, context),
+                        textColor = api.getIdentityTextColor(holder)
+                    )
+                }
             }
         }
         return true
@@ -1297,6 +1378,53 @@ object IslandExpandedMediaAmbientFlowHooker {
                     action4 = action4
                 )
             }.getOrNull()
+
+        fun getOneUiAccessoryViews(holder: Any): IslandExpandedMediaOneUiAccessoryViews? =
+            runCatching {
+                val player = getPlayer(holder) as? ViewGroup
+                    ?: return@runCatching null
+                val container = seamlessField.get(holder) as? ViewGroup
+                    ?: return@runCatching null
+                val sourceIcon = seamlessIconField.get(holder) as? ImageView
+                    ?: return@runCatching null
+                val appIcon = appIconField.get(holder) as? ImageView
+                    ?: return@runCatching null
+                val sourceButton = seamlessButtonField?.get(holder) as? View
+                IslandExpandedMediaOneUiAccessoryViews(
+                    player = player,
+                    container = container,
+                    sourceIcon = sourceIcon,
+                    sourceButton = sourceButton,
+                    appIcon = appIcon
+                )
+            }.getOrNull()
+
+        fun getApplicationName(binder: Any, context: Context): CharSequence? {
+            val mediaData = mediaDataField.get(binder) ?: return null
+            val packageName = mediaDataPackageNameField.get(mediaData) as? String ?: return null
+            return runCatching {
+                val packageManager = context.packageManager
+                packageManager.getApplicationLabel(
+                    packageManager.getApplicationInfo(packageName, 0)
+                )
+            }.getOrElse { packageName.substringAfterLast('.') }
+        }
+
+        fun getAppIdentityDrawable(
+            binder: Any,
+            holder: Any,
+            context: Context
+        ): Drawable? {
+            (appIconField.get(holder) as? ImageView)?.drawable?.let { return it }
+            val mediaData = mediaDataField.get(binder) ?: return null
+            val packageName = mediaDataPackageNameField.get(mediaData) as? String ?: return null
+            return runCatching { context.packageManager.getApplicationIcon(packageName) }
+                .getOrNull()
+        }
+
+        fun getIdentityTextColor(holder: Any): Int {
+            return (artistTextField.get(holder) as TextView).currentTextColor
+        }
 
         fun isPlaying(binder: Any): Boolean {
             val mediaData = mediaDataField.get(binder) ?: return false
