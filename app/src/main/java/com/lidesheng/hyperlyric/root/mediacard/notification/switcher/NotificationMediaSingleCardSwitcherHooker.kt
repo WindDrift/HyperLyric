@@ -466,18 +466,28 @@ internal object NotificationMediaSingleCardSwitcherHooker {
                 }
             }
             selection.seed(initialEntries.map { it.key to it.value })
+            updatePageIndicator()
         }
 
         fun onMediaDataLoaded(key: String, oldKey: String?, data: Any) {
-            runOnMain { selection.onMediaDataLoaded(key, oldKey, data) }
+            runOnMain {
+                selection.onMediaDataLoaded(key, oldKey, data)
+                updatePageIndicator()
+            }
         }
 
         fun onMediaDataRemoved(key: String) {
-            runOnMain { selection.onMediaDataRemoved(key) }
+            runOnMain {
+                selection.onMediaDataRemoved(key)
+                updatePageIndicator()
+            }
         }
 
         fun onNativeBind(data: Any?) {
-            runOnMain { selection.onNativeBind(data) }
+            runOnMain {
+                selection.onNativeBind(data)
+                updatePageIndicator()
+            }
         }
 
         fun attach(holder: Any): View? {
@@ -492,6 +502,8 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             ) as? View)?.let(::WeakReference)
             touchSlop = ViewConfiguration.get(currentPlayer.context).scaledTouchSlop
             resetTouch(currentPlayer)
+            pageIndicator.attach(currentPlayer)
+            updatePageIndicator()
             return currentPlayer
         }
 
@@ -502,6 +514,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         fun onDetached() {
             val currentPlayer = player?.get()
             resetTouch(currentPlayer)
+            pageIndicator.detach()
             player = null
             seekBar = null
             runOnMain { selection.onDetached() }
@@ -582,7 +595,10 @@ internal object NotificationMediaSingleCardSwitcherHooker {
                     } else {
                         visualStep
                     }
-                    runOnMain { selection.selectRelative(step) }
+                    runOnMain {
+                        selection.selectRelative(step)
+                        updatePageIndicator()
+                    }
                     return true
                 }
 
@@ -614,6 +630,16 @@ internal object NotificationMediaSingleCardSwitcherHooker {
                     bindingSelected = false
                 }
             }
+        }
+
+        private val pageIndicator = NotificationMediaPageIndicator()
+
+        private fun updatePageIndicator() {
+            pageIndicator.update(
+                pageCount = selection.size,
+                selectedIndex = selection.selectedIndex,
+                enabled = MediaCardRuntimeConfig.current.enabled
+            )
         }
 
         private fun nativeOrder(): List<String> {

@@ -50,6 +50,15 @@ internal class NotificationMediaSelectionCoordinator(
     val size: Int
         get() = orderedKeys.size
 
+    /**
+     * The currently selected position in [orderedKeys]. This deliberately
+     * lives outside the native card View, matching MIUI 14's carousel state.
+     * A missing selection is exposed as -1 until the native top item or the
+     * first available entry has been adopted.
+     */
+    val selectedIndex: Int
+        get() = selectedKey?.let(orderedKeys::indexOf)?.takeIf { it >= 0 } ?: -1
+
     fun seed(initialEntries: List<Pair<String, Any>>) {
         entries.clear()
         initialEntries.forEach { (key, data) ->
@@ -152,11 +161,20 @@ internal class NotificationMediaSelectionCoordinator(
     fun selectRelative(step: Int) {
         if (step == 0 || orderedKeys.size < 2) return
 
-        val currentIndex = selectedKey?.let(orderedKeys::indexOf)?.takeIf { it >= 0 }
-            ?: orderedKeys.indexOfFirst { it == nativeTopKey() }.takeIf { it >= 0 }
-            ?: 0
-        val targetIndex = (currentIndex + step).coerceIn(0, orderedKeys.lastIndex)
-        if (targetIndex == currentIndex) return
+        selectIndex(currentIndex() + step)
+    }
+
+    /**
+     * Selects a page without making the renderer know about notification keys.
+     * A future multi-panel renderer can use the same index as its child View
+     * position and keep bindMediaData() as the current single-card fallback.
+     */
+    fun selectIndex(index: Int) {
+        if (orderedKeys.isEmpty()) return
+
+        val currentIndex = currentIndex()
+        val targetIndex = index.coerceIn(0, orderedKeys.lastIndex)
+        if (targetIndex == currentIndex && selectedIndex == targetIndex) return
 
         selectedKey = orderedKeys[targetIndex]
         selectedByUser = true
@@ -196,6 +214,12 @@ internal class NotificationMediaSelectionCoordinator(
 
     private fun updateSelectedToken() {
         selectedToken = selectedKey?.let { entries[it]?.sessionToken }
+    }
+
+    private fun currentIndex(): Int {
+        return selectedIndex.takeIf { it >= 0 }
+            ?: orderedKeys.indexOfFirst { it == nativeTopKey() }.takeIf { it >= 0 }
+            ?: 0
     }
 
     private fun resetSelection() {
