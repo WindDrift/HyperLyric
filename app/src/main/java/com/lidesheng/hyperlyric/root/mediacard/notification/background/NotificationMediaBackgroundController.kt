@@ -1,26 +1,18 @@
 package com.lidesheng.hyperlyric.root.mediacard.notification.background
 
 import android.content.Context
-import android.content.res.ColorStateList
-import android.content.res.Configuration
 import android.graphics.Bitmap
-import android.graphics.ColorFilter
-import android.graphics.Paint
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffColorFilter
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.Icon
 import android.graphics.drawable.TransitionDrawable
 import android.widget.ImageView
-import android.widget.SeekBar
-import android.widget.TextView
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.root.mediacard.MediaCardRuntimeConfig
+import com.lidesheng.hyperlyric.root.mediacard.notification.style.NotificationMediaForegroundStyler
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import java.lang.reflect.Field
 import java.util.Collections
-import java.util.concurrent.CopyOnWriteArrayList
 import java.util.WeakHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -35,12 +27,6 @@ internal object NotificationMediaBackgroundController {
     private val supportedLoaders = Collections.synchronizedSet(
         Collections.newSetFromMap(WeakHashMap<ClassLoader, Boolean>())
     )
-    private val seekBarColors = Collections.synchronizedMap(WeakHashMap<SeekBar, Int>())
-    private val seekBarStates = Collections.synchronizedMap(WeakHashMap<SeekBar, SeekBarState>())
-    @Volatile
-    private var foregroundColorsAppliedListener: ((Any) -> Unit)? = null
-    private val foregroundColorsAppliedListeners = CopyOnWriteArrayList<(Any) -> Unit>()
-
     private val executor: ExecutorService = newExecutor()
 
     fun isActive(controller: Any): Boolean {
@@ -53,49 +39,13 @@ internal object NotificationMediaBackgroundController {
         if (available) supportedLoaders.add(classLoader) else supportedLoaders.remove(classLoader)
     }
 
-    fun setForegroundColorsAppliedListener(listener: ((Any) -> Unit)?) {
-        foregroundColorsAppliedListener = listener
-    }
-
-    fun addForegroundColorsAppliedListener(listener: (Any) -> Unit) {
-        foregroundColorsAppliedListeners.addIfAbsent(listener)
-    }
-
-    /**
-     * Returns the color actually used by the current native/custom card for
-     * its title and action foreground. The native-view fallback is important
-     * for the default background style, where no custom renderer state exists.
-     */
-    fun foregroundColor(controller: Any): Int? {
-        states[controller]?.foregroundColor?.let { return it }
-
-        val holder = readField(controller, "holder")
-        if (holder != null) {
-            readField(holder, "seamlessIcon")
-                .let { it as? ImageView }
-                ?.imageTintList
-                ?.defaultColor
-                ?.let { return it }
-            readField(holder, "artistText")
-                .let { it as? TextView }
-                ?.currentTextColor
-                ?.let { return it }
-            readField(holder, "titleText")
-                .let { it as? TextView }
-                ?.currentTextColor
-                ?.let { return it }
-        }
-
-        return fallbackForegroundColor(controller)
-    }
-
     fun onBind(controller: Any, mediaData: Any?) {
         val state = states.getOrPut(controller) { ControllerState() }
         if (!isActive(controller)) {
             state.token = null
             state.customApplied = false
             state.renderPending = false
-            state.foregroundColor = null
+            NotificationMediaForegroundStyler.forget(controller)
             return
         }
         mediaData ?: return
@@ -172,9 +122,7 @@ internal object NotificationMediaBackgroundController {
                     return@post
                 }
                 applyBackground(mediaBg, rendered.bitmap)
-                applyForeground(holder, rendered.colors)
-                state.foregroundColor = rendered.colors.textPrimary
-                notifyForegroundColorsApplied(controller)
+                NotificationMediaForegroundStyler.apply(controller, holder, rendered.colors)
                 state.customApplied = true
                 state.appliedToken = token
                 state.artworkFingerprint = rendered.artworkFingerprint
@@ -184,7 +132,7 @@ internal object NotificationMediaBackgroundController {
     }
 
     fun onDetach(controller: Any) {
-        clearSeekBarColor(controller)
+        NotificationMediaForegroundStyler.clear(controller)
         states.remove(controller)?.let { state ->
             state.request.incrementAndGet()
             restoreMediaBackground(state)
@@ -231,27 +179,6 @@ internal object NotificationMediaBackgroundController {
         })
     }
 
-    fun applySeekBarColor(seekBar: Any) {
-        val view = seekBar as? SeekBar ?: return
-        val color = seekBarColors[view] ?: return
-        applySeekBarColor(view, color)
-    }
-
-    fun applySeekBarColor(view: SeekBar, color: Int) {
-        applySeekBarForegroundColor(view, color)
-        (readField(view, "mBackgroundDrawable") as? Drawable)?.colorFilter =
-            PorterDuffColorFilter(
-                color and 0x00ffffff or (0x33 shl 24),
-                PorterDuff.Mode.SRC_IN
-            )
-    }
-
-    fun applySeekBarForegroundColor(view: SeekBar, color: Int) {
-        val filter = PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN)
-        (readField(view, "mPaint") as? Paint)?.colorFilter = filter
-        (readField(view, "mProgressDrawable") as? Drawable)?.colorFilter = filter
-    }
-
     private fun applyBackground(mediaBg: ImageView, bitmap: Bitmap) {
         mediaBg.setPadding(0, 0, 0, 0)
         mediaBg.clipToOutline = true
@@ -275,59 +202,6 @@ internal object NotificationMediaBackgroundController {
                 mediaBg.setImageDrawable(next)
             }
         }, 350L)
-    }
-
-    private fun applyForeground(holder: Any, colors: NotificationMediaColorConfig) {
-        val primary = ColorStateList.valueOf(colors.textPrimary)
-        (readField(holder, "titleText") as? TextView)?.setTextColor(colors.textPrimary)
-        (readField(holder, "artistText") as? TextView)?.setTextColor(colors.textSecondary)
-        listOf("seamlessIcon", "action0", "action1", "action2", "action3", "action4")
-            .forEach { fieldName ->
-                (readField(holder, fieldName) as? ImageView)?.imageTintList = primary
-            }
-        (readField(holder, "elapsedTimeView") as? TextView)?.setTextColor(colors.textPrimary)
-        (readField(holder, "totalTimeView") as? TextView)?.setTextColor(colors.textPrimary)
-        val seekBar = readField(holder, "seekBar") as? SeekBar ?: return
-        seekBarStates.getOrPut(seekBar) {
-            SeekBarState(
-                thumbTintList = seekBar.thumbTintList,
-                progressTintList = seekBar.progressTintList,
-                progressBackgroundTintList = seekBar.progressBackgroundTintList,
-                paintColorFilter = (readField(seekBar, "mPaint") as? Paint)?.colorFilter,
-                progressDrawableColorFilter =
-                    (readField(seekBar, "mProgressDrawable") as? Drawable)?.colorFilter,
-                backgroundDrawableColorFilter =
-                    (readField(seekBar, "mBackgroundDrawable") as? Drawable)?.colorFilter
-            )
-        }
-        seekBar.thumbTintList = primary
-        seekBar.progressTintList = primary
-        seekBar.progressBackgroundTintList = ColorStateList.valueOf(
-            colors.textPrimary and 0x00ffffff or (0x33 shl 24)
-        )
-        seekBarColors[seekBar] = colors.textPrimary
-        seekBar.invalidate()
-    }
-
-    private fun clearSeekBarColor(controller: Any) {
-        val holder = readField(controller, "holder") ?: return
-        val seekBar = readField(holder, "seekBar") as? SeekBar ?: return
-        seekBarColors.remove(seekBar)
-        seekBarStates.remove(seekBar)?.let { state ->
-            restoreSeekBarState(seekBar, state)
-        }
-    }
-
-    private fun restoreSeekBarState(seekBar: SeekBar, state: SeekBarState) {
-        seekBar.thumbTintList = state.thumbTintList
-        seekBar.progressTintList = state.progressTintList
-        seekBar.progressBackgroundTintList = state.progressBackgroundTintList
-        (readField(seekBar, "mPaint") as? Paint)?.colorFilter = state.paintColorFilter
-        (readField(seekBar, "mProgressDrawable") as? Drawable)?.colorFilter =
-            state.progressDrawableColorFilter
-        (readField(seekBar, "mBackgroundDrawable") as? Drawable)?.colorFilter =
-            state.backgroundDrawableColorFilter
-        seekBar.invalidate()
     }
 
     private fun captureNativeBackground(state: ControllerState, mediaBg: ImageView) {
@@ -383,32 +257,6 @@ internal object NotificationMediaBackgroundController {
     private fun currentColorAnimation(): Boolean =
         MediaCardRuntimeConfig.current.notification.backgroundColorAnimation
 
-    private fun fallbackForegroundColor(controller: Any): Int {
-        val context = readField(controller, "context") as? Context
-        val light = when (MediaCardRuntimeConfig.current.notification.cardTheme) {
-            RootConstants.MEDIA_CARD_THEME_ALWAYS_LIGHT -> true
-            RootConstants.MEDIA_CARD_THEME_ALWAYS_DARK -> false
-            else -> context?.resources?.configuration?.let { configuration ->
-                configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK !=
-                    Configuration.UI_MODE_NIGHT_YES
-            } ?: false
-        }
-        return if (light) LIGHT_CARD_FOREGROUND else DARK_CARD_FOREGROUND
-    }
-
-    private fun notifyForegroundColorsApplied(controller: Any) {
-        runCatching { foregroundColorsAppliedListener?.invoke(controller) }
-            .onFailure { error ->
-                HookLogger.e(TAG, "通知中心媒体前景色同步回调失败", error)
-            }
-        foregroundColorsAppliedListeners.forEach { listener ->
-            runCatching { listener(controller) }
-                .onFailure { error ->
-                    HookLogger.e(TAG, "通知中心媒体前景色观察者回调失败", error)
-                }
-        }
-    }
-
     private fun readField(receiver: Any, name: String): Any? {
         return findField(receiver.javaClass, name)?.let { field ->
             runCatching { field.get(receiver) }.getOrNull()
@@ -437,7 +285,6 @@ internal object NotificationMediaBackgroundController {
         var artworkFingerprint: Long? = null,
         var customApplied: Boolean = false,
         var renderPending: Boolean = false,
-        var foregroundColor: Int? = null,
         var mediaBg: ImageView? = null,
         var originalDrawable: Drawable? = null,
         var originalScaleType: ImageView.ScaleType? = null,
@@ -450,15 +297,4 @@ internal object NotificationMediaBackgroundController {
         val request: AtomicInteger = AtomicInteger()
     )
 
-    private data class SeekBarState(
-        val thumbTintList: ColorStateList?,
-        val progressTintList: ColorStateList?,
-        val progressBackgroundTintList: ColorStateList?,
-        val paintColorFilter: ColorFilter?,
-        val progressDrawableColorFilter: ColorFilter?,
-        val backgroundDrawableColorFilter: ColorFilter?
-    )
-
-    private const val LIGHT_CARD_FOREGROUND = 0xff202020.toInt()
-    private const val DARK_CARD_FOREGROUND = 0xffe6ffffff.toInt()
 }

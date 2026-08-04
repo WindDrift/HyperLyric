@@ -3,10 +3,7 @@ package com.lidesheng.hyperlyric.root.mediacard.island
 import android.content.Context
 import android.content.res.ColorStateList
 import android.content.res.Configuration
-import android.graphics.BlendMode
-import android.graphics.BlendModeColorFilter
 import android.graphics.Color
-import android.graphics.ColorFilter
 import android.graphics.Paint
 import android.graphics.RuntimeShader
 import android.graphics.drawable.Drawable
@@ -46,6 +43,9 @@ import com.lidesheng.hyperlyric.root.mediacard.island.layout.miui.IslandExpanded
 import com.lidesheng.hyperlyric.root.mediacard.island.layout.miui.IslandExpandedMediaMiuiActionController
 import com.lidesheng.hyperlyric.root.mediacard.island.layout.miui.IslandExpandedMediaMiuiTimeController
 import com.lidesheng.hyperlyric.root.mediacard.island.layout.pixel.IslandExpandedMediaPixelStyleController
+import com.lidesheng.hyperlyric.root.mediacard.island.style.IslandExpandedMediaForegroundAccess
+import com.lidesheng.hyperlyric.root.mediacard.island.style.IslandExpandedMediaForegroundColors
+import com.lidesheng.hyperlyric.root.mediacard.island.style.IslandExpandedMediaForegroundStyler
 import com.lidesheng.hyperlyric.root.mediacard.notification.background.NotificationMediaColorConfig
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import io.github.libxposed.api.XposedInterface.Chain
@@ -86,12 +86,6 @@ object IslandExpandedMediaAmbientFlowHooker {
         Collections.newSetFromMap(WeakHashMap<Any, Boolean>())
     )
     private val themeStates = Collections.synchronizedMap(WeakHashMap<View, ViewThemeState>())
-    private val seekBarThemeStates = Collections.synchronizedMap(
-        WeakHashMap<View, SeekBarThemeState>()
-    )
-    private val islandSeekBars = Collections.synchronizedSet(
-        Collections.newSetFromMap(WeakHashMap<View, Boolean>())
-    )
     private val seekBarTrackStates = Collections.synchronizedMap(
         WeakHashMap<View, SeekBarTrackState>()
     )
@@ -339,7 +333,11 @@ object IslandExpandedMediaAmbientFlowHooker {
             return try {
                 val lightContext = api.getContext(binder)
                     .withNightMode(Configuration.UI_MODE_NIGHT_NO)
-                applyLightForeground(api, holder, CardColors.from(lightContext))
+                IslandExpandedMediaForegroundStyler.applyLightForeground(
+                    api,
+                    holder,
+                    IslandExpandedMediaForegroundColors.from(lightContext)
+                )
                 syncMusicWave(binder, holder, api)
                 syncLayoutAccessory(binder, holder, api)
                 enforceHeadGlowPreference(api, holder)
@@ -360,10 +358,10 @@ object IslandExpandedMediaAmbientFlowHooker {
             val api = nativeApi ?: return result
             val listener = chain.thisObject ?: return result
             val seekBar = api.getHeadAlphaListenerSeekBar(listener)
-            if (!islandSeekBars.contains(seekBar)) return result
+            if (!IslandExpandedMediaForegroundStyler.isTracked(seekBar)) return result
             if (
                 shouldSuppressHeadGlowByPreference() ||
-                seekBarThemeStates[seekBar]?.suppressHeadGlow == true
+                IslandExpandedMediaForegroundStyler.shouldSuppressHeadGlow(seekBar)
             ) {
                 api.setSeekBarHeadGlowAlpha(seekBar, 0f)
             }
@@ -496,7 +494,7 @@ object IslandExpandedMediaAmbientFlowHooker {
         }
 
         val lightContext = api.getContext(binder).withNightMode(Configuration.UI_MODE_NIGHT_NO)
-        val colors = CardColors.from(lightContext)
+        val colors = IslandExpandedMediaForegroundColors.from(lightContext)
         api.getHolders(binder).forEach { holder ->
             val player = api.getPlayer(holder)
             if (!applyLightExpandedBackground(api, player)) {
@@ -510,7 +508,7 @@ object IslandExpandedMediaAmbientFlowHooker {
                     }
                 }
             }
-            applyLightForeground(api, holder, colors)
+            IslandExpandedMediaForegroundStyler.applyLightForeground(api, holder, colors)
         }
     }
 
@@ -535,18 +533,6 @@ object IslandExpandedMediaAmbientFlowHooker {
         }
     }
 
-    private fun applyLightForeground(api: NativeApi, holder: Any, colors: CardColors) {
-        val seekBar = api.getSeekBar(holder)
-        val state = seekBarThemeStates.getOrPut(seekBar) {
-            SeekBarThemeState(
-                originalColorFilter = api.getSeekBarShaderColorFilter(seekBar),
-                originalHeadGlowAlpha = api.getSeekBarHeadGlowAlpha(seekBar)
-            )
-        }
-        state.suppressHeadGlow = true
-        api.applyLightForeground(holder, colors)
-    }
-
     private fun enforceHeadGlowPreference(binder: Any) {
         val api = nativeApi ?: return
         api.getHolders(binder).forEach { holder ->
@@ -556,7 +542,7 @@ object IslandExpandedMediaAmbientFlowHooker {
 
     private fun enforceHeadGlowPreference(api: NativeApi, holder: Any) {
         val seekBar = api.getSeekBar(holder)
-        islandSeekBars.add(seekBar)
+        IslandExpandedMediaForegroundStyler.trackSeekBar(seekBar)
         if (!shouldSuppressHeadGlowByPreference()) return
         api.setSeekBarHeadGlowAlpha(seekBar, 0f)
     }
@@ -624,10 +610,7 @@ object IslandExpandedMediaAmbientFlowHooker {
             api.findExpandedBackgroundTarget(player)?.let { target ->
                 restoreTrackedTheme(target.owner, api)
             }
-            seekBarThemeStates.remove(seekBar)?.let { state ->
-                api.setSeekBarShaderColorFilter(seekBar, state.originalColorFilter)
-                api.setSeekBarHeadGlowAlpha(seekBar, state.originalHeadGlowAlpha)
-            }
+            IslandExpandedMediaForegroundStyler.restore(api, holder)
             restoringNativeForeground.set(true)
             try {
                 api.applyNativeForeground(binder, holder)
@@ -1187,7 +1170,7 @@ object IslandExpandedMediaAmbientFlowHooker {
         nativeApi?.removeHolderBackgrounds(binder)
         val api = nativeApi ?: return
         api.getHolders(binder).forEach { holder ->
-            islandSeekBars.remove(api.getSeekBar(holder))
+            IslandExpandedMediaForegroundStyler.untrackSeekBar(api.getSeekBar(holder))
         }
     }
 
@@ -1303,44 +1286,11 @@ object IslandExpandedMediaAmbientFlowHooker {
         val originalMiniBarTint: ColorStateList?
     )
 
-    private data class SeekBarThemeState(
-        val originalColorFilter: ColorFilter?,
-        val originalHeadGlowAlpha: Float,
-        var suppressHeadGlow: Boolean = false
-    )
-
     private data class SeekBarTrackState(
         val paddingOffset: Int,
         val trackPositionX: Float,
         var applied: Boolean = false
     )
-
-    private data class CardColors(
-        val primaryText: Int,
-        val secondaryText: Int,
-        val durationText: Int,
-        val action: Int,
-        val seekBarForeground: Int,
-        val seekBarBackground: Int
-    ) {
-        companion object {
-            fun from(context: Context): CardColors {
-                fun color(name: String): Int {
-                    val id = context.resources.getIdentifier(name, "color", context.packageName)
-                    require(id != 0) { "Missing color resource: $name" }
-                    return context.getColor(id)
-                }
-                return CardColors(
-                    primaryText = color("media_primary_text"),
-                    secondaryText = color("media_secondary_text"),
-                    durationText = color("media_duration_time_font_color"),
-                    action = color("notification_media_action_button_light_color"),
-                    seekBarForeground = Color.BLACK,
-                    seekBarBackground = color("media_seekbar_background_color")
-                )
-            }
-        }
-    }
 
     private class NativeApi private constructor(
         val hookMethods: List<Method>,
@@ -1380,7 +1330,7 @@ object IslandExpandedMediaAmbientFlowHooker {
         private val pauseMethod: Method,
         private val setGradientColorMethod: Method,
         private val getPaletteColorMethod: Method
-    ) : IslandExpandedMediaBackgroundApi {
+    ) : IslandExpandedMediaBackgroundApi, IslandExpandedMediaForegroundAccess {
         private val expandedBackgroundMethods = Collections.synchronizedMap(
             WeakHashMap<ClassLoader, ExpandedBackgroundMethods>()
         )
@@ -1514,7 +1464,7 @@ object IslandExpandedMediaAmbientFlowHooker {
             return mediaDataIsPlayingField.get(mediaData) == true
         }
 
-        fun getSeekBar(holder: Any): View = seekBarField.get(holder) as View
+        override fun getSeekBar(holder: Any): View = seekBarField.get(holder) as View
 
         fun captureSeekBarTrackState(seekBar: View): SeekBarTrackState? {
             val paddingField = seekBarPaddingOffsetField ?: return null
@@ -1684,82 +1634,56 @@ object IslandExpandedMediaAmbientFlowHooker {
             updateForegroundColorsMethod.invoke(binder, holder)
         }
 
-        fun applyLightForeground(holder: Any, colors: CardColors) {
-            (titleTextField.get(holder) as TextView).setTextColor(colors.primaryText)
-            (artistTextField.get(holder) as TextView).setTextColor(colors.secondaryText)
-            (elapsedTimeViewField.get(holder) as TextView).setTextColor(colors.durationText)
-            (totalTimeViewField.get(holder) as TextView).setTextColor(colors.durationText)
-            val tint = ColorStateList.valueOf(colors.action)
-            (seamlessIconField.get(holder) as ImageView).imageTintList =
-                ColorStateList.valueOf(colors.seekBarForeground)
+        override fun getTitleText(holder: Any): TextView = titleTextField.get(holder) as TextView
+
+        override fun getArtistText(holder: Any): TextView = artistTextField.get(holder) as TextView
+
+        override fun getElapsedTime(holder: Any): TextView =
+            elapsedTimeViewField.get(holder) as TextView
+
+        override fun getTotalTime(holder: Any): TextView =
+            totalTimeViewField.get(holder) as TextView
+
+        override fun getSeamlessIcon(holder: Any): ImageView =
+            seamlessIconField.get(holder) as ImageView
+
+        override fun getActionViews(holder: Any): List<ImageView> {
             @Suppress("UNCHECKED_CAST")
-            (getActionListMethod.invoke(holder) as List<Any>).forEach { action ->
-                (action as ImageView).apply {
-                    imageTintBlendMode = BlendMode.SRC_IN
-                    imageTintList = tint
-                }
-            }
-            val seekBar = getSeekBar(holder)
-            setSeekBarForegroundMethod.invoke(seekBar, colors.seekBarForeground)
-            setSeekBarBackgroundMethod.invoke(seekBar, colors.seekBarBackground)
-            setSeekBarShaderColorFilter(
-                seekBar,
-                BlendModeColorFilter(colors.seekBarForeground, BlendMode.SRC_IN)
-            )
-            setSeekBarHeadGlowAlpha(seekBar, 0f)
+            return getActionListMethod.invoke(holder) as List<ImageView>
+        }
+
+        override fun setSeekBarForeground(seekBar: View, color: Int) {
+            setSeekBarForegroundMethod.invoke(seekBar, color)
+        }
+
+        override fun setSeekBarBackground(seekBar: View, color: Int) {
+            setSeekBarBackgroundMethod.invoke(seekBar, color)
         }
 
         override fun applyCustomForeground(
             holder: Any,
             colors: NotificationMediaColorConfig
         ) {
-            val seekBar = getSeekBar(holder)
-            val state = seekBarThemeStates.getOrPut(seekBar) {
-                SeekBarThemeState(
-                    originalColorFilter = getSeekBarShaderColorFilter(seekBar),
-                    originalHeadGlowAlpha = getSeekBarHeadGlowAlpha(seekBar)
-                )
-            }
-            state.suppressHeadGlow = false
-            (titleTextField.get(holder) as TextView).setTextColor(colors.textPrimary)
-            (artistTextField.get(holder) as TextView).setTextColor(colors.textSecondary)
-            (elapsedTimeViewField.get(holder) as TextView).setTextColor(colors.textSecondary)
-            (totalTimeViewField.get(holder) as TextView).setTextColor(colors.textSecondary)
-            val tint = ColorStateList.valueOf(colors.textPrimary)
-            (seamlessIconField.get(holder) as ImageView).imageTintList = tint
-            @Suppress("UNCHECKED_CAST")
-            (getActionListMethod.invoke(holder) as List<Any>).forEach { action ->
-                (action as ImageView).apply {
-                    imageTintBlendMode = BlendMode.SRC_IN
-                    imageTintList = tint
-                }
-            }
-            setSeekBarForegroundMethod.invoke(seekBar, colors.textPrimary)
-            setSeekBarBackgroundMethod.invoke(
-                seekBar,
-                colors.textPrimary and 0x00ffffff or (0x33 shl 24)
-            )
-            setSeekBarShaderColorFilter(
-                seekBar,
-                BlendModeColorFilter(colors.textPrimary, BlendMode.SRC_IN)
-            )
-            setSeekBarHeadGlowAlpha(seekBar, state.originalHeadGlowAlpha)
+            IslandExpandedMediaForegroundStyler.applyCustomForeground(this, holder, colors)
         }
 
-        fun getSeekBarShaderColorFilter(seekBar: View): ColorFilter? {
+        override fun getSeekBarShaderColorFilter(seekBar: View): android.graphics.ColorFilter? {
             return (seekBarPaintField.get(seekBar) as Paint).colorFilter
         }
 
-        fun setSeekBarShaderColorFilter(seekBar: View, colorFilter: ColorFilter?) {
+        override fun setSeekBarShaderColorFilter(
+            seekBar: View,
+            colorFilter: android.graphics.ColorFilter?
+        ) {
             (seekBarPaintField.get(seekBar) as Paint).colorFilter = colorFilter
             seekBar.invalidate()
         }
 
-        fun getSeekBarHeadGlowAlpha(seekBar: View): Float {
+        override fun getSeekBarHeadGlowAlpha(seekBar: View): Float {
             return seekBarHeadGlowAlphaField.getFloat(seekBar)
         }
 
-        fun setSeekBarHeadGlowAlpha(seekBar: View, alpha: Float) {
+        override fun setSeekBarHeadGlowAlpha(seekBar: View, alpha: Float) {
             seekBarHeadGlowAlphaField.setFloat(seekBar, alpha)
             (seekBarRuntimeShaderField.get(seekBar) as? RuntimeShader)?.setFloatUniform(
                 "uHeadGlowAlpha",

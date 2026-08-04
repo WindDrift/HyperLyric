@@ -12,13 +12,13 @@ import com.lidesheng.hyperlyric.root.mediacard.MediaCardRuntimeConfig
 import com.lidesheng.hyperlyric.root.mediacard.MediaCoverRotationController
 import com.lidesheng.hyperlyric.root.mediacard.notification.aod.NotificationMediaFullAodAnimatedHeightHook
 import com.lidesheng.hyperlyric.root.mediacard.notification.aod.NotificationMediaFullAodHook
-import com.lidesheng.hyperlyric.root.mediacard.notification.background.NotificationMediaBackgroundController
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.NotificationMediaLayoutController
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.NotificationMediaLayoutResourceIds
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.miui.NotificationMediaMiuiStyle
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.oneui.NotificationMediaOneUiStyle
 import com.lidesheng.hyperlyric.root.mediacard.notification.layout.pixel.NotificationMediaPixelStyle
 import com.lidesheng.hyperlyric.root.mediacard.notification.style.NotificationMediaCoverStyler
+import com.lidesheng.hyperlyric.root.mediacard.notification.style.NotificationMediaForegroundStyler
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import io.github.libxposed.api.XposedInterface.Chain
 import io.github.libxposed.api.XposedInterface.HookHandle
@@ -57,7 +57,7 @@ object NotificationMediaCoverStyleHooker {
             HookLogger.w(TAG, "跳过通知中心媒体卡片 Hook: reason=native_api_unavailable")
             return
         }
-        NotificationMediaBackgroundController.setForegroundColorsAppliedListener { controller ->
+        NotificationMediaForegroundStyler.setAppliedListener { controller ->
             if (
                 runtimeConfig.notification.layoutStyle ==
                     RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_MIUI ||

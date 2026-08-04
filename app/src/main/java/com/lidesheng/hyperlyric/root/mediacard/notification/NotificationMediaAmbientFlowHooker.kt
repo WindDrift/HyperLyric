@@ -17,6 +17,7 @@ import com.lidesheng.hyperlyric.root.mediacard.background.MediaFlowBackgroundVie
 import com.lidesheng.hyperlyric.root.mediacard.background.MediaFlowOverlayLayout
 import com.lidesheng.hyperlyric.root.mediacard.background.MediaFlowTone
 import com.lidesheng.hyperlyric.root.mediacard.notification.background.NotificationMediaBackgroundController
+import com.lidesheng.hyperlyric.root.mediacard.notification.style.NotificationMediaForegroundStyler
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import io.github.libxposed.api.XposedInterface.Chain
 import io.github.libxposed.api.XposedInterface.Hooker
@@ -210,7 +211,7 @@ object NotificationMediaAmbientFlowHooker {
     class ProgressDrawHook : Hooker {
         override fun intercept(chain: Chain): Any? {
             if (MediaCardRuntimeConfig.current.enabled) {
-                chain.thisObject?.let(NotificationMediaBackgroundController::applySeekBarColor)
+                chain.thisObject?.let(NotificationMediaForegroundStyler::applySeekBarColor)
             }
             return chain.proceed()
         }

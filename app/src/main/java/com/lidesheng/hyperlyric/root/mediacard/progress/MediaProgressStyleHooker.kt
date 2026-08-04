@@ -20,7 +20,7 @@ import android.widget.SeekBar
 import android.widget.TextView
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.root.mediacard.MediaCardRuntimeConfig
-import com.lidesheng.hyperlyric.root.mediacard.notification.background.NotificationMediaBackgroundController
+import com.lidesheng.hyperlyric.root.mediacard.notification.style.NotificationMediaForegroundStyler
 import com.lidesheng.hyperlyric.root.mediacard.progress.view.SquigglySeekBar
 import com.lidesheng.hyperlyric.root.mediacard.progress.view.ThumbStyle
 import com.lidesheng.hyperlyric.root.utils.HookLogger
@@ -598,7 +598,7 @@ object MediaProgressStyleHooker {
             val foreground = ColorStateList.valueOf(color)
             seekBar.thumbTintList = foreground
             seekBar.progressTintList = foreground
-            NotificationMediaBackgroundController.applySeekBarForegroundColor(
+            NotificationMediaForegroundStyler.applySeekBarForegroundColor(
                 seekBar,
                 color
             )

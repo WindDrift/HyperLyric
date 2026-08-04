@@ -8,7 +8,7 @@ import android.view.ViewConfiguration
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.root.mediacard.MediaCardRuntimeConfig
 import com.lidesheng.hyperlyric.root.mediacard.notification.NotificationMediaHostClasses
-import com.lidesheng.hyperlyric.root.mediacard.notification.background.NotificationMediaBackgroundController
+import com.lidesheng.hyperlyric.root.mediacard.notification.style.NotificationMediaForegroundStyler
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import io.github.libxposed.api.XposedInterface.Chain
 import io.github.libxposed.api.XposedInterface.Hooker
@@ -76,7 +76,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             HookLogger.w(TAG, "跳过单卡片横滑 Hook: HyperOS 3 媒体类不可用")
             return
         }
-        NotificationMediaBackgroundController.addForegroundColorsAppliedListener(
+        NotificationMediaForegroundStyler.addAppliedListener(
             ::onForegroundColorsApplied
         )
 
@@ -850,7 +850,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             if (multiCardRenderer.isActive) {
                 multiCardRenderer.foregroundColor(selection.selectedIndex)?.let { return it }
             }
-            return viewControllerRef.get()?.let(NotificationMediaBackgroundController::foregroundColor)
+            return viewControllerRef.get()?.let(NotificationMediaForegroundStyler::foregroundColor)
         }
 
         private fun syncMultiCards() {
