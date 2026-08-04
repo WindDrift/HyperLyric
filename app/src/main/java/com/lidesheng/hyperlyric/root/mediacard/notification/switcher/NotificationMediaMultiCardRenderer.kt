@@ -92,6 +92,9 @@ internal class NotificationMediaMultiCardRenderer(
         val original: Boolean
     ) {
         var playbackObserver: NotificationMediaPlaybackObserver? = null
+        var fullAodRestoreCaptured = false
+        var fullAodRestoreVisibility: List<Pair<View, Int>> = emptyList()
+        var normalMediaBgHeight: Int? = null
     }
 
     /**
@@ -229,6 +232,7 @@ internal class NotificationMediaMultiCardRenderer(
     private var pageWidthPx = 0
     private var sidePaddingPx = 0
     private var pageGapPx = 0
+    private var compactAodActive = false
     private var pageOrderGeneration = 0
     private var originalVisibility = View.VISIBLE
     private var originalAlpha = 1f
@@ -358,6 +362,7 @@ internal class NotificationMediaMultiCardRenderer(
             updatePageWidths()
             onScrollPositionChanged(scrollView?.scrollX ?: 0)
         }
+        if (compactAodActive) applyAodPresentation()
         return NotificationMediaMultiCardSyncResult.SUCCESS
     }
 
@@ -427,6 +432,24 @@ internal class NotificationMediaMultiCardRenderer(
 
     fun headerTranslation(): Float? = scrollView?.translationX
 
+    /**
+     * Mirrors MiuiMediaViewControllerImpl.onFullAodStateChanged for every
+     * cloned page. The original controller receives this callback from
+     * SystemUI, but the additional controllers are not part of the native
+     * media container and therefore never receive it themselves.
+     */
+    fun setFullAodState(active: Boolean, keepExpanded: Boolean) {
+        val compact = active && !keepExpanded
+        if (compactAodActive == compact) {
+            if (compact) applyAodPresentation()
+            return
+        }
+        compactAodActive = compact
+        if (!isActive) return
+
+        applyAodPresentation()
+    }
+
     fun detach() {
         val original = originalCard
         cards.values.filter { !it.original }.forEach(::destroyExtraCard)
@@ -454,6 +477,7 @@ internal class NotificationMediaMultiCardRenderer(
         pageWidthPx = 0
         sidePaddingPx = 0
         pageGapPx = 0
+        compactAodActive = false
         originalVisibility = View.VISIBLE
         originalAlpha = 1f
         header = null
@@ -567,9 +591,9 @@ internal class NotificationMediaMultiCardRenderer(
         applyLoadedLayouts(player, holder)
         val controller = createController() ?: return null
         val card = Card(key, data, player, holder, controller, original = false)
-
+        val pageParams = pageLayoutParams(player)
         return runCatching {
-            pages.addView(player, pageLayoutParams(player))
+            pages.addView(player, pageParams)
             attachMethod?.invoke(controller, holder)
             onPlayerAttached(player, holder)
             bind(card, data)
@@ -586,7 +610,10 @@ internal class NotificationMediaMultiCardRenderer(
         bindMethod?.invoke(card.controller, data)
         observePlayback(card)
         copyNativeChrome(card)
-        if (!card.original) card.player.post { copyNativeChrome(card) }
+        if (compactAodActive) {
+            captureFullAodRestoreState(card)
+            applyCardAodPresentation(card, compact = true)
+        }
     }
 
     private fun observePlayback(card: Card) {
@@ -684,6 +711,118 @@ internal class NotificationMediaMultiCardRenderer(
             )
         }
         return params
+    }
+
+    private fun applyAodPresentation() {
+        val compact = compactAodActive
+        cards.values.forEach { card ->
+            if (compact) captureFullAodRestoreState(card)
+            applyCardAodPresentation(card, compact)
+        }
+        // MiuiMediaHeaderView owns the outer actual-height animation during
+        // Full AOD. The child LayoutParams/visibility changes above already
+        // request the necessary inner layout; do not force an extra pass when
+        // the native state callback is repeated with the same values.
+    }
+
+    private fun applyCardAodPresentation(card: Card, compact: Boolean) {
+        // Full AOD does not use the notification controller's tinyLayout.
+        // The native onFullAodStateChanged() only changes mediaBg's height and
+        // hides the three bottom progress views. Do not re-apply either
+        // ConstraintSet here: MiuiMediaNotificationControllerImpl only uses
+        // normal/tiny layouts during its normal layout update, while the
+        // Full AOD transition owns the height animation separately. Replaying
+        // the normal set during that animation causes a second measurement
+        // pass and briefly clips the bottom of custom layouts.
+        applyMediaBackgroundHeight(card, compact)
+
+        if (compact) {
+            compactHiddenViews(card).forEach { it.visibility = View.GONE }
+        } else {
+            card.fullAodRestoreVisibility.forEach { (view, visibility) ->
+                view.visibility = visibility
+            }
+            card.fullAodRestoreVisibility = emptyList()
+            card.fullAodRestoreCaptured = false
+        }
+    }
+
+    private fun captureFullAodRestoreState(card: Card) {
+        if (card.fullAodRestoreCaptured) return
+        card.fullAodRestoreVisibility = compactHiddenViews(card)
+            .map { it to it.visibility }
+        (readField(card.holder, "mediaBg") as? View)?.layoutParams?.let { params ->
+            card.normalMediaBgHeight = params.height
+        }
+        card.fullAodRestoreCaptured = true
+    }
+
+    private fun compactHiddenViews(card: Card): List<View> {
+        val views = mutableListOf<View>()
+        listOf("seekBar", "elapsedTimeView", "totalTimeView")
+            .forEach { fieldName ->
+                (readField(card.holder, fieldName) as? View)?.let(views::add)
+            }
+        findViewByResourceName(card.player, "media_progress_bar")?.let(views::add)
+        return views.distinct()
+    }
+
+    private fun applyMediaBackgroundHeight(card: Card, compact: Boolean) {
+        val mediaBg = readField(card.holder, "mediaBg") as? View ?: return
+        val height = if (compact) {
+            resolveFullAodHeight()
+        } else {
+            resolveExpandedHeight(card)
+        }
+        if (height <= 0) return
+        val params = mediaBg.layoutParams ?: return
+        if (
+            params.width == ViewGroup.LayoutParams.MATCH_PARENT &&
+                params.height == height
+        ) return
+        params.width = ViewGroup.LayoutParams.MATCH_PARENT
+        params.height = height
+        mediaBg.layoutParams = params
+    }
+
+    private fun findViewByResourceName(root: View, name: String): View? {
+        val id = sequenceOf(root.context.packageName, SYSTEMUI_PACKAGE)
+            .map { packageName -> root.resources.getIdentifier(name, "id", packageName) }
+            .firstOrNull { it != 0 }
+            ?: return null
+        return root.findViewById(id)
+    }
+
+    private fun resolveFullAodHeight(): Int {
+        val context = resourceContext() ?: header?.context ?: return 0
+        return resolveDimension(context, sequenceOf(
+            "qs_media_session_height_expanded_fullAod",
+            "qs_media_session_height_collapsed"
+        )) ?: originalCard?.player?.measuredHeight?.takeIf { it > 0 } ?: 0
+    }
+
+    private fun resolveExpandedHeight(card: Card): Int {
+        val context = resourceContext() ?: header?.context
+        val resourceHeight = context?.let {
+            resolveDimension(it, sequenceOf("qs_media_session_height_expanded"))
+        }
+        return resourceHeight
+            ?: card.normalMediaBgHeight?.takeIf { it > 0 }
+            ?: 0
+    }
+
+    private fun resolveDimension(context: Context, names: Sequence<String>): Int? {
+        val resourceId = names
+            .flatMap { name ->
+                sequenceOf(context.packageName, SYSTEMUI_PACKAGE)
+                    .map { packageName ->
+                        context.resources.getIdentifier(name, "dimen", packageName)
+                    }
+            }
+            .firstOrNull { it != 0 }
+            ?: return null
+        return runCatching { context.resources.getDimensionPixelSize(resourceId) }
+            .getOrNull()
     }
 
     private fun updatePageWidths() {
@@ -977,7 +1116,11 @@ internal class NotificationMediaMultiCardRenderer(
         runCatching {
             target.clipToOutline = source.clipToOutline
             target.outlineProvider = source.outlineProvider
-            target.clipBounds = source.clipBounds
+            // clipBounds is transient geometry owned by SystemUI's height and
+            // removal animations. It is not part of the card style: copying a
+            // short-lived native clip rectangle to a clone leaves that page
+            // with a one-frame (or stale) bottom crop after AOD/style layout.
+            target.clipBounds = null
             target.setPadding(
                 source.paddingLeft,
                 source.paddingTop,

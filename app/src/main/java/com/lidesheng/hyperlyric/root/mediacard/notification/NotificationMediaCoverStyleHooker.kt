@@ -641,20 +641,29 @@ object NotificationMediaCoverStyleHooker {
     }
 
     private fun shouldKeepExpandedInFullAod(): Boolean {
-        return runtimeConfig.enabled &&
-                (
-                    runtimeConfig.notification.layoutStyle ==
-                        RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_IOS ||
-                  runtimeConfig.notification.layoutStyle ==
-                      RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS ||
-                  runtimeConfig.notification.layoutStyle ==
-                      RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI ||
-                  runtimeConfig.notification.layoutStyle ==
-                      RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_MIUI ||
-                  runtimeConfig.notification.layoutStyle ==
-                      RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_PIXEL ||
-                  runtimeConfig.alwaysOnDisplay.disableMediaCardCollapsing
-                )
+        if (!runtimeConfig.enabled) return false
+        val notification = runtimeConfig.notification
+        if (
+            notification.cardSwitcherEnabled &&
+                notification.cardSwitcherMode ==
+                RootConstants.NOTIFICATION_MEDIA_CARD_SWITCHER_MODE_MULTI
+        ) {
+            // The custom carousel must follow SystemUI's compact Full AOD
+            // height and bottom-progress visibility. Only the explicit AOD
+            // preference is allowed to keep it expanded.
+            return runtimeConfig.alwaysOnDisplay.disableMediaCardCollapsing
+        }
+        return notification.layoutStyle ==
+                RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_IOS ||
+                notification.layoutStyle ==
+                RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_COLOROS ||
+                notification.layoutStyle ==
+                RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI ||
+                notification.layoutStyle ==
+                RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_MIUI ||
+                notification.layoutStyle ==
+                RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_PIXEL ||
+                runtimeConfig.alwaysOnDisplay.disableMediaCardCollapsing
     }
 
     private fun resolveApi(classLoader: ClassLoader?): NotificationMediaHostApi? {

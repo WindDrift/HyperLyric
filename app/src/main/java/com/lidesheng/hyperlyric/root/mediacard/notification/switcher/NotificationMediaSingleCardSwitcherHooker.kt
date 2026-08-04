@@ -82,6 +82,13 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         val bind = findMethod(viewControllerClass, "bindMediaData") {
             it.parameterCount == 1
         }
+        val fullAodStateChanged = findMethod(viewControllerClass, "onFullAodStateChanged") {
+            it.parameterCount == 1 &&
+                it.parameterTypes[0] == Boolean::class.javaPrimitiveType
+        }
+        val updateForegroundColors = findMethod(viewControllerClass, "updateForegroundColors") {
+            it.parameterCount == 0
+        }
         val headerClass = loadClass(classLoader, NotificationMediaHostClasses.MEDIA_HEADER_VIEW)
         val headerSetTranslation = headerClass?.let {
             findMethod(it, "setTranslation") {
@@ -131,6 +138,24 @@ internal object NotificationMediaSingleCardSwitcherHooker {
                 ViewControllerHook(Action.BIND)
             ) ?: error("bind hook failed")
             installedHandles += bindHandle
+
+            fullAodStateChanged?.let { method ->
+                val handle = install(
+                    xposedModule,
+                    method,
+                    ViewControllerHook(Action.FULL_AOD)
+                ) ?: error("Full AOD state hook failed")
+                installedHandles += handle
+            }
+
+            updateForegroundColors?.let { method ->
+                val handle = install(
+                    xposedModule,
+                    method,
+                    ViewControllerHook(Action.FOREGROUND)
+                ) ?: error("foreground color hook failed")
+                installedHandles += handle
+            }
 
             headerSetTranslation?.let {
                 val handle = install(
@@ -405,7 +430,9 @@ internal object NotificationMediaSingleCardSwitcherHooker {
     private enum class Action {
         ATTACH,
         DETACH,
-        BIND
+        BIND,
+        FULL_AOD,
+        FOREGROUND
     }
 
     private class LayoutConstructorHook : Hooker {
@@ -432,6 +459,12 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             val viewController = chain.thisObject ?: return chain.proceed()
             val state = NotificationMediaSingleCardSwitcherHooker.viewStates[viewController]
 
+            val fullAodActive = if (action == Action.FULL_AOD) {
+                chain.args.firstOrNull() as? Boolean
+            } else {
+                null
+            }
+
             if (action == Action.DETACH) {
                 state?.let { NotificationMediaSingleCardSwitcherHooker.removePlayer(it) }
                 val result = chain.proceed()
@@ -450,6 +483,13 @@ internal object NotificationMediaSingleCardSwitcherHooker {
 
                 Action.BIND -> state?.onNativeBind(chain.args.firstOrNull())
                 Action.DETACH -> Unit
+                Action.FULL_AOD -> fullAodActive?.let { active ->
+                    state?.onFullAodStateChanged(active)
+                }
+                Action.FOREGROUND ->
+                    NotificationMediaSingleCardSwitcherHooker.onForegroundColorsApplied(
+                        viewController
+                    )
             }
             return result
         }
@@ -539,6 +579,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         private var touchHorizontal = false
         private var touchConsumed = false
         private var switcherUnavailable = false
+        private var fullAodActive = false
         private var pageIndicatorOrderLockGeneration: Int? = null
         private var pageIndicatorNeedsSync = true
         private var lastIndicatorPageCount = -1
@@ -651,6 +692,22 @@ internal object NotificationMediaSingleCardSwitcherHooker {
                 val key = data?.let(accessor::notificationKey)
                 syncMultiCards(forceRebindKeys = key?.let(::setOf) ?: emptySet())
                 updatePageIndicator()
+            }
+        }
+
+        fun onFullAodStateChanged(active: Boolean) {
+            runOnMain {
+                multiCardRenderer.setFullAodState(
+                    active = active,
+                    keepExpanded = MediaCardRuntimeConfig.current.alwaysOnDisplay
+                        .disableMediaCardCollapsing
+                )
+                if (fullAodActive == active) return@runOnMain
+                fullAodActive = active
+                // Full AOD uses the compact, non-interactive media presentation.
+                // The indicator is attached to the expanded header parent, so it
+                // has no meaningful position while that presentation is active.
+                updatePageIndicator(force = true)
             }
         }
 
@@ -1058,7 +1115,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
                             pageIndicator.forceUpdate(
                                 pageCount = entries.size,
                                 selectedIndex = snapshot.selectedIndex,
-                                enabled = isSwitcherUsable()
+                                enabled = isPageIndicatorEnabled()
                             )
                             lastIndicatorPageCount = entries.size
                             lastIndicatorSelectedIndex = snapshot.selectedIndex
@@ -1072,6 +1129,10 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         private fun isSwitcherUsable(): Boolean {
             return MediaCardRuntimeConfig.current.notification.cardSwitcherEnabled &&
                 !switcherUnavailable
+        }
+
+        private fun isPageIndicatorEnabled(): Boolean {
+            return isSwitcherUsable() && !fullAodActive
         }
 
         private fun onRendererPageSelected(key: String) {
@@ -1097,7 +1158,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
                     pageIndicator.updateLocation(
                         pageCount = multiCardRenderer.pageCount,
                         location = location,
-                        enabled = isSwitcherUsable()
+                        enabled = isPageIndicatorEnabled()
                     )
                 }
             }
@@ -1129,12 +1190,12 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             return players.any { isSeekBarTouch(it, event) }
         }
 
-        private fun updatePageIndicator() {
+        private fun updatePageIndicator(force: Boolean = false) {
             val snapshot = pageSnapshot()
             val pageCount = snapshot.entries.size
             val selectedIndex = snapshot.selectedIndex
             pageIndicator.updateTint(resolveIndicatorColor())
-            if (!pageIndicatorNeedsSync &&
+            if (!force && !pageIndicatorNeedsSync &&
                 pageCount == lastIndicatorPageCount &&
                 selectedIndex == lastIndicatorSelectedIndex
             ) {
@@ -1143,7 +1204,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             pageIndicator.update(
                 pageCount = pageCount,
                 selectedIndex = selectedIndex,
-                enabled = isSwitcherUsable()
+                enabled = isPageIndicatorEnabled()
             )
             lastIndicatorPageCount = pageCount
             lastIndicatorSelectedIndex = selectedIndex

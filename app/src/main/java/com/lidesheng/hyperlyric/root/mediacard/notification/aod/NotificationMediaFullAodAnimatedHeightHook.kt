@@ -9,7 +9,13 @@ internal class NotificationMediaFullAodAnimatedHeightHook(
     private val keepExpanded: () -> Boolean
 ) : Hooker {
     override fun intercept(chain: Chain): Any? {
-        if (!keepExpanded()) return chain.proceed()
+        val requestedHeight = chain.args.firstOrNull() as? Int
+            ?: return chain.proceed()
+        // NotifiFullAodController uses 0 as the completion/reset sentinel.
+        // It must reach MiuiMediaHeaderView.setAnimateHeight(0), otherwise
+        // mAnimateHeight remains pinned to the expanded resource height and
+        // the next layout/style pass starts with a stale parent height.
+        if (requestedHeight == 0 || !keepExpanded()) return chain.proceed()
 
         val mediaHeader = chain.thisObject as? View ?: return chain.proceed()
         val expandedHeight = mediaHeader.expandedMediaHeightOrNull() ?: return chain.proceed()
