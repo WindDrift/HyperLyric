@@ -10,6 +10,7 @@ import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import com.lidesheng.hyperlyric.root.mediacard.notification.NotificationMediaHostClasses
+import com.lidesheng.hyperlyric.root.mediacard.notification.background.NotificationMediaBackgroundController
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import java.lang.reflect.Constructor
 import java.lang.reflect.Method
@@ -233,6 +234,16 @@ internal class NotificationMediaMultiCardRenderer(
      */
     val currentPageOrderGeneration: Int
         get() = pageOrderGeneration
+
+    fun foregroundColor(index: Int): Int? {
+        val card = cards.values.elementAtOrNull(index) ?: return null
+        return NotificationMediaBackgroundController.foregroundColor(card.controller)
+    }
+
+    fun ownsController(controller: Any): Boolean {
+        return originalCard?.controller === controller ||
+            cards.values.any { it.controller === controller }
+    }
 
     fun attachOriginal(player: View, holder: Any): Boolean {
         if (originalCard != null) return true

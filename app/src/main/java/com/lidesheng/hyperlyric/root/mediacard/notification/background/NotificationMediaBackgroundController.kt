@@ -2,6 +2,7 @@ package com.lidesheng.hyperlyric.root.mediacard.notification.background
 
 import android.content.Context
 import android.content.res.ColorStateList
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.ColorFilter
 import android.graphics.Paint
@@ -19,6 +20,7 @@ import com.lidesheng.hyperlyric.root.mediacard.MediaCardRuntimeConfig
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import java.lang.reflect.Field
 import java.util.Collections
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.WeakHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -37,6 +39,7 @@ internal object NotificationMediaBackgroundController {
     private val seekBarStates = Collections.synchronizedMap(WeakHashMap<SeekBar, SeekBarState>())
     @Volatile
     private var foregroundColorsAppliedListener: ((Any) -> Unit)? = null
+    private val foregroundColorsAppliedListeners = CopyOnWriteArrayList<(Any) -> Unit>()
 
     private val executor: ExecutorService = newExecutor()
 
@@ -54,12 +57,45 @@ internal object NotificationMediaBackgroundController {
         foregroundColorsAppliedListener = listener
     }
 
+    fun addForegroundColorsAppliedListener(listener: (Any) -> Unit) {
+        foregroundColorsAppliedListeners.addIfAbsent(listener)
+    }
+
+    /**
+     * Returns the color actually used by the current native/custom card for
+     * its title and action foreground. The native-view fallback is important
+     * for the default background style, where no custom renderer state exists.
+     */
+    fun foregroundColor(controller: Any): Int? {
+        states[controller]?.foregroundColor?.let { return it }
+
+        val holder = readField(controller, "holder")
+        if (holder != null) {
+            readField(holder, "seamlessIcon")
+                .let { it as? ImageView }
+                ?.imageTintList
+                ?.defaultColor
+                ?.let { return it }
+            readField(holder, "artistText")
+                .let { it as? TextView }
+                ?.currentTextColor
+                ?.let { return it }
+            readField(holder, "titleText")
+                .let { it as? TextView }
+                ?.currentTextColor
+                ?.let { return it }
+        }
+
+        return fallbackForegroundColor(controller)
+    }
+
     fun onBind(controller: Any, mediaData: Any?) {
         val state = states.getOrPut(controller) { ControllerState() }
         if (!isActive(controller)) {
             state.token = null
             state.customApplied = false
             state.renderPending = false
+            state.foregroundColor = null
             return
         }
         mediaData ?: return
@@ -137,10 +173,8 @@ internal object NotificationMediaBackgroundController {
                 }
                 applyBackground(mediaBg, rendered.bitmap)
                 applyForeground(holder, rendered.colors)
-                runCatching { foregroundColorsAppliedListener?.invoke(controller) }
-                    .onFailure { error ->
-                        HookLogger.e(TAG, "通知中心媒体前景色同步回调失败", error)
-                    }
+                state.foregroundColor = rendered.colors.textPrimary
+                notifyForegroundColorsApplied(controller)
                 state.customApplied = true
                 state.appliedToken = token
                 state.artworkFingerprint = rendered.artworkFingerprint
@@ -349,6 +383,32 @@ internal object NotificationMediaBackgroundController {
     private fun currentColorAnimation(): Boolean =
         MediaCardRuntimeConfig.current.notification.backgroundColorAnimation
 
+    private fun fallbackForegroundColor(controller: Any): Int {
+        val context = readField(controller, "context") as? Context
+        val light = when (MediaCardRuntimeConfig.current.notification.cardTheme) {
+            RootConstants.MEDIA_CARD_THEME_ALWAYS_LIGHT -> true
+            RootConstants.MEDIA_CARD_THEME_ALWAYS_DARK -> false
+            else -> context?.resources?.configuration?.let { configuration ->
+                configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK !=
+                    Configuration.UI_MODE_NIGHT_YES
+            } ?: false
+        }
+        return if (light) LIGHT_CARD_FOREGROUND else DARK_CARD_FOREGROUND
+    }
+
+    private fun notifyForegroundColorsApplied(controller: Any) {
+        runCatching { foregroundColorsAppliedListener?.invoke(controller) }
+            .onFailure { error ->
+                HookLogger.e(TAG, "通知中心媒体前景色同步回调失败", error)
+            }
+        foregroundColorsAppliedListeners.forEach { listener ->
+            runCatching { listener(controller) }
+                .onFailure { error ->
+                    HookLogger.e(TAG, "通知中心媒体前景色观察者回调失败", error)
+                }
+        }
+    }
+
     private fun readField(receiver: Any, name: String): Any? {
         return findField(receiver.javaClass, name)?.let { field ->
             runCatching { field.get(receiver) }.getOrNull()
@@ -377,6 +437,7 @@ internal object NotificationMediaBackgroundController {
         var artworkFingerprint: Long? = null,
         var customApplied: Boolean = false,
         var renderPending: Boolean = false,
+        var foregroundColor: Int? = null,
         var mediaBg: ImageView? = null,
         var originalDrawable: Drawable? = null,
         var originalScaleType: ImageView.ScaleType? = null,
@@ -397,4 +458,7 @@ internal object NotificationMediaBackgroundController {
         val progressDrawableColorFilter: ColorFilter?,
         val backgroundDrawableColorFilter: ColorFilter?
     )
+
+    private const val LIGHT_CARD_FOREGROUND = 0xff202020.toInt()
+    private const val DARK_CARD_FOREGROUND = 0xffe6ffffff.toInt()
 }

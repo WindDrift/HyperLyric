@@ -1,6 +1,7 @@
 package com.lidesheng.hyperlyric.root.mediacard.notification.switcher
 
 import android.content.Context
+import android.content.res.ColorStateList
 import android.util.AttributeSet
 import android.view.Gravity
 import android.view.View
@@ -31,6 +32,7 @@ internal class NotificationMediaPageIndicator {
     private var setNumPages: Method? = null
     private var setLocation: Method? = null
     private var setIndex: Method? = null
+    private var setTintListMethod: Method? = null
     private var animatingField: Field? = null
     private var positionField: Field? = null
     private var queuedPositionsField: Field? = null
@@ -76,9 +78,22 @@ internal class NotificationMediaPageIndicator {
                 View.IMPORTANT_FOR_ACCESSIBILITY_NO
             frameParent.addView(nativeIndicator, layoutParams)
             indicator = nativeIndicator
+            applyTint(nativeIndicator)
         }.onFailure { error ->
             warnOnce("挂载媒体圆点指示器失败", error)
         }
+    }
+
+    /**
+     * Keeps the native PageIndicator animation and only changes its base
+     * foreground color. The native implementation already lowers the alpha of
+     * unselected dots, so selected/unselected colors stay visually consistent
+     * with SystemUI's own page indicator.
+     */
+    fun updateTint(color: Int?) {
+        if (tintColor == color) return
+        tintColor = color
+        indicator?.let(::applyTint)
     }
 
     fun update(pageCount: Int, selectedIndex: Int, enabled: Boolean) {
@@ -151,6 +166,7 @@ internal class NotificationMediaPageIndicator {
         setNumPages = null
         setLocation = null
         setIndex = null
+        setTintListMethod = null
         animatingField = null
         positionField = null
         queuedPositionsField = null
@@ -187,6 +203,10 @@ internal class NotificationMediaPageIndicator {
                 it.parameterCount == 1 &&
                     it.parameterTypes[0] == Int::class.javaPrimitiveType
             }
+            setTintListMethod = findMethod(indicatorClass, "setTintList") {
+                it.parameterCount == 1 &&
+                    it.parameterTypes[0] == ColorStateList::class.java
+            }
             animatingField = findField(indicatorClass, "mAnimating") {
                 it.type == Boolean::class.javaPrimitiveType
             }
@@ -200,6 +220,18 @@ internal class NotificationMediaPageIndicator {
         }.onFailure { error ->
             warnOnce("SystemUI 原生 PageIndicator 不可用", error)
         }.getOrNull()
+    }
+
+    private var tintColor: Int? = null
+
+    private fun applyTint(view: View) {
+        val color = tintColor ?: return
+        val method = setTintListMethod ?: return
+        runCatching {
+            method.invoke(view, ColorStateList.valueOf(color))
+        }.onFailure { error ->
+            warnOnce("更新媒体圆点颜色失败", error)
+        }
     }
 
     private fun invokeNumPages(view: View, count: Int): Boolean {

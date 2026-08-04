@@ -8,6 +8,7 @@ import android.view.ViewConfiguration
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.root.mediacard.MediaCardRuntimeConfig
 import com.lidesheng.hyperlyric.root.mediacard.notification.NotificationMediaHostClasses
+import com.lidesheng.hyperlyric.root.mediacard.notification.background.NotificationMediaBackgroundController
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import io.github.libxposed.api.XposedInterface.Chain
 import io.github.libxposed.api.XposedInterface.Hooker
@@ -75,6 +76,9 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             HookLogger.w(TAG, "跳过单卡片横滑 Hook: HyperOS 3 媒体类不可用")
             return
         }
+        NotificationMediaBackgroundController.addForegroundColorsAppliedListener(
+            ::onForegroundColorsApplied
+        )
 
         val attach = findMethod(viewControllerClass, "attach") { it.parameterCount == 1 }
         val detach = findMethod(viewControllerClass, "detach") { it.parameterCount == 0 }
@@ -435,6 +439,11 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         }
         playerStates[player] = state
         state.ensureTouchHook(player)
+    }
+
+    private fun onForegroundColorsApplied(controller: Any) {
+        val states = synchronized(viewStates) { viewStates.values.toSet() }
+        states.forEach { state -> state.onForegroundColorsApplied(controller) }
     }
 
     private fun removePlayer(state: ControllerState) {
@@ -823,6 +832,27 @@ internal object NotificationMediaSingleCardSwitcherHooker {
 
         private val pageIndicator = NotificationMediaPageIndicator()
 
+        fun onForegroundColorsApplied(controller: Any) {
+            if (
+                controller !== viewControllerRef.get() &&
+                !multiCardRenderer.ownsController(controller)
+            ) {
+                return
+            }
+            runOnMain {
+                if (isSwitcherUsable()) {
+                    pageIndicator.updateTint(resolveIndicatorColor())
+                }
+            }
+        }
+
+        private fun resolveIndicatorColor(): Int? {
+            if (multiCardRenderer.isActive) {
+                multiCardRenderer.foregroundColor(selection.selectedIndex)?.let { return it }
+            }
+            return viewControllerRef.get()?.let(NotificationMediaBackgroundController::foregroundColor)
+        }
+
         private fun syncMultiCards() {
             if (!isSwitcherUsable()) return
             if (MediaCardRuntimeConfig.current.notification.cardSwitcherMode ==
@@ -912,6 +942,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         private fun updatePageIndicator() {
             val pageCount = selection.size
             val selectedIndex = selection.selectedIndex
+            pageIndicator.updateTint(resolveIndicatorColor())
             if (!pageIndicatorNeedsSync &&
                 pageCount == lastIndicatorPageCount &&
                 selectedIndex == lastIndicatorSelectedIndex
