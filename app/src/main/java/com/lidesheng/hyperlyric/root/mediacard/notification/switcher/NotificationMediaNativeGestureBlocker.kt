@@ -7,9 +7,9 @@ import android.view.ViewParent
  * Owns only the parent-intercept contract for the notification media card.
  *
  * HyperOS' [MiuiNotificationSwipeHelper] lives above the media header. The
- * carousel must block it for a horizontal multi-card gesture, while a seek
- * bar must block the carousel itself and a vertical gesture must be released
- * back to the notification stack.
+ * selected media-card mode must block it for a horizontal switch gesture,
+ * while a seek bar must block the card container itself and a vertical gesture
+ * must be released back to the notification stack.
  */
 internal class NotificationMediaNativeGestureBlocker(
     private val isCarouselActive: () -> Boolean,

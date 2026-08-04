@@ -8,6 +8,7 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import java.lang.reflect.Constructor
+import java.lang.reflect.Field
 import java.lang.reflect.Method
 import kotlin.math.roundToInt
 
@@ -29,6 +30,10 @@ internal class NotificationMediaPageIndicator {
     private var indicator: View? = null
     private var setNumPages: Method? = null
     private var setLocation: Method? = null
+    private var setIndex: Method? = null
+    private var animatingField: Field? = null
+    private var positionField: Field? = null
+    private var queuedPositionsField: Field? = null
     private var configuredPageCount = -1
 
     fun attach(player: View) {
@@ -85,6 +90,29 @@ internal class NotificationMediaPageIndicator {
     }
 
     /**
+     * Applies a logical page reorder without feeding the old scroll animation
+     * back through HyperOS' PageIndicator queue. The target PageIndicator keeps
+     * mQueuedPositions and mAnimating as public fields, but older builds may
+     * not expose the same implementation; in that case fall back to the
+     * regular animated path.
+     */
+    fun forceUpdate(pageCount: Int, selectedIndex: Int, enabled: Boolean) {
+        val view = indicator ?: return
+        val count = pageCount.coerceAtLeast(0)
+        if (!enabled || count <= 1) {
+            updateLocation(pageCount, selectedIndex.toFloat(), enabled)
+            return
+        }
+
+        if (!ensurePageCount(view, count)) return
+        view.visibility = View.VISIBLE
+        val target = selectedIndex.coerceIn(0, count - 1)
+        if (!forceSetPosition(view, target)) {
+            updateLocation(count, target.toFloat(), enabled = true)
+        }
+    }
+
+    /**
      * MIUI14 updates PageIndicator with a fractional location while the
      * MediaScrollView is being dragged. Keeping this separate from the
      * coordinator's integer selectedIndex makes the indicator follow the
@@ -94,18 +122,12 @@ internal class NotificationMediaPageIndicator {
         val view = indicator ?: return
         val count = pageCount.coerceAtLeast(0)
         if (!enabled || count <= 1) {
-            if (configuredPageCount != 0) {
-                invokeNumPages(view, 0)
-                configuredPageCount = 0
-            }
+            hide(view)
             view.visibility = View.GONE
             return
         }
 
-        if (configuredPageCount != count) {
-            if (!invokeNumPages(view, count)) return
-            configuredPageCount = count
-        }
+        if (!ensurePageCount(view, count)) return
         view.visibility = View.VISIBLE
         runCatching {
             setLocation?.invoke(view, location.coerceIn(0f, (count - 1).toFloat()))
@@ -128,6 +150,10 @@ internal class NotificationMediaPageIndicator {
         indicator = null
         setNumPages = null
         setLocation = null
+        setIndex = null
+        animatingField = null
+        positionField = null
+        queuedPositionsField = null
         configuredPageCount = -1
     }
 
@@ -157,6 +183,19 @@ internal class NotificationMediaPageIndicator {
                 "setLocation",
                 Float::class.javaPrimitiveType
             ).apply { isAccessible = true }
+            setIndex = findMethod(indicatorClass, "setIndex") {
+                it.parameterCount == 1 &&
+                    it.parameterTypes[0] == Int::class.javaPrimitiveType
+            }
+            animatingField = findField(indicatorClass, "mAnimating") {
+                it.type == Boolean::class.javaPrimitiveType
+            }
+            positionField = findField(indicatorClass, "mPosition") {
+                it.type == Int::class.javaPrimitiveType
+            }
+            queuedPositionsField = findField(indicatorClass, "mQueuedPositions") {
+                java.util.List::class.java.isAssignableFrom(it.type)
+            }
             pageIndicator
         }.onFailure { error ->
             warnOnce("SystemUI 原生 PageIndicator 不可用", error)
@@ -169,6 +208,70 @@ internal class NotificationMediaPageIndicator {
         }.onFailure { error ->
             warnOnce("更新媒体圆点数量失败", error)
         }.isSuccess
+    }
+
+    private fun ensurePageCount(view: View, count: Int): Boolean {
+        if (configuredPageCount == count) return true
+        if (!invokeNumPages(view, count)) return false
+        configuredPageCount = count
+        return true
+    }
+
+    private fun hide(view: View) {
+        if (configuredPageCount != 0) {
+            invokeNumPages(view, 0)
+            configuredPageCount = 0
+        }
+    }
+
+    private fun forceSetPosition(view: View, index: Int): Boolean {
+        val setIndexMethod = setIndex ?: return false
+        val animating = animatingField ?: return false
+        val position = positionField ?: return false
+        val queuedPositions = queuedPositionsField ?: return false
+        return runCatching {
+            val queue = queuedPositions.get(view) as? MutableList<Any>
+                ?: error("PageIndicator.mQueuedPositions 类型不匹配")
+            queue.clear()
+            animating.setBoolean(view, false)
+            setIndexMethod.invoke(view, index)
+            position.setInt(view, index shl 1)
+            animating.setBoolean(view, false)
+        }.onFailure { error ->
+            warnOnce("强制同步媒体圆点位置失败", error)
+        }.isSuccess
+    }
+
+    private fun findMethod(
+        clazz: Class<*>,
+        name: String,
+        predicate: (Method) -> Boolean
+    ): Method? {
+        var current: Class<*>? = clazz
+        while (current != null) {
+            current.declaredMethods.firstOrNull { it.name == name && predicate(it) }
+                ?.apply { isAccessible = true }
+                ?.let { return it }
+            current = current.superclass
+        }
+        return null
+    }
+
+    private fun findField(
+        clazz: Class<*>,
+        name: String,
+        predicate: (Field) -> Boolean
+    ): Field? {
+        var current: Class<*>? = clazz
+        while (current != null) {
+            runCatching { current.getDeclaredField(name) }
+                .onSuccess { field -> field.isAccessible = true }
+                .getOrNull()
+                ?.takeIf(predicate)
+                ?.let { return it }
+            current = current.superclass
+        }
+        return null
     }
 
     private var warned = false

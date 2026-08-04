@@ -474,12 +474,22 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         private var touchHorizontal = false
         private var touchConsumed = false
         private var switcherUnavailable = false
+        private var pageIndicatorOrderLockGeneration: Int? = null
+        private var pageIndicatorNeedsSync = true
+        private var lastIndicatorPageCount = -1
+        private var lastIndicatorSelectedIndex = -1
+
+        private val playbackPolicy = NotificationMediaPlaybackPolicy(
+            accessor = accessor,
+            onStableModeChanged = ::onPlaybackPolicySettled
+        )
 
         private val selection = NotificationMediaSelectionCoordinator(
             accessor = accessor,
             nativeOrder = ::nativeOrder,
             nativeTopKey = ::nativeTopKey,
-            bindSelected = ::bindSelected
+            bindSelected = ::bindSelected,
+            shouldPreserveNativeOrder = { playbackPolicy.shouldPreserveNativeOrder }
         )
 
         private val multiCardRenderer = NotificationMediaMultiCardRenderer(
@@ -490,11 +500,18 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             onPlayerDetached = ::unregisterPlayer,
             onPageSelected = ::onRendererPageSelected,
             onPageScrolled = ::onRendererPageScrolled,
+            onGestureStarted = ::onRendererGestureStarted,
             shouldIgnoreScrollTouch = ::isAnySeekBarTouch
         )
 
         private val nativeGestureBlocker = NotificationMediaNativeGestureBlocker(
-            isCarouselActive = { multiCardRenderer.isActive },
+            // Both modes replace the native horizontal media-card gesture once
+            // at least two MediaData entries exist. Multi-card mode delegates
+            // the gesture to PageScrollView; single-card mode consumes it at
+            // the player and binds the selected MediaData instead.
+            isCarouselActive = {
+                isSwitcherUsable() && selection.size >= 2
+            },
             headerParent = { mediaHeader?.get()?.parent }
         )
 
@@ -531,12 +548,14 @@ internal object NotificationMediaSingleCardSwitcherHooker {
                     if (key != null && data != null) initialEntries[key] = data
                 }
             }
+            playbackPolicy.seed(initialEntries.map { it.key to it.value })
             selection.seed(initialEntries.map { it.key to it.value })
             updatePageIndicator()
         }
 
         fun onMediaDataLoaded(key: String, oldKey: String?, data: Any) {
             runOnMain {
+                playbackPolicy.onMediaDataLoaded(key, oldKey, data)
                 selection.onMediaDataLoaded(key, oldKey, data)
                 syncMultiCards()
                 updatePageIndicator()
@@ -545,6 +564,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
 
         fun onMediaDataRemoved(key: String) {
             runOnMain {
+                playbackPolicy.onMediaDataRemoved(key)
                 selection.onMediaDataRemoved(key)
                 syncMultiCards()
                 updatePageIndicator()
@@ -552,11 +572,21 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         }
 
         fun onNativeBind(data: Any?) {
+            val synthetic = synchronized(bindLock) { bindingSelected }
             runOnMain {
-                selection.onNativeBind(data)
+                playbackPolicy.onNativeBind(data, synthetic = synthetic)
+                selection.onNativeBind(data, synthetic = synthetic)
                 syncMultiCards()
                 updatePageIndicator()
             }
+        }
+
+        private fun onPlaybackPolicySettled() {
+            if (!isSwitcherUsable()) return
+            val data = playbackPolicy.preferredPlayingData() ?: nativeTopData() ?: return
+            selection.onNativeBind(data)
+            syncMultiCards()
+            updatePageIndicator()
         }
 
         fun attach(holder: Any): View? {
@@ -565,6 +595,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
                 "player"
             ) as? View ?: return null
             player = WeakReference(currentPlayer)
+            playbackPolicy.initialize(currentPlayer.context)
             seekBar = (NotificationMediaSingleCardSwitcherHooker.readField(
                 holder,
                 "seekBar"
@@ -604,6 +635,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             }
             syncMultiCards()
             originalParent?.let(pageIndicator::attachTo)
+            pageIndicatorNeedsSync = true
             updatePageIndicator()
         }
 
@@ -630,11 +662,18 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             mediaHeader = null
             nativeAttachRetryScheduled = false
             nativeAttachRetryCount = 0
+            pageIndicatorOrderLockGeneration = null
+            pageIndicatorNeedsSync = true
+            lastIndicatorPageCount = -1
+            lastIndicatorSelectedIndex = -1
             currentPlayer?.let(::unregisterPlayer)
             player = null
             seekBar = null
             switcherUnavailable = false
-            runOnMain { selection.onDetached() }
+            runOnMain {
+                playbackPolicy.onDetached()
+                selection.onDetached()
+            }
         }
 
         fun unregisterPlayer(currentPlayer: View) {
@@ -667,10 +706,10 @@ internal object NotificationMediaSingleCardSwitcherHooker {
                     touchThreshold = calculateSwitchThreshold(view)
                     touchIgnored = isSeekBarTouch(view, event)
                     // A seek bar belongs to the card and must keep the
-                    // HorizontalScrollView from stealing its drag. In the
-                    // active multi-card mode, block the outer notification
-                    // swipe helper from DOWN so it cannot win the same MOVE
-                    // event before the inner PageScrollView sees it.
+                    // HorizontalScrollView from stealing its drag. When the
+                    // switcher owns at least two sessions, block the outer
+                    // notification swipe helper from DOWN so it cannot win
+                    // the same MOVE event before our selected-card path sees it.
                     nativeGestureBlocker.onDown(view, touchIgnored)
                     return chain.proceed()
                 }
@@ -710,8 +749,8 @@ internal object NotificationMediaSingleCardSwitcherHooker {
                     }
 
                     // Once the native multi-card container is active, the
-                    // PageScrollView owns this gesture. This player-level
-                    // threshold is used only for the explicitly selected
+                    // PageScrollView owns this gesture. Otherwise this
+                    // player-level threshold selects the next MediaData in
                     // single-card mode.
                     if (multiCardRenderer.isActive) return chain.proceed()
 
@@ -790,9 +829,26 @@ internal object NotificationMediaSingleCardSwitcherHooker {
                 RootConstants.NOTIFICATION_MEDIA_CARD_SWITCHER_MODE_MULTI
             ) {
                 val entries = selection.snapshot()
+                val previousGeneration = multiCardRenderer.currentPageOrderGeneration
                 val synced = multiCardRenderer.sync(entries, selection.selectedIndex)
                 if (!synced && entries.size >= 2) {
                     disableForFailure("多卡片视图创建失败")
+                } else if (synced) {
+                    val currentGeneration = multiCardRenderer.currentPageOrderGeneration
+                    if (currentGeneration != previousGeneration) {
+                        // The renderer has synchronously corrected the card
+                        // position. Ignore delayed scroll callbacks from the
+                        // previous order until the next user gesture.
+                        pageIndicatorOrderLockGeneration = currentGeneration
+                        pageIndicator.forceUpdate(
+                            pageCount = selection.size,
+                            selectedIndex = selection.selectedIndex,
+                            enabled = isSwitcherUsable()
+                        )
+                        lastIndicatorPageCount = selection.size
+                        lastIndicatorSelectedIndex = selection.selectedIndex
+                        pageIndicatorNeedsSync = false
+                    }
                 }
             }
         }
@@ -809,13 +865,21 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             }
         }
 
-        private fun onRendererPageScrolled(location: Float) {
+        private fun onRendererGestureStarted() {
+            pageIndicatorOrderLockGeneration = null
+        }
+
+        private fun onRendererPageScrolled(location: Float, generation: Int) {
             val update = {
-                pageIndicator.updateLocation(
-                    pageCount = selection.size,
-                    location = location,
-                    enabled = isSwitcherUsable()
-                )
+                if (generation == multiCardRenderer.currentPageOrderGeneration &&
+                    pageIndicatorOrderLockGeneration != generation
+                ) {
+                    pageIndicator.updateLocation(
+                        pageCount = selection.size,
+                        location = location,
+                        enabled = isSwitcherUsable()
+                    )
+                }
             }
             if (Looper.myLooper() == Looper.getMainLooper()) update() else mainHandler.post(update)
         }
@@ -846,11 +910,22 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         }
 
         private fun updatePageIndicator() {
+            val pageCount = selection.size
+            val selectedIndex = selection.selectedIndex
+            if (!pageIndicatorNeedsSync &&
+                pageCount == lastIndicatorPageCount &&
+                selectedIndex == lastIndicatorSelectedIndex
+            ) {
+                return
+            }
             pageIndicator.update(
-                pageCount = selection.size,
-                selectedIndex = selection.selectedIndex,
+                pageCount = pageCount,
+                selectedIndex = selectedIndex,
                 enabled = isSwitcherUsable()
             )
+            lastIndicatorPageCount = pageCount
+            lastIndicatorSelectedIndex = selectedIndex
+            pageIndicatorNeedsSync = false
         }
 
         private fun nativeOrder(): List<String> {
@@ -868,6 +943,13 @@ internal object NotificationMediaSingleCardSwitcherHooker {
                 "topMediaData"
             ) ?: return null
             return accessor.notificationKey(data)
+        }
+
+        private fun nativeTopData(): Any? {
+            return NotificationMediaSingleCardSwitcherHooker.readField(
+                layoutControllerRef.get(),
+                "topMediaData"
+            )
         }
 
         private fun isSeekBarTouch(currentPlayer: View, event: MotionEvent): Boolean {
@@ -920,7 +1002,8 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         private data class DataFields(
             val notificationKey: Field?,
             val token: Field?,
-            val active: Field?
+            val active: Field?,
+            val isPlaying: Field?
         )
 
         private data class SortKeyFields(
@@ -944,6 +1027,9 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         override fun isActive(data: Any): Boolean =
             (fields(data).active?.get(data) as? Boolean) ?: true
 
+        override fun isPlaying(data: Any): Boolean? =
+            fields(data).isPlaying?.get(data) as? Boolean
+
         override fun sortKey(sortKey: Any): String? =
             sortFields(sortKey).key?.get(sortKey) as? String
 
@@ -964,6 +1050,10 @@ internal object NotificationMediaSingleCardSwitcherHooker {
                     active = NotificationMediaSingleCardSwitcherHooker.findField(
                         data.javaClass,
                         "active"
+                    ),
+                    isPlaying = NotificationMediaSingleCardSwitcherHooker.findField(
+                        data.javaClass,
+                        "isPlaying"
                     )
                 )
             }

@@ -15,6 +15,8 @@ internal interface NotificationMediaDataAccessor {
 
     fun isActive(data: Any): Boolean
 
+    fun isPlaying(data: Any): Boolean?
+
     fun sortKey(sortKey: Any): String?
 
     fun sortData(sortKey: Any): Any?
@@ -32,7 +34,8 @@ internal class NotificationMediaSelectionCoordinator(
     private val accessor: NotificationMediaDataAccessor,
     private val nativeOrder: () -> List<String>,
     private val nativeTopKey: () -> String?,
-    private val bindSelected: (Any) -> Unit
+    private val bindSelected: (Any) -> Unit,
+    private val shouldPreserveNativeOrder: () -> Boolean = { false }
 ) {
     private data class Entry(
         val key: String,
@@ -97,7 +100,7 @@ internal class NotificationMediaSelectionCoordinator(
             entries.remove(key)
         }
 
-        reorder()
+        reorder(preserveCurrentOrder = selectedByUser || shouldPreserveNativeOrder())
         if (selectedKey == null || selectedKey !in entries) {
             selectedByUser = false
             adoptNativeSelectionIfNeeded()
@@ -112,7 +115,7 @@ internal class NotificationMediaSelectionCoordinator(
             // bind again when this callback actually replaced the selected
             // entry.
             val selectedDataChanged = selectedKey?.let { entries[it]?.data } !== previousSelectedData
-            if (selectedByUser &&
+            if ((selectedByUser || shouldPreserveNativeOrder()) &&
                 (selectedKey != previousSelectedKey || selectedDataChanged)
             ) {
                 bindCurrentSelection()
@@ -123,7 +126,10 @@ internal class NotificationMediaSelectionCoordinator(
     fun onMediaDataRemoved(key: String) {
         val previousSelectedKey = selectedKey
         entries.remove(key)
-        reorder()
+        reorder(
+            preserveCurrentOrder = shouldPreserveNativeOrder() ||
+                (selectedByUser && selectedKey != key)
+        )
         if (selectedKey == key || selectedKey !in entries) {
             selectedByUser = false
             adoptNativeSelectionIfNeeded()
@@ -144,9 +150,46 @@ internal class NotificationMediaSelectionCoordinator(
      * user-selected secondary session, but a new native top becomes the
      * default when the user has not selected a page yet.
      */
-    fun onNativeBind(data: Any?) {
+    fun onNativeBind(data: Any?, synthetic: Boolean = false) {
         if (data == null) {
             if (entries.isEmpty()) resetSelection()
+            return
+        }
+
+        val key = accessor.notificationKey(data)
+        val userSelection = selectedKey?.takeIf { selectedByUser && it in entries }
+        if (userSelection != null) {
+            if (key != userSelection) {
+                // A native bind for the former top card may arrive after the
+                // user selected a secondary page. It must not reorder the
+                // user's page back to the middle. Single-card mode replays
+                // the selected data; multi-card mode keeps its own viewport.
+                if (!synthetic) bindCurrentSelection()
+                return
+            }
+
+            if (synthetic) {
+                // bindMediaData() was explicitly issued by this coordinator.
+                // Treat it as a content refresh, not as evidence that the
+                // SystemUI sort order promoted this session.
+                updateSelectedToken()
+                return
+            }
+
+            if (shouldPreserveNativeOrder()) {
+                // Multiple sessions are allowed to remain playing. A native
+                // bind is only a content update in this mode; it must not
+                // move the selected card or the page indicator.
+                updateSelectedToken()
+                return
+            }
+
+            // The selected session itself became the native top item (usually
+            // after the user pressed Play). Promote it to page zero while the
+            // renderer preserves the card's current screen position.
+            reorder(preserveCurrentOrder = true)
+            promoteToFront(userSelection)
+            updateSelectedToken()
             return
         }
 
@@ -154,16 +197,17 @@ internal class NotificationMediaSelectionCoordinator(
         // as native top without producing a new MediaData object. The native
         // bind is therefore also a list-order signal; otherwise selected B
         // remains at its old index behind A.
-        reorder()
-        val key = accessor.notificationKey(data)
-        if (key != null && key in entries) {
+        reorder(preserveCurrentOrder = shouldPreserveNativeOrder())
+        if (!synthetic && !shouldPreserveNativeOrder() && key != null && key in entries) {
             // During the same pipeline turn MediaSortUtils can still expose
             // its old list while topMediaData already identifies B. The
             // actual native bind is the stronger signal for the first page.
-            orderedKeys.remove(key)
-            orderedKeys.add(0, key)
+            promoteToFront(key)
         }
-        if (!selectedByUser || selectedKey == null || selectedKey !in entries) {
+        if ((!selectedByUser && !shouldPreserveNativeOrder()) ||
+            selectedKey == null ||
+            selectedKey !in entries
+        ) {
             selectedKey = key ?: orderedKeys.firstOrNull()
             selectedToken = accessor.sessionToken(data)
             selectedByUser = false
@@ -252,8 +296,23 @@ internal class NotificationMediaSelectionCoordinator(
         selectedByUser = false
     }
 
-    private fun reorder() {
+    private fun reorder(preserveCurrentOrder: Boolean = false) {
         val nativeKeys = runCatching { nativeOrder() }.getOrDefault(emptyList())
+        if (preserveCurrentOrder) {
+            val currentKeys = orderedKeys.filter { it in entries }
+            orderedKeys.clear()
+            currentKeys.forEach { key ->
+                if (key !in orderedKeys) orderedKeys += key
+            }
+            nativeKeys.forEach { key ->
+                if (key in entries && key !in orderedKeys) orderedKeys += key
+            }
+            entries.keys.forEach { key ->
+                if (key !in orderedKeys) orderedKeys += key
+            }
+            return
+        }
+
         orderedKeys.clear()
 
         nativeKeys.forEach { key ->
@@ -262,5 +321,11 @@ internal class NotificationMediaSelectionCoordinator(
         entries.keys.forEach { key ->
             if (key !in orderedKeys) orderedKeys += key
         }
+    }
+
+    private fun promoteToFront(key: String) {
+        if (key !in entries) return
+        orderedKeys.remove(key)
+        orderedKeys.add(0, key)
     }
 }

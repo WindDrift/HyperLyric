@@ -35,7 +35,8 @@ internal class NotificationMediaMultiCardRenderer(
     private val onPlayerAttached: (View, Any) -> Unit,
     private val onPlayerDetached: (View) -> Unit,
     private val onPageSelected: (Int) -> Unit,
-    private val onPageScrolled: (Float) -> Unit,
+    private val onPageScrolled: (Float, Int) -> Unit,
+    private val onGestureStarted: () -> Unit,
     private val shouldIgnoreScrollTouch: (MotionEvent) -> Boolean
 ) {
     private companion object {
@@ -85,7 +86,8 @@ internal class NotificationMediaMultiCardRenderer(
         context: Context,
         private val shouldIgnoreTouch: (MotionEvent) -> Boolean,
         private val onScrollPositionChanged: (Int) -> Unit,
-        private val onGestureReleased: (Float) -> Unit
+        private val onGestureReleased: (Float) -> Unit,
+        private val onGestureStarted: () -> Unit
     ) : HorizontalScrollView(context) {
         private var velocityTracker: VelocityTracker? = null
         private var ignoredGesture = false
@@ -97,6 +99,7 @@ internal class NotificationMediaMultiCardRenderer(
                     finishGesture(snap = false)
                     ignoredGesture = shouldIgnoreTouch(event)
                     if (!ignoredGesture) {
+                        onGestureStarted()
                         velocityTracker = VelocityTracker.obtain()
                         velocityTracker?.addMovement(event)
                     }
@@ -134,6 +137,14 @@ internal class NotificationMediaMultiCardRenderer(
             }
             return intercepted
         }
+
+        /**
+         * HorizontalScrollView starts its own OverScroller fling from
+         * super.onTouchEvent(ACTION_UP). The renderer computes the target page
+         * itself, so allowing both fling implementations produces a visible
+         * indicator 2 -> 1 -> 2 rebound.
+         */
+        override fun fling(velocityX: Int) = Unit
 
         override fun onTouchEvent(event: MotionEvent): Boolean {
             if (ignoredGesture) return false
@@ -214,6 +225,14 @@ internal class NotificationMediaMultiCardRenderer(
 
     val isActive: Boolean
         get() = scrollView != null && pageContainer != null && originalCard != null
+
+    /**
+     * Identifies the current child order. Delayed scroll callbacks from an old
+     * order must not overwrite the indicator after MediaSortUtils promoted a
+     * different session to page zero.
+     */
+    val currentPageOrderGeneration: Int
+        get() = pageOrderGeneration
 
     fun attachOriginal(player: View, holder: Any): Boolean {
         if (originalCard != null) return true
@@ -396,6 +415,7 @@ internal class NotificationMediaMultiCardRenderer(
         originalVisibility = View.VISIBLE
         originalAlpha = 1f
         header = null
+        pageOrderGeneration++
     }
 
     private fun ensureContainer(): Boolean {
@@ -433,7 +453,8 @@ internal class NotificationMediaMultiCardRenderer(
             context = context,
             shouldIgnoreTouch = shouldIgnoreScrollTouch,
             onScrollPositionChanged = ::onScrollPositionChanged,
-            onGestureReleased = ::onGestureReleased
+            onGestureReleased = ::onGestureReleased,
+            onGestureStarted = onGestureStarted
         ).apply {
             isHorizontalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_NEVER
@@ -645,7 +666,7 @@ internal class NotificationMediaMultiCardRenderer(
 
     private fun onScrollPositionChanged(scrollX: Int) {
         val location = pageLocation(scrollX)
-        onPageScrolled(location)
+        onPageScrolled(location, pageOrderGeneration)
     }
 
     private fun onGestureReleased(velocityX: Float) {
@@ -666,11 +687,14 @@ internal class NotificationMediaMultiCardRenderer(
         }.coerceIn(0, (cards.size - 1).coerceAtLeast(0))
 
         onPageSelected(target)
-        // HorizontalScrollView processes ACTION_UP first and may start its
-        // own fling. Queue the single custom snap after that dispatch so the
-        // animation starts from the actual current scrollX rather than
-        // competing with the framework fling.
-        scroller.post { scrollToPage(target, animate = true) }
+        // Queue the single custom snap after ACTION_UP dispatch so the
+        // animation starts from the actual current scrollX.
+        val generation = pageOrderGeneration
+        scroller.post {
+            if (generation == pageOrderGeneration && scrollView === scroller) {
+                scrollToPage(target, animate = true, generation = generation)
+            }
+        }
     }
 
     private fun pageLocation(scrollX: Int): Float {
@@ -701,9 +725,14 @@ internal class NotificationMediaMultiCardRenderer(
         return positions.lastIndex.toFloat()
     }
 
-    private fun scrollToPage(index: Int, animate: Boolean) {
+    private fun scrollToPage(
+        index: Int,
+        animate: Boolean,
+        generation: Int = pageOrderGeneration
+    ) {
         val scroller = scrollView ?: return
         val pages = pageContainer ?: return
+        if (generation != pageOrderGeneration) return
         val count = cards.size
         if (count == 0) return
         val target = index.coerceIn(0, count - 1)
@@ -717,7 +746,11 @@ internal class NotificationMediaMultiCardRenderer(
         if (targetView == null || firstView == null ||
             (target > 0 && targetView.left == 0 && pages.width == 0)
         ) {
-            scroller.post { scrollToPage(target, animate) }
+            scroller.post {
+                if (generation == pageOrderGeneration && scrollView === scroller) {
+                    scrollToPage(target, animate, generation)
+                }
+            }
             return
         }
         if (animate) {
