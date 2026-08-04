@@ -9,6 +9,7 @@ import android.graphics.drawable.TransitionDrawable
 import android.widget.ImageView
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.root.mediacard.MediaCardRuntimeConfig
+import com.lidesheng.hyperlyric.root.mediacard.notification.NotificationMediaDataIdentity
 import com.lidesheng.hyperlyric.root.mediacard.notification.style.NotificationMediaForegroundStyler
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import java.lang.reflect.Field
@@ -75,7 +76,9 @@ internal object NotificationMediaBackgroundController {
         val autoInvert = currentAutoInvert()
         val softCoverTone = currentSoftCoverTone()
         val artworkUpdated = readField(controller, "isArtWorkUpdate") == true
-        val token = "$style:$blurAmount:$autoInvert:$softCoverTone:$packageName:$width:$height"
+        val mediaIdentity = NotificationMediaDataIdentity.of(mediaData)
+        val token =
+            "$style:$blurAmount:$autoInvert:$softCoverTone:$packageName:$mediaIdentity:$width:$height"
         if (state.token == token && (state.customApplied || state.renderPending) && !artworkUpdated) {
             return
         }

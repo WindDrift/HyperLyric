@@ -210,24 +210,19 @@ fun MediaCardSettingsPage() {
                                             )
                                         }
                                     )
-                                    AnimatedVisibility(
-                                        visible = mediaCardSwitcherMode ==
-                                            RootConstants.NOTIFICATION_MEDIA_CARD_SWITCHER_MODE_MULTI
-                                    ) {
-                                        ArrowPreference(
-                                            title = stringResource(
-                                                R.string.title_notification_media_card_switcher_max_count
-                                            ),
-                                            endActions = {
-                                                Text(
-                                                    text = "$mediaCardSwitcherMaxCount",
-                                                    fontSize = MiuixTheme.textStyles.body2.fontSize,
-                                                    color = MiuixTheme.colorScheme.onSurfaceVariantActions
-                                                )
-                                            },
-                                            onClick = { showMaxCountDialog = true }
-                                        )
-                                    }
+                                    ArrowPreference(
+                                        title = stringResource(
+                                            R.string.title_notification_media_card_switcher_max_count
+                                        ),
+                                        endActions = {
+                                            Text(
+                                                text = "$mediaCardSwitcherMaxCount",
+                                                fontSize = MiuixTheme.textStyles.body2.fontSize,
+                                                color = MiuixTheme.colorScheme.onSurfaceVariantActions
+                                            )
+                                        },
+                                        onClick = { showMaxCountDialog = true }
+                                    )
                                 }
                             }
                         }

@@ -1,6 +1,7 @@
 package com.lidesheng.hyperlyric.root.mediacard.notification.switcher
 
 import android.content.Context
+import android.media.session.MediaController
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
@@ -49,6 +50,7 @@ internal class NotificationMediaMultiCardRenderer(
     private val onPageSelected: (String) -> Unit,
     private val onPageScrolled: (Float, Int) -> Unit,
     private val onGestureStarted: () -> Unit,
+    private val onCardMediaChanged: (String) -> Unit,
     private val shouldIgnoreScrollTouch: (MotionEvent) -> Boolean
 ) {
     private companion object {
@@ -87,7 +89,9 @@ internal class NotificationMediaMultiCardRenderer(
         val holder: Any,
         val controller: Any,
         val original: Boolean
-    )
+    ) {
+        var playbackObserver: NotificationMediaPlaybackObserver? = null
+    }
 
     /**
      * The MIUI14 notification carousel is a real HorizontalScrollView. Keep
@@ -281,7 +285,8 @@ internal class NotificationMediaMultiCardRenderer(
      */
     fun sync(
         entries: List<Pair<String, Any>>,
-        selectedIndex: Int
+        selectedIndex: Int,
+        forceRebindKeys: Set<String> = emptySet()
     ): NotificationMediaMultiCardSyncResult {
         originalCard ?: return NotificationMediaMultiCardSyncResult.NOT_READY
         if (entries.size < 2) {
@@ -303,8 +308,9 @@ internal class NotificationMediaMultiCardRenderer(
             entries.forEach { (key, data) ->
                 val existing = oldByKey[key]
                 if (existing != null) {
-                    if (existing.data !== data) {
-                        existing.data = data
+                    val dataChanged = existing.data !== data
+                    existing.data = data
+                    if (dataChanged || key in forceRebindKeys) {
                         bind(existing, data)
                     }
                     nextCards[key] = existing
@@ -572,12 +578,29 @@ internal class NotificationMediaMultiCardRenderer(
 
     private fun bind(card: Card, data: Any) {
         bindMethod?.invoke(card.controller, data)
+        observePlayback(card)
         copyNativeChrome(card)
         if (!card.original) card.player.post { copyNativeChrome(card) }
     }
 
+    private fun observePlayback(card: Card) {
+        if (card.original) return
+        val mediaController = readField(card.controller, "mediaController") as? MediaController
+        if (mediaController == null) {
+            card.playbackObserver?.clear()
+            card.playbackObserver = null
+            return
+        }
+        val observer = card.playbackObserver ?: NotificationMediaPlaybackObserver {
+            if (cards[card.key] === card) onCardMediaChanged(card.key)
+        }.also { card.playbackObserver = it }
+        observer.bind(mediaController)
+    }
+
     private fun destroyExtraCard(card: Card) {
         if (card.original) return
+        card.playbackObserver?.clear()
+        card.playbackObserver = null
         onPlayerDetached(card.player)
         runCatching { detachMethod?.invoke(card.controller) }
             .onFailure { warn("销毁副媒体控制器失败: key=${card.key}", it) }
@@ -853,6 +876,9 @@ internal class NotificationMediaMultiCardRenderer(
             if (values.any { it == null }) {
                 error("MiuiMediaViewControllerImpl 依赖字段不完整")
             }
+            createActionButtonUtils()?.let { actionButtonUtils ->
+                values[11] = actionButtonUtils
+            }
 
             val constructor = controllerConstructor ?: controllerClass.declaredConstructors
                 .firstOrNull { candidate ->
@@ -871,6 +897,31 @@ internal class NotificationMediaMultiCardRenderer(
                 }
             }
         }.onFailure { warn("创建原生媒体控制器失败", it) }.getOrNull()
+    }
+
+    /**
+     * MiuiMediaActionButtonUtils keeps play/next timing and pending updateJob
+     * as instance state. The native graph has one controller, while this
+     * renderer creates several. Give every visible page an independent
+     * utility instance so one page cannot consume another page's play update.
+     */
+    private fun createActionButtonUtils(): Any? {
+        val template = readField(templateController, "miuiMediaActionButtonUtils") ?: return null
+        val dependencies = arrayOf(
+            readField(template, "uiScope"),
+            readField(template, "context"),
+            readField(template, "notificationStat")
+        )
+        if (dependencies.any { it == null }) return null
+
+        val constructor = template.javaClass.declaredConstructors.firstOrNull { candidate ->
+            candidate.parameterCount == dependencies.size && candidate.parameterTypes
+                .zip(dependencies)
+                .all { (type, value) -> value != null && type.isAssignableFrom(value.javaClass) }
+        }?.apply { isAccessible = true } ?: return null
+        return runCatching { constructor.newInstance(*dependencies) }
+            .onFailure { warn("创建独立媒体按钮工具失败", it) }
+            .getOrNull()
     }
 
     private fun createSeekBarViewModel(): Any? {

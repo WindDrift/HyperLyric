@@ -40,9 +40,11 @@ internal class NotificationMediaHostApi private constructor(
     private val holderField: Field,
     private val controllerMediaDataField: Field,
     private val controllerAppIconDrawableField: Field?,
+    private val controllerArtworkDrawableField: Field?,
     private val playerField: Field?,
     private val albumViewField: Field,
     private val albumImageField: Field,
+    private val holderAppIconField: Field?,
     private val titleTextField: Field?,
     private val artistTextField: Field?,
     private val actionButtonFields: List<Field>,
@@ -130,6 +132,30 @@ internal class NotificationMediaHostApi private constructor(
 
     fun getAlbumImage(holder: Any): ImageView = albumImageField.get(holder) as ImageView
 
+    /**
+     * HyperOS only refreshes the native artwork when the Icon changed. A
+     * player can recreate its MediaSession while keeping the same artwork,
+     * which leaves the reused controller's app icon/artwork from the old
+     * session. Refresh both the native fields and the holder immediately when
+     * the switcher detects a session identity change.
+     */
+    fun refreshArtwork(controller: Any, mediaData: Any?) {
+        if (mediaData == null) return
+        runCatching {
+            val holder = getHolder(controller) ?: return@runCatching
+            val context = readField(controller, "context") as? Context ?: return@runCatching
+            val appIcon = getMediaSourceIcon(mediaData, context)
+                ?: getApplicationIcon(mediaData, context)
+            val artworkIcon = readField(mediaData, "artwork") as? Icon
+            val artwork = artworkIcon?.loadDrawable(context) ?: appIcon
+            controllerAppIconDrawableField?.set(controller, appIcon)
+            controllerArtworkDrawableField?.set(controller, artwork)
+            holderAppIconField?.get(holder)?.let { it as? ImageView }
+                ?.setImageDrawable(appIcon)
+            getAlbumImage(holder).setImageDrawable(artwork)
+        }
+    }
+
     fun getActionButtons(holder: Any): List<ImageButton> {
         return actionButtonFields.mapNotNull { field ->
             runCatching { field.get(holder) as? ImageButton }.getOrNull()
@@ -212,6 +238,24 @@ internal class NotificationMediaHostApi private constructor(
             runCatching { field.get(mediaData) as? String }.getOrNull()
         } ?: return null
         return runCatching { context.packageManager.getApplicationIcon(packageName) }.getOrNull()
+    }
+
+    private fun readField(receiver: Any, name: String): Any? {
+        return findField(receiver.javaClass, name)?.let { field ->
+            runCatching { field.get(receiver) }.getOrNull()
+        }
+    }
+
+    private fun findField(type: Class<*>, name: String): Field? {
+        var current: Class<*>? = type
+        while (current != null) {
+            runCatching { current.getDeclaredField(name) }.getOrNull()?.let { field ->
+                field.isAccessible = true
+                return field
+            }
+            current = current.superclass
+        }
+        return null
     }
 
     override fun setVisibility(layout: Any, viewId: Int, visibility: Int) {
@@ -353,6 +397,11 @@ internal class NotificationMediaHostApi private constructor(
                         isAccessible = true
                     }
                 }.getOrNull(),
+                controllerArtworkDrawableField = runCatching {
+                    viewControllerClass.getDeclaredField("artWorkDrawable").apply {
+                        isAccessible = true
+                    }
+                }.getOrNull(),
                 playerField = runCatching {
                     holderClass.getDeclaredField("player").apply { isAccessible = true }
                 }.getOrNull(),
@@ -362,6 +411,11 @@ internal class NotificationMediaHostApi private constructor(
                 albumImageField = holderClass.getDeclaredField("albumImageView").apply {
                     isAccessible = true
                 },
+                holderAppIconField = runCatching {
+                    holderClass.getDeclaredField("appIcon").apply {
+                        isAccessible = true
+                    }
+                }.getOrNull(),
                 titleTextField = runCatching {
                     holderClass.getDeclaredField("titleText").apply { isAccessible = true }
                 }.getOrNull(),

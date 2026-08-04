@@ -47,7 +47,10 @@ internal object NotificationMediaMiuiStyle {
 
         val title = api.getTitleText(holder) ?: return
         val player = api.getPlayer(holder) ?: title.parent as? ViewGroup ?: return
-        val currentMediaData = mediaData ?: api.getMediaData(controller)
+        // Prefer the controller's post-bind field. A reused native controller
+        // can receive a late bind callback whose argument is no longer the
+        // data that HyperOS kept as its active MediaData.
+        val currentMediaData = api.getMediaData(controller) ?: mediaData
         val appName = api.getApplicationName(currentMediaData, player.context)
         if (appName.isNullOrBlank()) {
             appNameStates.remove(player)?.restore()

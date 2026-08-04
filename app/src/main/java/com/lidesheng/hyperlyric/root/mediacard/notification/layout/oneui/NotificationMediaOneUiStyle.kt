@@ -49,7 +49,7 @@ internal object NotificationMediaOneUiStyle {
 
         val container = api.getSeamlessContainer(holder) ?: return
         val sourceIcon = api.getSeamlessIcon(holder) ?: return
-        val currentMediaData = mediaData ?: api.getMediaData(controller)
+        val currentMediaData = api.getMediaData(controller) ?: mediaData
         val appName = api.getApplicationName(currentMediaData, container.context)
         val appIcon = api.getAppIdentityIcon(controller, currentMediaData, container.context)
         val textColor = api.getMediaForegroundColor(holder)

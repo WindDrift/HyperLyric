@@ -274,7 +274,8 @@ object NotificationMediaAmbientFlowHooker {
         val artist = readField(mediaData, "artist")?.toString().orEmpty()
         val artworkUpdated = readField(controller, "isArtWorkUpdate") == true
         val paletteMode = if (isCustomMode(mode)) "custom" else mode.toString()
-        val colorToken = "$paletteMode:$packageName:$song:$artist"
+        val mediaIdentity = NotificationMediaDataIdentity.of(mediaData)
+        val colorToken = "$paletteMode:$packageName:$mediaIdentity:$song:$artist"
         if (state.pendingColorToken == colorToken) return
         if (!artworkUpdated && state.colorToken == colorToken) return
         state.pendingColorToken = colorToken

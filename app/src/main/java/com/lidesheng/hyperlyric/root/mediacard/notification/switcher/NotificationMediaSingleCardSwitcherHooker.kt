@@ -2,6 +2,7 @@ package com.lidesheng.hyperlyric.root.mediacard.notification.switcher
 
 import android.os.Handler
 import android.os.Looper
+import android.media.session.MediaController
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
@@ -514,6 +515,10 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         private val sortUtilsRef = WeakReference(sortUtils)
         private val mainHandler = Handler(Looper.getMainLooper())
         private val bindLock = Any()
+        private val nativePlaybackObserver = NotificationMediaPlaybackObserver(
+            ::onNativeMediaChanged
+        )
+        private val pendingMediaRefreshes = LinkedHashMap<String, Int>()
         private var bindingSelected = false
         private val seekBars = Collections.synchronizedMap(WeakHashMap<View, View>())
 
@@ -538,6 +543,8 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         private var pageIndicatorNeedsSync = true
         private var lastIndicatorPageCount = -1
         private var lastIndicatorSelectedIndex = -1
+        private val pageCountLimit =
+            MediaCardRuntimeConfig.current.notification.cardSwitcherMaxCount
 
         private val playbackPolicy = NotificationMediaPlaybackPolicy(
             accessor = accessor,
@@ -549,7 +556,8 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             nativeOrder = ::nativeOrder,
             nativeTopKey = ::nativeTopKey,
             bindSelected = ::bindSelected,
-            shouldPreserveNativeOrder = { playbackPolicy.shouldPreserveNativeOrder }
+            shouldPreserveNativeOrder = { playbackPolicy.shouldPreserveNativeOrder },
+            maxPageCount = pageCountLimit
         )
 
         private val multiCardRenderer = NotificationMediaMultiCardRenderer(
@@ -561,6 +569,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             onPageSelected = ::onRendererPageSelected,
             onPageScrolled = ::onRendererPageScrolled,
             onGestureStarted = ::onRendererGestureStarted,
+            onCardMediaChanged = ::onAdditionalCardMediaChanged,
             shouldIgnoreScrollTouch = ::isAnySeekBarTouch
         )
 
@@ -615,9 +624,10 @@ internal object NotificationMediaSingleCardSwitcherHooker {
 
         fun onMediaDataLoaded(key: String, oldKey: String?, data: Any) {
             runOnMain {
+                pendingMediaRefreshes.remove(key)
                 playbackPolicy.onMediaDataLoaded(key, oldKey, data)
                 selection.onMediaDataLoaded(key, oldKey, data)
-                syncMultiCards()
+                syncMultiCards(forceRebindKeys = setOf(key))
                 updatePageIndicator()
             }
         }
@@ -634,9 +644,11 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         fun onNativeBind(data: Any?) {
             val synthetic = synchronized(bindLock) { bindingSelected }
             runOnMain {
+                observeNativePlayback()
                 playbackPolicy.onNativeBind(data, synthetic = synthetic)
                 selection.onNativeBind(data, synthetic = synthetic)
-                syncMultiCards()
+                val key = data?.let(accessor::notificationKey)
+                syncMultiCards(forceRebindKeys = key?.let(::setOf) ?: emptySet())
                 updatePageIndicator()
             }
         }
@@ -706,6 +718,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         fun disableForFailure(reason: String, error: Throwable? = null) {
             if (switcherUnavailable) return
             switcherUnavailable = true
+            clearPlaybackObservers()
             resetTouch(player?.get())
             multiCardRenderer.detach()
             pageIndicator.detach()
@@ -719,6 +732,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
 
         fun onDetached() {
             val currentPlayer = player?.get()
+            clearPlaybackObservers()
             resetTouch(currentPlayer)
             multiCardRenderer.detach()
             pageIndicator.detach()
@@ -887,6 +901,102 @@ internal object NotificationMediaSingleCardSwitcherHooker {
 
         private val pageIndicator = NotificationMediaPageIndicator()
 
+        private fun onAdditionalCardMediaChanged(key: String) {
+            scheduleMediaDataRefresh(key)
+        }
+
+        private fun onNativeMediaChanged() {
+            val data = nativeTopData() ?: return
+            val key = accessor.notificationKey(data) ?: return
+            scheduleMediaDataRefresh(key)
+        }
+
+        private fun observeNativePlayback() {
+            val controller = viewControllerRef.get()
+            val mediaController = NotificationMediaSingleCardSwitcherHooker.readField(
+                controller,
+                "mediaController"
+            ) as? MediaController
+            nativePlaybackObserver.bind(mediaController)
+        }
+
+        /**
+         * A transport action changes the MediaSession first and MediaData may
+         * arrive a little later. Read the latest MediaSortKey data twice after
+         * the callback so action closures, artwork and isPlaying are refreshed
+         * together. The small bounded retry also covers players which publish
+         * metadata and playback state in separate binder callbacks.
+         */
+        private fun scheduleMediaDataRefresh(key: String) {
+            if (key.isEmpty()) return
+            runOnMain {
+                if (!isSwitcherUsable() || key in pendingMediaRefreshes) return@runOnMain
+                pendingMediaRefreshes[key] = 0
+                postNextMediaRefresh(key, 80L)
+            }
+        }
+
+        private fun postNextMediaRefresh(key: String, delayMs: Long) {
+            mainHandler.postDelayed({
+                val attempt = pendingMediaRefreshes[key] ?: return@postDelayed
+                refreshMediaDataFromNative(key)
+                if (attempt < 2 && isSwitcherUsable()) {
+                    pendingMediaRefreshes[key] = attempt + 1
+                    postNextMediaRefresh(key, 180L)
+                } else {
+                    pendingMediaRefreshes.remove(key)
+                }
+            }, delayMs)
+        }
+
+        private fun refreshMediaDataFromNative(key: String) {
+            val data = latestMediaDataForKey(key) ?: nativeDataForKey(key) ?: return
+            playbackPolicy.onMediaDataLoaded(key, oldKey = null, data = data)
+            selection.onMediaDataLoaded(key, oldKey = null, data = data)
+            syncMultiCards(forceRebindKeys = setOf(key))
+            updatePageIndicator()
+        }
+
+        private fun nativeDataForKey(key: String): Any? {
+            val sort = sortUtilsRef.get() ?: return null
+            val sortList = NotificationMediaSingleCardSwitcherHooker.readField(
+                sort,
+                "mediaDataList"
+            ) as? Iterable<*>
+            sortList?.firstNotNullOfOrNull { sortKey ->
+                if (sortKey == null || accessor.sortKey(sortKey) != key) {
+                    null
+                } else {
+                    accessor.sortData(sortKey)
+                }
+            }?.let { return it }
+
+            val sortMap = NotificationMediaSingleCardSwitcherHooker.readField(
+                sort,
+                "mediaDataToSortKey"
+            ) as? Map<*, *>
+            val sortKey = sortMap?.get(key) ?: return null
+            return accessor.sortData(sortKey)
+        }
+
+        /**
+         * LegacyMediaDataManagerImpl updates mediaEntries before notifying its
+         * listeners. MediaSortUtils can still expose the previous SortKey for
+         * one turn, so playback/action refreshes must prefer this source.
+         */
+        private fun latestMediaDataForKey(key: String): Any? {
+            val entries = NotificationMediaSingleCardSwitcherHooker.readField(
+                mediaDataManager,
+                "mediaEntries"
+            ) as? Map<*, *> ?: return null
+            return entries[key]
+        }
+
+        private fun clearPlaybackObservers() {
+            nativePlaybackObserver.clear()
+            pendingMediaRefreshes.clear()
+        }
+
         fun onForegroundColorsApplied(controller: Any) {
             if (
                 controller !== viewControllerRef.get() &&
@@ -909,7 +1019,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             return viewControllerRef.get()?.let(NotificationMediaForegroundStyler::foregroundColor)
         }
 
-        private fun syncMultiCards() {
+        private fun syncMultiCards(forceRebindKeys: Set<String> = emptySet()) {
             if (!isSwitcherUsable()) return
             if (MediaCardRuntimeConfig.current.notification.cardSwitcherMode ==
                 RootConstants.NOTIFICATION_MEDIA_CARD_SWITCHER_MODE_MULTI
@@ -917,7 +1027,13 @@ internal object NotificationMediaSingleCardSwitcherHooker {
                 val snapshot = pageSnapshot()
                 val entries = snapshot.entries
                 val previousGeneration = multiCardRenderer.currentPageOrderGeneration
-                when (multiCardRenderer.sync(entries, snapshot.selectedIndex)) {
+                when (
+                    multiCardRenderer.sync(
+                        entries = entries,
+                        selectedIndex = snapshot.selectedIndex,
+                        forceRebindKeys = forceRebindKeys
+                    )
+                ) {
                     NotificationMediaMultiCardSyncResult.NOT_READY -> {
                         // MediaData can be delivered before ViewController.attach.
                         // Keep the data snapshot and let completeNativeAttach()
@@ -1030,15 +1146,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         }
 
         private fun pageSnapshot(): NotificationMediaSelectionSnapshot {
-            val maxEntries = if (
-                MediaCardRuntimeConfig.current.notification.cardSwitcherMode ==
-                    RootConstants.NOTIFICATION_MEDIA_CARD_SWITCHER_MODE_MULTI
-            ) {
-                MediaCardRuntimeConfig.current.notification.cardSwitcherMaxCount
-            } else {
-                Int.MAX_VALUE
-            }
-            return selection.snapshot(maxEntries)
+            return selection.snapshot(pageCountLimit)
         }
 
         private fun nativeOrder(): List<String> {

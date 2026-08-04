@@ -45,7 +45,8 @@ internal class NotificationMediaSelectionCoordinator(
     private val nativeOrder: () -> List<String>,
     private val nativeTopKey: () -> String?,
     private val bindSelected: (Any) -> Unit,
-    private val shouldPreserveNativeOrder: () -> Boolean = { false }
+    private val shouldPreserveNativeOrder: () -> Boolean = { false },
+    private val maxPageCount: Int = Int.MAX_VALUE
 ) {
     private data class Entry(
         val key: String,
@@ -84,6 +85,8 @@ internal class NotificationMediaSelectionCoordinator(
      *
      * The final list is filtered back to native order, so the page layout stays
      * stable while the selected session is guaranteed not to disappear.
+     * Selection methods use the same bounded page set, so gestures and page
+     * indicators cannot navigate to an entry that is not rendered.
      */
     fun snapshot(maxEntries: Int = Int.MAX_VALUE): NotificationMediaSelectionSnapshot {
         val allEntries = orderedKeys.mapNotNull { key ->
@@ -151,7 +154,7 @@ internal class NotificationMediaSelectionCoordinator(
             // bind again when this callback actually replaced the selected
             // entry.
             val selectedDataChanged = selectedKey?.let { entries[it]?.data } !== previousSelectedData
-            if ((selectedByUser || shouldPreserveNativeOrder()) &&
+            if ((selectedByUser || shouldPreserveNativeOrder() || selectedKey == key) &&
                 (selectedKey != previousSelectedKey || selectedDataChanged)
             ) {
                 bindCurrentSelection()
@@ -193,8 +196,20 @@ internal class NotificationMediaSelectionCoordinator(
         }
 
         val key = accessor.notificationKey(data)
+        val incomingToken = accessor.sessionToken(data)
+        val knownToken = key?.let { entries[it]?.sessionToken }
+        val tokenChangedBeforeMediaDataUpdate = knownToken != null &&
+            incomingToken != null && knownToken != incomingToken
         val userSelection = selectedKey?.takeIf { selectedByUser && it in entries }
         if (userSelection != null) {
+            if (key == userSelection && tokenChangedBeforeMediaDataUpdate) {
+                // MediaSortUtils can bind a newly-created session before its
+                // MediaData.Listener callback replaces the coordinator entry.
+                // Do not let that transient bind overwrite the selected card;
+                // the later MediaData callback will perform the real refresh.
+                if (!synthetic) bindCurrentSelection()
+                return
+            }
             if (key != userSelection) {
                 // A native bind for the former top card may arrive after the
                 // user selected a secondary page. It must not reorder the
@@ -245,8 +260,18 @@ internal class NotificationMediaSelectionCoordinator(
             selectedKey !in entries
         ) {
             selectedKey = key ?: orderedKeys.firstOrNull()
-            selectedToken = accessor.sessionToken(data)
+            selectedToken = key?.let { entries[it]?.sessionToken } ?: incomingToken
             selectedByUser = false
+            return
+        }
+
+        if (tokenChangedBeforeMediaDataUpdate) {
+            // The same notification key is allowed to recreate its
+            // MediaSession. Treat a native bind with the new token as stale
+            // until the corresponding MediaData object is visible to the
+            // listener; otherwise a reused native controller can display the
+            // wrong session's artwork and application identity.
+            bindCurrentSelection()
             return
         }
 
@@ -255,17 +280,16 @@ internal class NotificationMediaSelectionCoordinator(
             // the selected item after it finishes so our state remains stable.
             bindCurrentSelection()
         } else {
-            // Same notification key can be reused by an app for a new session.
-            // Keep the token in the selection state so future renderers can
-            // distinguish that replacement without package/title heuristics.
-            selectedToken = accessor.sessionToken(data)
+            selectedToken = key?.let { entries[it]?.sessionToken } ?: incomingToken
         }
     }
 
     fun selectRelative(step: Int) {
-        if (step == 0 || orderedKeys.size < 2) return
+        val pageKeys = visiblePageKeys()
+        if (step == 0 || pageKeys.size < 2) return
 
-        selectIndex(currentIndex() + step)
+        val currentPageIndex = pageKeys.indexOf(selectedKey).takeIf { it >= 0 } ?: 0
+        selectIndex(currentPageIndex + step)
     }
 
     /**
@@ -274,21 +298,21 @@ internal class NotificationMediaSelectionCoordinator(
      * single-card mode keeps bindMediaData() as its own selected-card path.
      */
     fun selectIndex(index: Int) {
-        if (orderedKeys.isEmpty()) return
+        val pageKeys = visiblePageKeys()
+        if (pageKeys.isEmpty()) return
 
-        val currentIndex = currentIndex()
-        val targetIndex = index.coerceIn(0, orderedKeys.lastIndex)
-        if (targetIndex == currentIndex && selectedIndex == targetIndex) return
+        val currentPageIndex = pageKeys.indexOf(selectedKey).takeIf { it >= 0 } ?: -1
+        val targetIndex = index.coerceIn(0, pageKeys.lastIndex)
+        if (targetIndex == currentPageIndex && selectedKey == pageKeys[targetIndex]) return
 
-        selectedKey = orderedKeys[targetIndex]
+        selectedKey = pageKeys[targetIndex]
         selectedByUser = true
         updateSelectedToken()
         bindCurrentSelection()
     }
 
     fun selectKey(key: String) {
-        if (key !in entries) return
-        val index = orderedKeys.indexOf(key)
+        val index = visiblePageKeys().indexOf(key)
         if (index >= 0) selectIndex(index)
     }
 
@@ -326,10 +350,8 @@ internal class NotificationMediaSelectionCoordinator(
         selectedToken = selectedKey?.let { entries[it]?.sessionToken }
     }
 
-    private fun currentIndex(): Int {
-        return selectedIndex.takeIf { it >= 0 }
-            ?: orderedKeys.indexOfFirst { it == nativeTopKey() }.takeIf { it >= 0 }
-            ?: 0
+    private fun visiblePageKeys(): List<String> {
+        return snapshot(maxPageCount).entries.map { it.first }
     }
 
     private fun resetSelection() {

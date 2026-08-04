@@ -26,7 +26,7 @@ internal object NotificationMediaPixelStyle {
         api.getActionButtons(holder).forEach(::applyActionButton)
 
         val player = api.getPlayer(holder) ?: return
-        val currentMediaData = mediaData ?: api.getMediaData(controller)
+        val currentMediaData = api.getMediaData(controller) ?: mediaData
         val drawable = api.getAppIdentityIcon(controller, currentMediaData, player.context)
         if (drawable == null) {
             appIconStates.remove(player)?.restore()

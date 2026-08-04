@@ -44,6 +44,8 @@ object NotificationMediaCoverStyleHooker {
         Collections.synchronizedMap(WeakHashMap<ViewGroup, ColorOsAppIconState>())
     private val colorOsDeviceSwitchSources =
         Collections.synchronizedMap(WeakHashMap<ImageButton, ImageView>())
+    private val boundSessionIdentities =
+        Collections.synchronizedMap(WeakHashMap<Any, String>())
 
     fun hook(xposedModule: XposedModule, classLoader: ClassLoader) {
         if (!hookedClassLoaders.add(classLoader)) return
@@ -217,19 +219,33 @@ object NotificationMediaCoverStyleHooker {
                 return null
             }
             if (methodName == "detach") {
+                boundSessionIdentities.remove(controller)
                 cleanupStyle(controller)
                 return chain.proceed()
             }
 
+            val boundMediaData = if (methodName == "bindMediaData") {
+                chain.args.firstOrNull()
+            } else {
+                null
+            }
+            val previousSessionIdentity = boundSessionIdentities[controller]
+            val nextSessionIdentity = boundMediaData?.let(NotificationMediaDataIdentity::sessionOf)
             val result = chain.proceed()
             if (methodName == "attach" || methodName == "bindMediaData") {
                 runCatching {
-                    val mediaData = if (methodName == "bindMediaData") {
-                        chain.args.firstOrNull()
-                    } else {
-                        null
+                    if (methodName == "bindMediaData" &&
+                        boundMediaData != null &&
+                        previousSessionIdentity != null &&
+                        previousSessionIdentity != nextSessionIdentity
+                    ) {
+                        resolveApi(controller.javaClass.classLoader)
+                            ?.refreshArtwork(controller, boundMediaData)
                     }
-                    applyStyle(controller, mediaData)
+                    if (nextSessionIdentity != null) {
+                        boundSessionIdentities[controller] = nextSessionIdentity
+                    }
+                    applyStyle(controller, boundMediaData)
                 }.onFailure { HookLogger.e(TAG, "应用通知中心媒体卡片样式失败", it) }
             }
             if (methodName == "setSeamless" &&
@@ -279,6 +295,7 @@ object NotificationMediaCoverStyleHooker {
     private class ActionButtonHook : Hooker {
         override fun intercept(chain: Chain): Any? {
             val result = chain.proceed()
+            if (!shouldApplyActionButtonStyle()) return result
             (chain.args.firstOrNull() as? ImageButton)?.let { button ->
                 when {
                     button.isColorOsDeviceSwitch() -> applyColorOsDeviceSwitchForButton(button)
@@ -311,6 +328,14 @@ object NotificationMediaCoverStyleHooker {
             }
             return result
         }
+    }
+
+    private fun shouldApplyActionButtonStyle(): Boolean {
+        val config = runtimeConfig.notification
+        return config.hideCustomActions ||
+                config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_ONEUI ||
+                config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_MIUI ||
+                config.layoutStyle == RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_PIXEL
     }
 
     private class LayoutLoadHook : Hooker {
@@ -387,7 +412,7 @@ object NotificationMediaCoverStyleHooker {
 
             RootConstants.NOTIFICATION_MEDIA_COVER_STYLE_ROTATING_CIRCLE -> {
                 NotificationMediaCoverStyler.applyCircle(albumView, albumImage)
-                val currentMediaData = mediaData ?: api.getMediaData(controller)
+                val currentMediaData = api.getMediaData(controller) ?: mediaData
                 MediaCoverRotationController.attach(
                     albumImage,
                     api.isPlaying(currentMediaData)
