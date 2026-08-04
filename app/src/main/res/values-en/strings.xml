@@ -115,6 +115,10 @@
     <string name="title_always_on_display">Always On Display</string>
     <string name="title_disable_media_card_collapsing">Disable media card collapsing</string>
     <string name="summary_media_cards">Requires restarting the system UI after update</string>
+    <string name="title_notification_media_card_switcher">Multi-media card switching</string>
+    <string name="title_notification_media_card_switcher_mode">Card display mode</string>
+    <string name="option_notification_media_card_switcher_single">Single-card view</string>
+    <string name="option_notification_media_card_switcher_multi">Multi-card view</string>
     <string name="title_notification_center_media_card">Notification center media card</string>
     <string name="title_notification_media_layout_style">Card layout style</string>
     <string name="prompt_media_layout_style">Custom card layout styles may be incompatible with or even conflict with changes to related element or layout settings. Please change and test with caution. Related issues are not currently handled.</string>

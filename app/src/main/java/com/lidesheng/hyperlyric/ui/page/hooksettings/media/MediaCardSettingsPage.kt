@@ -1,6 +1,7 @@
 package com.lidesheng.hyperlyric.ui.page.hooksettings.media
 
 import android.content.Context
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -19,6 +21,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.lidesheng.hyperlyric.R
+import com.lidesheng.hyperlyric.common.PrefsBridge
+import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.common.UIConstants
 import com.lidesheng.hyperlyric.root.utils.ShellUtils
 import com.lidesheng.hyperlyric.ui.component.SimpleDialog
@@ -42,6 +46,8 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Refresh
 import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -50,6 +56,25 @@ fun MediaCardSettingsPage() {
     val navigator = LocalNavigator.current
     val prefs = remember {
         context.getSharedPreferences(UIConstants.PREF_NAME, Context.MODE_PRIVATE)
+    }
+    var mediaCardSwitcherEnabled by remember {
+        mutableStateOf(
+            prefs.getBoolean(
+                RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_ENABLED,
+                RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_ENABLED
+            )
+        )
+    }
+    var mediaCardSwitcherMode by remember {
+        mutableIntStateOf(
+            prefs.getInt(
+                RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_MODE,
+                RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_MODE
+            ).coerceIn(
+                RootConstants.NOTIFICATION_MEDIA_CARD_SWITCHER_MODE_SINGLE,
+                RootConstants.NOTIFICATION_MEDIA_CARD_SWITCHER_MODE_MULTI
+            )
+        )
     }
     val backdrop = rememberBlurBackdrop()
     val blurActive = backdrop != null
@@ -120,6 +145,57 @@ fun MediaCardSettingsPage() {
                                 title = stringResource(id = R.string.title_always_on_display),
                                 onClick = { navigator.navigate(Route.AlwaysOnDisplaySettings) }
                             )
+                        }
+                    }
+                }
+                item(key = "media_card_switcher") {
+                    Card(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = 12.dp)
+                            .fillMaxWidth()
+                    ) {
+                        Column {
+                            SwitchPreference(
+                                title = stringResource(R.string.title_notification_media_card_switcher),
+                                checked = mediaCardSwitcherEnabled,
+                                onCheckedChange = { enabled ->
+                                    mediaCardSwitcherEnabled = enabled
+                                    PrefsBridge.putBoolean(
+                                        RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_ENABLED,
+                                        enabled
+                                    )
+                                }
+                            )
+                            AnimatedVisibility(visible = mediaCardSwitcherEnabled) {
+                                val modeValues = listOf(
+                                    RootConstants.NOTIFICATION_MEDIA_CARD_SWITCHER_MODE_SINGLE,
+                                    RootConstants.NOTIFICATION_MEDIA_CARD_SWITCHER_MODE_MULTI
+                                )
+                                OverlayDropdownPreference(
+                                    title = stringResource(
+                                        R.string.title_notification_media_card_switcher_mode
+                                    ),
+                                    items = listOf(
+                                        stringResource(
+                                            R.string.option_notification_media_card_switcher_single
+                                        ),
+                                        stringResource(
+                                            R.string.option_notification_media_card_switcher_multi
+                                        )
+                                    ),
+                                    selectedIndex = modeValues.indexOf(mediaCardSwitcherMode)
+                                        .coerceAtLeast(0),
+                                    onSelectedIndexChange = { index ->
+                                        val mode = modeValues[index]
+                                        mediaCardSwitcherMode = mode
+                                        PrefsBridge.putInt(
+                                            RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_MODE,
+                                            mode
+                                        )
+                                    }
+                                )
+                            }
                         }
                     }
                 }

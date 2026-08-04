@@ -24,9 +24,9 @@ internal interface NotificationMediaDataAccessor {
  * Owns the multi-session list and the currently selected item.
  *
  * This class deliberately knows nothing about Views or Xposed. The renderer
- * calls [bindSelected] when the selected entry changes; a single-card fallback
- * can bind the original controller, while a multi-card renderer can only move
- * its viewport and keep each native controller independently bound.
+ * calls [bindSelected] when the selected entry changes; single-card mode binds
+ * the original controller, while a multi-card renderer moves its viewport and
+ * keeps each native controller independently bound.
  */
 internal class NotificationMediaSelectionCoordinator(
     private val accessor: NotificationMediaDataAccessor,
@@ -130,7 +130,7 @@ internal class NotificationMediaSelectionCoordinator(
             if (previousSelectedKey != null) {
                 // Native SystemUI may keep the same top MediaData when a
                 // user-selected secondary session disappears. Rebind the
-                // fallback entry explicitly so the single card cannot retain
+                // selected entry explicitly so the single card cannot retain
                 // the removed session's title, artwork, or actions.
                 bindCurrentSelection()
             }
@@ -190,8 +190,8 @@ internal class NotificationMediaSelectionCoordinator(
 
     /**
      * Selects a page without making the renderer know about notification keys.
-     * A future multi-panel renderer can use the same index as its child View
-     * position and keep bindMediaData() as the current single-card fallback.
+     * A multi-panel renderer can use the same index as its child View position;
+     * single-card mode keeps bindMediaData() as its own selected-card path.
      */
     fun selectIndex(index: Int) {
         if (orderedKeys.isEmpty()) return

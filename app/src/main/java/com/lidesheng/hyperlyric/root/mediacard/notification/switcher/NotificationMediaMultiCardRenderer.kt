@@ -231,9 +231,9 @@ internal class NotificationMediaMultiCardRenderer(
     }
 
     /**
-     * Synchronizes the page list with the coordinator snapshot. Returns true
-     * only when the multi-view container is usable; callers can then keep the
-     * old single-card bind fallback when reflection or inflation is unavailable.
+     * Synchronizes the page list with the coordinator snapshot. A false result
+     * means that the selected multi-card mode is unavailable; callers must
+     * disable the switcher instead of binding the original card as another mode.
      */
     fun sync(entries: List<Pair<String, Any>>, selectedIndex: Int): Boolean {
         originalCard ?: return false
@@ -269,7 +269,7 @@ internal class NotificationMediaMultiCardRenderer(
         } catch (error: Throwable) {
             createdCards.forEach(::destroyExtraCard)
             disableMultiView()
-            warn("创建多媒体卡片失败，回退到单卡片", error)
+            warn("创建多媒体卡片失败，多卡片视图不可用", error)
             return false
         }
 
@@ -375,8 +375,8 @@ internal class NotificationMediaMultiCardRenderer(
         val restoreParams = originalLayoutParams
         if (original != null) {
             if (restoreParams != null) {
-                // Keep the native anchor's original LayoutParams for the
-                // single-card fallback after the carousel is removed.
+                // Keep the native anchor's original LayoutParams after the
+                // carousel is removed.
                 original.player.layoutParams = restoreParams
             }
             restoreOriginalVisualState()
@@ -553,7 +553,7 @@ internal class NotificationMediaMultiCardRenderer(
                         ViewGroup.LayoutParams.WRAP_CONTENT
                     )
                 )
-            }.onFailure { warn("回退单卡片失败", it) }
+            }.onFailure { warn("恢复系统原生媒体卡片失败", it) }
         }
         restoreOriginalVisualState()
         scrollView = null

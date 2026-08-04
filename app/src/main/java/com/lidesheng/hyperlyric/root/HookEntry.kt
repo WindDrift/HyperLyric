@@ -212,7 +212,14 @@ class HookEntry : XposedModule() {
             IslandExpandedMediaLayoutHooker.hook(this, param.defaultClassLoader)
             NotificationMediaAmbientFlowHooker.hook(this, param.defaultClassLoader)
             NotificationMediaCoverStyleHooker.hook(this, param.defaultClassLoader)
-            NotificationMediaSingleCardSwitcherHooker.hook(this, param.defaultClassLoader)
+            if (MediaCardRuntimeConfig.current.notification.cardSwitcherEnabled) {
+                NotificationMediaSingleCardSwitcherHooker.hook(this, param.defaultClassLoader)
+            } else {
+                HookLogger.i(
+                    "HookEntry",
+                    "通知中心多媒体卡片切换功能未启用，跳过媒体卡片切换 Hook"
+                )
+            }
             try {
                 UnlockIslandWhitelist.hook(this, param.defaultClassLoader)
             } catch (e: Exception) {

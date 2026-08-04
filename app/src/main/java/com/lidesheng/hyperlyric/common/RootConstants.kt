@@ -21,6 +21,10 @@ object RootConstants {
     const val KEY_HOOK_ISLAND_BEHAVIOR_AFTER_PAUSE = "key_hook_island_behavior_after_pause"
     const val KEY_HOOK_NOTIFICATION_MEDIA_AMBIENT_FLOW_MODE =
         "key_hook_notification_media_ambient_flow_mode"
+    const val KEY_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_ENABLED =
+        "key_hook_notification_media_card_switcher_enabled"
+    const val KEY_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_MODE =
+        "key_hook_notification_media_card_switcher_mode"
     const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_AMBIENT_FLOW_MODE =
         "key_hook_island_expanded_media_ambient_flow_mode"
     const val KEY_HOOK_ISLAND_EXPANDED_MEDIA_LAYOUT_STYLE =
@@ -243,6 +247,11 @@ object RootConstants {
     const val NOTIFICATION_MEDIA_AMBIENT_FLOW_MODE_CUSTOM_FULL = 3
     const val DEFAULT_HOOK_NOTIFICATION_MEDIA_AMBIENT_FLOW_MODE =
         NOTIFICATION_MEDIA_AMBIENT_FLOW_MODE_DISABLED
+    const val DEFAULT_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_ENABLED = false
+    const val NOTIFICATION_MEDIA_CARD_SWITCHER_MODE_SINGLE = 0
+    const val NOTIFICATION_MEDIA_CARD_SWITCHER_MODE_MULTI = 1
+    const val DEFAULT_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_MODE =
+        NOTIFICATION_MEDIA_CARD_SWITCHER_MODE_MULTI
     const val ISLAND_EXPANDED_MEDIA_AMBIENT_FLOW_MODE_DEFAULT = 0
     const val ISLAND_EXPANDED_MEDIA_AMBIENT_FLOW_MODE_DISABLED = 1
     const val ISLAND_EXPANDED_MEDIA_AMBIENT_FLOW_MODE_COVER_COLOR = 2

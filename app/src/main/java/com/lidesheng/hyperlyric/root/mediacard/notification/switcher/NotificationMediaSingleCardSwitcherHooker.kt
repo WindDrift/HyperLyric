@@ -5,6 +5,7 @@ import android.os.Looper
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
+import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.root.mediacard.MediaCardRuntimeConfig
 import com.lidesheng.hyperlyric.root.mediacard.notification.NotificationMediaHostClasses
 import com.lidesheng.hyperlyric.root.utils.HookLogger
@@ -29,9 +30,8 @@ import kotlin.math.abs
  * and creates independent native card/controller pairs for additional pages.
  *
  * The selection store still mirrors MediaSortUtils and remains independent of
- * Views. When native multi-card construction is unavailable, the same store
- * falls back to MiuiMediaViewControllerImpl.bindMediaData(MediaData) on the
- * original card.
+ * Views. Single-card mode uses MiuiMediaViewControllerImpl.bindMediaData(
+ * MediaData); multi-card mode keeps each independently bound native page.
  */
 internal object NotificationMediaSingleCardSwitcherHooker {
     private const val TAG = "NotificationMediaSingleCardSwitcher"
@@ -429,7 +429,10 @@ internal object NotificationMediaSingleCardSwitcherHooker {
     }
 
     private fun attachPlayer(state: ControllerState, holder: Any) {
-        val player = state.attach(holder) ?: return
+        val player = state.attach(holder) ?: run {
+            state.disableForFailure("原生媒体卡片 View 不可用")
+            return
+        }
         playerStates[player] = state
         state.ensureTouchHook(player)
     }
@@ -470,6 +473,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         private var touchDirectionDecided = false
         private var touchHorizontal = false
         private var touchConsumed = false
+        private var switcherUnavailable = false
 
         private val selection = NotificationMediaSelectionCoordinator(
             accessor = accessor,
@@ -573,6 +577,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         }
 
         private fun completeNativeAttach(currentPlayer: View, holder: Any) {
+            if (switcherUnavailable) return
             if (!multiCardRenderer.attachOriginal(currentPlayer, holder)) {
                 if (!nativeAttachRetryScheduled &&
                     nativeAttachRetryCount < MAX_NATIVE_ATTACH_RETRIES
@@ -586,7 +591,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
                         }
                     }
                 } else if (!nativeAttachRetryScheduled) {
-                    HookLogger.w(TAG, "原生媒体卡片未在重试窗口内挂载，跳过多卡片容器")
+                    disableForFailure("原生媒体卡片未在重试窗口内挂载")
                 }
                 return
             }
@@ -600,6 +605,16 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             syncMultiCards()
             originalParent?.let(pageIndicator::attachTo)
             updatePageIndicator()
+        }
+
+        fun disableForFailure(reason: String, error: Throwable? = null) {
+            if (switcherUnavailable) return
+            switcherUnavailable = true
+            resetTouch(player?.get())
+            multiCardRenderer.detach()
+            pageIndicator.detach()
+            mediaHeader?.get()?.let(headerStates::remove)
+            HookLogger.w(TAG, "媒体卡片切换功能已停用：$reason", error)
         }
 
         fun ensureTouchHook(currentPlayer: View) {
@@ -618,6 +633,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             currentPlayer?.let(::unregisterPlayer)
             player = null
             seekBar = null
+            switcherUnavailable = false
             runOnMain { selection.onDetached() }
         }
 
@@ -631,7 +647,9 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             event: MotionEvent,
             chain: Chain
         ): Any? {
-            if (!MediaCardRuntimeConfig.current.enabled || selection.size < 2) {
+            if (!isSwitcherUsable() ||
+                selection.size < 2
+            ) {
                 nativeGestureBlocker.release(view)
                 if (event.actionMasked == MotionEvent.ACTION_UP ||
                     event.actionMasked == MotionEvent.ACTION_CANCEL
@@ -693,8 +711,8 @@ internal object NotificationMediaSingleCardSwitcherHooker {
 
                     // Once the native multi-card container is active, the
                     // PageScrollView owns this gesture. This player-level
-                    // threshold is retained only for the single-card
-                    // fallback when the native carousel could not be built.
+                    // threshold is used only for the explicitly selected
+                    // single-card mode.
                     if (multiCardRenderer.isActive) return chain.proceed()
 
                     val cancel = MotionEvent.obtain(event)
@@ -741,7 +759,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         }
 
         private fun bindSelected(data: Any) {
-            if (!MediaCardRuntimeConfig.current.enabled) return
+            if (!isSwitcherUsable()) return
             // The renderer already owns the viewport when it is active. The
             // gesture-release path performs the one continuous snap; calling
             // showSelected here as well races that animation and can make the
@@ -756,6 +774,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
                 bindMethod.invoke(target, data)
             } catch (error: Throwable) {
                 HookLogger.e(TAG, "调用原生 bindMediaData 切换媒体失败", error)
+                disableForFailure("单卡片视图绑定媒体失败", error)
             } finally {
                 synchronized(bindLock) {
                     bindingSelected = false
@@ -766,7 +785,21 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         private val pageIndicator = NotificationMediaPageIndicator()
 
         private fun syncMultiCards() {
-            multiCardRenderer.sync(selection.snapshot(), selection.selectedIndex)
+            if (!isSwitcherUsable()) return
+            if (MediaCardRuntimeConfig.current.notification.cardSwitcherMode ==
+                RootConstants.NOTIFICATION_MEDIA_CARD_SWITCHER_MODE_MULTI
+            ) {
+                val entries = selection.snapshot()
+                val synced = multiCardRenderer.sync(entries, selection.selectedIndex)
+                if (!synced && entries.size >= 2) {
+                    disableForFailure("多卡片视图创建失败")
+                }
+            }
+        }
+
+        private fun isSwitcherUsable(): Boolean {
+            return MediaCardRuntimeConfig.current.notification.cardSwitcherEnabled &&
+                !switcherUnavailable
         }
 
         private fun onRendererPageSelected(index: Int) {
@@ -781,7 +814,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
                 pageIndicator.updateLocation(
                     pageCount = selection.size,
                     location = location,
-                    enabled = MediaCardRuntimeConfig.current.enabled
+                    enabled = isSwitcherUsable()
                 )
             }
             if (Looper.myLooper() == Looper.getMainLooper()) update() else mainHandler.post(update)
@@ -816,7 +849,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             pageIndicator.update(
                 pageCount = selection.size,
                 selectedIndex = selection.selectedIndex,
-                enabled = MediaCardRuntimeConfig.current.enabled
+                enabled = isSwitcherUsable()
             )
         }
 

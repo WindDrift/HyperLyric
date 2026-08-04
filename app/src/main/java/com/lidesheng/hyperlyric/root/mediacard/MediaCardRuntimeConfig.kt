@@ -57,6 +57,8 @@ internal object MediaCardRuntimeConfig {
     }
 
     data class Notification(
+        val cardSwitcherEnabled: Boolean,
+        val cardSwitcherMode: Int,
         val layoutStyle: Int,
         val ambientFlowMode: Int,
         val cardTheme: Int,
@@ -80,6 +82,10 @@ internal object MediaCardRuntimeConfig {
     ) {
         companion object {
             fun defaults() = Notification(
+                cardSwitcherEnabled =
+                    RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_ENABLED,
+                cardSwitcherMode =
+                    RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_MODE,
                 layoutStyle = RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_LAYOUT_STYLE,
                 ambientFlowMode = RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_AMBIENT_FLOW_MODE,
                 cardTheme = RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_CARD_THEME,
@@ -110,6 +116,17 @@ internal object MediaCardRuntimeConfig {
             )
 
             fun from(prefs: SharedPreferences) = Notification(
+                cardSwitcherEnabled = prefs.getBoolean(
+                    RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_ENABLED,
+                    RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_ENABLED
+                ),
+                cardSwitcherMode = prefs.getInt(
+                    RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_MODE,
+                    RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_MODE
+                ).coerceIn(
+                    RootConstants.NOTIFICATION_MEDIA_CARD_SWITCHER_MODE_SINGLE,
+                    RootConstants.NOTIFICATION_MEDIA_CARD_SWITCHER_MODE_MULTI
+                ),
                 layoutStyle = prefs.getInt(
                     RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_LAYOUT_STYLE,
                     RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_LAYOUT_STYLE
