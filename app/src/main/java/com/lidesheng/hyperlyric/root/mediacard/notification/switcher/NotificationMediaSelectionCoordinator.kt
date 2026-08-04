@@ -23,10 +23,10 @@ internal interface NotificationMediaDataAccessor {
 /**
  * Owns the multi-session list and the currently selected item.
  *
- * This class deliberately knows nothing about Views or Xposed. The current
- * renderer is a single native card and calls [bindSelected] when the selected
- * entry changes. A future multi-panel renderer can reuse the same store and
- * replace only that callback.
+ * This class deliberately knows nothing about Views or Xposed. The renderer
+ * calls [bindSelected] when the selected entry changes; a single-card fallback
+ * can bind the original controller, while a multi-card renderer can only move
+ * its viewport and keep each native controller independently bound.
  */
 internal class NotificationMediaSelectionCoordinator(
     private val accessor: NotificationMediaDataAccessor,
@@ -58,6 +58,18 @@ internal class NotificationMediaSelectionCoordinator(
      */
     val selectedIndex: Int
         get() = selectedKey?.let(orderedKeys::indexOf)?.takeIf { it >= 0 } ?: -1
+
+    /**
+     * Returns the current native sort order together with the latest data
+     * object for every active session. The View renderer uses this snapshot to
+     * create or update one native card per session without owning selection
+     * state itself.
+     */
+    fun snapshot(): List<Pair<String, Any>> {
+        return orderedKeys.mapNotNull { key ->
+            entries[key]?.let { key to it.data }
+        }
+    }
 
     fun seed(initialEntries: List<Pair<String, Any>>) {
         entries.clear()
@@ -138,7 +150,19 @@ internal class NotificationMediaSelectionCoordinator(
             return
         }
 
+        // Playing a secondary session can reorder MediaSortUtils and bind it
+        // as native top without producing a new MediaData object. The native
+        // bind is therefore also a list-order signal; otherwise selected B
+        // remains at its old index behind A.
+        reorder()
         val key = accessor.notificationKey(data)
+        if (key != null && key in entries) {
+            // During the same pipeline turn MediaSortUtils can still expose
+            // its old list while topMediaData already identifies B. The
+            // actual native bind is the stronger signal for the first page.
+            orderedKeys.remove(key)
+            orderedKeys.add(0, key)
+        }
         if (!selectedByUser || selectedKey == null || selectedKey !in entries) {
             selectedKey = key ?: orderedKeys.firstOrNull()
             selectedToken = accessor.sessionToken(data)

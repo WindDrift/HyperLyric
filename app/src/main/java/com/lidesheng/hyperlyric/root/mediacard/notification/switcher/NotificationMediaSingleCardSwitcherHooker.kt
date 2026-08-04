@@ -24,19 +24,21 @@ import java.util.WeakHashMap
 import kotlin.math.abs
 
 /**
- * Restores MIUI 14-style multi-session selection while retaining the HyperOS 3
- * single native media card.
+ * Restores MIUI 14-style multi-session selection while retaining HyperOS 3's
+ * native card implementation. The renderer keeps the stock card as page zero
+ * and creates independent native card/controller pairs for additional pages.
  *
- * The hook intentionally does not create a second card or replace the native
- * layout. It mirrors MediaSortUtils into a small selection store and reuses
- * MiuiMediaViewControllerImpl.bindMediaData(MediaData) after a horizontal
- * swipe.
+ * The selection store still mirrors MediaSortUtils and remains independent of
+ * Views. When native multi-card construction is unavailable, the same store
+ * falls back to MiuiMediaViewControllerImpl.bindMediaData(MediaData) on the
+ * original card.
  */
 internal object NotificationMediaSingleCardSwitcherHooker {
     private const val TAG = "NotificationMediaSingleCardSwitcher"
     private const val MIN_SWITCH_DISTANCE_DP = 48f
     private const val SWITCH_DISTANCE_FRACTION = 0.15f
     private const val DIRECTION_LOCK_RATIO = 1.2f
+    private const val MAX_NATIVE_ATTACH_RETRIES = 8
     private const val MEDIA_DATA_MANAGER =
         "com.android.systemui.media.controls.domain.pipeline.MediaDataManager"
     private const val MEDIA_DATA_MANAGER_LISTENER =
@@ -50,6 +52,9 @@ internal object NotificationMediaSingleCardSwitcherHooker {
     )
     private val viewStates = Collections.synchronizedMap(
         WeakHashMap<Any, ControllerState>()
+    )
+    private val headerStates = Collections.synchronizedMap(
+        WeakHashMap<View, ControllerState>()
     )
     private val playerStates = Collections.synchronizedMap(
         WeakHashMap<View, ControllerState>()
@@ -76,6 +81,19 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         val bind = findMethod(viewControllerClass, "bindMediaData") {
             it.parameterCount == 1
         }
+        val headerClass = loadClass(classLoader, NotificationMediaHostClasses.MEDIA_HEADER_VIEW)
+        val headerSetTranslation = headerClass?.let {
+            findMethod(it, "setTranslation") {
+                it.parameterCount == 1 &&
+                    it.parameterTypes[0] == Float::class.javaPrimitiveType
+            }
+        }
+        val headerGetTranslation = headerClass?.let {
+            findMethod(it, "getTranslation") {
+                it.parameterCount == 0 &&
+                    it.returnType == Float::class.javaPrimitiveType
+            }
+        }
         var installed = 0
 
         layoutClass.declaredConstructors.forEach { constructor ->
@@ -89,6 +107,12 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         }
         bind?.let {
             if (install(xposedModule, it, ViewControllerHook(Action.BIND))) installed++
+        }
+        headerSetTranslation?.let {
+            if (install(xposedModule, it, HeaderTranslationHook(getter = false))) installed++
+        }
+        headerGetTranslation?.let {
+            if (install(xposedModule, it, HeaderTranslationHook(getter = true))) installed++
         }
 
         if (installed == 0 || attach == null || detach == null || bind == null) {
@@ -385,6 +409,25 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         }
     }
 
+    private class HeaderTranslationHook(
+        private val getter: Boolean
+    ) : Hooker {
+        override fun intercept(chain: Chain): Any? {
+            val header = chain.thisObject as? View
+            val state = header?.let { headerStates[it] }
+            val result = chain.proceed()
+            if (state == null) return result
+
+            if (getter) {
+                return state.headerTranslation() ?: result
+            }
+
+            val translation = chain.args.firstOrNull() as? Float ?: return result
+            state.setHeaderTranslation(translation)
+            return result
+        }
+    }
+
     private fun attachPlayer(state: ControllerState, holder: Any) {
         val player = state.attach(holder) ?: return
         playerStates[player] = state
@@ -392,7 +435,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
     }
 
     private fun removePlayer(state: ControllerState) {
-        state.player?.get()?.let { playerStates.remove(it) }
+        state.player?.get()?.let(state::unregisterPlayer)
     }
 
     private class ControllerState(
@@ -409,12 +452,16 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         private val mainHandler = Handler(Looper.getMainLooper())
         private val bindLock = Any()
         private var bindingSelected = false
+        private val seekBars = Collections.synchronizedMap(WeakHashMap<View, View>())
 
         var listenerProxy: Any? = null
         var player: WeakReference<View>? = null
             private set
 
         private var seekBar: WeakReference<View>? = null
+        private var mediaHeader: WeakReference<View>? = null
+        private var nativeAttachRetryScheduled = false
+        private var nativeAttachRetryCount = 0
         private var touchDownX = 0f
         private var touchDownY = 0f
         private var touchSlop = 0
@@ -423,13 +470,28 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         private var touchDirectionDecided = false
         private var touchHorizontal = false
         private var touchConsumed = false
-        private var parentInterceptDisallowed = false
 
         private val selection = NotificationMediaSelectionCoordinator(
             accessor = accessor,
             nativeOrder = ::nativeOrder,
             nativeTopKey = ::nativeTopKey,
             bindSelected = ::bindSelected
+        )
+
+        private val multiCardRenderer = NotificationMediaMultiCardRenderer(
+            layoutController = layoutController,
+            templateController = viewController,
+            nativeTopKey = ::nativeTopKey,
+            onPlayerAttached = ::registerAdditionalPlayer,
+            onPlayerDetached = ::unregisterPlayer,
+            onPageSelected = ::onRendererPageSelected,
+            onPageScrolled = ::onRendererPageScrolled,
+            shouldIgnoreScrollTouch = ::isAnySeekBarTouch
+        )
+
+        private val nativeGestureBlocker = NotificationMediaNativeGestureBlocker(
+            isCarouselActive = { multiCardRenderer.isActive },
+            headerParent = { mediaHeader?.get()?.parent }
         )
 
         fun seedFromNativeSort() {
@@ -472,6 +534,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         fun onMediaDataLoaded(key: String, oldKey: String?, data: Any) {
             runOnMain {
                 selection.onMediaDataLoaded(key, oldKey, data)
+                syncMultiCards()
                 updatePageIndicator()
             }
         }
@@ -479,6 +542,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         fun onMediaDataRemoved(key: String) {
             runOnMain {
                 selection.onMediaDataRemoved(key)
+                syncMultiCards()
                 updatePageIndicator()
             }
         }
@@ -486,6 +550,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         fun onNativeBind(data: Any?) {
             runOnMain {
                 selection.onNativeBind(data)
+                syncMultiCards()
                 updatePageIndicator()
             }
         }
@@ -502,9 +567,39 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             ) as? View)?.let(::WeakReference)
             touchSlop = ViewConfiguration.get(currentPlayer.context).scaledTouchSlop
             resetTouch(currentPlayer)
-            pageIndicator.attach(currentPlayer)
-            updatePageIndicator()
+            registerSeekBar(currentPlayer, holder)
+            completeNativeAttach(currentPlayer, holder)
             return currentPlayer
+        }
+
+        private fun completeNativeAttach(currentPlayer: View, holder: Any) {
+            if (!multiCardRenderer.attachOriginal(currentPlayer, holder)) {
+                if (!nativeAttachRetryScheduled &&
+                    nativeAttachRetryCount < MAX_NATIVE_ATTACH_RETRIES
+                ) {
+                    nativeAttachRetryCount++
+                    nativeAttachRetryScheduled = true
+                    currentPlayer.post {
+                        nativeAttachRetryScheduled = false
+                        if (player?.get() === currentPlayer) {
+                            completeNativeAttach(currentPlayer, holder)
+                        }
+                    }
+                } else if (!nativeAttachRetryScheduled) {
+                    HookLogger.w(TAG, "原生媒体卡片未在重试窗口内挂载，跳过多卡片容器")
+                }
+                return
+            }
+
+            nativeAttachRetryCount = 0
+            val originalParent = currentPlayer.parent as? android.view.ViewGroup
+            originalParent?.let {
+                mediaHeader = WeakReference(it)
+                headerStates[it] = this
+            }
+            syncMultiCards()
+            originalParent?.let(pageIndicator::attachTo)
+            updatePageIndicator()
         }
 
         fun ensureTouchHook(currentPlayer: View) {
@@ -514,10 +609,21 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         fun onDetached() {
             val currentPlayer = player?.get()
             resetTouch(currentPlayer)
+            multiCardRenderer.detach()
             pageIndicator.detach()
+            mediaHeader?.get()?.let(headerStates::remove)
+            mediaHeader = null
+            nativeAttachRetryScheduled = false
+            nativeAttachRetryCount = 0
+            currentPlayer?.let(::unregisterPlayer)
             player = null
             seekBar = null
             runOnMain { selection.onDetached() }
+        }
+
+        fun unregisterPlayer(currentPlayer: View) {
+            playerStates.remove(currentPlayer)
+            seekBars.remove(currentPlayer)
         }
 
         fun dispatchTouchEvent(
@@ -526,7 +632,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             chain: Chain
         ): Any? {
             if (!MediaCardRuntimeConfig.current.enabled || selection.size < 2) {
-                releaseParentIntercept(view)
+                nativeGestureBlocker.release(view)
                 if (event.actionMasked == MotionEvent.ACTION_UP ||
                     event.actionMasked == MotionEvent.ACTION_CANCEL
                 ) {
@@ -541,8 +647,13 @@ internal object NotificationMediaSingleCardSwitcherHooker {
                     touchDownX = event.x
                     touchDownY = event.y
                     touchThreshold = calculateSwitchThreshold(view)
-                    touchIgnored = isSeekBarTouch(event)
-                    disallowParentIntercept(view)
+                    touchIgnored = isSeekBarTouch(view, event)
+                    // A seek bar belongs to the card and must keep the
+                    // HorizontalScrollView from stealing its drag. In the
+                    // active multi-card mode, block the outer notification
+                    // swipe helper from DOWN so it cannot win the same MOVE
+                    // event before the inner PageScrollView sees it.
+                    nativeGestureBlocker.onDown(view, touchIgnored)
                     return chain.proceed()
                 }
 
@@ -562,12 +673,13 @@ internal object NotificationMediaSingleCardSwitcherHooker {
                             absDx > absDy * DIRECTION_LOCK_RATIO -> {
                                 touchDirectionDecided = true
                                 touchHorizontal = true
+                                nativeGestureBlocker.onHorizontal(view, touchIgnored)
                             }
 
                             absDy > absDx * DIRECTION_LOCK_RATIO -> {
                                 touchDirectionDecided = true
                                 touchHorizontal = false
-                                releaseParentIntercept(view)
+                                nativeGestureBlocker.onVertical(view)
                                 return chain.proceed()
                             }
 
@@ -578,6 +690,12 @@ internal object NotificationMediaSingleCardSwitcherHooker {
                     if (!touchHorizontal || absDx < touchThreshold) {
                         return chain.proceed()
                     }
+
+                    // Once the native multi-card container is active, the
+                    // PageScrollView owns this gesture. This player-level
+                    // threshold is retained only for the single-card
+                    // fallback when the native carousel could not be built.
+                    if (multiCardRenderer.isActive) return chain.proceed()
 
                     val cancel = MotionEvent.obtain(event)
                     cancel.action = MotionEvent.ACTION_CANCEL
@@ -597,6 +715,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
                     }
                     runOnMain {
                         selection.selectRelative(step)
+                        syncMultiCards()
                         updatePageIndicator()
                     }
                     return true
@@ -608,7 +727,14 @@ internal object NotificationMediaSingleCardSwitcherHooker {
                         resetTouch(view)
                         return true
                     }
-                    resetTouch(view)
+                    // A HorizontalScrollView sends ACTION_CANCEL to the
+                    // player when it takes over a horizontal gesture. It has
+                    // already re-asserted the parent disallow flag before
+                    // doing so; releasing it here would hand the remainder
+                    // of the same swipe back to MiuiNotificationSwipeHelper.
+                    val keepCarouselLock = event.actionMasked == MotionEvent.ACTION_CANCEL &&
+                        touchHorizontal && multiCardRenderer.isActive
+                    resetTouch(view, releaseParent = !keepCarouselLock)
                 }
             }
             return chain.proceed()
@@ -616,6 +742,11 @@ internal object NotificationMediaSingleCardSwitcherHooker {
 
         private fun bindSelected(data: Any) {
             if (!MediaCardRuntimeConfig.current.enabled) return
+            // The renderer already owns the viewport when it is active. The
+            // gesture-release path performs the one continuous snap; calling
+            // showSelected here as well races that animation and can make the
+            // page appear to flash into place.
+            if (multiCardRenderer.isActive) return
             val target = viewControllerRef.get() ?: return
             synchronized(bindLock) {
                 if (bindingSelected) return
@@ -633,6 +764,53 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         }
 
         private val pageIndicator = NotificationMediaPageIndicator()
+
+        private fun syncMultiCards() {
+            multiCardRenderer.sync(selection.snapshot(), selection.selectedIndex)
+        }
+
+        private fun onRendererPageSelected(index: Int) {
+            runOnMain {
+                if (selection.size < 2) return@runOnMain
+                selection.selectIndex(index)
+            }
+        }
+
+        private fun onRendererPageScrolled(location: Float) {
+            val update = {
+                pageIndicator.updateLocation(
+                    pageCount = selection.size,
+                    location = location,
+                    enabled = MediaCardRuntimeConfig.current.enabled
+                )
+            }
+            if (Looper.myLooper() == Looper.getMainLooper()) update() else mainHandler.post(update)
+        }
+
+        fun setHeaderTranslation(translation: Float) {
+            multiCardRenderer.setHeaderTranslation(translation)
+            pageIndicator.setTranslationX(translation)
+        }
+
+        fun headerTranslation(): Float? = multiCardRenderer.headerTranslation()
+
+        private fun registerAdditionalPlayer(currentPlayer: View, holder: Any) {
+            playerStates[currentPlayer] = this
+            registerSeekBar(currentPlayer, holder)
+            ensureTouchHookForState(currentPlayer)
+        }
+
+        private fun registerSeekBar(currentPlayer: View, holder: Any) {
+            (NotificationMediaSingleCardSwitcherHooker.readField(
+                holder,
+                "seekBar"
+            ) as? View)?.let { seekBars[currentPlayer] = it }
+        }
+
+        private fun isAnySeekBarTouch(event: MotionEvent): Boolean {
+            val players = synchronized(seekBars) { seekBars.keys.toList() }
+            return players.any { isSeekBarTouch(it, event) }
+        }
 
         private fun updatePageIndicator() {
             pageIndicator.update(
@@ -659,8 +837,8 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             return accessor.notificationKey(data)
         }
 
-        private fun isSeekBarTouch(event: MotionEvent): Boolean {
-            val view = seekBar?.get() ?: return false
+        private fun isSeekBarTouch(currentPlayer: View, event: MotionEvent): Boolean {
+            val view = seekBars[currentPlayer] ?: seekBar?.get() ?: return false
             if (!view.isShown || view.width <= 0 || view.height <= 0) return false
             val location = IntArray(2)
             view.getLocationOnScreen(location)
@@ -679,29 +857,8 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             )
         }
 
-        private fun disallowParentIntercept(view: View) {
-            if (parentInterceptDisallowed) return
-            val parent = view.parent ?: return
-            runCatching {
-                parent.requestDisallowInterceptTouchEvent(true)
-                parentInterceptDisallowed = true
-            }.onFailure { error ->
-                HookLogger.w(TAG, "禁止原生媒体卡片父容器拦截触摸失败", error)
-            }
-        }
-
-        private fun releaseParentIntercept(view: View) {
-            if (!parentInterceptDisallowed) return
-            runCatching {
-                view.parent?.requestDisallowInterceptTouchEvent(false)
-            }.onFailure { error ->
-                HookLogger.w(TAG, "恢复原生媒体卡片父容器拦截失败", error)
-            }
-            parentInterceptDisallowed = false
-        }
-
-        private fun resetTouch(view: View? = null) {
-            if (view != null) releaseParentIntercept(view)
+        private fun resetTouch(view: View? = null, releaseParent: Boolean = true) {
+            if (view != null) nativeGestureBlocker.reset(view, releaseParent)
             touchDownX = 0f
             touchDownY = 0f
             touchThreshold = 0f

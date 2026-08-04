@@ -29,6 +29,7 @@ internal class NotificationMediaPageIndicator {
     private var indicator: View? = null
     private var setNumPages: Method? = null
     private var setLocation: Method? = null
+    private var configuredPageCount = -1
 
     fun attach(player: View) {
         val parent = player.parent as? ViewGroup ?: run {
@@ -40,6 +41,10 @@ internal class NotificationMediaPageIndicator {
             }
             return
         }
+        attachTo(parent)
+    }
+
+    fun attachTo(parent: ViewGroup) {
         if (indicator?.parent === parent) return
 
         val frameParent = parent as? FrameLayout ?: run {
@@ -48,8 +53,8 @@ internal class NotificationMediaPageIndicator {
         }
         detach()
 
-        val nativeIndicator = createNativeIndicator(player) ?: return
-        val density = player.resources.displayMetrics.density
+        val nativeIndicator = createNativeIndicator(frameParent) ?: return
+        val density = frameParent.resources.displayMetrics.density
         val layoutParams = FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
@@ -72,22 +77,45 @@ internal class NotificationMediaPageIndicator {
     }
 
     fun update(pageCount: Int, selectedIndex: Int, enabled: Boolean) {
+        updateLocation(
+            pageCount = pageCount,
+            location = selectedIndex.toFloat(),
+            enabled = enabled
+        )
+    }
+
+    /**
+     * MIUI14 updates PageIndicator with a fractional location while the
+     * MediaScrollView is being dragged. Keeping this separate from the
+     * coordinator's integer selectedIndex makes the indicator follow the
+     * neighboring native card during a real carousel gesture.
+     */
+    fun updateLocation(pageCount: Int, location: Float, enabled: Boolean) {
         val view = indicator ?: return
         val count = pageCount.coerceAtLeast(0)
         if (!enabled || count <= 1) {
-            invokeNumPages(view, 0)
+            if (configuredPageCount != 0) {
+                invokeNumPages(view, 0)
+                configuredPageCount = 0
+            }
             view.visibility = View.GONE
             return
         }
 
-        val index = selectedIndex.coerceIn(0, count - 1)
-        if (!invokeNumPages(view, count)) return
+        if (configuredPageCount != count) {
+            if (!invokeNumPages(view, count)) return
+            configuredPageCount = count
+        }
         view.visibility = View.VISIBLE
         runCatching {
-            setLocation?.invoke(view, index.toFloat())
+            setLocation?.invoke(view, location.coerceIn(0f, (count - 1).toFloat()))
         }.onFailure { error ->
             warnOnce("更新媒体圆点位置失败", error)
         }
+    }
+
+    fun setTranslationX(translation: Float) {
+        indicator?.translationX = translation
     }
 
     fun detach() {
@@ -100,6 +128,7 @@ internal class NotificationMediaPageIndicator {
         indicator = null
         setNumPages = null
         setLocation = null
+        configuredPageCount = -1
     }
 
     private fun createNativeIndicator(player: View): View? {
