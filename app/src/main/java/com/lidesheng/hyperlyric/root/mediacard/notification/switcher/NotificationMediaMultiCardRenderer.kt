@@ -19,6 +19,17 @@ import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToInt
 
+internal enum class NotificationMediaMultiCardSyncResult {
+    /** The native player has not been attached yet; retry after attach. */
+    NOT_READY,
+
+    /** The snapshot was applied, including the one-card/empty cleanup path. */
+    SUCCESS,
+
+    /** The native carousel is attached but the requested page set failed. */
+    FAILED
+}
+
 /**
  * Renders one native HyperOS notification-media card per MediaData entry.
  *
@@ -261,17 +272,22 @@ internal class NotificationMediaMultiCardRenderer(
     }
 
     /**
-     * Synchronizes the page list with the coordinator snapshot. A false result
-     * means that the selected multi-card mode is unavailable; callers must
-     * disable the switcher instead of binding the original card as another mode.
+     * Synchronizes the page list with the coordinator snapshot. Not-ready is a
+     * lifecycle state, not a creation failure: MediaData callbacks can arrive
+     * before the native player has been attached to its header.
      */
-    fun sync(entries: List<Pair<String, Any>>, selectedIndex: Int): Boolean {
-        originalCard ?: return false
+    fun sync(
+        entries: List<Pair<String, Any>>,
+        selectedIndex: Int
+    ): NotificationMediaMultiCardSyncResult {
+        originalCard ?: return NotificationMediaMultiCardSyncResult.NOT_READY
         if (entries.size < 2) {
             if (isActive) disableMultiView()
-            return false
+            return NotificationMediaMultiCardSyncResult.SUCCESS
         }
-        if (!isActive && !ensureContainer()) return false
+        if (!isActive && !ensureContainer()) {
+            return NotificationMediaMultiCardSyncResult.FAILED
+        }
 
         val oldCards = cards.values.toList()
         val oldOrder = oldCards.map { it.key }
@@ -300,7 +316,7 @@ internal class NotificationMediaMultiCardRenderer(
             createdCards.forEach(::destroyExtraCard)
             disableMultiView()
             warn("创建多媒体卡片失败，多卡片视图不可用", error)
-            return false
+            return NotificationMediaMultiCardSyncResult.FAILED
         }
 
         oldCards.filter { old -> old !in nextCards.values }
@@ -331,7 +347,7 @@ internal class NotificationMediaMultiCardRenderer(
             updatePageWidths()
             onScrollPositionChanged(scrollView?.scrollX ?: 0)
         }
-        return true
+        return NotificationMediaMultiCardSyncResult.SUCCESS
     }
 
     private data class VisualAnchor(

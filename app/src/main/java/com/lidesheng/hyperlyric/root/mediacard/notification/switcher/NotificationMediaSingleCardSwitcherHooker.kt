@@ -11,6 +11,7 @@ import com.lidesheng.hyperlyric.root.mediacard.notification.NotificationMediaHos
 import com.lidesheng.hyperlyric.root.mediacard.notification.style.NotificationMediaForegroundStyler
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import io.github.libxposed.api.XposedInterface.Chain
+import io.github.libxposed.api.XposedInterface.HookHandle
 import io.github.libxposed.api.XposedInterface.Hooker
 import io.github.libxposed.api.XposedModule
 import java.lang.ref.WeakReference
@@ -64,7 +65,6 @@ internal object NotificationMediaSingleCardSwitcherHooker {
 
     fun hook(xposedModule: XposedModule, classLoader: ClassLoader) {
         if (!hookedClassLoaders.add(classLoader)) return
-        moduleForTouchHook = xposedModule
 
         val layoutClass = loadClass(classLoader, NotificationMediaHostClasses.LAYOUT_CONTROLLER)
         val viewControllerClass = loadClass(
@@ -76,10 +76,6 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             HookLogger.w(TAG, "跳过单卡片横滑 Hook: HyperOS 3 媒体类不可用")
             return
         }
-        NotificationMediaForegroundStyler.addAppliedListener(
-            ::onForegroundColorsApplied
-        )
-
         val attach = findMethod(viewControllerClass, "attach") { it.parameterCount == 1 }
         val detach = findMethod(viewControllerClass, "detach") { it.parameterCount == 0 }
         val bind = findMethod(viewControllerClass, "bindMediaData") {
@@ -98,36 +94,78 @@ internal object NotificationMediaSingleCardSwitcherHooker {
                     it.returnType == Float::class.javaPrimitiveType
             }
         }
-        var installed = 0
+        val installedHandles = mutableListOf<HookHandle>()
+        var installed = false
+        try {
+            if (attach == null || detach == null || bind == null) {
+                error(
+                    "required methods unavailable: attach=${attach != null}, " +
+                        "detach=${detach != null}, bind=${bind != null}"
+                )
+            }
 
-        layoutClass.declaredConstructors.forEach { constructor ->
-            if (install(xposedModule, constructor, LayoutConstructorHook())) installed++
-        }
-        attach?.let {
-            if (install(xposedModule, it, ViewControllerHook(Action.ATTACH))) installed++
-        }
-        detach?.let {
-            if (install(xposedModule, it, ViewControllerHook(Action.DETACH))) installed++
-        }
-        bind?.let {
-            if (install(xposedModule, it, ViewControllerHook(Action.BIND))) installed++
-        }
-        headerSetTranslation?.let {
-            if (install(xposedModule, it, HeaderTranslationHook(getter = false))) installed++
-        }
-        headerGetTranslation?.let {
-            if (install(xposedModule, it, HeaderTranslationHook(getter = true))) installed++
+            val constructors = layoutClass.declaredConstructors
+            if (constructors.isEmpty()) error("layout controller has no constructor")
+            constructors.forEach { constructor ->
+                val handle = install(xposedModule, constructor, LayoutConstructorHook())
+                    ?: error("constructor hook failed: ${constructor.name}")
+                installedHandles += handle
+            }
+
+            val attachHandle = install(
+                xposedModule,
+                attach,
+                ViewControllerHook(Action.ATTACH)
+            ) ?: error("attach hook failed")
+            installedHandles += attachHandle
+            val detachHandle = install(
+                xposedModule,
+                detach,
+                ViewControllerHook(Action.DETACH)
+            ) ?: error("detach hook failed")
+            installedHandles += detachHandle
+            val bindHandle = install(
+                xposedModule,
+                bind,
+                ViewControllerHook(Action.BIND)
+            ) ?: error("bind hook failed")
+            installedHandles += bindHandle
+
+            headerSetTranslation?.let {
+                val handle = install(
+                    xposedModule,
+                    it,
+                    HeaderTranslationHook(getter = false)
+                ) ?: error("header setTranslation hook failed")
+                installedHandles += handle
+            }
+            headerGetTranslation?.let {
+                val handle = install(
+                    xposedModule,
+                    it,
+                    HeaderTranslationHook(getter = true)
+                ) ?: error("header getTranslation hook failed")
+                installedHandles += handle
+            }
+            installed = true
+        } catch (error: Exception) {
+            HookLogger.e(TAG, "单卡片横滑 Hook 安装失败，准备回滚", error)
+        } finally {
+            if (!installed) {
+                rollbackHooks(installedHandles)
+                hookedClassLoaders.remove(classLoader)
+            }
         }
 
-        if (installed == 0 || attach == null || detach == null || bind == null) {
-            hookedClassLoaders.remove(classLoader)
-            HookLogger.w(
-                TAG,
-                "单卡片横滑 Hook 安装不完整: installed=$installed, " +
-                    "attach=${attach != null}, detach=${detach != null}, bind=${bind != null}"
+        if (installed) {
+            moduleForTouchHook = xposedModule
+            NotificationMediaForegroundStyler.addAppliedListener(
+                ::onForegroundColorsApplied
             )
-        } else {
-            HookLogger.i(TAG, "HyperOS 3 单卡片横滑 Hook 已初始化: methods=$installed")
+            HookLogger.i(
+                TAG,
+                "HyperOS 3 单卡片横滑 Hook 已初始化: methods=${installedHandles.size}"
+            )
         }
     }
 
@@ -263,19 +301,29 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         xposedModule: XposedModule,
         executable: Executable,
         hooker: Hooker
-    ): Boolean {
-        return runCatching {
+    ): HookHandle? {
+        return try {
             executable.isAccessible = true
             xposedModule.deoptimize(executable)
             xposedModule.hook(executable).intercept(hooker)
-            true
-        }.onFailure { error ->
+        } catch (error: Exception) {
             HookLogger.e(
                 TAG,
                 "安装单卡片横滑方法失败: ${executable.declaringClass.name}.${executable.name}",
                 error
             )
-        }.getOrDefault(false)
+            null
+        }
+    }
+
+    private fun rollbackHooks(handles: List<HookHandle>) {
+        handles.asReversed().forEach { handle ->
+            try {
+                handle.unhook()
+            } catch (error: Exception) {
+                HookLogger.e(TAG, "回滚单卡片横滑 Hook 失败", error)
+            }
+        }
     }
 
     private fun ensureTouchHook(xposedModule: XposedModule, player: View) {
@@ -287,14 +335,17 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             if (!hookedTouchMethods.add(method)) return
         }
 
-        runCatching {
+        var installed = false
+        try {
             method.isAccessible = true
             xposedModule.deoptimize(method)
             xposedModule.hook(method).intercept(DispatchTouchHook())
+            installed = true
             HookLogger.d(TAG, "已安装媒体卡片触摸分发 Hook: ${method.declaringClass.name}")
-        }.onFailure { error ->
-            hookedTouchMethods.remove(method)
+        } catch (error: Exception) {
             HookLogger.e(TAG, "安装媒体卡片触摸分发 Hook 失败", error)
+        } finally {
+            if (!installed) hookedTouchMethods.remove(method)
         }
     }
 
@@ -605,6 +656,10 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             ) as? View ?: return null
             player = WeakReference(currentPlayer)
             playbackPolicy.initialize(currentPlayer.context)
+            // detach() clears the policy and selection snapshots. Re-seed from
+            // MediaSortUtils on every native attach so a re-inflated header does
+            // not resume with a partial order until the next MediaData callback.
+            seedFromNativeSort()
             seekBar = (NotificationMediaSingleCardSwitcherHooker.readField(
                 holder,
                 "seekBar"
@@ -860,24 +915,36 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             ) {
                 val entries = selection.snapshot()
                 val previousGeneration = multiCardRenderer.currentPageOrderGeneration
-                val synced = multiCardRenderer.sync(entries, selection.selectedIndex)
-                if (!synced && entries.size >= 2) {
-                    disableForFailure("多卡片视图创建失败")
-                } else if (synced) {
-                    val currentGeneration = multiCardRenderer.currentPageOrderGeneration
-                    if (currentGeneration != previousGeneration) {
-                        // The renderer has synchronously corrected the card
-                        // position. Ignore delayed scroll callbacks from the
-                        // previous order until the next user gesture.
-                        pageIndicatorOrderLockGeneration = currentGeneration
-                        pageIndicator.forceUpdate(
-                            pageCount = selection.size,
-                            selectedIndex = selection.selectedIndex,
-                            enabled = isSwitcherUsable()
-                        )
-                        lastIndicatorPageCount = selection.size
-                        lastIndicatorSelectedIndex = selection.selectedIndex
-                        pageIndicatorNeedsSync = false
+                when (multiCardRenderer.sync(entries, selection.selectedIndex)) {
+                    NotificationMediaMultiCardSyncResult.NOT_READY -> {
+                        // MediaData can be delivered before ViewController.attach.
+                        // Keep the data snapshot and let completeNativeAttach()
+                        // perform the first real renderer sync.
+                        pageIndicatorNeedsSync = true
+                    }
+
+                    NotificationMediaMultiCardSyncResult.FAILED -> {
+                        if (entries.size >= 2) {
+                            disableForFailure("多卡片视图创建失败")
+                        }
+                    }
+
+                    NotificationMediaMultiCardSyncResult.SUCCESS -> {
+                        val currentGeneration = multiCardRenderer.currentPageOrderGeneration
+                        if (currentGeneration != previousGeneration) {
+                            // The renderer has synchronously corrected the card
+                            // position. Ignore delayed scroll callbacks from the
+                            // previous order until the next user gesture.
+                            pageIndicatorOrderLockGeneration = currentGeneration
+                            pageIndicator.forceUpdate(
+                                pageCount = selection.size,
+                                selectedIndex = selection.selectedIndex,
+                                enabled = isSwitcherUsable()
+                            )
+                            lastIndicatorPageCount = selection.size
+                            lastIndicatorSelectedIndex = selection.selectedIndex
+                            pageIndicatorNeedsSync = false
+                        }
                     }
                 }
             }
