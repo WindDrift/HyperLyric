@@ -50,6 +50,7 @@ internal class NotificationMediaMultiCardRenderer(
     private val onPageSelected: (String) -> Unit,
     private val onPageScrolled: (Float, Int) -> Unit,
     private val onGestureStarted: () -> Unit,
+    private val onPageOrderChanged: (Int) -> Unit,
     private val onCardMediaChanged: (String) -> Unit,
     private val shouldIgnoreScrollTouch: (MotionEvent) -> Boolean
 ) {
@@ -346,6 +347,7 @@ internal class NotificationMediaMultiCardRenderer(
                 // Invalidate a previously posted anchor restore when the
                 // anchor itself was removed by this update.
                 pageOrderGeneration++
+                onPageOrderChanged(pageOrderGeneration)
                 scrollToPage(selectedIndex, animate = false)
             }
         } else {
@@ -386,6 +388,10 @@ internal class NotificationMediaMultiCardRenderer(
         val scroller = scrollView ?: return
         val pages = pageContainer ?: return
         val generation = ++pageOrderGeneration
+        // scrollTo() synchronously dispatches onScrollChanged(). Notify the
+        // owner before touching scrollX, otherwise PageIndicator receives an
+        // intermediate position before ControllerState can force the target.
+        onPageOrderChanged(generation)
         val anchorIndex = cards.keys.indexOf(anchor.key)
         if (anchorIndex < 0 || pageWidthPx <= 0) {
             scrollToPage(fallbackIndex, animate = false)

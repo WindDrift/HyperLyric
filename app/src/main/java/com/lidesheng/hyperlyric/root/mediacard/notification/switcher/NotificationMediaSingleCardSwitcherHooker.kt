@@ -569,6 +569,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             onPageSelected = ::onRendererPageSelected,
             onPageScrolled = ::onRendererPageScrolled,
             onGestureStarted = ::onRendererGestureStarted,
+            onPageOrderChanged = ::onRendererPageOrderChanged,
             onCardMediaChanged = ::onAdditionalCardMediaChanged,
             shouldIgnoreScrollTouch = ::isAnySeekBarTouch
         )
@@ -1082,6 +1083,10 @@ internal object NotificationMediaSingleCardSwitcherHooker {
 
         private fun onRendererGestureStarted() {
             pageIndicatorOrderLockGeneration = null
+        }
+
+        private fun onRendererPageOrderChanged(generation: Int) {
+            pageIndicatorOrderLockGeneration = generation
         }
 
         private fun onRendererPageScrolled(location: Float, generation: Int) {
