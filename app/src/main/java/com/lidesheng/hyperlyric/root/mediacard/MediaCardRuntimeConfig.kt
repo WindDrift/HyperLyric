@@ -59,6 +59,7 @@ internal object MediaCardRuntimeConfig {
     data class Notification(
         val cardSwitcherEnabled: Boolean,
         val cardSwitcherMode: Int,
+        val cardSwitcherMaxCount: Int,
         val layoutStyle: Int,
         val ambientFlowMode: Int,
         val cardTheme: Int,
@@ -86,6 +87,8 @@ internal object MediaCardRuntimeConfig {
                     RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_ENABLED,
                 cardSwitcherMode =
                     RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_MODE,
+                cardSwitcherMaxCount =
+                    RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_MAX_COUNT,
                 layoutStyle = RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_LAYOUT_STYLE,
                 ambientFlowMode = RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_AMBIENT_FLOW_MODE,
                 cardTheme = RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_CARD_THEME,
@@ -126,6 +129,13 @@ internal object MediaCardRuntimeConfig {
                 ).coerceIn(
                     RootConstants.NOTIFICATION_MEDIA_CARD_SWITCHER_MODE_SINGLE,
                     RootConstants.NOTIFICATION_MEDIA_CARD_SWITCHER_MODE_MULTI
+                ),
+                cardSwitcherMaxCount = prefs.getInt(
+                    RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_MAX_COUNT,
+                    RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_MAX_COUNT
+                ).coerceIn(
+                    RootConstants.MIN_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_MAX_COUNT,
+                    RootConstants.MAX_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_MAX_COUNT
                 ),
                 layoutStyle = prefs.getInt(
                     RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_LAYOUT_STYLE,

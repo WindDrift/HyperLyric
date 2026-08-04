@@ -46,7 +46,7 @@ internal class NotificationMediaMultiCardRenderer(
     private val nativeTopKey: () -> String?,
     private val onPlayerAttached: (View, Any) -> Unit,
     private val onPlayerDetached: (View) -> Unit,
-    private val onPageSelected: (Int) -> Unit,
+    private val onPageSelected: (String) -> Unit,
     private val onPageScrolled: (Float, Int) -> Unit,
     private val onGestureStarted: () -> Unit,
     private val shouldIgnoreScrollTouch: (MotionEvent) -> Boolean
@@ -245,6 +245,9 @@ internal class NotificationMediaMultiCardRenderer(
      */
     val currentPageOrderGeneration: Int
         get() = pageOrderGeneration
+
+    val pageCount: Int
+        get() = cards.size
 
     fun foregroundColor(index: Int): Int? {
         val card = cards.values.elementAtOrNull(index) ?: return null
@@ -713,7 +716,7 @@ internal class NotificationMediaMultiCardRenderer(
             else -> location.roundToInt()
         }.coerceIn(0, (cards.size - 1).coerceAtLeast(0))
 
-        onPageSelected(target)
+        cards.values.elementAtOrNull(target)?.key?.let(onPageSelected)
         // Queue the single custom snap after ACTION_UP dispatch so the
         // animation starts from the actual current scrollX.
         val generation = pageOrderGeneration

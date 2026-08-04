@@ -903,7 +903,8 @@ internal object NotificationMediaSingleCardSwitcherHooker {
 
         private fun resolveIndicatorColor(): Int? {
             if (multiCardRenderer.isActive) {
-                multiCardRenderer.foregroundColor(selection.selectedIndex)?.let { return it }
+                multiCardRenderer.foregroundColor(pageSnapshot().selectedIndex)
+                    ?.let { return it }
             }
             return viewControllerRef.get()?.let(NotificationMediaForegroundStyler::foregroundColor)
         }
@@ -913,9 +914,10 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             if (MediaCardRuntimeConfig.current.notification.cardSwitcherMode ==
                 RootConstants.NOTIFICATION_MEDIA_CARD_SWITCHER_MODE_MULTI
             ) {
-                val entries = selection.snapshot()
+                val snapshot = pageSnapshot()
+                val entries = snapshot.entries
                 val previousGeneration = multiCardRenderer.currentPageOrderGeneration
-                when (multiCardRenderer.sync(entries, selection.selectedIndex)) {
+                when (multiCardRenderer.sync(entries, snapshot.selectedIndex)) {
                     NotificationMediaMultiCardSyncResult.NOT_READY -> {
                         // MediaData can be delivered before ViewController.attach.
                         // Keep the data snapshot and let completeNativeAttach()
@@ -937,12 +939,12 @@ internal object NotificationMediaSingleCardSwitcherHooker {
                             // previous order until the next user gesture.
                             pageIndicatorOrderLockGeneration = currentGeneration
                             pageIndicator.forceUpdate(
-                                pageCount = selection.size,
-                                selectedIndex = selection.selectedIndex,
+                                pageCount = entries.size,
+                                selectedIndex = snapshot.selectedIndex,
                                 enabled = isSwitcherUsable()
                             )
-                            lastIndicatorPageCount = selection.size
-                            lastIndicatorSelectedIndex = selection.selectedIndex
+                            lastIndicatorPageCount = entries.size
+                            lastIndicatorSelectedIndex = snapshot.selectedIndex
                             pageIndicatorNeedsSync = false
                         }
                     }
@@ -955,10 +957,10 @@ internal object NotificationMediaSingleCardSwitcherHooker {
                 !switcherUnavailable
         }
 
-        private fun onRendererPageSelected(index: Int) {
+        private fun onRendererPageSelected(key: String) {
             runOnMain {
                 if (selection.size < 2) return@runOnMain
-                selection.selectIndex(index)
+                selection.selectKey(key)
             }
         }
 
@@ -972,7 +974,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
                     pageIndicatorOrderLockGeneration != generation
                 ) {
                     pageIndicator.updateLocation(
-                        pageCount = selection.size,
+                        pageCount = multiCardRenderer.pageCount,
                         location = location,
                         enabled = isSwitcherUsable()
                     )
@@ -1007,8 +1009,9 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         }
 
         private fun updatePageIndicator() {
-            val pageCount = selection.size
-            val selectedIndex = selection.selectedIndex
+            val snapshot = pageSnapshot()
+            val pageCount = snapshot.entries.size
+            val selectedIndex = snapshot.selectedIndex
             pageIndicator.updateTint(resolveIndicatorColor())
             if (!pageIndicatorNeedsSync &&
                 pageCount == lastIndicatorPageCount &&
@@ -1024,6 +1027,18 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             lastIndicatorPageCount = pageCount
             lastIndicatorSelectedIndex = selectedIndex
             pageIndicatorNeedsSync = false
+        }
+
+        private fun pageSnapshot(): NotificationMediaSelectionSnapshot {
+            val maxEntries = if (
+                MediaCardRuntimeConfig.current.notification.cardSwitcherMode ==
+                    RootConstants.NOTIFICATION_MEDIA_CARD_SWITCHER_MODE_MULTI
+            ) {
+                MediaCardRuntimeConfig.current.notification.cardSwitcherMaxCount
+            } else {
+                Int.MAX_VALUE
+            }
+            return selection.snapshot(maxEntries)
         }
 
         private fun nativeOrder(): List<String> {

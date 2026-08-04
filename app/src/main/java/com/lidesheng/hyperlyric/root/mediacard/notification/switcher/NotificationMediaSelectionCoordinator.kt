@@ -1,5 +1,15 @@
 package com.lidesheng.hyperlyric.root.mediacard.notification.switcher
 
+internal data class NotificationMediaSelectionSnapshot(
+    val entries: List<Pair<String, Any>>,
+    val selectedKey: String?
+) {
+    val selectedIndex: Int
+        get() = selectedKey?.let { key ->
+            entries.indexOfFirst { entry -> entry.first == key }
+        }?.takeIf { it >= 0 } ?: -1
+}
+
 /**
  * Reflection-independent view of the target SystemUI MediaData model.
  *
@@ -63,15 +73,41 @@ internal class NotificationMediaSelectionCoordinator(
         get() = selectedKey?.let(orderedKeys::indexOf)?.takeIf { it >= 0 } ?: -1
 
     /**
-     * Returns the current native sort order together with the latest data
-     * object for every active session. The View renderer uses this snapshot to
-     * create or update one native card per session without owning selection
-     * state itself.
+     * Returns the page set for the renderer. The coordinator retains every
+     * active MediaData entry, but the renderer may request a bounded snapshot
+     * to avoid creating one native ViewController/Holder for every session.
+     *
+     * Selection policy when the bound is exceeded:
+     * 1. keep the currently selected session;
+     * 2. keep currently playing sessions in native order;
+     * 3. fill remaining slots from native order.
+     *
+     * The final list is filtered back to native order, so the page layout stays
+     * stable while the selected session is guaranteed not to disappear.
      */
-    fun snapshot(): List<Pair<String, Any>> {
-        return orderedKeys.mapNotNull { key ->
+    fun snapshot(maxEntries: Int = Int.MAX_VALUE): NotificationMediaSelectionSnapshot {
+        val allEntries = orderedKeys.mapNotNull { key ->
             entries[key]?.let { key to it.data }
         }
+        if (allEntries.size <= maxEntries) {
+            return NotificationMediaSelectionSnapshot(allEntries, selectedKey)
+        }
+
+        val limit = maxEntries.coerceAtLeast(1)
+        val priorityKeys = LinkedHashSet<String>()
+        selectedKey?.takeIf { it in entries }?.let(priorityKeys::add)
+        orderedKeys.forEach { key ->
+            val data = entries[key]?.data ?: return@forEach
+            if (accessor.isPlaying(data) == true) priorityKeys += key
+        }
+        orderedKeys.forEach { key -> priorityKeys += key }
+
+        val keptKeys = priorityKeys.take(limit).toHashSet()
+        val visibleEntries = allEntries.filter { it.first in keptKeys }
+        val visibleSelectedKey = selectedKey?.takeIf { key ->
+            visibleEntries.any { it.first == key }
+        } ?: visibleEntries.firstOrNull()?.first
+        return NotificationMediaSelectionSnapshot(visibleEntries, visibleSelectedKey)
     }
 
     fun seed(initialEntries: List<Pair<String, Any>>) {
@@ -248,6 +284,12 @@ internal class NotificationMediaSelectionCoordinator(
         selectedByUser = true
         updateSelectedToken()
         bindCurrentSelection()
+    }
+
+    fun selectKey(key: String) {
+        if (key !in entries) return
+        val index = orderedKeys.indexOf(key)
+        if (index >= 0) selectIndex(index)
     }
 
     fun onDetached() {

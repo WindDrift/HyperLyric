@@ -25,6 +25,7 @@ import com.lidesheng.hyperlyric.common.PrefsBridge
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.common.UIConstants
 import com.lidesheng.hyperlyric.root.utils.ShellUtils
+import com.lidesheng.hyperlyric.ui.component.NumberInputDialog
 import com.lidesheng.hyperlyric.ui.component.SimpleDialog
 import com.lidesheng.hyperlyric.ui.navigation.LocalNavigator
 import com.lidesheng.hyperlyric.ui.navigation.Route
@@ -40,6 +41,7 @@ import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SnackbarDuration
 import top.yukonga.miuix.kmp.basic.SnackbarHost
 import top.yukonga.miuix.kmp.basic.SnackbarHostState
+import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -76,6 +78,17 @@ fun MediaCardSettingsPage() {
             )
         )
     }
+    var mediaCardSwitcherMaxCount by remember {
+        mutableIntStateOf(
+            prefs.getInt(
+                RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_MAX_COUNT,
+                RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_MAX_COUNT
+            ).coerceIn(
+                RootConstants.MIN_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_MAX_COUNT,
+                RootConstants.MAX_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_MAX_COUNT
+            )
+        )
+    }
     val backdrop = rememberBlurBackdrop()
     val blurActive = backdrop != null
     val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
@@ -84,6 +97,7 @@ fun MediaCardSettingsPage() {
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     var showRestartDialog by remember { mutableStateOf(false) }
+    var showMaxCountDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         snackbarHost = { SnackbarHost(state = snackbarHostState) },
@@ -168,33 +182,53 @@ fun MediaCardSettingsPage() {
                                 }
                             )
                             AnimatedVisibility(visible = mediaCardSwitcherEnabled) {
-                                val modeValues = listOf(
-                                    RootConstants.NOTIFICATION_MEDIA_CARD_SWITCHER_MODE_SINGLE,
-                                    RootConstants.NOTIFICATION_MEDIA_CARD_SWITCHER_MODE_MULTI
-                                )
-                                OverlayDropdownPreference(
-                                    title = stringResource(
-                                        R.string.title_notification_media_card_switcher_mode
-                                    ),
-                                    items = listOf(
-                                        stringResource(
-                                            R.string.option_notification_media_card_switcher_single
+                                Column {
+                                    val modeValues = listOf(
+                                        RootConstants.NOTIFICATION_MEDIA_CARD_SWITCHER_MODE_SINGLE,
+                                        RootConstants.NOTIFICATION_MEDIA_CARD_SWITCHER_MODE_MULTI
+                                    )
+                                    OverlayDropdownPreference(
+                                        title = stringResource(
+                                            R.string.title_notification_media_card_switcher_mode
                                         ),
-                                        stringResource(
-                                            R.string.option_notification_media_card_switcher_multi
-                                        )
-                                    ),
-                                    selectedIndex = modeValues.indexOf(mediaCardSwitcherMode)
-                                        .coerceAtLeast(0),
-                                    onSelectedIndexChange = { index ->
-                                        val mode = modeValues[index]
-                                        mediaCardSwitcherMode = mode
-                                        PrefsBridge.putInt(
-                                            RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_MODE,
-                                            mode
+                                        items = listOf(
+                                            stringResource(
+                                                R.string.option_notification_media_card_switcher_single
+                                            ),
+                                            stringResource(
+                                                R.string.option_notification_media_card_switcher_multi
+                                            )
+                                        ),
+                                        selectedIndex = modeValues.indexOf(mediaCardSwitcherMode)
+                                            .coerceAtLeast(0),
+                                        onSelectedIndexChange = { index ->
+                                            val mode = modeValues[index]
+                                            mediaCardSwitcherMode = mode
+                                            PrefsBridge.putInt(
+                                                RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_MODE,
+                                                mode
+                                            )
+                                        }
+                                    )
+                                    AnimatedVisibility(
+                                        visible = mediaCardSwitcherMode ==
+                                            RootConstants.NOTIFICATION_MEDIA_CARD_SWITCHER_MODE_MULTI
+                                    ) {
+                                        ArrowPreference(
+                                            title = stringResource(
+                                                R.string.title_notification_media_card_switcher_max_count
+                                            ),
+                                            endActions = {
+                                                Text(
+                                                    text = "$mediaCardSwitcherMaxCount",
+                                                    fontSize = MiuixTheme.textStyles.body2.fontSize,
+                                                    color = MiuixTheme.colorScheme.onSurfaceVariantActions
+                                                )
+                                            },
+                                            onClick = { showMaxCountDialog = true }
                                         )
                                     }
-                                )
+                                }
                             }
                         }
                     }
@@ -202,6 +236,23 @@ fun MediaCardSettingsPage() {
             }
         }
     }
+
+    NumberInputDialog(
+        show = showMaxCountDialog,
+        title = stringResource(R.string.title_notification_media_card_switcher_max_count),
+        label = stringResource(R.string.label_notification_media_card_switcher_max_count),
+        initialValue = mediaCardSwitcherMaxCount,
+        min = RootConstants.MIN_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_MAX_COUNT,
+        max = RootConstants.MAX_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_MAX_COUNT,
+        onDismiss = { showMaxCountDialog = false },
+        onConfirm = { maxCount ->
+            mediaCardSwitcherMaxCount = maxCount
+            PrefsBridge.putInt(
+                RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_CARD_SWITCHER_MAX_COUNT,
+                maxCount
+            )
+        }
+    )
 
     SimpleDialog(
         show = showRestartDialog,
