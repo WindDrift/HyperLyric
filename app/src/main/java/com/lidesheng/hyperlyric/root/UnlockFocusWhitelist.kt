@@ -11,6 +11,7 @@ import io.github.libxposed.api.XposedInterface.Hooker
 import io.github.libxposed.api.XposedModule
 
 object UnlockFocusWhitelist {
+    private const val TAG = "UnlockFocusWhitelist"
     private const val TARGET_CLASS = "miui.systemui.notification.NotificationSettingsManager"
     private const val AUTH_CALLBACK_CLASS =
         $$"miui.systemui.notification.auth.AuthManager$AuthServiceCallback$onAuthResult$1"
@@ -48,18 +49,14 @@ object UnlockFocusWhitelist {
             if (method != null) {
                 module.deoptimize(method)
                 module.hook(method).intercept(PluginLoadHooker())
-                HookLogger.d(
-                    "UnlockFocusWhitelist",
-                    "安装插件加载 Hook: target=PluginInstance.loadPlugin"
-                )
             } else {
-                HookLogger.w("UnlockFocusWhitelist", "未找到 PluginInstance.loadPlugin")
+                HookLogger.w(TAG, "未找到 PluginInstance.loadPlugin")
             }
         }.onFailure { e ->
             if (e is ClassNotFoundException) {
-                HookLogger.w("UnlockFocusWhitelist", "$PLUGIN_INSTANCE_CLASS 未找到")
+                HookLogger.w(TAG, "$PLUGIN_INSTANCE_CLASS 未找到")
             } else {
-                HookLogger.e("UnlockFocusWhitelist", "安装插件加载 Hook 失败", e)
+                HookLogger.e(TAG, "安装插件加载 Hook 失败", e)
             }
         }
 
@@ -100,13 +97,13 @@ object UnlockFocusWhitelist {
                     whitelistHandles.add(handle)
                 }
                 HookLogger.i(
-                    "UnlockFocusWhitelist",
+                    TAG,
                     "焦点通知白名单 Hook 已安装: methods=${methods.joinToString { it.name }}"
                 )
             }
         }.onFailure { e ->
             if (e !is ClassNotFoundException) {
-                HookLogger.e("UnlockFocusWhitelist", "注入焦点通知白名单失败: classLoader=$cl", e)
+                HookLogger.e(TAG, "注入焦点通知白名单失败: classLoader=$cl", e)
             }
         }
 
@@ -119,11 +116,11 @@ object UnlockFocusWhitelist {
                 module.deoptimize(method)
                 val handle = module.hook(method).intercept(AuthResultHooker())
                 whitelistHandles.add(handle)
-                HookLogger.i("UnlockFocusWhitelist", "焦点通知授权 Hook 已安装")
+                HookLogger.i(TAG, "焦点通知授权 Hook 已安装")
             }
         }.onFailure { e ->
             if (e !is ClassNotFoundException) {
-                HookLogger.e("UnlockFocusWhitelist", "注入焦点通知授权失败: classLoader=$cl", e)
+                HookLogger.e(TAG, "注入焦点通知授权失败: classLoader=$cl", e)
             }
         }
     }
@@ -137,7 +134,7 @@ object UnlockFocusWhitelist {
     private fun unhookWhitelist() {
         whitelistHandles.forEach { it.unhook() }
         whitelistHandles.clear()
-        HookLogger.i("UnlockFocusWhitelist", "焦点通知白名单 Hook 已移除")
+        HookLogger.i(TAG, "焦点通知白名单 Hook 已移除")
     }
 
     class PluginLoadHooker : Hooker {

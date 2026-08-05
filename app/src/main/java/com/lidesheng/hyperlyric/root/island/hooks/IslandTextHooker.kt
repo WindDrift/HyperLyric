@@ -37,7 +37,6 @@ internal object IslandTextHooker {
             contentViewClass.methods.filter { it.name == "updateBigIslandView" }.forEach { method ->
                 module.deoptimize(method)
                 module.hook(method).intercept(RealIslandHooker.UpdateBigIslandViewHook())
-                HookLogger.d(TAG, "已 Hook updateBigIslandView: $method")
             }
 
             contentViewClass.methods
@@ -47,7 +46,6 @@ internal object IslandTextHooker {
                     module.deoptimize(method)
                     module.hook(method)
                         .intercept(RealIslandHooker.LayoutVisibilityHook(method.name))
-                    HookLogger.d(TAG, "已 Hook ${method.name}: $method")
                 }
 
         }
@@ -65,7 +63,6 @@ internal object IslandTextHooker {
                     module.hook(method).intercept(
                         FakeIslandTransitionHooker.VisibilityHook()
                     )
-                    HookLogger.d(TAG, "已 Hook fake.setVisibility: $method")
                 }
 
         }
@@ -84,7 +81,6 @@ internal object IslandTextHooker {
                     module.hook(method).intercept(
                         FakeIslandTransitionHooker.AppReturnToBigIslandHook()
                     )
-                    HookLogger.d(TAG, "已 Hook fakeViewToBigIsland: $method")
                 }
 
             cl.loadClass(EVENT_COORDINATOR_CLASS).declaredMethods
@@ -100,7 +96,6 @@ internal object IslandTextHooker {
                     module.hook(method).intercept(
                         FakeIslandTransitionHooker.FreeformFakeViewCallbackHook()
                     )
-                    HookLogger.d(TAG, "已 Hook updateFreeformFakeView: $method")
                 }
 
         }
@@ -118,7 +113,6 @@ internal object IslandTextHooker {
                     method.isAccessible = true
                     module.deoptimize(method)
                     module.hook(method).intercept(IslandModuleRestoreHooker.AdapterBindDataHook())
-                    HookLogger.d(TAG, "已 Hook adapter.bindData: $method")
                 }
         }
 
@@ -129,7 +123,6 @@ internal object IslandTextHooker {
                     method.isAccessible = true
                     module.deoptimize(method)
                     module.hook(method).intercept(IslandModuleRestoreHooker.UpdateModuleViewHook())
-                    HookLogger.d(TAG, "已 Hook updateModuleView: $method")
                 }
 
             cl.loadClass(ADAPTER_CLASS).declaredMethods
@@ -138,7 +131,6 @@ internal object IslandTextHooker {
                     method.isAccessible = true
                     module.deoptimize(method)
                     module.hook(method).intercept(IslandModuleRestoreHooker.AdapterUpdateViewHook())
-                    HookLogger.d(TAG, "已 Hook adapter.updateView: $method")
                 }
         }
     }

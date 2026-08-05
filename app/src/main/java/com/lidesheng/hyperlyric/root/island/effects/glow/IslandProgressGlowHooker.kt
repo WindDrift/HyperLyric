@@ -33,9 +33,6 @@ internal object IslandProgressGlowHooker {
     @Volatile
     private var module: XposedModule? = null
 
-    @Volatile
-    private var loggedFirstDraw = false
-
     fun initialize(module: XposedModule) {
         this.module = module
     }
@@ -128,18 +125,6 @@ internal object IslandProgressGlowHooker {
             } ?: return result
 
             state.draw(canvas)
-            if (!loggedFirstDraw) {
-                synchronized(IslandProgressGlowHooker) {
-                    if (!loggedFirstDraw) {
-                        loggedFirstDraw = true
-                        HookLogger.d(
-                            TAG,
-                            "首次绘制边缘光效进度: progress=${state.fraction}, " +
-                                    "view=${backgroundView.javaClass.name}"
-                        )
-                    }
-                }
-            }
             return result
         }
     }

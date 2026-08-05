@@ -7,27 +7,8 @@ import com.lidesheng.hyperlyric.common.SuperIslandContentStylePolicy
 import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
 import com.lidesheng.hyperlyric.root.island.effects.glow.HookIslandGlow
 import com.lidesheng.hyperlyric.root.island.effects.glow.IslandProgressGlowController
-import com.lidesheng.hyperlyric.root.utils.HookLogger
 
 internal object IslandHostFacade {
-    private var loggedCutoutInfo = false
-
-    fun logCameraCutoutInfo(rootView: ViewGroup) {
-        if (loggedCutoutInfo) return
-        val cutoutView = IslandViewHelper.findViewByName(rootView, "area_cutout")
-        if (cutoutView != null) {
-            val location = IntArray(2)
-            cutoutView.getLocationOnScreen(location)
-            HookLogger.d(
-                "IslandHostFacade",
-                "摄像头挖孔宽度=${cutoutView.width}px，x=${location[0]}"
-            )
-        } else {
-            HookLogger.d("IslandHostFacade", "未找到摄像头挖孔视图")
-        }
-        loggedCutoutInfo = true
-    }
-
     fun applyHostSettings(rootView: ViewGroup, prefs: SharedPreferences) {
         val showAlbum = SuperIslandContentStylePolicy.isAlbumCoverVisible(
             SuperIslandContentStylePolicy.readAlbumCoverStyle(prefs)

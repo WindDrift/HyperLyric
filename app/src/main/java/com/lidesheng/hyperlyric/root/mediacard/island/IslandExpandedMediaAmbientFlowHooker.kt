@@ -415,7 +415,6 @@ object IslandExpandedMediaAmbientFlowHooker {
             dummyHolder.isAccessible = true
             module.deoptimize(emit)
             module.hook(emit).intercept(MiniBarTrackingHook(dummyHolder))
-            HookLogger.d(TAG, "已 Hook 展开态媒体 MiniBar collector: $emit")
         }.onFailure { error ->
             HookLogger.w(TAG, "跳过展开态媒体 MiniBar collector Hook: reason=${error.message}")
         }

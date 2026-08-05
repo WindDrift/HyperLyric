@@ -551,16 +551,11 @@ internal object IslandPresentationCoordinator {
         result: ReconcileResult
     ): ReconcileResult {
         if (result.mutation.outcome ==
-            IslandInjectionReconciler.Outcome.TARGET_STRUCTURE_MISSING ||
-            result.mutation.layoutMayHaveChanged ||
-            result.decision != IslandRenderPolicy.Decision.TARGET
+            IslandInjectionReconciler.Outcome.TARGET_STRUCTURE_MISSING
         ) {
-            HookLogger.d(
+            HookLogger.w(
                 TAG,
-                "对账: reason=$reason, owner=$owner, decision=${result.decision}, " +
-                        "outcome=${result.mutation.outcome}, " +
-                        "layout=${result.mutation.layoutMayHaveChanged}, " +
-                        "relayout=${result.mutation.relayoutRequested}"
+                "超级岛结构缺失: reason=$reason, owner=$owner"
             )
         }
         return result

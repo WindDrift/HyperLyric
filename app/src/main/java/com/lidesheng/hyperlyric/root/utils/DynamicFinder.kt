@@ -48,10 +48,6 @@ object DynamicFinder {
                                     field.isAccessible = true
                                     val value = field.get(null) as? String
                                     if (value == targetString) {
-                                        HookLogger.d(
-                                            TAG,
-                                            "按特征字符串找到类: target=$targetString, class=$className"
-                                        )
                                         return clazz
                                     }
                                 }
@@ -64,7 +60,7 @@ object DynamicFinder {
             }
         } catch (e: Exception) {
             HookLogger.w(
-                "DynamicFinder",
+                TAG,
                 "扫描 Dex 寻找特征字符串时跳过异常 ClassLoader: $targetString",
                 e
             )
@@ -97,7 +93,6 @@ object DynamicFinder {
         for (method in clazz.declaredMethods) {
             if (method.name == methodName && method.parameterTypes.contentEquals(parameterTypes)) {
                 if (returnType == null || method.returnType == returnType) {
-                    HookLogger.d(TAG, "找到普通方法: method=${clazz.name}.$methodName")
                     return method
                 }
             }
@@ -111,7 +106,6 @@ object DynamicFinder {
                     // 检查前面的参数是否匹配
                     val leadingParams = method.parameterTypes.copyOfRange(0, parameterTypes.size)
                     if (leadingParams.contentEquals(parameterTypes)) {
-                        HookLogger.d(TAG, "找到挂起方法: method=${clazz.name}.$methodName")
                         return method
                     }
                 }
@@ -138,10 +132,6 @@ object DynamicFinder {
                         method.returnType == returnType
                     ) {
                         if (predicate == null || predicate(method)) {
-                            HookLogger.d(
-                                TAG,
-                                "按签名找到方法: method=${clazz.name}.${method.name}"
-                            )
                             return method
                         }
                     }

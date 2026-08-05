@@ -21,7 +21,6 @@ internal object IslandProgressGlowController {
     private const val MAX_CACHED_PACKAGES = 8
 
     private val backgroundViewsByRoot = WeakHashMap<ViewGroup, WeakReference<View>>()
-    private val diagnosticStageByRoot = WeakHashMap<ViewGroup, DiagnosticStage>()
     private val lastUpdateByRoot = WeakHashMap<ViewGroup, Long>()
     private val playbackProgressByPackage = HashMap<String, TimedPlaybackProgress>()
 
@@ -54,7 +53,6 @@ internal object IslandProgressGlowController {
                 RootConstants.DEFAULT_HOOK_ISLAND_PROGRESS_GLOW
             )
         ) {
-            logStage(rootView, DiagnosticStage.DISABLED, "边缘光效进度条已禁用")
             clear(rootView)
             return
         }
@@ -76,12 +74,6 @@ internal object IslandProgressGlowController {
             forceRefresh = mediaInfo != null
         )
         if (playbackProgress.fraction < 0f) {
-            logStage(
-                rootView,
-                DiagnosticStage.INVALID_MEDIA_PROGRESS,
-                "媒体进度不可用: package=$packageName, position=${playbackProgress.position}, " +
-                        "duration=${playbackProgress.duration}, playing=${playbackProgress.isPlaying}"
-            )
             clear(rootView)
             return
         }
@@ -89,11 +81,6 @@ internal object IslandProgressGlowController {
         val backgroundView = cachedBackgroundView(rootView) ?: findBackgroundView(rootView)?.also {
             replaceBackgroundView(rootView, it)
         } ?: run {
-            logStage(
-                rootView,
-                DiagnosticStage.BACKGROUND_VIEW_NOT_FOUND,
-                "未找到超级岛背景视图: root=${rootView.javaClass.name}"
-            )
             clear(rootView)
             return
         }
@@ -109,15 +96,6 @@ internal object IslandProgressGlowController {
             colors.track,
             progressStyle
         )
-        logStage(
-            rootView,
-            DiagnosticStage.BACKGROUND_REGISTERED,
-            "边缘光效进度已更新: package=$packageName, " +
-                    "progress=${playbackProgress.fraction}, " +
-                    "progressColors=${colors.progress.joinToString { it.toUInt().toString(16) }}, " +
-                    "trackColor=${colors.track.toUInt().toString(16)}, " +
-                    "style=$progressStyle"
-        )
     }
 
     fun clear(rootView: ViewGroup) {
@@ -129,7 +107,6 @@ internal object IslandProgressGlowController {
 
     fun clearAll() {
         synchronized(backgroundViewsByRoot) { backgroundViewsByRoot.clear() }
-        synchronized(diagnosticStageByRoot) { diagnosticStageByRoot.clear() }
         synchronized(lastUpdateByRoot) { lastUpdateByRoot.clear() }
         synchronized(playbackProgressByPackage) { playbackProgressByPackage.clear() }
         IslandProgressGlowHooker.clearAllMediaProgress()
@@ -283,25 +260,6 @@ internal object IslandProgressGlowController {
 
     private fun withAlpha(color: Int, alpha: Int): Int {
         return (color and 0x00FFFFFF) or (alpha.coerceIn(0, 255) shl 24)
-    }
-
-    private fun logStage(rootView: ViewGroup, stage: DiagnosticStage, message: String) {
-        val changed = synchronized(diagnosticStageByRoot) {
-            if (diagnosticStageByRoot[rootView] == stage) {
-                false
-            } else {
-                diagnosticStageByRoot[rootView] = stage
-                true
-            }
-        }
-        if (changed) HookLogger.d(TAG, message)
-    }
-
-    private enum class DiagnosticStage {
-        DISABLED,
-        INVALID_MEDIA_PROGRESS,
-        BACKGROUND_VIEW_NOT_FOUND,
-        BACKGROUND_REGISTERED
     }
 
     private data class ProgressColors(

@@ -12,6 +12,7 @@ import java.util.WeakHashMap
  * 负责处理超级岛内部组件的查找、显隐切换及布局刷新
  */
 object IslandViewHelper {
+    private const val TAG = "IslandViewHelper"
 
     private val SYSTEMUI_PKG_NAMES = arrayOf("miui.systemui.plugin", "com.android.systemui")
     private val originalMargins = WeakHashMap<View, MarginSnapshot>()
@@ -41,7 +42,7 @@ object IslandViewHelper {
                 }
             }
         } catch (e: Exception) {
-            HookLogger.e("IslandViewHelper", "切换容器可见性失败: container=$containerName", e)
+            HookLogger.e(TAG, "切换容器可见性失败: container=$containerName", e)
         }
     }
 
@@ -81,7 +82,7 @@ object IslandViewHelper {
                 }
             }
         } catch (e: Exception) {
-            HookLogger.e("IslandViewHelper", "清除边距失败: parent=$parentName", e)
+            HookLogger.e(TAG, "清除边距失败: parent=$parentName", e)
         }
     }
 
@@ -131,12 +132,6 @@ object IslandViewHelper {
         showOriginalTexts(rootView, "island_container_module_image_text_1")
         showOriginalTexts(rootView, "island_container_module_image_text_2")
 
-        if (hiddenCount > 0) {
-            HookLogger.d(
-                "IslandViewHelper",
-                "已隐藏歌词注入视图并恢复原生媒体岛: 数量=$hiddenCount"
-            )
-        }
         return true
     }
 
@@ -197,7 +192,7 @@ object IslandViewHelper {
                 }
             }
         } catch (e: Exception) {
-            HookLogger.e("IslandViewHelper", "恢复原生文本失败: parent=$parentName", e)
+            HookLogger.e(TAG, "恢复原生文本失败: parent=$parentName", e)
         }
     }
 
@@ -209,7 +204,6 @@ object IslandViewHelper {
      */
     fun triggerSystemRelayout(islandView: ViewGroup) {
         if (isRelayouting.get() == true) return
-        HookLogger.d("IslandViewHelper", "正在触发布局刷新")
         isRelayouting.set(true)
         try {
             runCatching {
@@ -225,7 +219,7 @@ object IslandViewHelper {
                         ?.invoke(islandView)
                 }
             }.onFailure { e ->
-                HookLogger.e("IslandViewHelper", "超级岛布局刷新失败", e)
+                HookLogger.e(TAG, "超级岛布局刷新失败", e)
             }
         } finally {
             isRelayouting.set(false)

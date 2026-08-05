@@ -42,6 +42,8 @@ import java.lang.reflect.Constructor
 import java.lang.reflect.Executable
 import java.lang.reflect.Method
 
+private const val TAG = "HookEntry"
+
 class HookEntry : XposedModule() {
 
     companion object {
@@ -130,7 +132,7 @@ class HookEntry : XposedModule() {
         instance = this
         HookLogger.module = this
         HookLogger.i(
-            "HookEntry",
+            TAG,
             "模块加载完成，当前应用版本${com.lidesheng.hyperlyric.BuildConfig.VERSION_CODE}-${com.lidesheng.hyperlyric.BuildConfig.VERSION_NAME}"
         )
     }
@@ -149,7 +151,7 @@ class HookEntry : XposedModule() {
         // configuration is restart-only, so replacing them here is both unnecessary and
         // unsafe for active SystemUI card/fake-view animations.
         cleanupRuntime(preserveMediaHooks = true)
-        HookLogger.i("HookEntry", "超级岛歌词热重载准备完成")
+        HookLogger.i(TAG, "超级岛歌词热重载准备完成")
         return true
     }
 
@@ -188,12 +190,12 @@ class HookEntry : XposedModule() {
             findCurrentApplication()?.let { app ->
                 Handler(Looper.getMainLooper()).post { initializeSystemEnvironment(app) }
             } ?: HookLogger.w(
-                "HookEntry",
+                TAG,
                 "热重载后未取得当前 Application，等待 Application.onCreate"
             )
         }
         HookLogger.i(
-            "HookEntry",
+            TAG,
             "超级岛歌词热重载完成: replaced=$replacedCount, " +
                     "retainedNoReload=$retainedNoReloadCount"
         )
@@ -231,32 +233,32 @@ class HookEntry : XposedModule() {
                 UnlockIslandWhitelist.hook(this, param.defaultClassLoader)
             } catch (e: Exception) {
                 if (e is ClassNotFoundException || e is NoSuchMethodException) {
-                    HookLogger.w("HookEntry", "此系统版本不支持超级岛下拉小窗白名单")
+                HookLogger.w(TAG, "此系统版本不支持超级岛下拉小窗白名单")
                 } else {
-                    HookLogger.e("HookEntry", "超级岛下拉小窗白名单注入失败", e)
+                    HookLogger.e(TAG, "超级岛下拉小窗白名单注入失败", e)
                 }
             }
             try {
                 UnlockFocusWhitelist.hook(this, param.defaultClassLoader)
             } catch (e: Exception) {
                 if (e is ClassNotFoundException || e is NoSuchMethodException) {
-                    HookLogger.w("HookEntry", "此系统版本不支持解锁焦点通知白名单")
+                HookLogger.w(TAG, "此系统版本不支持解锁焦点通知白名单")
                 } else {
-                    HookLogger.e("HookEntry", "焦点通知白名单注入失败", e)
+                    HookLogger.e(TAG, "焦点通知白名单注入失败", e)
                 }
             }
 
             val isSuperIslandEnabled = SystemUiEnhancementGate.isEnabled()
 
             if (!isSuperIslandEnabled) {
-                HookLogger.i("HookEntry", "小米系统界面增强已禁用")
+                HookLogger.i(TAG, "小米系统界面增强已禁用")
             }
 
             activeMode = prefs.getInt(
                 RootConstants.KEY_HOOK_LYRIC_MODE,
                 RootConstants.DEFAULT_HOOK_LYRIC_MODE
             )
-            HookLogger.i("HookEntry", "超级岛歌词模式: mode=$activeMode")
+            HookLogger.i(TAG, "超级岛歌词模式: mode=$activeMode")
 
             // 劫持 Application.onCreate 以初始化 Lyricon Receiver 所需的环境
             try {
@@ -264,10 +266,9 @@ class HookEntry : XposedModule() {
                 val onCreateMethod = appClass.getDeclaredMethod("onCreate")
                 deoptimize(onCreateMethod)
                 hook(onCreateMethod).intercept(AppCreateHooker())
-                HookLogger.d("HookEntry", "安装生命周期 Hook: target=Application.onCreate")
             } catch (e: Exception) {
                 if (e is ClassNotFoundException || e is NoSuchMethodException) {
-                    HookLogger.w("HookEntry", "跳过生命周期 Hook: target=Application.onCreate")
+                    HookLogger.w(TAG, "跳过生命周期 Hook: target=Application.onCreate")
                 } else {
                     HookLogger.e(
                         "HookEntry",
@@ -284,10 +285,9 @@ class HookEntry : XposedModule() {
                     deoptimize(constructor)
                     hook(constructor).intercept(ClassLoaderHooker())
                 }
-                HookLogger.d("HookEntry", "安装插件加载 Hook: target=BaseDexClassLoader")
             } catch (e: Exception) {
                 if (e is ClassNotFoundException || e is NoSuchMethodException) {
-                    HookLogger.w("HookEntry", "跳过插件加载 Hook: target=BaseDexClassLoader")
+                    HookLogger.w(TAG, "跳过插件加载 Hook: target=BaseDexClassLoader")
                 } else {
                     HookLogger.e(
                         "HookEntry",
@@ -347,7 +347,7 @@ class HookEntry : XposedModule() {
                             if (!SystemUiEnhancementGate.isEnabled()) {
                                 return@OnSharedPreferenceChangeListener
                             }
-                            HookLogger.i("HookEntry", "切换歌词源: source=$newSourceId")
+                            HookLogger.i(TAG, "切换歌词源: source=$newSourceId")
                             Handler(Looper.getMainLooper()).post {
                                 sourceManager?.switchSource(newSourceId)
                             }
@@ -356,7 +356,7 @@ class HookEntry : XposedModule() {
                         RootConstants.KEY_HOOK_LYRIC_MODE -> {
                             val newMode = prefs.getInt(key, RootConstants.DEFAULT_HOOK_LYRIC_MODE)
                             if (newMode == activeMode) return@OnSharedPreferenceChangeListener
-                            HookLogger.i("HookEntry", "切换歌词模式: mode=$newMode")
+                            HookLogger.i(TAG, "切换歌词模式: mode=$newMode")
                             Handler(Looper.getMainLooper()).post {
                                 activeMode = newMode
                                 BaseIslandRenderer.refreshActiveIsland()
@@ -422,7 +422,7 @@ class HookEntry : XposedModule() {
                         "mode=$activeMode"
             )
         } catch (e: Exception) {
-            HookLogger.e("HookEntry", "系统环境初始化失败", e)
+            HookLogger.e(TAG, "系统环境初始化失败", e)
         }
     }
 
@@ -443,7 +443,7 @@ class HookEntry : XposedModule() {
         if (enabled) {
             BaseIslandRenderer.refreshActiveIsland()
         }
-        HookLogger.i("HookEntry", "更新系统界面增强状态: enabled=$enabled")
+        HookLogger.i(TAG, "更新系统界面增强状态: enabled=$enabled")
     }
 
     private fun cleanupRuntime(preserveMediaHooks: Boolean = false) {
@@ -513,9 +513,8 @@ class HookEntry : XposedModule() {
                 SystemUIHookRegistry.hook(this@HookEntry, cl, lyricsOnly = lyricsOnly)
             } catch (e: Exception) {
                 if (e is ClassNotFoundException || e is NoSuchMethodException) {
-                    // HookLogger.w("HookEntry","插件中未找到超级岛相关类")
                 } else {
-                    HookLogger.e("HookEntry", "注入超级岛插件失败", e)
+                    HookLogger.e(TAG, "注入超级岛插件失败", e)
                 }
             }
             return result

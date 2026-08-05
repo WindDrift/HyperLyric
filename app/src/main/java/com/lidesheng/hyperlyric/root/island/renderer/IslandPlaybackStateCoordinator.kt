@@ -11,7 +11,6 @@ import com.lidesheng.hyperlyric.root.island.config.IslandSlotRuntimeConfig
 import com.lidesheng.hyperlyric.root.island.effects.glow.IslandProgressGlowController
 import com.lidesheng.hyperlyric.root.island.presentation.IslandPresentationCoordinator
 import com.lidesheng.hyperlyric.root.island.presentation.IslandReconcileReason
-import com.lidesheng.hyperlyric.root.utils.HookLogger
 
 /**
  * Owns pause/resume behavior for injected lyric views.
@@ -20,8 +19,6 @@ import com.lidesheng.hyperlyric.root.utils.HookLogger
  * playback policy and keeps the pause-cleared state beside the transitions that consume it.
  */
 internal object IslandPlaybackStateCoordinator {
-    private const val TAG = "BaseIslandRenderer"
-
     private var clearedByPause = false
 
     fun markClearedByPause() {
@@ -47,7 +44,6 @@ internal object IslandPlaybackStateCoordinator {
         if (stateChanged) {
             IslandProgressGlowController.onPlaybackStateChanged(isPlaying)
         }
-        HookLogger.d(TAG, "播放状态变化: 正在播放=$isPlaying")
         val behavior = prefs.getInt(
             RootConstants.KEY_HOOK_ISLAND_BEHAVIOR_AFTER_PAUSE,
             RootConstants.DEFAULT_HOOK_ISLAND_BEHAVIOR_AFTER_PAUSE
@@ -60,17 +56,12 @@ internal object IslandPlaybackStateCoordinator {
             } else if (stateChanged) {
                 applyPlaybackStateToActiveViews(true)
             }
-            HookLogger.d(TAG, "播放已继续，等待进度或歌词事件")
         } else if (behavior == 0) {
             if (!clearedByPause) {
                 clearActiveViewsForPauseInternal()
-                HookLogger.d(TAG, "已暂停，恢复原生媒体岛")
-            } else {
-                HookLogger.d(TAG, "忽略重复暂停状态，原生媒体岛已恢复")
             }
         } else if (stateChanged) {
             applyPlaybackStateToActiveViews(false)
-            HookLogger.d(TAG, "已暂停，保留当前歌词注入")
         }
     }
 

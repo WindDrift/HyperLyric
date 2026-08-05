@@ -12,6 +12,8 @@ import io.github.libxposed.api.XposedModule
  * SystemUI hook registry.
  */
 object SystemUIHookRegistry {
+    private const val TAG = "SystemUIHookRegistry"
+
     lateinit var module: XposedModule
 
     private val hookedClassLoaders = java.util.Collections.synchronizedSet(
@@ -49,13 +51,13 @@ object SystemUIHookRegistry {
 
             isHookedSuccess = true
             HookLogger.i(
-                "SystemUIHookRegistry",
+                TAG,
                 if (lyricsOnly) "超级岛歌词 Hook 已初始化" else "超级岛 Hook 已初始化"
             )
         } catch (e: ClassNotFoundException) {
-            HookLogger.w("SystemUIHookRegistry", "跳过不支持的超级岛插件: reason=${e.message}")
+            HookLogger.w(TAG, "跳过不支持的超级岛插件: reason=${e.message}")
         } catch (e: Exception) {
-            HookLogger.e("SystemUIHookRegistry", "注入超级岛插件失败", e)
+            HookLogger.e(TAG, "注入超级岛插件失败", e)
         }
     }
 }

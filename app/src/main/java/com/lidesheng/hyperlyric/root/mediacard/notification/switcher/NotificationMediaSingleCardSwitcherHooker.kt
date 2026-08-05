@@ -229,7 +229,6 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         runCatching {
             state.seedFromNativeSort()
             registerMediaDataListener(state, classLoader)
-            HookLogger.d(TAG, "已接管多媒体数据: controller=${controller.javaClass.name}")
         }.onFailure { error ->
             layoutStates.remove(controller)
             viewStates.remove(viewController)
@@ -367,7 +366,6 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             xposedModule.deoptimize(method)
             xposedModule.hook(method).intercept(DispatchTouchHook())
             installed = true
-            HookLogger.d(TAG, "已安装媒体卡片触摸分发 Hook: ${method.declaringClass.name}")
         } catch (error: Exception) {
             HookLogger.e(TAG, "安装媒体卡片触摸分发 Hook 失败", error)
         } finally {

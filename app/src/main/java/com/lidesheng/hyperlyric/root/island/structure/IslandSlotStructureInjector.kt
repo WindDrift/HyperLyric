@@ -284,10 +284,6 @@ internal object IslandSlotStructureInjector {
 
         forceWrapperLayout(wrapperView, container, widthPx)
 
-        HookLogger.d(
-            TAG,
-            "已注入歌词视图: tag=$viewTag，激活模式=${config.activeMode}，内容模式=$mode，宽度=${widthPx}px"
-        )
         return true
     }
 
@@ -503,8 +499,5 @@ internal object IslandSlotStructureInjector {
         rightView?.main?.spaceGateEnabled = false
         rightView?.secondary?.spaceGateEnabled = false
 
-        if (leftView != null && rightView != null) {
-            IslandHostFacade.logCameraCutoutInfo(rootView)
-        }
     }
 }

@@ -490,7 +490,6 @@ object NotificationMediaAmbientFlowHooker {
         return runCatching { NativeMusicBgApi.create(classLoader) }
             .onSuccess { api ->
                 nativeApis[classLoader] = api
-                HookLogger.d(TAG, "使用原生 MusicBgView 渲染器")
             }
             .onFailure { error ->
                 nativeUnavailableClassLoaders.add(classLoader)

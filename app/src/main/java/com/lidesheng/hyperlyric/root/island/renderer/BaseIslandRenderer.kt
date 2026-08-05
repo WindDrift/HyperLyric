@@ -13,7 +13,6 @@ import com.lidesheng.hyperlyric.root.island.host.IslandHostFacade
 import com.lidesheng.hyperlyric.root.island.host.IslandProbeUtils
 import com.lidesheng.hyperlyric.root.island.presentation.IslandPresentationCoordinator
 import com.lidesheng.hyperlyric.root.island.presentation.IslandReconcileReason
-import com.lidesheng.hyperlyric.root.utils.HookLogger
 
 object BaseIslandRenderer : IslandRenderer {
 
@@ -91,7 +90,6 @@ object BaseIslandRenderer : IslandRenderer {
             }
         }
 
-        HookLogger.d("BaseIslandRenderer", "已刷新活动媒体岛: 数量=${activeViews.size}")
     }
 
     override fun updateLyricLine() {
@@ -127,9 +125,6 @@ object BaseIslandRenderer : IslandRenderer {
                         expectedPresentationRevision
                     )
                     if (!result.isTarget) return@post
-                    if (result.mutation.relayoutRequested) {
-                        HookLogger.d("BaseIslandRenderer", "歌词更新时已补齐缺失的首帧注入")
-                    }
                     val currentPrefs = HookEntry.instance?.prefs ?: return@post
                     val currentConfig = IslandSlotRuntimeConfig.from(currentPrefs)
                     IslandContentUpdateCoordinator.updateLyricContentForView(

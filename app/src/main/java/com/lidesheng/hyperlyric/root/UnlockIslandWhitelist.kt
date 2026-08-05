@@ -10,6 +10,7 @@ import io.github.libxposed.api.XposedModule
 import java.lang.reflect.Method
 
 object UnlockIslandWhitelist {
+    private const val TAG = "UnlockIslandWhitelist"
     private const val TARGET_CLASS = "miui.systemui.notification.NotificationSettingsManager"
     private const val TARGET_METHOD = "mediaIslandSupportMiniWindow"
 
@@ -70,13 +71,13 @@ object UnlockIslandWhitelist {
                 val handle = module.hook(method).intercept(ReturnTrueHooker())
                 hookHandles[method] = handle
                 HookLogger.i(
-                    "UnlockIslandWhitelist",
+                    TAG,
                     "超级岛下拉小窗白名单 Hook 已安装: method=$TARGET_METHOD"
                 )
             }
         }.onFailure { e ->
             if (e !is ClassNotFoundException) {
-                HookLogger.e("UnlockIslandWhitelist", "媒体超级岛下拉小窗白名单注入失败", e)
+                HookLogger.e(TAG, "媒体超级岛下拉小窗白名单注入失败", e)
             }
         }
     }
@@ -90,7 +91,7 @@ object UnlockIslandWhitelist {
     private fun unhookAll() {
         hookHandles.values.forEach { it.unhook() }
         hookHandles.clear()
-        HookLogger.i("UnlockIslandWhitelist", "超级岛下拉小窗白名单 Hook 已移除")
+        HookLogger.i(TAG, "超级岛下拉小窗白名单 Hook 已移除")
     }
 
     class ReturnTrueHooker : Hooker {
