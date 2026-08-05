@@ -13,13 +13,13 @@ import com.lidesheng.hyperlyric.lyric.view.SpaceGateRichLyricLineView
 import com.lidesheng.hyperlyric.root.HookEntry
 import com.lidesheng.hyperlyric.root.LyriconDataBridge
 import com.lidesheng.hyperlyric.root.island.IslandHostFacade
-import com.lidesheng.hyperlyric.root.island.IslandLyricTextInjector
 import com.lidesheng.hyperlyric.root.island.IslandMusicWaveColorHooker
 import com.lidesheng.hyperlyric.root.island.IslandPresentationCoordinator
 import com.lidesheng.hyperlyric.root.island.IslandProbeUtils
 import com.lidesheng.hyperlyric.root.island.IslandProgressGlowController
 import com.lidesheng.hyperlyric.root.island.IslandSlotContentAssembler
 import com.lidesheng.hyperlyric.root.island.IslandSlotRuntimeConfig
+import com.lidesheng.hyperlyric.root.island.sizing.IslandDynamicWidthCoordinator
 import com.lidesheng.hyperlyric.root.utils.CoverColorHelper
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 
@@ -545,14 +545,14 @@ object BaseIslandRenderer : IslandRenderer {
             lineOverride = line,
             playbackActive = IslandPresentationCoordinator.isPlaybackActive(),
             onLineWillApply = { contentWidthPx ->
-                IslandLyricTextInjector.prepareDynamicLyricWidth(cv, tag, contentWidthPx)
+                IslandDynamicWidthCoordinator.prepareLyricWidth(cv, tag, contentWidthPx)
             },
             onLineApplied = {
-                IslandLyricTextInjector.clearDynamicLyricPreflight(cv, tag)
-                IslandLyricTextInjector.requestDynamicWidthRefresh(cv)
+                IslandDynamicWidthCoordinator.clearPreflight(cv, tag)
+                IslandDynamicWidthCoordinator.requestRefresh(cv)
             },
             onLineCancelled = {
-                IslandLyricTextInjector.clearDynamicLyricPreflight(cv, tag)
+                IslandDynamicWidthCoordinator.clearPreflight(cv, tag)
             }
         )
     }
@@ -586,14 +586,14 @@ object BaseIslandRenderer : IslandRenderer {
             playbackActive = IslandPresentationCoordinator.isPlaybackActive(),
             mediaInfo = mediaInfo,
             onLineWillApply = { contentWidthPx ->
-                IslandLyricTextInjector.prepareDynamicLyricWidth(cv, tag, contentWidthPx)
+                IslandDynamicWidthCoordinator.prepareLyricWidth(cv, tag, contentWidthPx)
             },
             onLineApplied = {
-                IslandLyricTextInjector.clearDynamicLyricPreflight(cv, tag)
-                IslandLyricTextInjector.requestDynamicWidthRefresh(cv)
+                IslandDynamicWidthCoordinator.clearPreflight(cv, tag)
+                IslandDynamicWidthCoordinator.requestRefresh(cv)
             },
             onLineCancelled = {
-                IslandLyricTextInjector.clearDynamicLyricPreflight(cv, tag)
+                IslandDynamicWidthCoordinator.clearPreflight(cv, tag)
             }
         )
     }
