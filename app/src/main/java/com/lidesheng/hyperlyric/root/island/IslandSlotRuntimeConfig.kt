@@ -6,7 +6,6 @@ import com.lidesheng.hyperlyric.common.LyricTextColorStylePolicy
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.common.SuperIslandContentStylePolicy
 import com.lidesheng.hyperlyric.common.SuperIslandWidthPolicy
-import kotlin.math.ceil
 
 internal data class IslandSlotRuntimeConfig(
     val activeMode: Int,
@@ -145,18 +144,6 @@ internal data class IslandSlotRuntimeConfig(
         val maxWidthDp = maxWidthDp(parentName)
         if (maxWidthDp <= 0) return null
         return (maxWidthDp * rootView.resources.displayMetrics.density).toInt().coerceAtLeast(1)
-    }
-
-    fun lyricRequiredWidthPx(
-        rootView: View,
-        parentName: String,
-        contentWidthPx: Float
-    ): Int? {
-        val maxWidthDp = maxWidthDp(parentName)
-        if (maxWidthDp <= 0) return null
-
-        val paddingPx = paddingLeftPx(rootView, parentName) + paddingRightPx(rootView, parentName)
-        return (ceil(contentWidthPx.coerceAtLeast(0f)).toInt() + paddingPx).coerceAtLeast(1)
     }
 
     fun paddingLeftPx(rootView: View, parentName: String): Int {

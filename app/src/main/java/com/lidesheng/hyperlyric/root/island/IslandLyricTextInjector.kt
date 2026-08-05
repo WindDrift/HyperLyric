@@ -6,15 +6,15 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
-import com.lidesheng.hyperlyric.common.SuperIslandWidthPolicy
 import com.lidesheng.hyperlyric.lyric.view.RichLyricLineView
 import com.lidesheng.hyperlyric.lyric.view.SpaceGateRichLyricLineView
 import com.lidesheng.hyperlyric.root.HookEntry
 import com.lidesheng.hyperlyric.root.LyriconDataBridge
+import com.lidesheng.hyperlyric.root.island.sizing.IslandLyricWidthCalculator
+import com.lidesheng.hyperlyric.root.island.sizing.IslandLyricWidthSpec
 import com.lidesheng.hyperlyric.root.island.view.MaxWidthFrameLayout
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import java.util.WeakHashMap
-import kotlin.math.ceil
 
 /**
  * Stage-4 / 富歌词大岛视图注入与更新调度。
@@ -359,21 +359,10 @@ internal object IslandLyricTextInjector {
         if (config.modeForTag(viewTag) != 7) return null
         val lyricView = rootView.findViewWithTag<View>(viewTag) as? RichLyricLineView
             ?: return null
-        val requiredWidthPx = config.lyricRequiredWidthPx(
-            rootView = rootView,
-            parentName = parentName,
-            contentWidthPx = contentWidthOverridePx ?: lyricView.main.lineWidth
-        ) ?: return null
-        val requiredWidthDp = requiredWidthPx / rootView.resources.displayMetrics.density
-        return if (config.isLeftParent(parentName)) {
-            SuperIslandWidthPolicy.baseWidthFromLeftContentWidth(
-                leftContentWidthDp = requiredWidthDp,
-                showAlbum = config.showAlbum,
-                showRhythm = config.showRhythm
-            )
-        } else {
-            requiredWidthDp
-        }
+        return IslandLyricWidthCalculator.baseWidthDp(
+            contentWidthPx = contentWidthOverridePx ?: lyricView.main.lineWidth,
+            spec = dynamicLyricWidthSpec(rootView, parentName, config)
+        )
     }
 
     private fun updateDynamicSlotWidth(
@@ -383,23 +372,10 @@ internal object IslandLyricTextInjector {
         config: IslandSlotRuntimeConfig,
         baseWidthDp: Float
     ): Boolean {
-        val maxWidthDp = config.maxWidthDp(parentName)
-        if (maxWidthDp <= 0) return false
-        val adjustmentDp = if (config.isLeftParent(parentName)) {
-            SuperIslandWidthPolicy.leftContentWidthOffsetDp(
-                showAlbum = config.showAlbum,
-                showRhythm = config.showRhythm
-            )
-        } else {
-            0
-        }
-        val targetWidthDp = (baseWidthDp + adjustmentDp).coerceIn(
-            config.minWidthDp(parentName).toFloat(),
-            maxWidthDp.toFloat()
-        )
-        val targetWidthPx = ceil(
-            targetWidthDp * rootView.resources.displayMetrics.density
-        ).toInt().coerceAtLeast(1)
+        val targetWidthPx = IslandLyricWidthCalculator.targetWidthPx(
+            baseWidthDp = baseWidthDp,
+            spec = dynamicLyricWidthSpec(rootView, parentName, config)
+        ) ?: return false
         val wrapper = rootView.findViewWithTag<View>("${viewTag}_WRAPPER")
             as? MaxWidthFrameLayout ?: return false
         if (wrapper.maxWidthPx == targetWidthPx) return false
@@ -407,6 +383,23 @@ internal object IslandLyricTextInjector {
         wrapper.maxWidthPx = targetWidthPx
         wrapper.requestLayout()
         return true
+    }
+
+    private fun dynamicLyricWidthSpec(
+        rootView: ViewGroup,
+        parentName: String,
+        config: IslandSlotRuntimeConfig
+    ): IslandLyricWidthSpec {
+        return IslandLyricWidthSpec(
+            density = rootView.resources.displayMetrics.density,
+            paddingLeftPx = config.paddingLeftPx(rootView, parentName),
+            paddingRightPx = config.paddingRightPx(rootView, parentName),
+            minWidthDp = config.minWidthDp(parentName),
+            maxWidthDp = config.maxWidthDp(parentName),
+            isLeft = config.isLeftParent(parentName),
+            showAlbum = config.showAlbum,
+            showRhythm = config.showRhythm
+        )
     }
 
     fun freezeInjectedLyricProgress(rootView: ViewGroup, position: Long) {
