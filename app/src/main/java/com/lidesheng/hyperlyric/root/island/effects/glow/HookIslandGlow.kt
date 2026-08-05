@@ -1,4 +1,4 @@
-package com.lidesheng.hyperlyric.root
+package com.lidesheng.hyperlyric.root.island.effects.glow
 
 import android.annotation.SuppressLint
 import android.content.SharedPreferences
@@ -6,6 +6,8 @@ import android.view.View
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.common.LyricTextColorStylePolicy
 import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
+import com.lidesheng.hyperlyric.root.HookEntry
+import com.lidesheng.hyperlyric.root.LyriconDataBridge
 import com.lidesheng.hyperlyric.root.island.host.IslandProbeUtils
 import com.lidesheng.hyperlyric.root.utils.CoverColorHelper
 import com.lidesheng.hyperlyric.root.utils.HookLogger

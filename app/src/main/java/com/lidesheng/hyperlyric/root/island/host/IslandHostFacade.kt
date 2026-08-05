@@ -5,7 +5,7 @@ import android.view.View
 import android.view.ViewGroup
 import com.lidesheng.hyperlyric.common.SuperIslandContentStylePolicy
 import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
-import com.lidesheng.hyperlyric.root.HookIslandGlow
+import com.lidesheng.hyperlyric.root.island.effects.glow.HookIslandGlow
 import com.lidesheng.hyperlyric.root.island.effects.glow.IslandProgressGlowController
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 

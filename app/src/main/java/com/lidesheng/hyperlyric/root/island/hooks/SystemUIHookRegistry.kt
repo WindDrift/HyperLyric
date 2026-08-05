@@ -1,8 +1,8 @@
 package com.lidesheng.hyperlyric.root.island.hooks
 
-import com.lidesheng.hyperlyric.root.HookIslandGlow
 import com.lidesheng.hyperlyric.root.island.effects.album.IslandAlbumCoverStyleHooker
 import com.lidesheng.hyperlyric.root.island.effects.color.IslandMusicWaveColorHooker
+import com.lidesheng.hyperlyric.root.island.effects.glow.HookIslandGlow
 import com.lidesheng.hyperlyric.root.island.effects.glow.IslandProgressGlowHooker
 import com.lidesheng.hyperlyric.root.utils.DynamicFinder
 import com.lidesheng.hyperlyric.root.utils.HookLogger

@@ -12,6 +12,7 @@ import com.lidesheng.hyperlyric.root.aitrans.AiTranslationGatewayImpl
 import com.lidesheng.hyperlyric.root.island.effects.album.IslandAlbumCoverStyleHooker
 import com.lidesheng.hyperlyric.root.island.effects.color.IslandMusicWaveColorHooker
 import com.lidesheng.hyperlyric.root.island.effects.color.StatusBarTextColorHooker
+import com.lidesheng.hyperlyric.root.island.effects.glow.HookIslandGlow
 import com.lidesheng.hyperlyric.root.island.effects.glow.IslandProgressGlowController
 import com.lidesheng.hyperlyric.root.island.hooks.IslandModuleRestoreHooker
 import com.lidesheng.hyperlyric.root.island.hooks.RealIslandHooker
