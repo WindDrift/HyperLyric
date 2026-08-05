@@ -1,7 +1,7 @@
 package com.lidesheng.hyperlyric.root.island.presentation
 
 import android.view.ViewGroup
-import com.lidesheng.hyperlyric.root.island.IslandViewRegistry
+import com.lidesheng.hyperlyric.root.island.host.IslandViewRegistry
 import java.util.WeakHashMap
 
 /**
@@ -9,7 +9,8 @@ import java.util.WeakHashMap
  *
  * SystemUI does not return our generation in the transition-end callback, so the latest record
  * for a fake owner remains authoritative. The registry owns only this state; transition decisions
- * and view mutations stay in [com.lidesheng.hyperlyric.root.island.IslandPresentationCoordinator].
+ * and view mutations stay in
+ * [com.lidesheng.hyperlyric.root.island.presentation.IslandPresentationCoordinator].
  */
 internal object IslandFakeTransitionRegistry {
     data class Record(

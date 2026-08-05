@@ -1,4 +1,4 @@
-package com.lidesheng.hyperlyric.root.island
+package com.lidesheng.hyperlyric.root.island.effects.color
 
 import android.graphics.Color
 import android.widget.TextView

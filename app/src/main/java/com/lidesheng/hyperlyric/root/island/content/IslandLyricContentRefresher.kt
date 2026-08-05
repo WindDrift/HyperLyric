@@ -5,9 +5,8 @@ import android.view.ViewGroup
 import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
 import com.lidesheng.hyperlyric.root.HookEntry
 import com.lidesheng.hyperlyric.root.LyriconDataBridge
-import com.lidesheng.hyperlyric.root.island.IslandProbeUtils
-import com.lidesheng.hyperlyric.root.island.IslandSlotContentAssembler
-import com.lidesheng.hyperlyric.root.island.IslandSlotRuntimeConfig
+import com.lidesheng.hyperlyric.root.island.config.IslandSlotRuntimeConfig
+import com.lidesheng.hyperlyric.root.island.host.IslandProbeUtils
 import com.lidesheng.hyperlyric.root.island.sizing.IslandDynamicWidthCoordinator
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 
@@ -72,7 +71,7 @@ internal object IslandLyricContentRefresher {
         mediaInfo: MediaMetadataHelper.MediaInfo
     ): Boolean {
         val view = rootView.findViewWithTag<android.view.View>(viewTag) ?: return false
-        return IslandSlotContentAssembler.applySlotContent(
+        return IslandSlotContentFacade.applySlotContent(
             view,
             prefs,
             config,

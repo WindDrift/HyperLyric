@@ -5,7 +5,6 @@ import com.lidesheng.hyperlyric.common.LyricTextColorStylePolicy
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.common.SuperIslandContentStylePolicy
 import com.lidesheng.hyperlyric.common.SuperIslandWidthPolicy
-import com.lidesheng.hyperlyric.root.island.IslandSlotRuntimeConfig
 import com.lidesheng.hyperlyric.root.island.sizing.IslandSlotGeometryConfig
 
 /**

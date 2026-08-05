@@ -1,4 +1,4 @@
-package com.lidesheng.hyperlyric.root.island
+package com.lidesheng.hyperlyric.root.island.content
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -6,10 +6,7 @@ import android.view.View
 import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
 import com.lidesheng.hyperlyric.lyric.model.interfaces.IRichLyricLine
 import com.lidesheng.hyperlyric.root.LyriconDataBridge
-import com.lidesheng.hyperlyric.root.island.content.IslandLyricContentAssembler
-import com.lidesheng.hyperlyric.root.island.content.IslandMetadataContentAssembler
-import com.lidesheng.hyperlyric.root.island.content.IslandSlotContentSignatureCache
-import com.lidesheng.hyperlyric.root.island.content.IslandSlotStyleAssembler
+import com.lidesheng.hyperlyric.root.island.config.IslandSlotRuntimeConfig
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 
 /**
@@ -18,7 +15,7 @@ import com.lidesheng.hyperlyric.root.utils.HookLogger
  * Slot routing stays here while lyric content, metadata content and style application keep their
  * own implementation and caches in the content package.
  */
-internal object IslandSlotContentAssembler {
+internal object IslandSlotContentFacade {
 
     fun invalidate(view: View? = null) {
         IslandSlotContentSignatureCache.invalidate(view)

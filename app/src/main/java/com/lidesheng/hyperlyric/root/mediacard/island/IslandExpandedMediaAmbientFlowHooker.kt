@@ -16,8 +16,8 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import com.lidesheng.hyperlyric.common.RootConstants
-import com.lidesheng.hyperlyric.root.island.IslandAlbumCoverStyleHooker
-import com.lidesheng.hyperlyric.root.island.IslandProbeUtils
+import com.lidesheng.hyperlyric.root.island.effects.album.IslandAlbumCoverStyleHooker
+import com.lidesheng.hyperlyric.root.island.host.IslandProbeUtils
 import com.lidesheng.hyperlyric.root.mediacard.MediaAmbientFlowPalette
 import com.lidesheng.hyperlyric.root.mediacard.MediaAmbientFlowPaletteExtractor
 import com.lidesheng.hyperlyric.root.mediacard.MediaArtworkSampler

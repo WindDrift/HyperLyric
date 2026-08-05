@@ -1,8 +1,8 @@
-package com.lidesheng.hyperlyric.root.island
+package com.lidesheng.hyperlyric.root.island.config
 
 import android.content.SharedPreferences
 import com.lidesheng.hyperlyric.common.LyricTextColorStylePolicy
-import com.lidesheng.hyperlyric.root.island.config.IslandSlotRuntimeConfigReader
+import com.lidesheng.hyperlyric.root.island.host.IslandProbeUtils
 import com.lidesheng.hyperlyric.root.island.sizing.IslandSlotGeometryConfig
 
 internal data class IslandSlotRuntimeConfig(

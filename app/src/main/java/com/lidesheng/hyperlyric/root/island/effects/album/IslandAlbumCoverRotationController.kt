@@ -1,4 +1,4 @@
-package com.lidesheng.hyperlyric.root.island
+package com.lidesheng.hyperlyric.root.island.effects.album
 
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator

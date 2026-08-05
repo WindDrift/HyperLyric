@@ -1,4 +1,4 @@
-package com.lidesheng.hyperlyric.root.island
+package com.lidesheng.hyperlyric.root.island.presentation
 
 /**
  * Pure presentation policy for Super Island lyric targets.

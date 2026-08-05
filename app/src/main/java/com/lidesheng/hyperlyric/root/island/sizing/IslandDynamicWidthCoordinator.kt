@@ -4,10 +4,10 @@ import android.view.View
 import android.view.ViewGroup
 import com.lidesheng.hyperlyric.lyric.view.RichLyricLineView
 import com.lidesheng.hyperlyric.root.HookEntry
-import com.lidesheng.hyperlyric.root.island.IslandHostFacade
-import com.lidesheng.hyperlyric.root.island.IslandProbeUtils
-import com.lidesheng.hyperlyric.root.island.IslandSlotRuntimeConfig
-import com.lidesheng.hyperlyric.root.island.IslandViewRegistry
+import com.lidesheng.hyperlyric.root.island.config.IslandSlotRuntimeConfig
+import com.lidesheng.hyperlyric.root.island.host.IslandHostFacade
+import com.lidesheng.hyperlyric.root.island.host.IslandProbeUtils
+import com.lidesheng.hyperlyric.root.island.host.IslandViewRegistry
 import com.lidesheng.hyperlyric.root.island.view.MaxWidthFrameLayout
 import java.util.WeakHashMap
 

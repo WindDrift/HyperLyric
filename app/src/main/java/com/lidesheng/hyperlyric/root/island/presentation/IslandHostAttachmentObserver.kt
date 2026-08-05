@@ -2,7 +2,7 @@ package com.lidesheng.hyperlyric.root.island.presentation
 
 import android.view.View
 import android.view.ViewGroup
-import com.lidesheng.hyperlyric.root.island.IslandViewRegistry
+import com.lidesheng.hyperlyric.root.island.host.IslandViewRegistry
 import java.util.WeakHashMap
 
 /**

@@ -6,7 +6,7 @@ import com.lidesheng.hyperlyric.lyric.model.RichLyricLine
 import com.lidesheng.hyperlyric.lyric.view.RichLyricLineView
 import com.lidesheng.hyperlyric.lyric.view.SpaceGateRichLyricLineView
 import com.lidesheng.hyperlyric.root.LyriconDataBridge
-import com.lidesheng.hyperlyric.root.island.IslandSlotRuntimeConfig
+import com.lidesheng.hyperlyric.root.island.config.IslandSlotRuntimeConfig
 
 internal object IslandMetadataContentAssembler {
 

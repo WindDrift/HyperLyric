@@ -1,15 +1,14 @@
-package com.lidesheng.hyperlyric.root.island
+package com.lidesheng.hyperlyric.root.island.presentation
 
 import android.view.ViewGroup
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.root.HookEntry
 import com.lidesheng.hyperlyric.root.LyriconDataBridge
 import com.lidesheng.hyperlyric.root.island.content.IslandLyricPlaybackController
-import com.lidesheng.hyperlyric.root.island.presentation.IslandFakeTransitionRegistry
-import com.lidesheng.hyperlyric.root.island.presentation.IslandHostAttachmentObserver
-import com.lidesheng.hyperlyric.root.island.presentation.IslandPresentationState
-import com.lidesheng.hyperlyric.root.island.presentation.IslandReconcileOptions
-import com.lidesheng.hyperlyric.root.island.presentation.IslandReconcileReason
+import com.lidesheng.hyperlyric.root.island.host.IslandHostFacade
+import com.lidesheng.hyperlyric.root.island.host.IslandProbeUtils
+import com.lidesheng.hyperlyric.root.island.host.IslandTextHookerSupport
+import com.lidesheng.hyperlyric.root.island.host.IslandViewRegistry
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 
 /**

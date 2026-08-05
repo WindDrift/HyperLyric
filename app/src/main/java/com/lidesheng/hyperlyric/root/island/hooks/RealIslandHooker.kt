@@ -1,7 +1,11 @@
-package com.lidesheng.hyperlyric.root.island
+package com.lidesheng.hyperlyric.root.island.hooks
 
 import android.view.ViewGroup
-import com.lidesheng.hyperlyric.root.island.IslandTextHookerSupport.TAG
+import com.lidesheng.hyperlyric.root.island.host.IslandProbeUtils
+import com.lidesheng.hyperlyric.root.island.host.IslandTextHookerSupport
+import com.lidesheng.hyperlyric.root.island.host.IslandTextHookerSupport.TAG
+import com.lidesheng.hyperlyric.root.island.presentation.IslandPresentationCoordinator
+import com.lidesheng.hyperlyric.root.island.presentation.IslandRenderPolicy
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import io.github.libxposed.api.XposedInterface.Chain
 import io.github.libxposed.api.XposedInterface.Hooker

@@ -7,11 +7,11 @@ import android.widget.FrameLayout
 import com.lidesheng.hyperlyric.lyric.view.RichLyricLineView
 import com.lidesheng.hyperlyric.lyric.view.SpaceGateRichLyricLineView
 import com.lidesheng.hyperlyric.root.HookEntry
-import com.lidesheng.hyperlyric.root.island.IslandHostFacade
-import com.lidesheng.hyperlyric.root.island.IslandProbeUtils
-import com.lidesheng.hyperlyric.root.island.IslandSlotContentAssembler
-import com.lidesheng.hyperlyric.root.island.IslandSlotRuntimeConfig
-import com.lidesheng.hyperlyric.root.island.IslandViewHelper
+import com.lidesheng.hyperlyric.root.island.config.IslandSlotRuntimeConfig
+import com.lidesheng.hyperlyric.root.island.content.IslandSlotContentFacade
+import com.lidesheng.hyperlyric.root.island.host.IslandHostFacade
+import com.lidesheng.hyperlyric.root.island.host.IslandProbeUtils
+import com.lidesheng.hyperlyric.root.island.host.IslandViewHelper
 import com.lidesheng.hyperlyric.root.island.sizing.IslandDynamicWidthCoordinator
 import com.lidesheng.hyperlyric.root.island.view.MaxWidthFrameLayout
 import com.lidesheng.hyperlyric.root.utils.HookLogger
@@ -82,7 +82,7 @@ internal object IslandSlotStructureInjector {
         val wrapper = rootView.findViewWithTag<View>(wrapperTag) ?: return false
         val parent = wrapper.parent as? ViewGroup ?: return false
         parent.removeView(wrapper)
-        IslandSlotContentAssembler.invalidate(wrapper)
+        IslandSlotContentFacade.invalidate(wrapper)
         return true
     }
 
@@ -230,7 +230,7 @@ internal object IslandSlotStructureInjector {
                 changed = true
             } else if (!isViewTypeCorrect(targetView, config.activeMode)) {
                 existingWrapper.removeView(targetView)
-                IslandSlotContentAssembler.invalidate(targetView)
+                IslandSlotContentFacade.invalidate(targetView)
                 existingWrapper.addView(
                     createLyricView(
                         rootView,
@@ -414,7 +414,7 @@ internal object IslandSlotStructureInjector {
 
         val prefs = HookEntry.instance?.prefs
         if (reconfigure && prefs != null) {
-            changed = IslandSlotContentAssembler.applySlotContent(
+            changed = IslandSlotContentFacade.applySlotContent(
                 targetView,
                 prefs,
                 config,
@@ -480,7 +480,7 @@ internal object IslandSlotStructureInjector {
         view.tag = tagValue
 
         if (prefs != null) {
-            IslandSlotContentAssembler.applySlotContent(
+            IslandSlotContentFacade.applySlotContent(
                 view,
                 prefs,
                 config,

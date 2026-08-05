@@ -1,6 +1,7 @@
-package com.lidesheng.hyperlyric.root.island
+package com.lidesheng.hyperlyric.root.island.hooks
 
 import com.lidesheng.hyperlyric.root.utils.HookLogger
+import com.lidesheng.hyperlyric.root.island.host.IslandTextHookerSupport
 import io.github.libxposed.api.XposedModule
 
 /**

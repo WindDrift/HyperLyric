@@ -12,13 +12,13 @@ import com.lidesheng.hyperlyric.lyric.view.RichLyricLineView
 import com.lidesheng.hyperlyric.lyric.view.SpaceGateRichLyricLineView
 import com.lidesheng.hyperlyric.root.HookEntry
 import com.lidesheng.hyperlyric.root.LyriconDataBridge
-import com.lidesheng.hyperlyric.root.island.IslandHostFacade
-import com.lidesheng.hyperlyric.root.island.IslandMusicWaveColorHooker
-import com.lidesheng.hyperlyric.root.island.IslandPresentationCoordinator
-import com.lidesheng.hyperlyric.root.island.IslandProbeUtils
-import com.lidesheng.hyperlyric.root.island.IslandProgressGlowController
-import com.lidesheng.hyperlyric.root.island.IslandSlotContentAssembler
-import com.lidesheng.hyperlyric.root.island.IslandSlotRuntimeConfig
+import com.lidesheng.hyperlyric.root.island.config.IslandSlotRuntimeConfig
+import com.lidesheng.hyperlyric.root.island.content.IslandSlotContentFacade
+import com.lidesheng.hyperlyric.root.island.effects.color.IslandMusicWaveColorHooker
+import com.lidesheng.hyperlyric.root.island.effects.glow.IslandProgressGlowController
+import com.lidesheng.hyperlyric.root.island.host.IslandHostFacade
+import com.lidesheng.hyperlyric.root.island.host.IslandProbeUtils
+import com.lidesheng.hyperlyric.root.island.presentation.IslandPresentationCoordinator
 import com.lidesheng.hyperlyric.root.island.presentation.IslandReconcileReason
 import com.lidesheng.hyperlyric.root.island.sizing.IslandDynamicWidthCoordinator
 import com.lidesheng.hyperlyric.root.utils.CoverColorHelper
@@ -70,7 +70,7 @@ object BaseIslandRenderer : IslandRenderer {
         val expectedPresentationRevision =
             IslandPresentationCoordinator.currentPresentationRevision()
 
-        IslandSlotContentAssembler.invalidate()
+        IslandSlotContentFacade.invalidate()
 
         val activeViews = IslandPresentationCoordinator.snapshotAttachedHosts(lyricPkg)
         activeViews.forEach { token ->
@@ -533,13 +533,13 @@ object BaseIslandRenderer : IslandRenderer {
     ) {
         if (mode != 7) return
         val view = cv.findViewWithTag<View>(tag) ?: return
-        val line = IslandSlotContentAssembler.buildSlotLyricLine(
+        val line = IslandSlotContentFacade.buildSlotLyricLine(
             view = view,
             prefs = prefs,
             config = config,
             isLeft = tag == IslandProbeUtils.LEFT_TEST_VIEW_TAG
         )
-        IslandSlotContentAssembler.applyLyricLineContent(
+        IslandSlotContentFacade.applyLyricLineContent(
             view = view,
             prefs = prefs,
             config = config,
@@ -569,7 +569,7 @@ object BaseIslandRenderer : IslandRenderer {
         if (mode == 0) return
         val view = cv.findViewWithTag<View>(tag) ?: return
         val lineOverride = if (mode == 7) {
-            IslandSlotContentAssembler.buildSlotLyricLine(
+            IslandSlotContentFacade.buildSlotLyricLine(
                 view = view,
                 prefs = prefs,
                 config = config,
@@ -578,7 +578,7 @@ object BaseIslandRenderer : IslandRenderer {
         } else {
             null
         }
-        IslandSlotContentAssembler.applySlotContent(
+        IslandSlotContentFacade.applySlotContent(
             view = view,
             prefs = prefs,
             config = config,
@@ -609,7 +609,7 @@ object BaseIslandRenderer : IslandRenderer {
     ) {
         if (mode == 0) return
         val view = cv.findViewWithTag<View>(tag) ?: return
-        IslandSlotContentAssembler.configureView(
+        IslandSlotContentFacade.configureView(
             view = view,
             prefs = prefs,
             config = config,

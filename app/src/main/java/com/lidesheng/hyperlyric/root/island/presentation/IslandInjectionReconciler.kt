@@ -1,8 +1,10 @@
-package com.lidesheng.hyperlyric.root.island
+package com.lidesheng.hyperlyric.root.island.presentation
 
 import android.view.ViewGroup
 import com.lidesheng.hyperlyric.root.island.content.IslandLyricContentRefresher
 import com.lidesheng.hyperlyric.root.island.content.IslandLyricPlaybackController
+import com.lidesheng.hyperlyric.root.island.host.IslandHostFacade
+import com.lidesheng.hyperlyric.root.island.host.IslandViewRegistry
 import com.lidesheng.hyperlyric.root.island.structure.IslandSlotStructureInjector
 
 /**
