@@ -1,27 +1,17 @@
 package com.lidesheng.hyperlyric.root.island
 
 import android.content.SharedPreferences
-import android.view.View
 import com.lidesheng.hyperlyric.common.LyricTextColorStylePolicy
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.common.SuperIslandContentStylePolicy
 import com.lidesheng.hyperlyric.common.SuperIslandWidthPolicy
+import com.lidesheng.hyperlyric.root.island.sizing.IslandSlotGeometryConfig
 
 internal data class IslandSlotRuntimeConfig(
     val activeMode: Int,
-    val widthMode: Int,
     val leftMode: Int,
     val rightMode: Int,
-    val showAlbum: Boolean,
-    val showRhythm: Boolean,
-    val leftPaddingLeftDp: Int,
-    val leftPaddingRightDp: Int,
-    val rightPaddingLeftDp: Int,
-    val rightPaddingRightDp: Int,
-    val leftMinWidthDp: Int,
-    val rightMinWidthDp: Int,
-    val leftMaxWidthDp: Int,
-    val rightMaxWidthDp: Int,
+    val geometry: IslandSlotGeometryConfig,
     val pauseBehavior: Int,
     val textSizeSp: Int,
     val textSizeRatio: Float,
@@ -61,9 +51,6 @@ internal data class IslandSlotRuntimeConfig(
 ) {
     val isSplitMode: Boolean
         get() = activeMode == 1
-
-    val isDynamicWidth: Boolean
-        get() = widthMode == RootConstants.ISLAND_WIDTH_MODE_DYNAMIC && !isSplitMode
 
     val extractCoverTextColor: Boolean
         get() = LyricTextColorStylePolicy.usesCoverColor(textColorStyle)
@@ -120,42 +107,6 @@ internal data class IslandSlotRuntimeConfig(
         return tag == IslandProbeUtils.LEFT_TEST_VIEW_TAG
     }
 
-    fun isLeftParent(parentName: String): Boolean {
-        return parentName.contains("1")
-    }
-
-    fun maxWidthDp(parentName: String): Int {
-        return if (isLeftParent(parentName)) leftMaxWidthDp else rightMaxWidthDp
-    }
-
-    fun minWidthDp(parentName: String): Int {
-        return if (isLeftParent(parentName)) leftMinWidthDp else rightMinWidthDp
-    }
-
-    fun paddingLeftDp(parentName: String): Int {
-        return if (isLeftParent(parentName)) leftPaddingLeftDp else rightPaddingLeftDp
-    }
-
-    fun paddingRightDp(parentName: String): Int {
-        return if (isLeftParent(parentName)) leftPaddingRightDp else rightPaddingRightDp
-    }
-
-    fun widthPx(rootView: View, parentName: String): Int? {
-        val maxWidthDp = maxWidthDp(parentName)
-        if (maxWidthDp <= 0) return null
-        return (maxWidthDp * rootView.resources.displayMetrics.density).toInt().coerceAtLeast(1)
-    }
-
-    fun paddingLeftPx(rootView: View, parentName: String): Int {
-        return (paddingLeftDp(parentName) * rootView.resources.displayMetrics.density).toInt()
-            .coerceAtLeast(0)
-    }
-
-    fun paddingRightPx(rootView: View, parentName: String): Int {
-        return (paddingRightDp(parentName) * rootView.resources.displayMetrics.density).toInt()
-            .coerceAtLeast(0)
-    }
-
     companion object {
         fun from(prefs: SharedPreferences): IslandSlotRuntimeConfig {
             val activeMode = prefs.getInt(
@@ -210,7 +161,6 @@ internal data class IslandSlotRuntimeConfig(
             }
             return IslandSlotRuntimeConfig(
                 activeMode = activeMode,
-                widthMode = widthMode,
                 leftMode = if (activeMode == 1) 7 else prefs.getInt(
                     RootConstants.KEY_HOOK_ISLAND_CONTENT_LEFT,
                     RootConstants.DEFAULT_HOOK_ISLAND_CONTENT_LEFT
@@ -219,36 +169,39 @@ internal data class IslandSlotRuntimeConfig(
                     RootConstants.KEY_HOOK_ISLAND_CONTENT_RIGHT,
                     RootConstants.DEFAULT_HOOK_ISLAND_CONTENT_RIGHT
                 ),
-                showAlbum = showAlbum,
-                showRhythm = showRhythm,
-                leftPaddingLeftDp = prefs.getInt(
-                    RootConstants.KEY_HOOK_ISLAND_LEFT_PADDING_LEFT,
-                    RootConstants.DEFAULT_HOOK_ISLAND_LEFT_PADDING_LEFT
-                ),
-                leftPaddingRightDp = prefs.getInt(
-                    RootConstants.KEY_HOOK_ISLAND_LEFT_PADDING_RIGHT,
-                    RootConstants.DEFAULT_HOOK_ISLAND_LEFT_PADDING_RIGHT
-                ),
-                rightPaddingLeftDp = prefs.getInt(
-                    RootConstants.KEY_HOOK_ISLAND_RIGHT_PADDING_LEFT,
-                    RootConstants.DEFAULT_HOOK_ISLAND_RIGHT_PADDING_LEFT
-                ),
-                rightPaddingRightDp = prefs.getInt(
-                    RootConstants.KEY_HOOK_ISLAND_RIGHT_PADDING_RIGHT,
-                    RootConstants.DEFAULT_HOOK_ISLAND_RIGHT_PADDING_RIGHT
-                ),
-                leftMinWidthDp = SuperIslandWidthPolicy.leftContentWidth(
-                    islandWidth = effectiveMinWidth,
+                geometry = IslandSlotGeometryConfig(
+                    isDynamicWidth = dynamicWidthEnabled,
                     showAlbum = showAlbum,
-                    showRhythm = showRhythm
+                    showRhythm = showRhythm,
+                    leftPaddingLeftDp = prefs.getInt(
+                        RootConstants.KEY_HOOK_ISLAND_LEFT_PADDING_LEFT,
+                        RootConstants.DEFAULT_HOOK_ISLAND_LEFT_PADDING_LEFT
+                    ),
+                    leftPaddingRightDp = prefs.getInt(
+                        RootConstants.KEY_HOOK_ISLAND_LEFT_PADDING_RIGHT,
+                        RootConstants.DEFAULT_HOOK_ISLAND_LEFT_PADDING_RIGHT
+                    ),
+                    rightPaddingLeftDp = prefs.getInt(
+                        RootConstants.KEY_HOOK_ISLAND_RIGHT_PADDING_LEFT,
+                        RootConstants.DEFAULT_HOOK_ISLAND_RIGHT_PADDING_LEFT
+                    ),
+                    rightPaddingRightDp = prefs.getInt(
+                        RootConstants.KEY_HOOK_ISLAND_RIGHT_PADDING_RIGHT,
+                        RootConstants.DEFAULT_HOOK_ISLAND_RIGHT_PADDING_RIGHT
+                    ),
+                    leftMinWidthDp = SuperIslandWidthPolicy.leftContentWidth(
+                        islandWidth = effectiveMinWidth,
+                        showAlbum = showAlbum,
+                        showRhythm = showRhythm
+                    ),
+                    rightMinWidthDp = effectiveMinWidth,
+                    leftMaxWidthDp = SuperIslandWidthPolicy.leftContentWidth(
+                        islandWidth = effectiveMaxWidth,
+                        showAlbum = showAlbum,
+                        showRhythm = showRhythm
+                    ),
+                    rightMaxWidthDp = effectiveMaxWidth
                 ),
-                rightMinWidthDp = effectiveMinWidth,
-                leftMaxWidthDp = SuperIslandWidthPolicy.leftContentWidth(
-                    islandWidth = effectiveMaxWidth,
-                    showAlbum = showAlbum,
-                    showRhythm = showRhythm
-                ),
-                rightMaxWidthDp = effectiveMaxWidth,
                 pauseBehavior = prefs.getInt(
                     RootConstants.KEY_HOOK_ISLAND_BEHAVIOR_AFTER_PAUSE,
                     RootConstants.DEFAULT_HOOK_ISLAND_BEHAVIOR_AFTER_PAUSE

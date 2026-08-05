@@ -292,7 +292,7 @@ internal object IslandLyricTextInjector {
         config: IslandSlotRuntimeConfig,
         suppressAnimation: Boolean
     ): Boolean {
-        val widthPx = config.widthPx(rootView, parentName) ?: return false
+        val widthPx = config.geometry.widthPx(rootView, parentName) ?: return false
 
         val parent =
             IslandViewHelper.findViewByName(rootView, parentName) as? ViewGroup ?: return false
@@ -456,8 +456,8 @@ internal object IslandLyricTextInjector {
         parentName: String
     ): Boolean {
         var changed = false
-        val paddingLeft = config.paddingLeftPx(wrapper, parentName)
-        val paddingRight = config.paddingRightPx(wrapper, parentName)
+        val paddingLeft = config.geometry.paddingLeftPx(wrapper, parentName)
+        val paddingRight = config.geometry.paddingRightPx(wrapper, parentName)
         if (wrapper.paddingLeft != paddingLeft || wrapper.paddingRight != paddingRight) {
             wrapper.setPadding(paddingLeft, wrapper.paddingTop, paddingRight, wrapper.paddingBottom)
             changed = true

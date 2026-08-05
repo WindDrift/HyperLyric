@@ -121,7 +121,7 @@ internal object IslandLyricContentAssembler {
         if (rawLine.text.isNullOrEmpty()) return rawLine
 
         val density = view.resources.displayMetrics.density
-        val leftMaxPx = config.leftMaxWidthDp * density
+        val leftMaxPx = config.geometry.leftMaxWidthDp * density
         val textPaint = TextPaint().apply {
             textSize = config.textSizeSp.toFloat() * density
         }

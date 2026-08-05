@@ -40,7 +40,7 @@ internal object IslandDynamicWidthCoordinator {
             if (IslandViewRegistry.tokenFor(rootView) == null) return@post
             val prefs = HookEntry.instance?.prefs ?: return@post
             val config = IslandSlotRuntimeConfig.from(prefs)
-            if (!config.isDynamicWidth) return@post
+            if (!config.geometry.isDynamicWidth) return@post
             if (refreshDynamicLyricWidths(rootView, config)) {
                 IslandHostFacade.triggerSystemRelayout(rootView)
             }
@@ -63,7 +63,7 @@ internal object IslandDynamicWidthCoordinator {
     ): Boolean {
         val prefs = HookEntry.instance?.prefs ?: return false
         val config = IslandSlotRuntimeConfig.from(prefs)
-        if (!config.isDynamicWidth || config.modeForTag(viewTag) != 7) return false
+        if (!config.geometry.isDynamicWidth || config.modeForTag(viewTag) != 7) return false
         if (IslandViewRegistry.tokenFor(rootView) == null) return false
 
         val overrides = synchronized(preflightTargets) {
@@ -93,7 +93,7 @@ internal object IslandDynamicWidthCoordinator {
         config: IslandSlotRuntimeConfig,
         contentWidthOverrides: Map<String, Float> = emptyMap()
     ): Boolean {
-        if (!config.isDynamicWidth) return false
+        if (!config.geometry.isDynamicWidth) return false
 
         val lyricBaseWidthDp = listOf(
             dynamicLyricBaseWidthDp(
@@ -112,8 +112,8 @@ internal object IslandDynamicWidthCoordinator {
             )
         ).filterNotNull().maxOrNull() ?: return false
         val baseWidthDp = lyricBaseWidthDp.coerceIn(
-            config.rightMinWidthDp.toFloat(),
-            config.rightMaxWidthDp.toFloat()
+            config.geometry.rightMinWidthDp.toFloat(),
+            config.geometry.rightMaxWidthDp.toFloat()
         )
 
         var changed = false
@@ -181,13 +181,13 @@ internal object IslandDynamicWidthCoordinator {
     ): IslandLyricWidthSpec {
         return IslandLyricWidthSpec(
             density = rootView.resources.displayMetrics.density,
-            paddingLeftPx = config.paddingLeftPx(rootView, parentName),
-            paddingRightPx = config.paddingRightPx(rootView, parentName),
-            minWidthDp = config.minWidthDp(parentName),
-            maxWidthDp = config.maxWidthDp(parentName),
-            isLeft = config.isLeftParent(parentName),
-            showAlbum = config.showAlbum,
-            showRhythm = config.showRhythm
+            paddingLeftPx = config.geometry.paddingLeftPx(rootView, parentName),
+            paddingRightPx = config.geometry.paddingRightPx(rootView, parentName),
+            minWidthDp = config.geometry.minWidthDp(parentName),
+            maxWidthDp = config.geometry.maxWidthDp(parentName),
+            isLeft = config.geometry.isLeftParent(parentName),
+            showAlbum = config.geometry.showAlbum,
+            showRhythm = config.geometry.showRhythm
         )
     }
 }
