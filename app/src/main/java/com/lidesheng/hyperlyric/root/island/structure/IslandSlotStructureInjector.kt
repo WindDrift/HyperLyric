@@ -1,27 +1,30 @@
-package com.lidesheng.hyperlyric.root.island
+package com.lidesheng.hyperlyric.root.island.structure
 
-import android.content.SharedPreferences
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
-import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
 import com.lidesheng.hyperlyric.lyric.view.RichLyricLineView
 import com.lidesheng.hyperlyric.lyric.view.SpaceGateRichLyricLineView
 import com.lidesheng.hyperlyric.root.HookEntry
-import com.lidesheng.hyperlyric.root.LyriconDataBridge
+import com.lidesheng.hyperlyric.root.island.IslandHostFacade
+import com.lidesheng.hyperlyric.root.island.IslandProbeUtils
+import com.lidesheng.hyperlyric.root.island.IslandSlotContentAssembler
+import com.lidesheng.hyperlyric.root.island.IslandSlotRuntimeConfig
+import com.lidesheng.hyperlyric.root.island.IslandViewHelper
 import com.lidesheng.hyperlyric.root.island.sizing.IslandDynamicWidthCoordinator
 import com.lidesheng.hyperlyric.root.island.view.MaxWidthFrameLayout
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 
 /**
- * Stage-4 / 富歌词大岛视图注入与更新调度。
+ * Owns the structure of lyric slots injected into a Super Island host.
  *
- * 负责在超级岛卡槽上动态注入 RichLyricLineView (Standard) 或 SpaceGateRichLyricLineView (Split)，
- * 并维护其生命周期恢复及热替换。
+ * Content refresh and playback progress are handled by their dedicated controllers. This class
+ * only creates, restores, replaces and validates the injected slot views, while preserving the
+ * existing synchronous preparation and relayout timing.
  */
-internal object IslandLyricTextInjector {
-    private const val TAG = "IslandLyricTextInjector"
+internal object IslandSlotStructureInjector {
+    private const val TAG = "IslandSlotStructureInjector"
 
     fun injectSlots(
         rootView: ViewGroup,
@@ -176,110 +179,6 @@ internal object IslandLyricTextInjector {
             moduleType?.endsWith("_1") == true -> config.leftMode != 0
             moduleType?.endsWith("_2") == true -> config.rightMode != 0
             else -> config.leftMode != 0 || config.rightMode != 0
-        }
-    }
-
-    fun refreshCurrentContent(
-        rootView: ViewGroup,
-        includeLyricSlots: Boolean = true,
-        force: Boolean = false,
-        suppressAnimation: Boolean = false
-    ): Boolean {
-        val prefs = HookEntry.instance?.prefs ?: return false
-        val config = IslandSlotRuntimeConfig.from(prefs)
-        val packageName = LyriconDataBridge.currentLyricPackageName.orEmpty()
-        val mediaInfo = MediaMetadataHelper.getMediaInfo(rootView.context, packageName, HookLogger)
-
-        var changed = false
-        if (config.leftMode != 0 && (includeLyricSlots || config.leftMode != 7)) {
-            changed = refreshSlotContent(
-                rootView,
-                IslandProbeUtils.LEFT_TEST_VIEW_TAG,
-                config.leftMode,
-                prefs,
-                config,
-                force,
-                suppressAnimation,
-                mediaInfo
-            ) || changed
-        }
-        if (config.rightMode != 0 && (includeLyricSlots || config.rightMode != 7)) {
-            changed = refreshSlotContent(
-                rootView,
-                IslandProbeUtils.RIGHT_TEST_VIEW_TAG,
-                config.rightMode,
-                prefs,
-                config,
-                force,
-                suppressAnimation,
-                mediaInfo
-            ) || changed
-        }
-
-        if (config.isSplitMode) {
-            linkViews(rootView)
-        }
-        IslandDynamicWidthCoordinator.requestRefresh(rootView)
-        return changed
-    }
-
-    fun freezeInjectedLyricProgress(rootView: ViewGroup, position: Long) {
-        val prefs = HookEntry.instance?.prefs ?: return
-        val config = IslandSlotRuntimeConfig.from(prefs)
-
-        if (config.leftMode == 7) {
-            freezeLyricView(rootView.findViewWithTag(IslandProbeUtils.LEFT_TEST_VIEW_TAG), position)
-        }
-        if (config.rightMode == 7) {
-            freezeLyricView(
-                rootView.findViewWithTag(IslandProbeUtils.RIGHT_TEST_VIEW_TAG),
-                position
-            )
-        }
-    }
-
-    fun resumeInjectedLyricProgress(rootView: ViewGroup, position: Long) {
-        val prefs = HookEntry.instance?.prefs ?: return
-        val config = IslandSlotRuntimeConfig.from(prefs)
-
-        if (config.leftMode == 7) {
-            resumeLyricView(rootView.findViewWithTag(IslandProbeUtils.LEFT_TEST_VIEW_TAG), position)
-        }
-        if (config.rightMode == 7) {
-            resumeLyricView(
-                rootView.findViewWithTag(IslandProbeUtils.RIGHT_TEST_VIEW_TAG),
-                position
-            )
-        }
-    }
-
-    private fun freezeLyricView(view: View?, position: Long) {
-        when (view) {
-            is RichLyricLineView -> {
-                view.setPlaybackActive(false)
-                view.setPosition(position)
-                view.setPlaybackActive(false)
-            }
-
-            is SpaceGateRichLyricLineView -> {
-                view.setPlaybackActive(false)
-                view.setPosition(position)
-                view.setPlaybackActive(false)
-            }
-        }
-    }
-
-    private fun resumeLyricView(view: View?, position: Long) {
-        when (view) {
-            is RichLyricLineView -> {
-                view.setPlaybackActive(true)
-                view.setPosition(position)
-            }
-
-            is SpaceGateRichLyricLineView -> {
-                view.setPlaybackActive(true)
-                view.setPosition(position)
-            }
         }
     }
 
@@ -593,38 +492,6 @@ internal object IslandLyricTextInjector {
         return view
     }
 
-    private fun refreshSlotContent(
-        rootView: ViewGroup,
-        viewTag: String,
-        mode: Int,
-        prefs: SharedPreferences,
-        config: IslandSlotRuntimeConfig,
-        force: Boolean,
-        suppressAnimation: Boolean,
-        mediaInfo: MediaMetadataHelper.MediaInfo
-    ): Boolean {
-        val view = rootView.findViewWithTag<View>(viewTag) ?: return false
-        return IslandSlotContentAssembler.applySlotContent(
-            view,
-            prefs,
-            config,
-            mode,
-            force = force,
-            suppressAnimation = suppressAnimation,
-            mediaInfo = mediaInfo,
-            onLineWillApply = { contentWidthPx ->
-                IslandDynamicWidthCoordinator.prepareLyricWidth(rootView, viewTag, contentWidthPx)
-            },
-            onLineApplied = {
-                IslandDynamicWidthCoordinator.clearPreflight(rootView, viewTag)
-                IslandDynamicWidthCoordinator.requestRefresh(rootView)
-            },
-            onLineCancelled = {
-                IslandDynamicWidthCoordinator.clearPreflight(rootView, viewTag)
-            }
-        )
-    }
-
     fun linkViews(rootView: ViewGroup) {
         val leftView =
             rootView.findViewWithTag<View>(IslandProbeUtils.LEFT_TEST_VIEW_TAG) as? SpaceGateRichLyricLineView
@@ -640,5 +507,4 @@ internal object IslandLyricTextInjector {
             IslandHostFacade.logCameraCutoutInfo(rootView)
         }
     }
-
 }

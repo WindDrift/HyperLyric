@@ -1,6 +1,9 @@
 package com.lidesheng.hyperlyric.root.island
 
 import android.view.ViewGroup
+import com.lidesheng.hyperlyric.root.island.content.IslandLyricContentRefresher
+import com.lidesheng.hyperlyric.root.island.content.IslandLyricPlaybackController
+import com.lidesheng.hyperlyric.root.island.structure.IslandSlotStructureInjector
 
 /**
  * The single upper-level entry for Super Island lyric structure, visibility,
@@ -71,7 +74,7 @@ internal object IslandInjectionReconciler {
         target: Target,
         options: ShowOptions
     ): Result {
-        val hadInjectedSlots = IslandLyricTextInjector.hasInjectedLyricText(root)
+        val hadInjectedSlots = IslandSlotStructureInjector.hasInjectedLyricText(root)
         val layoutMayHaveChanged = when (target) {
             Target.RealRoot,
             Target.FakeSnapshot -> reconcileRootStructure(
@@ -88,51 +91,71 @@ internal object IslandInjectionReconciler {
             )
         }
 
+        var contentWasRefreshed = false
         val contentChanged = when (options.content) {
             ContentMode.NONE -> false
             ContentMode.WHEN_LAYOUT_CHANGED -> {
-                layoutMayHaveChanged && IslandLyricTextInjector.refreshCurrentContent(
+                if (!layoutMayHaveChanged) {
+                    false
+                } else {
+                    contentWasRefreshed = true
+                    IslandLyricContentRefresher.refreshCurrentContent(
+                        root,
+                        suppressAnimation = options.suppressAnimation
+                    )
+                }
+            }
+
+            ContentMode.WHEN_RESTORING_EXISTING -> {
+                if (!hadInjectedSlots) {
+                    false
+                } else {
+                    contentWasRefreshed = true
+                    IslandLyricContentRefresher.refreshCurrentContent(
+                        root,
+                        force = true,
+                        suppressAnimation = options.suppressAnimation
+                    )
+                }
+            }
+
+            ContentMode.ALWAYS -> {
+                contentWasRefreshed = true
+                IslandLyricContentRefresher.refreshCurrentContent(
                     root,
                     suppressAnimation = options.suppressAnimation
                 )
             }
 
-            ContentMode.WHEN_RESTORING_EXISTING -> {
-                hadInjectedSlots && IslandLyricTextInjector.refreshCurrentContent(
+            ContentMode.FORCE -> {
+                contentWasRefreshed = true
+                IslandLyricContentRefresher.refreshCurrentContent(
                     root,
                     force = true,
                     suppressAnimation = options.suppressAnimation
                 )
             }
-
-            ContentMode.ALWAYS -> IslandLyricTextInjector.refreshCurrentContent(
-                root,
-                suppressAnimation = options.suppressAnimation
-            )
-
-            ContentMode.FORCE -> IslandLyricTextInjector.refreshCurrentContent(
-                root,
-                force = true,
-                suppressAnimation = options.suppressAnimation
-            )
         }
 
+        if (contentWasRefreshed) {
+            IslandSlotStructureInjector.linkViews(root)
+        }
         IslandViewRegistry.refreshInjectedViews(root)
-        val injectedSlotsPresent = IslandLyricTextInjector.hasInjectedLyricText(root)
+        val injectedSlotsPresent = IslandSlotStructureInjector.hasInjectedLyricText(root)
         val expectsInjectedSlots = when (target) {
             Target.RealRoot,
-            Target.FakeSnapshot -> IslandLyricTextInjector.expectsConfiguredSlot()
+            Target.FakeSnapshot -> IslandSlotStructureInjector.expectsConfiguredSlot()
 
             is Target.RealModule -> {
-                IslandLyricTextInjector.expectsConfiguredSlot(target.moduleType)
+                IslandSlotStructureInjector.expectsConfiguredSlot(target.moduleType)
             }
         }
         val configuredStructureReady = when (target) {
             Target.RealRoot,
-            Target.FakeSnapshot -> IslandLyricTextInjector.hasAllConfiguredSlots(root)
+            Target.FakeSnapshot -> IslandSlotStructureInjector.hasAllConfiguredSlots(root)
 
             is Target.RealModule -> {
-                IslandLyricTextInjector.hasAllConfiguredSlots(root, target.moduleType)
+                IslandSlotStructureInjector.hasAllConfiguredSlots(root, target.moduleType)
             }
         }
         val relayoutRequested = target == Target.RealRoot && layoutMayHaveChanged
@@ -198,7 +221,7 @@ internal object IslandInjectionReconciler {
             )
         )
         if (result.injectedSlotsPresent == true) {
-            IslandLyricTextInjector.freezeInjectedLyricProgress(root, position)
+            IslandLyricPlaybackController.freezeInjectedLyricProgress(root, position)
         }
         return result
     }
@@ -217,7 +240,7 @@ internal object IslandInjectionReconciler {
             },
             layoutMayHaveChanged = layoutMayHaveChanged,
             contentChanged = false,
-            injectedSlotsPresent = IslandLyricTextInjector.hasInjectedLyricText(root),
+            injectedSlotsPresent = IslandSlotStructureInjector.hasInjectedLyricText(root),
             relayoutRequested = relayoutRequested
         )
     }
@@ -228,17 +251,17 @@ internal object IslandInjectionReconciler {
         options: ShowOptions
     ): Boolean {
         return when (options.structure) {
-            StructureMode.ENSURE -> IslandLyricTextInjector.injectSlots(
+            StructureMode.ENSURE -> IslandSlotStructureInjector.injectSlots(
                 root,
                 reconfigureExisting = options.reconfigureExisting,
                 suppressAnimation = options.suppressAnimation
             )
 
             StructureMode.ENSURE_IF_MISSING -> {
-                if (IslandLyricTextInjector.hasAllConfiguredSlots(root)) {
+                if (IslandSlotStructureInjector.hasAllConfiguredSlots(root)) {
                     false
                 } else {
-                    IslandLyricTextInjector.injectSlots(
+                    IslandSlotStructureInjector.injectSlots(
                         root,
                         reconfigureExisting = false,
                         suppressAnimation = options.suppressAnimation
@@ -247,14 +270,14 @@ internal object IslandInjectionReconciler {
             }
 
             StructureMode.RESTORE_EXISTING -> {
-                IslandLyricTextInjector.restoreExistingSlotsLightweight(root)
+                IslandSlotStructureInjector.restoreExistingSlotsLightweight(root)
             }
 
             StructureMode.RESTORE_OR_ENSURE -> {
                 if (hadInjectedSlots) {
-                    IslandLyricTextInjector.restoreExistingSlotsLightweight(root)
+                    IslandSlotStructureInjector.restoreExistingSlotsLightweight(root)
                 } else {
-                    IslandLyricTextInjector.injectSlots(
+                    IslandSlotStructureInjector.injectSlots(
                         root,
                         reconfigureExisting = false,
                         suppressAnimation = options.suppressAnimation
@@ -272,14 +295,14 @@ internal object IslandInjectionReconciler {
     ): Boolean {
         return when (options.structure) {
             StructureMode.RESTORE_EXISTING -> {
-                IslandLyricTextInjector.restoreExistingModuleSlotLightweight(root, moduleType)
+                IslandSlotStructureInjector.restoreExistingModuleSlotLightweight(root, moduleType)
             }
 
             StructureMode.ENSURE_IF_MISSING -> {
-                if (IslandLyricTextInjector.hasAllConfiguredSlots(root, moduleType)) {
+                if (IslandSlotStructureInjector.hasAllConfiguredSlots(root, moduleType)) {
                     false
                 } else {
-                    IslandLyricTextInjector.injectSlots(
+                    IslandSlotStructureInjector.injectSlots(
                         root,
                         reconfigureExisting = false,
                         suppressAnimation = options.suppressAnimation
@@ -287,7 +310,7 @@ internal object IslandInjectionReconciler {
                 }
             }
 
-            StructureMode.ENSURE -> IslandLyricTextInjector.injectSlots(
+            StructureMode.ENSURE -> IslandSlotStructureInjector.injectSlots(
                 root,
                 reconfigureExisting = options.reconfigureExisting,
                 suppressAnimation = options.suppressAnimation
@@ -295,9 +318,9 @@ internal object IslandInjectionReconciler {
 
             StructureMode.RESTORE_OR_ENSURE -> {
                 if (hadInjectedSlots) {
-                    IslandLyricTextInjector.restoreExistingModuleSlotLightweight(root, moduleType)
+                    IslandSlotStructureInjector.restoreExistingModuleSlotLightweight(root, moduleType)
                 } else {
-                    IslandLyricTextInjector.injectSlots(
+                    IslandSlotStructureInjector.injectSlots(
                         root,
                         reconfigureExisting = false,
                         suppressAnimation = options.suppressAnimation

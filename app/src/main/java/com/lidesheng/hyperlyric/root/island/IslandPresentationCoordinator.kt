@@ -5,6 +5,7 @@ import android.view.ViewGroup
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.root.HookEntry
 import com.lidesheng.hyperlyric.root.LyriconDataBridge
+import com.lidesheng.hyperlyric.root.island.content.IslandLyricPlaybackController
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import java.util.WeakHashMap
 
@@ -342,7 +343,7 @@ internal object IslandPresentationCoordinator {
                 LyriconDataBridge.currentLyricPackageName ==
                 transition.realHost.packageName
             ) {
-                IslandLyricTextInjector.resumeInjectedLyricProgress(
+                IslandLyricPlaybackController.resumeInjectedLyricProgress(
                     transition.realHost.root,
                     LyriconDataBridge.currentPosition
                 )
@@ -366,7 +367,7 @@ internal object IslandPresentationCoordinator {
         if (result.isTarget) {
             IslandHostFacade.showRealHost(realRoot)
             if (playbackActive) {
-                IslandLyricTextInjector.resumeInjectedLyricProgress(
+                IslandLyricPlaybackController.resumeInjectedLyricProgress(
                     realRoot,
                     LyriconDataBridge.currentPosition
                 )
