@@ -208,6 +208,9 @@ class HookEntry : XposedModule() {
         val packageName = param.packageName
 
         if (packageName == "com.android.systemui") {
+            StatusBarTextColorHooker.setTextColorChangedListener {
+                BaseIslandRenderer.updateTextColors()
+            }
             StatusBarTextColorHooker.hook(this, param.defaultClassLoader)
             MediaCardRuntimeConfig.load(prefs)
             MediaProgressStyleHooker.hook(this, param.defaultClassLoader)

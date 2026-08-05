@@ -2,10 +2,8 @@ package com.lidesheng.hyperlyric.root.island.effects.color
 
 import android.graphics.Color
 import android.widget.TextView
-import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.common.LyricTextColorStylePolicy
 import com.lidesheng.hyperlyric.root.HookEntry
-import com.lidesheng.hyperlyric.root.island.renderer.BaseIslandRenderer
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import io.github.libxposed.api.XposedInterface.Chain
 import io.github.libxposed.api.XposedInterface.Hooker
@@ -30,6 +28,13 @@ internal object StatusBarTextColorHooker {
 
     @Volatile
     private var textColor: Int = Color.WHITE
+
+    @Volatile
+    private var textColorChangedListener: (() -> Unit)? = null
+
+    fun setTextColorChangedListener(listener: (() -> Unit)?) {
+        textColorChangedListener = listener
+    }
 
     fun hook(module: XposedModule, classLoader: ClassLoader) {
         var installedCount = if (hookTextViewSetColor(module)) 1 else 0
@@ -162,7 +167,7 @@ internal object StatusBarTextColorHooker {
 
         val prefs = HookEntry.instance?.prefs ?: return
         if (LyricTextColorStylePolicy.followsStatusBar(LyricTextColorStylePolicy.read(prefs))) {
-            BaseIslandRenderer.updateTextColors()
+            textColorChangedListener?.invoke()
         }
     }
 
