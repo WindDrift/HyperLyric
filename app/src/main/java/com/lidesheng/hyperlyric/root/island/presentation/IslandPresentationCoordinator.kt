@@ -1,10 +1,7 @@
 package com.lidesheng.hyperlyric.root.island.presentation
 
 import android.view.ViewGroup
-import com.lidesheng.hyperlyric.common.RootConstants
-import com.lidesheng.hyperlyric.root.HookEntry
 import com.lidesheng.hyperlyric.root.LyriconDataBridge
-import com.lidesheng.hyperlyric.root.island.content.IslandLyricPlaybackController
 import com.lidesheng.hyperlyric.root.island.host.IslandHostFacade
 import com.lidesheng.hyperlyric.root.island.host.IslandProbeUtils
 import com.lidesheng.hyperlyric.root.island.host.IslandTextHookerSupport
@@ -40,6 +37,7 @@ internal object IslandPresentationCoordinator {
     }
 
     private val presentationState = IslandPresentationState()
+    private val decisionEvaluator = IslandPresentationDecisionEvaluator(presentationState)
     private val hostAttachmentObserver = IslandHostAttachmentObserver(
         currentPresentationRevision = { currentPresentationRevision() },
         onHostAttached = { token, expectedRevision ->
@@ -52,16 +50,7 @@ internal object IslandPresentationCoordinator {
     )
 
     fun ownerEvidence(data: Any?): IslandRenderPolicy.OwnerEvidence {
-        if (data == null) return IslandRenderPolicy.OwnerEvidence.Pending
-        val mediaInfo = IslandProbeUtils.extractMediaIslandInfo(data)
-        if (mediaInfo != null) {
-            return IslandRenderPolicy.OwnerEvidence.Media(mediaInfo.packageName)
-        }
-        return if (IslandProbeUtils.isMediaIsland(data)) {
-            IslandRenderPolicy.OwnerEvidence.Pending
-        } else {
-            IslandRenderPolicy.OwnerEvidence.NotMedia
-        }
+        return decisionEvaluator.ownerEvidence(data)
     }
 
     fun updatePlaybackState(isPlaying: Boolean): Boolean {
@@ -81,18 +70,11 @@ internal object IslandPresentationCoordinator {
     }
 
     fun isCurrentLyricOwner(mediaInfo: IslandProbeUtils.MediaIslandInfo): Boolean {
-        val lyricPackageName = LyriconDataBridge.currentLyricPackageName
-            ?.takeIf(String::isNotEmpty)
-            ?: return false
-        return mediaInfo.packageName == lyricPackageName
+        return decisionEvaluator.isCurrentLyricOwner(mediaInfo)
     }
 
     fun shouldRenderInjectedIsland(): Boolean {
-        return IslandRenderPolicy.isPresentationAllowed(
-            enabled = IslandProbeUtils.isSuperIslandEnabled(),
-            playbackActive = presentationState.isPlaybackActive(),
-            pauseBehavior = currentPauseBehavior()
-        )
+        return decisionEvaluator.shouldRenderInjectedIsland()
     }
 
     fun onRealBeforeSystemUpdate(
@@ -560,26 +542,7 @@ internal object IslandPresentationCoordinator {
     private fun evaluate(
         owner: IslandRenderPolicy.OwnerEvidence
     ): IslandRenderPolicy.Decision {
-        return IslandRenderPolicy.evaluate(currentInput(owner))
-    }
-
-    private fun currentInput(
-        owner: IslandRenderPolicy.OwnerEvidence
-    ): IslandRenderPolicy.Input {
-        return IslandRenderPolicy.Input(
-            owner = owner,
-            lyricPackageName = LyriconDataBridge.currentLyricPackageName,
-            enabled = IslandProbeUtils.isSuperIslandEnabled(),
-            playbackActive = presentationState.isPlaybackActive(),
-            pauseBehavior = currentPauseBehavior()
-        )
-    }
-
-    private fun currentPauseBehavior(): Int {
-        return HookEntry.instance?.prefs?.getInt(
-            RootConstants.KEY_HOOK_ISLAND_BEHAVIOR_AFTER_PAUSE,
-            RootConstants.DEFAULT_HOOK_ISLAND_BEHAVIOR_AFTER_PAUSE
-        ) ?: RootConstants.DEFAULT_HOOK_ISLAND_BEHAVIOR_AFTER_PAUSE
+        return decisionEvaluator.evaluate(owner)
     }
 
     private fun logResult(

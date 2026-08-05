@@ -1,4 +1,4 @@
-package com.lidesheng.hyperlyric.root.island.content
+package com.lidesheng.hyperlyric.root.island.presentation
 
 import android.view.View
 import android.view.ViewGroup
