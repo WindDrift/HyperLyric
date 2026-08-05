@@ -189,6 +189,18 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
         invalidate()
     }
 
+    /**
+     * Measures a candidate line with the same model-building rules as [setLyric], without
+     * replacing the line that is currently being displayed.
+     */
+    fun measureLineWidth(rawLine: LyricLine?): Float {
+        val line = if (rawLine?.text.isNullOrBlank() && !rawLine.isCountdownLine()) null else rawLine
+        val model = line?.normalize()?.createModel() ?: emptyLyricModel()
+        if (model.isCountdownLine()) return countdownRenderer.contentWidth()
+        model.updateSizes(textPaint)
+        return model.width
+    }
+
     fun configureWith(
         text: TextLook, highlight: Highlight, marquee: Marquee,
         gradient: Boolean, fadingEdge: Int, center: Boolean

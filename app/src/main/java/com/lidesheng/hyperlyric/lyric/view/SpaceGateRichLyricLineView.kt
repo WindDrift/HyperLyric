@@ -42,6 +42,9 @@ class SpaceGateRichLyricLineView(
 
     private var animationTransition = false
     private var pendingLine: IRichLyricLine? = null
+    private var pendingMainLineWillApply: ((Float) -> Boolean)? = null
+    private var pendingMainLineApplied: (() -> Unit)? = null
+    private var pendingMainLineCancelled: (() -> Unit)? = null
     private var pendingPosition: Long? = null
     private var requestMarquee = false
     private var lastPosition: Long = Long.MIN_VALUE
@@ -55,15 +58,44 @@ class SpaceGateRichLyricLineView(
     var line: IRichLyricLine?
         get() = rawLine
         set(value) {
-            rawLine = value
-            lastPosition = Long.MIN_VALUE
-            requestMarquee = false
-            if (animationTransition) {
-                pendingLine = value
-            } else {
-                refreshLines()
-            }
+            setLineInternal(value, null, null, null)
         }
+
+    fun setLineWithCallbacks(
+        value: IRichLyricLine?,
+        onMainLineWillApply: ((Float) -> Boolean)? = null,
+        onMainLineApplied: (() -> Unit)? = null,
+        onMainLineCancelled: (() -> Unit)? = null
+    ) {
+        setLineInternal(value, onMainLineWillApply, onMainLineApplied, onMainLineCancelled)
+    }
+
+    private fun setLineInternal(
+        value: IRichLyricLine?,
+        onMainLineWillApply: ((Float) -> Boolean)?,
+        onMainLineApplied: (() -> Unit)?,
+        onMainLineCancelled: (() -> Unit)?
+    ) {
+        val cancellation = pendingMainLineCancelled
+        pendingMainLineWillApply = null
+        pendingMainLineApplied = null
+        pendingMainLineCancelled = null
+        preflightReadyGeneration = -1
+        cancellation?.invoke()
+
+        lineGeneration++
+        pendingMainLineWillApply = onMainLineWillApply
+        pendingMainLineApplied = onMainLineApplied
+        pendingMainLineCancelled = onMainLineCancelled
+        rawLine = value
+        lastPosition = Long.MIN_VALUE
+        requestMarquee = false
+        if (animationTransition) {
+            pendingLine = value
+        } else {
+            refreshLines()
+        }
+    }
 
     init {
         orientation = VERTICAL
@@ -236,15 +268,63 @@ class SpaceGateRichLyricLineView(
     }
 
     private var oldLine: IRichLyricLine? = null
+    private var lineGeneration = 0
+    private var preflightReadyGeneration = -1
 
-    private fun refreshLines(allowNextLinePromotion: Boolean = true, bypassIdentityCheck: Boolean = false) {
+    private fun refreshLines(
+        allowNextLinePromotion: Boolean = true,
+        bypassIdentityCheck: Boolean = false,
+        skipMainLinePreflight: Boolean = false
+    ) {
         if (nextLineTransitionRunning) return
-        if (!bypassIdentityCheck && oldLine === line && line.isTitleLine()) return
+        if (skipMainLinePreflight) {
+            preflightReadyGeneration = -1
+        } else if (preflightReadyGeneration == lineGeneration) {
+            return
+        }
+        if (!bypassIdentityCheck && oldLine === line && line.isTitleLine()) {
+            pendingMainLineWillApply = null
+            dispatchMainLineApplied()
+            return
+        }
         oldLine = line
 
         assembler.updateFlags(displayTranslation, displayRoma, enableRelativeProgress, enableRelativeProgressHighlight)
         val mainResult = assembler.buildMain(line)
         val secResult = assembler.buildSecondary(line)
+
+        if (!skipMainLinePreflight) {
+            val onMainLineWillApply = pendingMainLineWillApply
+            if (onMainLineWillApply != null) {
+                pendingMainLineWillApply = null
+                val generation = lineGeneration
+                val shouldDefer = onMainLineWillApply.invoke(main.measureLineWidth(mainResult.line))
+                if (generation != lineGeneration) return
+                if (shouldDefer) {
+                    preflightReadyGeneration = generation
+                    if (isAttachedToWindow) {
+                        postOnAnimation {
+                            if (generation != lineGeneration || preflightReadyGeneration != generation) {
+                                return@postOnAnimation
+                            }
+                            refreshLines(
+                                allowNextLinePromotion = allowNextLinePromotion,
+                                bypassIdentityCheck = bypassIdentityCheck,
+                                skipMainLinePreflight = true
+                            )
+                        }
+                    } else {
+                        preflightReadyGeneration = -1
+                        refreshLines(
+                            allowNextLinePromotion = allowNextLinePromotion,
+                            bypassIdentityCheck = bypassIdentityCheck,
+                            skipMainLinePreflight = true
+                        )
+                    }
+                    return
+                }
+            }
+        }
 
         val hasMainVisualContent = currentMainText != null || main.model.isCountdownLine()
         val shouldPromote = allowNextLinePromotion &&
@@ -269,6 +349,14 @@ class SpaceGateRichLyricLineView(
         secondary.isScrollOnly = if (secResult.isNextLinePreview) false else secResult.isScrollOnly
 
         if (requestMarquee) requestStartMarquee()
+        dispatchMainLineApplied()
+    }
+
+    private fun dispatchMainLineApplied() {
+        val callback = pendingMainLineApplied
+        pendingMainLineApplied = null
+        pendingMainLineCancelled = null
+        callback?.invoke()
     }
 
     private fun applyLineStyle(

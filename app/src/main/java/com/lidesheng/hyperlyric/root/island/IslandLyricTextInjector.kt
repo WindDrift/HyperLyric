@@ -13,6 +13,7 @@ import com.lidesheng.hyperlyric.root.HookEntry
 import com.lidesheng.hyperlyric.root.LyriconDataBridge
 import com.lidesheng.hyperlyric.root.island.view.MaxWidthFrameLayout
 import com.lidesheng.hyperlyric.root.utils.HookLogger
+import java.util.WeakHashMap
 import kotlin.math.ceil
 
 /**
@@ -23,6 +24,9 @@ import kotlin.math.ceil
  */
 internal object IslandLyricTextInjector {
     private const val TAG = "IslandLyricTextInjector"
+    private val dynamicWidthRefreshPending = WeakHashMap<ViewGroup, Boolean>()
+    private val dynamicWidthPreflightTargets =
+        WeakHashMap<ViewGroup, MutableMap<String, Float>>()
 
     fun injectSlots(
         rootView: ViewGroup,
@@ -229,7 +233,20 @@ internal object IslandLyricTextInjector {
      * is intentionally excluded because it is allowed to be clipped by the lyric container.
      */
     fun requestDynamicWidthRefresh(rootView: ViewGroup) {
-        rootView.post {
+        val shouldPost = synchronized(dynamicWidthRefreshPending) {
+            if (dynamicWidthRefreshPending[rootView] == true) {
+                false
+            } else {
+                dynamicWidthRefreshPending[rootView] = true
+                true
+            }
+        }
+        if (!shouldPost) return
+
+        val posted = rootView.post {
+            synchronized(dynamicWidthRefreshPending) {
+                dynamicWidthRefreshPending.remove(rootView)
+            }
             if (IslandViewRegistry.tokenFor(rootView) == null) return@post
             val prefs = HookEntry.instance?.prefs ?: return@post
             val config = IslandSlotRuntimeConfig.from(prefs)
@@ -238,11 +255,54 @@ internal object IslandLyricTextInjector {
                 IslandHostFacade.triggerSystemRelayout(rootView)
             }
         }
+        if (!posted) {
+            synchronized(dynamicWidthRefreshPending) {
+                dynamicWidthRefreshPending.remove(rootView)
+            }
+        }
+    }
+
+    /**
+     * Applies the candidate lyric width before the candidate line is committed to the lyric View.
+     * The candidate widths are retained until their corresponding line is actually applied so
+     * left and right slots can be measured as one transaction.
+     */
+    fun prepareDynamicLyricWidth(
+        rootView: ViewGroup,
+        viewTag: String,
+        contentWidthPx: Float
+    ): Boolean {
+        val prefs = HookEntry.instance?.prefs ?: return false
+        val config = IslandSlotRuntimeConfig.from(prefs)
+        if (!config.isDynamicWidth || config.modeForTag(viewTag) != 7) return false
+        if (IslandViewRegistry.tokenFor(rootView) == null) return false
+
+        val overrides = synchronized(dynamicWidthPreflightTargets) {
+            val rootTargets = dynamicWidthPreflightTargets.getOrPut(rootView) { hashMapOf() }
+            rootTargets[viewTag] = contentWidthPx
+            rootTargets.toMap()
+        }
+        val changed = refreshDynamicLyricWidths(rootView, config, overrides)
+        if (changed) {
+            IslandHostFacade.triggerSystemRelayout(rootView)
+        }
+        return changed
+    }
+
+    fun clearDynamicLyricPreflight(rootView: ViewGroup, viewTag: String) {
+        synchronized(dynamicWidthPreflightTargets) {
+            val rootTargets = dynamicWidthPreflightTargets[rootView] ?: return
+            rootTargets.remove(viewTag)
+            if (rootTargets.isEmpty()) {
+                dynamicWidthPreflightTargets.remove(rootView)
+            }
+        }
     }
 
     private fun refreshDynamicLyricWidths(
         rootView: ViewGroup,
-        config: IslandSlotRuntimeConfig
+        config: IslandSlotRuntimeConfig,
+        contentWidthOverrides: Map<String, Float> = emptyMap()
     ): Boolean {
         if (!config.isDynamicWidth) return false
 
@@ -251,13 +311,15 @@ internal object IslandLyricTextInjector {
                 rootView,
                 IslandProbeUtils.LEFT_PARENT_NAME,
                 IslandProbeUtils.LEFT_TEST_VIEW_TAG,
-                config
+                config,
+                contentWidthOverrides[IslandProbeUtils.LEFT_TEST_VIEW_TAG]
             ),
             dynamicLyricBaseWidthDp(
                 rootView,
                 IslandProbeUtils.RIGHT_PARENT_NAME,
                 IslandProbeUtils.RIGHT_TEST_VIEW_TAG,
-                config
+                config,
+                contentWidthOverrides[IslandProbeUtils.RIGHT_TEST_VIEW_TAG]
             )
         ).filterNotNull().maxOrNull() ?: return false
         val baseWidthDp = lyricBaseWidthDp.coerceIn(
@@ -291,7 +353,8 @@ internal object IslandLyricTextInjector {
         rootView: ViewGroup,
         parentName: String,
         viewTag: String,
-        config: IslandSlotRuntimeConfig
+        config: IslandSlotRuntimeConfig,
+        contentWidthOverridePx: Float? = null
     ): Float? {
         if (config.modeForTag(viewTag) != 7) return null
         val lyricView = rootView.findViewWithTag<View>(viewTag) as? RichLyricLineView
@@ -299,7 +362,7 @@ internal object IslandLyricTextInjector {
         val requiredWidthPx = config.lyricRequiredWidthPx(
             rootView = rootView,
             parentName = parentName,
-            contentWidthPx = lyricView.main.lineWidth
+            contentWidthPx = contentWidthOverridePx ?: lyricView.main.lineWidth
         ) ?: return null
         val requiredWidthDp = requiredWidthPx / rootView.resources.displayMetrics.density
         return if (config.isLeftParent(parentName)) {
@@ -735,7 +798,16 @@ internal object IslandLyricTextInjector {
             force = force,
             suppressAnimation = suppressAnimation,
             mediaInfo = mediaInfo,
-            onLineApplied = { requestDynamicWidthRefresh(rootView) }
+            onLineWillApply = { contentWidthPx ->
+                prepareDynamicLyricWidth(rootView, viewTag, contentWidthPx)
+            },
+            onLineApplied = {
+                clearDynamicLyricPreflight(rootView, viewTag)
+                requestDynamicWidthRefresh(rootView)
+            },
+            onLineCancelled = {
+                clearDynamicLyricPreflight(rootView, viewTag)
+            }
         )
     }
 

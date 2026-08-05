@@ -544,7 +544,16 @@ object BaseIslandRenderer : IslandRenderer {
             config = config,
             lineOverride = line,
             playbackActive = IslandPresentationCoordinator.isPlaybackActive(),
-            onLineApplied = { IslandLyricTextInjector.requestDynamicWidthRefresh(cv) }
+            onLineWillApply = { contentWidthPx ->
+                IslandLyricTextInjector.prepareDynamicLyricWidth(cv, tag, contentWidthPx)
+            },
+            onLineApplied = {
+                IslandLyricTextInjector.clearDynamicLyricPreflight(cv, tag)
+                IslandLyricTextInjector.requestDynamicWidthRefresh(cv)
+            },
+            onLineCancelled = {
+                IslandLyricTextInjector.clearDynamicLyricPreflight(cv, tag)
+            }
         )
     }
 
@@ -576,7 +585,16 @@ object BaseIslandRenderer : IslandRenderer {
             lineOverride = lineOverride,
             playbackActive = IslandPresentationCoordinator.isPlaybackActive(),
             mediaInfo = mediaInfo,
-            onLineApplied = { IslandLyricTextInjector.requestDynamicWidthRefresh(cv) }
+            onLineWillApply = { contentWidthPx ->
+                IslandLyricTextInjector.prepareDynamicLyricWidth(cv, tag, contentWidthPx)
+            },
+            onLineApplied = {
+                IslandLyricTextInjector.clearDynamicLyricPreflight(cv, tag)
+                IslandLyricTextInjector.requestDynamicWidthRefresh(cv)
+            },
+            onLineCancelled = {
+                IslandLyricTextInjector.clearDynamicLyricPreflight(cv, tag)
+            }
         )
     }
 
