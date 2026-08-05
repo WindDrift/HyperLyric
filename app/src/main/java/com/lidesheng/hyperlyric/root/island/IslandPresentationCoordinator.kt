@@ -8,6 +8,7 @@ import com.lidesheng.hyperlyric.root.island.content.IslandLyricPlaybackControlle
 import com.lidesheng.hyperlyric.root.island.presentation.IslandFakeTransitionRegistry
 import com.lidesheng.hyperlyric.root.island.presentation.IslandHostAttachmentObserver
 import com.lidesheng.hyperlyric.root.island.presentation.IslandReconcileOptions
+import com.lidesheng.hyperlyric.root.island.presentation.IslandPresentationState
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 
 /**
@@ -51,12 +52,7 @@ internal object IslandPresentationCoordinator {
         }
     }
 
-    @Volatile
-    private var playbackActive = true
-    @Volatile
-    private var presentationRevision = 0L
-
-    private val presentationStateLock = Any()
+    private val presentationState = IslandPresentationState()
     private val hostAttachmentObserver = IslandHostAttachmentObserver(
         currentPresentationRevision = { currentPresentationRevision() },
         onHostAttached = { token, expectedRevision ->
@@ -82,26 +78,19 @@ internal object IslandPresentationCoordinator {
     }
 
     fun updatePlaybackState(isPlaying: Boolean): Boolean {
-        return synchronized(presentationStateLock) {
-            val changed = playbackActive != isPlaying
-            playbackActive = isPlaying
-            if (changed) presentationRevision++
-            changed
-        }
+        return presentationState.updatePlaybackState(isPlaying)
     }
 
-    fun isPlaybackActive(): Boolean = playbackActive
+    fun isPlaybackActive(): Boolean = presentationState.isPlaybackActive()
 
     fun invalidatePresentation(): Long {
-        return synchronized(presentationStateLock) {
-            ++presentationRevision
-        }
+        return presentationState.invalidatePresentation()
     }
 
-    fun currentPresentationRevision(): Long = presentationRevision
+    fun currentPresentationRevision(): Long = presentationState.currentRevision()
 
     fun isCurrentPresentation(revision: Long): Boolean {
-        return presentationRevision == revision
+        return presentationState.isCurrentRevision(revision)
     }
 
     fun isCurrentLyricOwner(mediaInfo: IslandProbeUtils.MediaIslandInfo): Boolean {
@@ -114,7 +103,7 @@ internal object IslandPresentationCoordinator {
     fun shouldRenderInjectedIsland(): Boolean {
         return IslandRenderPolicy.isPresentationAllowed(
             enabled = IslandProbeUtils.isSuperIslandEnabled(),
-            playbackActive = playbackActive,
+            playbackActive = presentationState.isPlaybackActive(),
             pauseBehavior = currentPauseBehavior()
         )
     }
@@ -326,7 +315,7 @@ internal object IslandPresentationCoordinator {
                 "fake 真实岛已切换: generation=${transition.generation}"
             )
             if (IslandViewRegistry.isCurrent(transition.realHost) &&
-                playbackActive &&
+                presentationState.isPlaybackActive() &&
                 LyriconDataBridge.currentLyricPackageName ==
                 transition.realHost.packageName
             ) {
@@ -353,7 +342,7 @@ internal object IslandPresentationCoordinator {
         )
         if (result.isTarget) {
             IslandHostFacade.showRealHost(realRoot)
-            if (playbackActive) {
+            if (presentationState.isPlaybackActive()) {
                 IslandLyricPlaybackController.resumeInjectedLyricProgress(
                     realRoot,
                     LyriconDataBridge.currentPosition
@@ -594,7 +583,7 @@ internal object IslandPresentationCoordinator {
             owner = owner,
             lyricPackageName = LyriconDataBridge.currentLyricPackageName,
             enabled = IslandProbeUtils.isSuperIslandEnabled(),
-            playbackActive = playbackActive,
+            playbackActive = presentationState.isPlaybackActive(),
             pauseBehavior = currentPauseBehavior()
         )
     }
