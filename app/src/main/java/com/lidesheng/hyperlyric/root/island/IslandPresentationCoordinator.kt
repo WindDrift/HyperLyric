@@ -7,8 +7,9 @@ import com.lidesheng.hyperlyric.root.LyriconDataBridge
 import com.lidesheng.hyperlyric.root.island.content.IslandLyricPlaybackController
 import com.lidesheng.hyperlyric.root.island.presentation.IslandFakeTransitionRegistry
 import com.lidesheng.hyperlyric.root.island.presentation.IslandHostAttachmentObserver
-import com.lidesheng.hyperlyric.root.island.presentation.IslandReconcileOptions
 import com.lidesheng.hyperlyric.root.island.presentation.IslandPresentationState
+import com.lidesheng.hyperlyric.root.island.presentation.IslandReconcileOptions
+import com.lidesheng.hyperlyric.root.island.presentation.IslandReconcileReason
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 
 /**
@@ -21,19 +22,6 @@ import com.lidesheng.hyperlyric.root.utils.HookLogger
  */
 internal object IslandPresentationCoordinator {
     private const val TAG = "IslandPresentation"
-
-    enum class ReconcileReason {
-        PRE_SYSTEM_UPDATE,
-        SYSTEM_UPDATE_COMPLETE,
-        VISIBILITY_CHANGED,
-        MODULE_FIRST_BIND,
-        MODULE_UPDATED,
-        STABLE_REFRESH,
-        LYRIC_SELF_HEAL,
-        PLAYBACK_RESUME,
-        FAKE_SNAPSHOT,
-        FAKE_FINISHED
-    }
 
     data class ReconcileResult(
         val decision: IslandRenderPolicy.Decision,
@@ -58,7 +46,7 @@ internal object IslandPresentationCoordinator {
         onHostAttached = { token, expectedRevision ->
             reconcileRegisteredHost(
                 token = token,
-                reason = ReconcileReason.STABLE_REFRESH,
+                reason = IslandReconcileReason.STABLE_REFRESH,
                 expectedPresentationRevision = expectedRevision
             )
         }
@@ -112,7 +100,7 @@ internal object IslandPresentationCoordinator {
         root: ViewGroup,
         owner: IslandRenderPolicy.OwnerEvidence
     ): ReconcileResult {
-        return reconcileRealRoot(root, owner, ReconcileReason.PRE_SYSTEM_UPDATE)
+        return reconcileRealRoot(root, owner, IslandReconcileReason.PRE_SYSTEM_UPDATE)
     }
 
     fun onRealSystemUpdateComplete(
@@ -120,7 +108,7 @@ internal object IslandPresentationCoordinator {
         owner: IslandRenderPolicy.OwnerEvidence
     ): ReconcileResult {
         if (owner == IslandRenderPolicy.OwnerEvidence.NotMedia) {
-            return removeRealHost(root, ReconcileReason.SYSTEM_UPDATE_COMPLETE)
+            return removeRealHost(root, IslandReconcileReason.SYSTEM_UPDATE_COMPLETE)
         }
 
         if (owner is IslandRenderPolicy.OwnerEvidence.Media) {
@@ -130,7 +118,7 @@ internal object IslandPresentationCoordinator {
         val result = reconcileRealRoot(
             root = root,
             owner = owner,
-            reason = ReconcileReason.SYSTEM_UPDATE_COMPLETE
+            reason = IslandReconcileReason.SYSTEM_UPDATE_COMPLETE
         )
         return result
     }
@@ -143,7 +131,7 @@ internal object IslandPresentationCoordinator {
             IslandViewRegistry.register(root, owner.packageName)
             observeRealHostAttachment(root)
         }
-        return reconcileRealRoot(root, owner, ReconcileReason.VISIBILITY_CHANGED)
+        return reconcileRealRoot(root, owner, IslandReconcileReason.VISIBILITY_CHANGED)
     }
 
     fun onModuleBound(
@@ -155,7 +143,7 @@ internal object IslandPresentationCoordinator {
             holderRoot = holderRoot,
             moduleType = moduleType,
             owner = owner,
-            reason = ReconcileReason.MODULE_FIRST_BIND
+            reason = IslandReconcileReason.MODULE_FIRST_BIND
         )
     }
 
@@ -168,7 +156,7 @@ internal object IslandPresentationCoordinator {
             holderRoot = holderRoot,
             moduleType = moduleType,
             owner = owner,
-            reason = ReconcileReason.MODULE_UPDATED
+            reason = IslandReconcileReason.MODULE_UPDATED
         )
     }
 
@@ -258,7 +246,7 @@ internal object IslandPresentationCoordinator {
             }
         }
         return logResult(
-            reason = ReconcileReason.FAKE_SNAPSHOT,
+            reason = IslandReconcileReason.FAKE_SNAPSHOT,
             owner = resolvedOwner,
             result = ReconcileResult(decision, mutation)
         )
@@ -290,7 +278,7 @@ internal object IslandPresentationCoordinator {
         )
         IslandHostFacade.showRealHost(realRoot)
         return logResult(
-            reason = ReconcileReason.FAKE_SNAPSHOT,
+            reason = IslandReconcileReason.FAKE_SNAPSHOT,
             owner = IslandRenderPolicy.OwnerEvidence.Media(
                 transition.realHost.packageName
             ),
@@ -338,7 +326,7 @@ internal object IslandPresentationCoordinator {
             owner = IslandRenderPolicy.OwnerEvidence.Media(
                 transition.realHost.packageName
             ),
-            reason = ReconcileReason.FAKE_FINISHED
+            reason = IslandReconcileReason.FAKE_FINISHED
         )
         if (result.isTarget) {
             IslandHostFacade.showRealHost(realRoot)
@@ -377,7 +365,7 @@ internal object IslandPresentationCoordinator {
         val result = reconcileRealRoot(
             root = realRoot,
             owner = owner,
-            reason = ReconcileReason.FAKE_FINISHED
+            reason = IslandReconcileReason.FAKE_FINISHED
         )
         if (result.isTarget) {
             IslandHostFacade.showRealHost(realRoot)
@@ -387,7 +375,7 @@ internal object IslandPresentationCoordinator {
 
     fun reconcileRegisteredHost(
         token: IslandViewRegistry.HostToken,
-        reason: ReconcileReason,
+        reason: IslandReconcileReason,
         expectedPresentationRevision: Long? = null
     ): ReconcileResult {
         if (!IslandViewRegistry.isCurrent(token) ||
@@ -470,11 +458,11 @@ internal object IslandPresentationCoordinator {
     private fun reconcileRealRoot(
         root: ViewGroup,
         owner: IslandRenderPolicy.OwnerEvidence,
-        reason: ReconcileReason
+        reason: IslandReconcileReason
     ): ReconcileResult {
         val decision = evaluate(owner)
         val token = IslandViewRegistry.tokenFor(root)
-        if (reason != ReconcileReason.FAKE_FINISHED &&
+        if (reason != IslandReconcileReason.FAKE_FINISHED &&
             decision == IslandRenderPolicy.Decision.TARGET &&
             token != null &&
             isHostFrozenForFakeTransition(token)
@@ -498,7 +486,7 @@ internal object IslandPresentationCoordinator {
             }
 
             IslandRenderPolicy.Decision.OTHER_PACKAGE -> {
-                if (reason == ReconcileReason.PRE_SYSTEM_UPDATE) {
+                if (reason == IslandReconcileReason.PRE_SYSTEM_UPDATE) {
                     IslandInjectionReconciler.Result.NO_OP
                 } else {
                     IslandInjectionReconciler.restoreNative(
@@ -521,7 +509,7 @@ internal object IslandPresentationCoordinator {
         holderRoot: ViewGroup,
         moduleType: String?,
         owner: IslandRenderPolicy.OwnerEvidence,
-        reason: ReconcileReason
+        reason: IslandReconcileReason
     ): ReconcileResult {
         val decision = evaluate(owner)
         val target = IslandInjectionReconciler.Target.RealModule(moduleType)
@@ -547,7 +535,7 @@ internal object IslandPresentationCoordinator {
 
     private fun removeRealHost(
         root: ViewGroup,
-        reason: ReconcileReason
+        reason: IslandReconcileReason
     ): ReconcileResult {
         val token = IslandViewRegistry.tokenFor(root)
         token?.let(::discardFakeTransitionsForHost)
@@ -596,7 +584,7 @@ internal object IslandPresentationCoordinator {
     }
 
     private fun logResult(
-        reason: ReconcileReason,
+        reason: IslandReconcileReason,
         owner: IslandRenderPolicy.OwnerEvidence,
         result: ReconcileResult
     ): ReconcileResult {

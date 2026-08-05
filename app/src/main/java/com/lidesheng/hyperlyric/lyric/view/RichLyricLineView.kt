@@ -283,8 +283,6 @@ class RichLyricLineView(
             dispatchMainLineApplied()
             return
         }
-        oldLine = line
-
         val mainResult = assembler.buildMain(line)
         val secResult = assembler.buildSecondary(line)
 
@@ -343,6 +341,9 @@ class RichLyricLineView(
         secondary.setLyric(secResult.line)
         secondary.isScrollOnly = if (secResult.isNextLinePreview) false else secResult.isScrollOnly
 
+        // 只有主、副行真正提交后，才把这一行标记为已应用。动态宽度预检可能会在此之前
+        // 暂停刷新；过早更新 oldLine 会让后续重入误以为占位符已经显示，从而跳过 setLyric。
+        oldLine = line
         if (requestMarquee) requestStartMarquee()
         dispatchMainLineApplied()
     }

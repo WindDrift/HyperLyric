@@ -108,12 +108,16 @@ object LyriconDataBridge : StateResetter {
             foundLine = timedLine
         }
 
+        val previousLine = currentLyricLine
         currentLyricLine = foundLine
         currentNextLyricLine = foundLine?.next
         // 间奏时保持最后一行歌词，不回退到歌名
         val newText = foundLine?.text ?: currentLyric ?: ""
+        // 占位符圆点没有文本，不能只靠文本变化判断是否需要刷新。
+        // 切歌或切换到同文本歌词时，新的歌词行仍然需要传给渲染器。
+        val lineChanged = foundLine != null && foundLine !== previousLine
 
-        if (newText != currentLyric) {
+        if (lineChanged || newText != currentLyric) {
             currentLyric = newText
             return true
         }

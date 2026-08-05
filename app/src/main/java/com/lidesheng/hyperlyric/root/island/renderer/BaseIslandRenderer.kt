@@ -19,6 +19,7 @@ import com.lidesheng.hyperlyric.root.island.IslandProbeUtils
 import com.lidesheng.hyperlyric.root.island.IslandProgressGlowController
 import com.lidesheng.hyperlyric.root.island.IslandSlotContentAssembler
 import com.lidesheng.hyperlyric.root.island.IslandSlotRuntimeConfig
+import com.lidesheng.hyperlyric.root.island.presentation.IslandReconcileReason
 import com.lidesheng.hyperlyric.root.island.sizing.IslandDynamicWidthCoordinator
 import com.lidesheng.hyperlyric.root.utils.CoverColorHelper
 import com.lidesheng.hyperlyric.root.utils.HookLogger
@@ -86,7 +87,7 @@ object BaseIslandRenderer : IslandRenderer {
                 }
                 val result = IslandPresentationCoordinator.reconcileRegisteredHost(
                     token,
-                    IslandPresentationCoordinator.ReconcileReason.STABLE_REFRESH,
+                    IslandReconcileReason.STABLE_REFRESH,
                     expectedPresentationRevision
                 )
                 if (!result.isTarget) return@post
@@ -128,7 +129,7 @@ object BaseIslandRenderer : IslandRenderer {
                     }
                     val result = IslandPresentationCoordinator.reconcileRegisteredHost(
                         token,
-                        IslandPresentationCoordinator.ReconcileReason.LYRIC_SELF_HEAL,
+                        IslandReconcileReason.LYRIC_SELF_HEAL,
                         expectedPresentationRevision
                     )
                     if (!result.isTarget) return@post
@@ -295,7 +296,7 @@ object BaseIslandRenderer : IslandRenderer {
 
                 val result = IslandPresentationCoordinator.reconcileRegisteredHost(
                     token,
-                    IslandPresentationCoordinator.ReconcileReason.PLAYBACK_RESUME,
+                    IslandReconcileReason.PLAYBACK_RESUME,
                     expectedPresentationRevision
                 )
                 if (!result.isTarget) return@post
