@@ -393,6 +393,9 @@
     <!-- ———————————————————————— SuperIslandSettingsPage ———————————————————————— -->
     <string name="title_layout">Layout</string>
     <string name="title_content">Content</string>
+    <string name="title_super_island_width_mode">Super Island Width Mode</string>
+    <string name="option_super_island_width_fixed">Fixed width</string>
+    <string name="option_super_island_width_dynamic">Dynamic width</string>
     <string name="title_super_island_width">Super Island Width</string>
     <string name="summary_super_island_width">Maximum width depends on system limits. It will not continue to grow once a certain threshold is reached. This is expected behavior.</string>
     <string name="label_content_width_range">Range: %1$d ~ %2$d</string>

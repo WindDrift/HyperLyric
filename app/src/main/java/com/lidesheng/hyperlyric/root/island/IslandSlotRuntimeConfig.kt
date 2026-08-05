@@ -6,9 +6,11 @@ import com.lidesheng.hyperlyric.common.LyricTextColorStylePolicy
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.common.SuperIslandContentStylePolicy
 import com.lidesheng.hyperlyric.common.SuperIslandWidthPolicy
+import kotlin.math.ceil
 
 internal data class IslandSlotRuntimeConfig(
     val activeMode: Int,
+    val widthMode: Int,
     val leftMode: Int,
     val rightMode: Int,
     val showAlbum: Boolean,
@@ -17,6 +19,8 @@ internal data class IslandSlotRuntimeConfig(
     val leftPaddingRightDp: Int,
     val rightPaddingLeftDp: Int,
     val rightPaddingRightDp: Int,
+    val leftMinWidthDp: Int,
+    val rightMinWidthDp: Int,
     val leftMaxWidthDp: Int,
     val rightMaxWidthDp: Int,
     val pauseBehavior: Int,
@@ -58,6 +62,9 @@ internal data class IslandSlotRuntimeConfig(
 ) {
     val isSplitMode: Boolean
         get() = activeMode == 1
+
+    val isDynamicWidth: Boolean
+        get() = widthMode == RootConstants.ISLAND_WIDTH_MODE_DYNAMIC && !isSplitMode
 
     val extractCoverTextColor: Boolean
         get() = LyricTextColorStylePolicy.usesCoverColor(textColorStyle)
@@ -122,6 +129,10 @@ internal data class IslandSlotRuntimeConfig(
         return if (isLeftParent(parentName)) leftMaxWidthDp else rightMaxWidthDp
     }
 
+    fun minWidthDp(parentName: String): Int {
+        return if (isLeftParent(parentName)) leftMinWidthDp else rightMinWidthDp
+    }
+
     fun paddingLeftDp(parentName: String): Int {
         return if (isLeftParent(parentName)) leftPaddingLeftDp else rightPaddingLeftDp
     }
@@ -134,6 +145,18 @@ internal data class IslandSlotRuntimeConfig(
         val maxWidthDp = maxWidthDp(parentName)
         if (maxWidthDp <= 0) return null
         return (maxWidthDp * rootView.resources.displayMetrics.density).toInt().coerceAtLeast(1)
+    }
+
+    fun lyricRequiredWidthPx(
+        rootView: View,
+        parentName: String,
+        contentWidthPx: Float
+    ): Int? {
+        val maxWidthDp = maxWidthDp(parentName)
+        if (maxWidthDp <= 0) return null
+
+        val paddingPx = paddingLeftPx(rootView, parentName) + paddingRightPx(rootView, parentName)
+        return (ceil(contentWidthPx.coerceAtLeast(0f)).toInt() + paddingPx).coerceAtLeast(1)
     }
 
     fun paddingLeftPx(rootView: View, parentName: String): Int {
@@ -158,7 +181,9 @@ internal data class IslandSlotRuntimeConfig(
             val showRhythm = SuperIslandContentStylePolicy.isMusicWaveVisible(
                 SuperIslandContentStylePolicy.readMusicWaveStyle(prefs)
             )
-            val islandWidth = SuperIslandWidthPolicy.normalizeIslandWidth(
+            val minIslandWidth = SuperIslandWidthPolicy.minIslandWidth(showAlbum, showRhythm)
+            val maxIslandWidth = SuperIslandWidthPolicy.maxIslandWidth(showRhythm)
+            val fixedIslandWidth = SuperIslandWidthPolicy.normalizeIslandWidth(
                 islandWidth = prefs.getInt(
                     RootConstants.KEY_HOOK_ISLAND_RIGHT_CONTENT_MAX_WIDTH,
                     RootConstants.DEFAULT_HOOK_ISLAND_RIGHT_CONTENT_MAX_WIDTH
@@ -166,8 +191,39 @@ internal data class IslandSlotRuntimeConfig(
                 showAlbum = showAlbum,
                 showRhythm = showRhythm
             )
+            val widthMode = prefs.getInt(
+                RootConstants.KEY_HOOK_ISLAND_WIDTH_MODE,
+                RootConstants.DEFAULT_HOOK_ISLAND_WIDTH_MODE
+            ).coerceIn(
+                RootConstants.ISLAND_WIDTH_MODE_FIXED,
+                RootConstants.ISLAND_WIDTH_MODE_DYNAMIC
+            )
+            val dynamicWidthEnabled =
+                widthMode == RootConstants.ISLAND_WIDTH_MODE_DYNAMIC && activeMode != 1
+            val dynamicMinWidth = prefs.getInt(
+                RootConstants.KEY_HOOK_ISLAND_DYNAMIC_MIN_WIDTH,
+                minIslandWidth.coerceAtLeast(RootConstants.DEFAULT_HOOK_ISLAND_DYNAMIC_MIN_WIDTH)
+            ).coerceIn(minIslandWidth, maxIslandWidth)
+            val dynamicMaxWidth = prefs.getInt(
+                RootConstants.KEY_HOOK_ISLAND_DYNAMIC_MAX_WIDTH,
+                fixedIslandWidth.coerceIn(
+                    RootConstants.DEFAULT_HOOK_ISLAND_DYNAMIC_MIN_WIDTH,
+                    maxIslandWidth
+                )
+            ).coerceIn(dynamicMinWidth, maxIslandWidth)
+            val effectiveMinWidth = if (dynamicWidthEnabled) {
+                dynamicMinWidth
+            } else {
+                minIslandWidth
+            }
+            val effectiveMaxWidth = if (dynamicWidthEnabled) {
+                dynamicMaxWidth
+            } else {
+                fixedIslandWidth
+            }
             return IslandSlotRuntimeConfig(
                 activeMode = activeMode,
+                widthMode = widthMode,
                 leftMode = if (activeMode == 1) 7 else prefs.getInt(
                     RootConstants.KEY_HOOK_ISLAND_CONTENT_LEFT,
                     RootConstants.DEFAULT_HOOK_ISLAND_CONTENT_LEFT
@@ -194,12 +250,18 @@ internal data class IslandSlotRuntimeConfig(
                     RootConstants.KEY_HOOK_ISLAND_RIGHT_PADDING_RIGHT,
                     RootConstants.DEFAULT_HOOK_ISLAND_RIGHT_PADDING_RIGHT
                 ),
-                leftMaxWidthDp = SuperIslandWidthPolicy.leftContentWidth(
-                    islandWidth = islandWidth,
+                leftMinWidthDp = SuperIslandWidthPolicy.leftContentWidth(
+                    islandWidth = effectiveMinWidth,
                     showAlbum = showAlbum,
                     showRhythm = showRhythm
                 ),
-                rightMaxWidthDp = islandWidth,
+                rightMinWidthDp = effectiveMinWidth,
+                leftMaxWidthDp = SuperIslandWidthPolicy.leftContentWidth(
+                    islandWidth = effectiveMaxWidth,
+                    showAlbum = showAlbum,
+                    showRhythm = showRhythm
+                ),
+                rightMaxWidthDp = effectiveMaxWidth,
                 pauseBehavior = prefs.getInt(
                     RootConstants.KEY_HOOK_ISLAND_BEHAVIOR_AFTER_PAUSE,
                     RootConstants.DEFAULT_HOOK_ISLAND_BEHAVIOR_AFTER_PAUSE

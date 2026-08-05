@@ -13,6 +13,7 @@ import com.lidesheng.hyperlyric.lyric.view.SpaceGateRichLyricLineView
 import com.lidesheng.hyperlyric.root.HookEntry
 import com.lidesheng.hyperlyric.root.LyriconDataBridge
 import com.lidesheng.hyperlyric.root.island.IslandHostFacade
+import com.lidesheng.hyperlyric.root.island.IslandLyricTextInjector
 import com.lidesheng.hyperlyric.root.island.IslandMusicWaveColorHooker
 import com.lidesheng.hyperlyric.root.island.IslandPresentationCoordinator
 import com.lidesheng.hyperlyric.root.island.IslandProbeUtils
@@ -542,7 +543,8 @@ object BaseIslandRenderer : IslandRenderer {
             prefs = prefs,
             config = config,
             lineOverride = line,
-            playbackActive = IslandPresentationCoordinator.isPlaybackActive()
+            playbackActive = IslandPresentationCoordinator.isPlaybackActive(),
+            onLineApplied = { IslandLyricTextInjector.requestDynamicWidthRefresh(cv) }
         )
     }
 
@@ -573,7 +575,8 @@ object BaseIslandRenderer : IslandRenderer {
             mode = mode,
             lineOverride = lineOverride,
             playbackActive = IslandPresentationCoordinator.isPlaybackActive(),
-            mediaInfo = mediaInfo
+            mediaInfo = mediaInfo,
+            onLineApplied = { IslandLyricTextInjector.requestDynamicWidthRefresh(cv) }
         )
     }
 

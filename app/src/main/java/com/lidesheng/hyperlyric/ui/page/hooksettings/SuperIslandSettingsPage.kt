@@ -37,6 +37,7 @@ import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.RangeSlider
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Slider
 import top.yukonga.miuix.kmp.basic.SliderDefaults
@@ -95,6 +96,8 @@ fun SuperIslandSettingsPage() {
     }
     val audioCover = SuperIslandContentStylePolicy.isAlbumCoverVisible(audioCoverStyle)
     val audioRhythm = SuperIslandContentStylePolicy.isMusicWaveVisible(audioRhythmStyle)
+    val islandWidthMin = SuperIslandWidthPolicy.minIslandWidth(audioCover, audioRhythm)
+    val islandWidthMax = SuperIslandWidthPolicy.maxIslandWidth(audioRhythm)
     var leftPaddingLeft by remember {
         mutableIntStateOf(
             prefs.getInt(
@@ -138,6 +141,28 @@ fun SuperIslandSettingsPage() {
                 showRhythm = audioRhythm
             )
         )
+    }
+    var islandWidthMode by remember {
+        mutableIntStateOf(
+            prefs.getInt(
+                RootConstants.KEY_HOOK_ISLAND_WIDTH_MODE,
+                RootConstants.DEFAULT_HOOK_ISLAND_WIDTH_MODE
+            ).coerceIn(
+                RootConstants.ISLAND_WIDTH_MODE_FIXED,
+                RootConstants.ISLAND_WIDTH_MODE_DYNAMIC
+            )
+        )
+    }
+    var dynamicWidthRange by remember {
+        val initialMin = prefs.getInt(
+            RootConstants.KEY_HOOK_ISLAND_DYNAMIC_MIN_WIDTH,
+            islandWidthMin
+        ).coerceIn(islandWidthMin, islandWidthMax)
+        val initialMax = prefs.getInt(
+            RootConstants.KEY_HOOK_ISLAND_DYNAMIC_MAX_WIDTH,
+            islandWidth
+        ).coerceIn(initialMin, islandWidthMax)
+        mutableStateOf(initialMin.toFloat()..initialMax.toFloat())
     }
     var afterPauseBehavior by remember {
         mutableIntStateOf(
@@ -200,6 +225,31 @@ fun SuperIslandSettingsPage() {
         }
     }
 
+    fun commitDynamicWidthRange(
+        value: ClosedFloatingPointRange<Float>,
+        showAlbum: Boolean = audioCover,
+        showRhythm: Boolean = audioRhythm
+    ) {
+        val minBound = SuperIslandWidthPolicy.minIslandWidth(showAlbum, showRhythm)
+        val maxBound = SuperIslandWidthPolicy.maxIslandWidth(showRhythm)
+        val minValue = value.start.roundToInt().coerceIn(minBound, maxBound)
+        val maxValue = value.endInclusive.roundToInt().coerceIn(minValue, maxBound)
+        dynamicWidthRange = minValue.toFloat()..maxValue.toFloat()
+        saveConfig(RootConstants.KEY_HOOK_ISLAND_DYNAMIC_MIN_WIDTH, minValue)
+        saveConfig(RootConstants.KEY_HOOK_ISLAND_DYNAMIC_MAX_WIDTH, maxValue)
+    }
+
+    fun clampDynamicWidthRangeIfNeeded(showAlbum: Boolean, showRhythm: Boolean) {
+        val minBound = SuperIslandWidthPolicy.minIslandWidth(showAlbum, showRhythm)
+        val maxBound = SuperIslandWidthPolicy.maxIslandWidth(showRhythm)
+        val minValue = dynamicWidthRange.start.roundToInt().coerceIn(minBound, maxBound)
+        val maxValue = dynamicWidthRange.endInclusive.roundToInt().coerceIn(minValue, maxBound)
+        val normalized = minValue.toFloat()..maxValue.toFloat()
+        if (normalized != dynamicWidthRange) {
+            commitDynamicWidthRange(normalized, showAlbum, showRhythm)
+        }
+    }
+
     fun commitIslandWidth(
         value: Int,
         showAlbum: Boolean = audioCover,
@@ -229,6 +279,7 @@ fun SuperIslandSettingsPage() {
         audioCoverStyle = style
         saveConfig(RootConstants.KEY_HOOK_ISLAND_ALBUM_COVER_STYLE, style)
         clampIslandWidthIfNeeded(showAlbum = visible, showRhythm = audioRhythm)
+        clampDynamicWidthRangeIfNeeded(showAlbum = visible, showRhythm = audioRhythm)
     }
 
     fun saveAudioRhythmStyle(style: Int) {
@@ -236,13 +287,18 @@ fun SuperIslandSettingsPage() {
         audioRhythmStyle = style
         saveConfig(RootConstants.KEY_HOOK_ISLAND_MUSIC_WAVE_STYLE, style)
         clampIslandWidthIfNeeded(showAlbum = audioCover, showRhythm = visible)
+        clampDynamicWidthRangeIfNeeded(showAlbum = audioCover, showRhythm = visible)
     }
 
-    val islandWidthMin = SuperIslandWidthPolicy.minIslandWidth(audioCover, audioRhythm)
-    val islandWidthMax = SuperIslandWidthPolicy.maxIslandWidth(audioRhythm)
     val islandWidthKeyPoints = remember(islandWidthMin, islandWidthMax) {
         (islandWidthMin..islandWidthMax step 20).map(Int::toFloat)
     }
+    val islandWidthModeOptions = remember {
+        listOf(
+            R.string.option_super_island_width_fixed,
+            R.string.option_super_island_width_dynamic
+        )
+    }.map { stringResource(id = it) }
 
     val contentOptions = remember {
         listOf(
@@ -393,35 +449,74 @@ fun SuperIslandSettingsPage() {
                             .fillMaxWidth()
                     ) {
                         Column {
+                            OverlayDropdownPreference(
+                                title = stringResource(id = R.string.title_super_island_width_mode),
+                                summary = stringResource(id = R.string.summary_super_island_width),
+                                items = islandWidthModeOptions,
+                                selectedIndex = islandWidthMode,
+                                onSelectedIndexChange = {
+                                    islandWidthMode = it
+                                    saveConfig(RootConstants.KEY_HOOK_ISLAND_WIDTH_MODE, it)
+                                }
+                            )
                             ArrowPreference(
                                 title = stringResource(id = R.string.title_super_island_width),
-                                summary = stringResource(id = R.string.summary_super_island_width),
                                 endActions = {
                                     Text(
-                                        "$islandWidth",
+                                        if (islandWidthMode == RootConstants.ISLAND_WIDTH_MODE_DYNAMIC) {
+                                            "${dynamicWidthRange.start.roundToInt()}~${dynamicWidthRange.endInclusive.roundToInt()}"
+                                        } else {
+                                            "$islandWidth"
+                                        },
                                         fontSize = MiuixTheme.textStyles.body2.fontSize,
                                         color = MiuixTheme.colorScheme.onSurfaceVariantActions
                                     )
                                 },
                                 bottomAction = {
-                                    Slider(
-                                        value = islandWidth.toFloat(),
-                                        onValueChange = {
-                                            islandWidth = it.roundToInt()
-                                                .coerceIn(islandWidthMin, islandWidthMax)
-                                        },
-                                        valueRange = islandWidthMin.toFloat()..islandWidthMax.toFloat(),
-                                        steps = 0,
-                                        onValueChangeFinished = {
-                                            commitIslandWidth(islandWidth)
-                                        },
-                                        showKeyPoints = true,
-                                        keyPoints = islandWidthKeyPoints,
-                                        magnetThreshold = 0f,
-                                        hapticEffect = SliderDefaults.SliderHapticEffect.Step
-                                    )
+                                    if (islandWidthMode == RootConstants.ISLAND_WIDTH_MODE_DYNAMIC) {
+                                        RangeSlider(
+                                            value = dynamicWidthRange,
+                                            onValueChange = {
+                                                val start = it.start.roundToInt()
+                                                    .coerceIn(islandWidthMin, islandWidthMax)
+                                                val end = it.endInclusive.roundToInt()
+                                                    .coerceIn(start, islandWidthMax)
+                                                dynamicWidthRange = start.toFloat()..end.toFloat()
+                                            },
+                                            valueRange = islandWidthMin.toFloat()..islandWidthMax.toFloat(),
+                                            steps = 0,
+                                            onValueChangeFinished = {
+                                                commitDynamicWidthRange(dynamicWidthRange)
+                                            },
+                                            showKeyPoints = true,
+                                            keyPoints = islandWidthKeyPoints,
+                                            magnetThreshold = 0f,
+                                            hapticEffect = SliderDefaults.SliderHapticEffect.Step
+                                        )
+                                    } else {
+                                        Slider(
+                                            value = islandWidth.toFloat(),
+                                            onValueChange = {
+                                                islandWidth = it.roundToInt()
+                                                    .coerceIn(islandWidthMin, islandWidthMax)
+                                            },
+                                            valueRange = islandWidthMin.toFloat()..islandWidthMax.toFloat(),
+                                            steps = 0,
+                                            onValueChangeFinished = {
+                                                commitIslandWidth(islandWidth)
+                                            },
+                                            showKeyPoints = true,
+                                            keyPoints = islandWidthKeyPoints,
+                                            magnetThreshold = 0f,
+                                            hapticEffect = SliderDefaults.SliderHapticEffect.Step
+                                        )
+                                    }
                                 },
-                                onClick = { showIslandWidthDialog = true }
+                                onClick = {
+                                    if (islandWidthMode == RootConstants.ISLAND_WIDTH_MODE_FIXED) {
+                                        showIslandWidthDialog = true
+                                    }
+                                }
                             )
                             ArrowPreference(
                                 title = stringResource(id = R.string.title_left_padding),

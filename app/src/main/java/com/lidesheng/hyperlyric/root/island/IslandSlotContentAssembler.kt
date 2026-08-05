@@ -138,7 +138,8 @@ internal object IslandSlotContentAssembler {
         force: Boolean = false,
         playbackActive: Boolean = true,
         suppressAnimation: Boolean = false,
-        mediaInfo: MediaMetadataHelper.MediaInfo = currentMediaInfo(view.context)
+        mediaInfo: MediaMetadataHelper.MediaInfo = currentMediaInfo(view.context),
+        onLineApplied: (() -> Unit)? = null
     ): Boolean {
         configureView(view, prefs, config, mode, mediaInfo, force)
         return if (mode == 7) {
@@ -149,7 +150,8 @@ internal object IslandSlotContentAssembler {
                 lineOverride,
                 force,
                 playbackActive,
-                suppressAnimation
+                suppressAnimation,
+                onLineApplied
             )
         } else {
             applyMetadataContent(view, config, mode, force, mediaInfo)
@@ -161,7 +163,8 @@ internal object IslandSlotContentAssembler {
         prefs: SharedPreferences,
         config: IslandSlotRuntimeConfig,
         lineOverride: IRichLyricLine?,
-        playbackActive: Boolean = true
+        playbackActive: Boolean = true,
+        onLineApplied: (() -> Unit)? = null
     ): Boolean = applyLyricContent(
         view = view,
         prefs = prefs,
@@ -169,7 +172,8 @@ internal object IslandSlotContentAssembler {
         lineOverride = lineOverride,
         force = false,
         playbackActive = playbackActive,
-        suppressAnimation = false
+        suppressAnimation = false,
+        onLineApplied = onLineApplied
     )
 
     fun buildSlotLyricLine(
@@ -229,7 +233,8 @@ internal object IslandSlotContentAssembler {
         lineOverride: IRichLyricLine?,
         force: Boolean,
         playbackActive: Boolean,
-        suppressAnimation: Boolean
+        suppressAnimation: Boolean,
+        onLineApplied: (() -> Unit)?
     ): Boolean {
         val targetLine = lineOverride ?: buildSlotLyricLine(
             view = view,
@@ -240,6 +245,7 @@ internal object IslandSlotContentAssembler {
         val signature = "lyric|${lineContentSignature(targetLine)}|${config.styleSignature}"
         if (!force && lastContentSignatures[view] == signature) {
             applyPlaybackActive(view, playbackActive)
+            onLineApplied?.invoke()
             return false
         }
 
@@ -249,12 +255,14 @@ internal object IslandSlotContentAssembler {
                     target.line = targetLine
                     target.setPlaybackActive(playbackActive)
                     if (config.lyricMarqueeEnabled) target.post { target.requestStartMarquee() }
+                    onLineApplied?.invoke()
                 }
 
                 is SpaceGateRichLyricLineView -> {
                     target.line = targetLine
                     target.setPlaybackActive(playbackActive)
                     if (config.lyricMarqueeEnabled) target.post { target.requestStartMarquee() }
+                    onLineApplied?.invoke()
                 }
             }
         }

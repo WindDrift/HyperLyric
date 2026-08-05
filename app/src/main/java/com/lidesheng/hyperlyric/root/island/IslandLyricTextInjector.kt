@@ -6,12 +6,14 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
+import com.lidesheng.hyperlyric.common.SuperIslandWidthPolicy
 import com.lidesheng.hyperlyric.lyric.view.RichLyricLineView
 import com.lidesheng.hyperlyric.lyric.view.SpaceGateRichLyricLineView
 import com.lidesheng.hyperlyric.root.HookEntry
 import com.lidesheng.hyperlyric.root.LyriconDataBridge
 import com.lidesheng.hyperlyric.root.island.view.MaxWidthFrameLayout
 import com.lidesheng.hyperlyric.root.utils.HookLogger
+import kotlin.math.ceil
 
 /**
  * Stage-4 / 富歌词大岛视图注入与更新调度。
@@ -70,6 +72,7 @@ internal object IslandLyricTextInjector {
         }
 
         IslandHostFacade.applyHostSettings(rootView, prefs)
+        requestDynamicWidthRefresh(rootView)
         return changed
     }
 
@@ -217,7 +220,130 @@ internal object IslandLyricTextInjector {
         if (config.isSplitMode) {
             linkViews(rootView)
         }
+        requestDynamicWidthRefresh(rootView)
         return changed
+    }
+
+    /**
+     * Standard lyric mode uses only the main lyric line as the width source. The secondary line
+     * is intentionally excluded because it is allowed to be clipped by the lyric container.
+     */
+    fun requestDynamicWidthRefresh(rootView: ViewGroup) {
+        rootView.post {
+            if (IslandViewRegistry.tokenFor(rootView) == null) return@post
+            val prefs = HookEntry.instance?.prefs ?: return@post
+            val config = IslandSlotRuntimeConfig.from(prefs)
+            if (!config.isDynamicWidth) return@post
+            if (refreshDynamicLyricWidths(rootView, config)) {
+                IslandHostFacade.triggerSystemRelayout(rootView)
+            }
+        }
+    }
+
+    private fun refreshDynamicLyricWidths(
+        rootView: ViewGroup,
+        config: IslandSlotRuntimeConfig
+    ): Boolean {
+        if (!config.isDynamicWidth) return false
+
+        val lyricBaseWidthDp = listOf(
+            dynamicLyricBaseWidthDp(
+                rootView,
+                IslandProbeUtils.LEFT_PARENT_NAME,
+                IslandProbeUtils.LEFT_TEST_VIEW_TAG,
+                config
+            ),
+            dynamicLyricBaseWidthDp(
+                rootView,
+                IslandProbeUtils.RIGHT_PARENT_NAME,
+                IslandProbeUtils.RIGHT_TEST_VIEW_TAG,
+                config
+            )
+        ).filterNotNull().maxOrNull() ?: return false
+        val baseWidthDp = lyricBaseWidthDp.coerceIn(
+            config.rightMinWidthDp.toFloat(),
+            config.rightMaxWidthDp.toFloat()
+        )
+
+        var changed = false
+        if (config.leftMode != 0) {
+            changed = updateDynamicSlotWidth(
+                rootView,
+                IslandProbeUtils.LEFT_PARENT_NAME,
+                IslandProbeUtils.LEFT_TEST_VIEW_TAG,
+                config,
+                baseWidthDp
+            ) || changed
+        }
+        if (config.rightMode != 0) {
+            changed = updateDynamicSlotWidth(
+                rootView,
+                IslandProbeUtils.RIGHT_PARENT_NAME,
+                IslandProbeUtils.RIGHT_TEST_VIEW_TAG,
+                config,
+                baseWidthDp
+            ) || changed
+        }
+        return changed
+    }
+
+    private fun dynamicLyricBaseWidthDp(
+        rootView: ViewGroup,
+        parentName: String,
+        viewTag: String,
+        config: IslandSlotRuntimeConfig
+    ): Float? {
+        if (config.modeForTag(viewTag) != 7) return null
+        val lyricView = rootView.findViewWithTag<View>(viewTag) as? RichLyricLineView
+            ?: return null
+        val requiredWidthPx = config.lyricRequiredWidthPx(
+            rootView = rootView,
+            parentName = parentName,
+            contentWidthPx = lyricView.main.lineWidth
+        ) ?: return null
+        val requiredWidthDp = requiredWidthPx / rootView.resources.displayMetrics.density
+        return if (config.isLeftParent(parentName)) {
+            SuperIslandWidthPolicy.baseWidthFromLeftContentWidth(
+                leftContentWidthDp = requiredWidthDp,
+                showAlbum = config.showAlbum,
+                showRhythm = config.showRhythm
+            )
+        } else {
+            requiredWidthDp
+        }
+    }
+
+    private fun updateDynamicSlotWidth(
+        rootView: ViewGroup,
+        parentName: String,
+        viewTag: String,
+        config: IslandSlotRuntimeConfig,
+        baseWidthDp: Float
+    ): Boolean {
+        val maxWidthDp = config.maxWidthDp(parentName)
+        if (maxWidthDp <= 0) return false
+        val adjustmentDp = if (config.isLeftParent(parentName)) {
+            SuperIslandWidthPolicy.leftContentWidthOffsetDp(
+                showAlbum = config.showAlbum,
+                showRhythm = config.showRhythm
+            )
+        } else {
+            0
+        }
+        val targetWidthDp = (baseWidthDp + adjustmentDp).coerceIn(
+            config.minWidthDp(parentName).toFloat(),
+            maxWidthDp.toFloat()
+        )
+        val targetWidthPx = ceil(
+            targetWidthDp * rootView.resources.displayMetrics.density
+        ).toInt().coerceAtLeast(1)
+        val wrapper = rootView.findViewWithTag<View>("${viewTag}_WRAPPER")
+            as? MaxWidthFrameLayout ?: return false
+        if (wrapper.maxWidthPx == targetWidthPx) return false
+
+        wrapper.maxWidthPx = targetWidthPx
+        wrapper.requestLayout()
+        return true
     }
 
     fun freezeInjectedLyricProgress(rootView: ViewGroup, position: Long) {
@@ -608,7 +734,8 @@ internal object IslandLyricTextInjector {
             mode,
             force = force,
             suppressAnimation = suppressAnimation,
-            mediaInfo = mediaInfo
+            mediaInfo = mediaInfo,
+            onLineApplied = { requestDynamicWidthRefresh(rootView) }
         )
     }
 

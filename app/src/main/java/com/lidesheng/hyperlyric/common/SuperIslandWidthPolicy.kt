@@ -27,8 +27,17 @@ object SuperIslandWidthPolicy {
         showRhythm: Boolean
     ): Int {
         val normalizedWidth = normalizeIslandWidth(islandWidth, showAlbum, showRhythm)
-        return normalizedWidth + componentWidth(showRhythm) - componentWidth(showAlbum)
+        return normalizedWidth + leftContentWidthOffsetDp(showAlbum, showRhythm)
     }
+
+    fun leftContentWidthOffsetDp(showAlbum: Boolean, showRhythm: Boolean): Int =
+        componentWidth(showRhythm) - componentWidth(showAlbum)
+
+    fun baseWidthFromLeftContentWidth(
+        leftContentWidthDp: Float,
+        showAlbum: Boolean,
+        showRhythm: Boolean
+    ): Float = leftContentWidthDp - leftContentWidthOffsetDp(showAlbum, showRhythm)
 
     private fun componentWidth(visible: Boolean): Int =
         if (visible) SIDE_COMPONENT_WIDTH_DP else 0
