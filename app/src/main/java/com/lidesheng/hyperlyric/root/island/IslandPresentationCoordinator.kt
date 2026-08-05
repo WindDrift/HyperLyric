@@ -1,13 +1,14 @@
 package com.lidesheng.hyperlyric.root.island
 
-import android.view.View
 import android.view.ViewGroup
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.root.HookEntry
 import com.lidesheng.hyperlyric.root.LyriconDataBridge
 import com.lidesheng.hyperlyric.root.island.content.IslandLyricPlaybackController
+import com.lidesheng.hyperlyric.root.island.presentation.IslandFakeTransitionRegistry
+import com.lidesheng.hyperlyric.root.island.presentation.IslandHostAttachmentObserver
+import com.lidesheng.hyperlyric.root.island.presentation.IslandReconcileOptions
 import com.lidesheng.hyperlyric.root.utils.HookLogger
-import java.util.WeakHashMap
 
 /**
  * Owns Super Island target policy and view reconciliation.
@@ -56,18 +57,15 @@ internal object IslandPresentationCoordinator {
     private var presentationRevision = 0L
 
     private val presentationStateLock = Any()
-    private val attachmentLock = Any()
-    private val attachmentListeners =
-        WeakHashMap<ViewGroup, View.OnAttachStateChangeListener>()
-    private val fakeTransitionLock = Any()
-    private val fakeTransitions = WeakHashMap<ViewGroup, FakeTransitionRecord>()
-    private var nextFakeTransitionGeneration = 0L
-
-    private data class FakeTransitionRecord(
-        val generation: Long,
-        val realHost: IslandViewRegistry.HostToken,
-        val frozenPosition: Long,
-        val lyricVersion: Int
+    private val hostAttachmentObserver = IslandHostAttachmentObserver(
+        currentPresentationRevision = { currentPresentationRevision() },
+        onHostAttached = { token, expectedRevision ->
+            reconcileRegisteredHost(
+                token = token,
+                reason = ReconcileReason.STABLE_REFRESH,
+                expectedPresentationRevision = expectedRevision
+            )
+        }
     )
 
     fun ownerEvidence(data: Any?): IslandRenderPolicy.OwnerEvidence {
@@ -238,22 +236,18 @@ internal object IslandPresentationCoordinator {
         val mutation = when (decision) {
             IslandRenderPolicy.Decision.TARGET -> {
                 if (realHost != null) {
-                    synchronized(fakeTransitionLock) {
-                        fakeTransitions[fakeOwner] = FakeTransitionRecord(
-                            generation = ++nextFakeTransitionGeneration,
-                            realHost = realHost,
-                            frozenPosition = position,
-                            lyricVersion = LyriconDataBridge.versionCounter.get()
-                        )
-                    }
+                    IslandFakeTransitionRegistry.remember(
+                        fakeOwner = fakeOwner,
+                        realHost = realHost,
+                        frozenPosition = position,
+                        lyricVersion = LyriconDataBridge.versionCounter.get()
+                    )
                     IslandInjectionReconciler.prepareFrozenRealHost(
                         realHost.root,
                         position
                     )
                 } else {
-                    synchronized(fakeTransitionLock) {
-                        fakeTransitions.remove(fakeOwner)
-                    }
+                    IslandFakeTransitionRegistry.remove(fakeOwner)
                 }
                 IslandInjectionReconciler.prepareFrozenSnapshot(snapshotRoot, position)
                     .also { IslandHostFacade.showFrozenSnapshot(snapshotRoot) }
@@ -262,9 +256,7 @@ internal object IslandPresentationCoordinator {
             IslandRenderPolicy.Decision.SUPPRESSED,
             IslandRenderPolicy.Decision.OTHER_PACKAGE,
             IslandRenderPolicy.Decision.NOT_MEDIA -> {
-                synchronized(fakeTransitionLock) {
-                    fakeTransitions.remove(fakeOwner)
-                }
+                IslandFakeTransitionRegistry.remove(fakeOwner)
                 IslandInjectionReconciler.restoreNative(
                     snapshotRoot,
                     IslandInjectionReconciler.Target.FakeSnapshot
@@ -272,9 +264,7 @@ internal object IslandPresentationCoordinator {
             }
 
             IslandRenderPolicy.Decision.PENDING -> {
-                synchronized(fakeTransitionLock) {
-                    fakeTransitions.remove(fakeOwner)
-                }
+                IslandFakeTransitionRegistry.remove(fakeOwner)
                 IslandInjectionReconciler.Result.NO_OP
             }
         }
@@ -289,9 +279,8 @@ internal object IslandPresentationCoordinator {
         fakeOwner: ViewGroup,
         realRoot: ViewGroup
     ): ReconcileResult {
-        val transition = synchronized(fakeTransitionLock) {
-            fakeTransitions[fakeOwner]
-        } ?: return ReconcileResult.noOp(IslandRenderPolicy.Decision.PENDING)
+        val transition = IslandFakeTransitionRegistry.find(fakeOwner)
+            ?: return ReconcileResult.noOp(IslandRenderPolicy.Decision.PENDING)
 
         if (transition.realHost.root !== realRoot ||
             !IslandViewRegistry.isCurrent(transition.realHost)
@@ -327,9 +316,7 @@ internal object IslandPresentationCoordinator {
         // SystemUI does not return our generation in the end callback. The
         // latest request for one fake owner is therefore authoritative; two
         // preparation hooks can legitimately report the same transition.
-        val transition = synchronized(fakeTransitionLock) {
-            fakeTransitions.remove(fakeOwner)
-        }
+        val transition = IslandFakeTransitionRegistry.remove(fakeOwner)
         if (transition == null) {
             return restoreRealHostFromCurrentEvidence(realRoot)
         }
@@ -482,11 +469,7 @@ internal object IslandPresentationCoordinator {
         token: IslandViewRegistry.HostToken
     ): Boolean {
         if (!IslandViewRegistry.isCurrent(token)) return false
-        return synchronized(fakeTransitionLock) {
-            fakeTransitions.values.any { transition ->
-                transition.realHost == token
-            }
-        }
+        return IslandFakeTransitionRegistry.isHostFrozen(token)
     }
 
     fun refreshInjectedViewIndex(token: IslandViewRegistry.HostToken) {
@@ -514,7 +497,7 @@ internal object IslandPresentationCoordinator {
                 IslandInjectionReconciler.show(
                     root = root,
                     target = IslandInjectionReconciler.Target.RealRoot,
-                    options = realRootOptions(reason)
+                    options = IslandReconcileOptions.realRoot(reason)
                 )
             }
 
@@ -558,7 +541,7 @@ internal object IslandPresentationCoordinator {
                 IslandInjectionReconciler.show(
                     root = holderRoot,
                     target = target,
-                    options = moduleOptions(reason)
+                    options = IslandReconcileOptions.module(reason)
                 )
             }
 
@@ -595,85 +578,7 @@ internal object IslandPresentationCoordinator {
     private fun discardFakeTransitionsForHost(
         token: IslandViewRegistry.HostToken
     ) {
-        synchronized(fakeTransitionLock) {
-            val iterator = fakeTransitions.entries.iterator()
-            while (iterator.hasNext()) {
-                if (iterator.next().value.realHost == token) {
-                    iterator.remove()
-                }
-            }
-        }
-    }
-
-    private fun realRootOptions(reason: ReconcileReason): IslandInjectionReconciler.ShowOptions {
-        return when (reason) {
-            ReconcileReason.PRE_SYSTEM_UPDATE,
-            ReconcileReason.VISIBILITY_CHANGED -> IslandInjectionReconciler.ShowOptions(
-                structure = IslandInjectionReconciler.StructureMode.RESTORE_EXISTING,
-                content = IslandInjectionReconciler.ContentMode.WHEN_LAYOUT_CHANGED,
-                suppressAnimation = false,
-                reconfigureExisting = false
-            )
-
-            ReconcileReason.FAKE_FINISHED -> IslandInjectionReconciler.ShowOptions(
-                structure = IslandInjectionReconciler.StructureMode.RESTORE_EXISTING,
-                content = IslandInjectionReconciler.ContentMode.ALWAYS,
-                suppressAnimation = false,
-                reconfigureExisting = false
-            )
-
-            ReconcileReason.SYSTEM_UPDATE_COMPLETE -> IslandInjectionReconciler.ShowOptions(
-                structure = IslandInjectionReconciler.StructureMode.ENSURE,
-                content = IslandInjectionReconciler.ContentMode.ALWAYS,
-                suppressAnimation = false,
-                reconfigureExisting = false
-            )
-
-            ReconcileReason.STABLE_REFRESH -> IslandInjectionReconciler.ShowOptions(
-                structure = IslandInjectionReconciler.StructureMode.ENSURE,
-                content = IslandInjectionReconciler.ContentMode.NONE,
-                suppressAnimation = false,
-                reconfigureExisting = true
-            )
-
-            ReconcileReason.LYRIC_SELF_HEAL -> IslandInjectionReconciler.ShowOptions(
-                structure = IslandInjectionReconciler.StructureMode.ENSURE_IF_MISSING,
-                content = IslandInjectionReconciler.ContentMode.NONE,
-                suppressAnimation = true,
-                reconfigureExisting = false
-            )
-
-            ReconcileReason.PLAYBACK_RESUME -> IslandInjectionReconciler.ShowOptions(
-                structure = IslandInjectionReconciler.StructureMode.RESTORE_OR_ENSURE,
-                content = IslandInjectionReconciler.ContentMode.NONE,
-                suppressAnimation = true,
-                reconfigureExisting = false
-            )
-
-            ReconcileReason.MODULE_FIRST_BIND,
-            ReconcileReason.MODULE_UPDATED,
-            ReconcileReason.FAKE_SNAPSHOT -> error("Unsupported real-root reason: $reason")
-        }
-    }
-
-    private fun moduleOptions(reason: ReconcileReason): IslandInjectionReconciler.ShowOptions {
-        return when (reason) {
-            ReconcileReason.MODULE_FIRST_BIND -> IslandInjectionReconciler.ShowOptions(
-                structure = IslandInjectionReconciler.StructureMode.ENSURE,
-                content = IslandInjectionReconciler.ContentMode.WHEN_RESTORING_EXISTING,
-                suppressAnimation = true,
-                reconfigureExisting = false
-            )
-
-            ReconcileReason.MODULE_UPDATED -> IslandInjectionReconciler.ShowOptions(
-                structure = IslandInjectionReconciler.StructureMode.RESTORE_EXISTING,
-                content = IslandInjectionReconciler.ContentMode.WHEN_LAYOUT_CHANGED,
-                suppressAnimation = false,
-                reconfigureExisting = false
-            )
-
-            else -> error("Unsupported module reason: $reason")
-        }
+        IslandFakeTransitionRegistry.discardForHost(token)
     }
 
     private fun evaluate(
@@ -723,35 +628,10 @@ internal object IslandPresentationCoordinator {
     }
 
     private fun observeRealHostAttachment(root: ViewGroup) {
-        synchronized(attachmentLock) {
-            if (attachmentListeners.containsKey(root)) return
-            val listener = object : View.OnAttachStateChangeListener {
-                override fun onViewAttachedToWindow(view: View) {
-                    val attachedRoot = view as? ViewGroup ?: return
-                    val token = IslandViewRegistry.markAttached(attachedRoot) ?: return
-                    val expectedRevision = currentPresentationRevision()
-                    attachedRoot.post {
-                        reconcileRegisteredHost(
-                            token = token,
-                            reason = ReconcileReason.STABLE_REFRESH,
-                            expectedPresentationRevision = expectedRevision
-                        )
-                    }
-                }
-
-                override fun onViewDetachedFromWindow(view: View) {
-                    (view as? ViewGroup)?.let(IslandViewRegistry::markDetached)
-                }
-            }
-            attachmentListeners[root] = listener
-            root.addOnAttachStateChangeListener(listener)
-        }
+        hostAttachmentObserver.observe(root)
     }
 
     private fun stopObservingRealHostAttachment(root: ViewGroup) {
-        val listener = synchronized(attachmentLock) {
-            attachmentListeners.remove(root)
-        } ?: return
-        root.removeOnAttachStateChangeListener(listener)
+        hostAttachmentObserver.stop(root)
     }
 }
