@@ -642,7 +642,7 @@ object NotificationMediaCoverStyleHooker {
         }
     }
 
-    private fun shouldKeepExpandedInFullAod(): Boolean {
+    internal fun shouldKeepExpandedInFullAod(): Boolean {
         if (!runtimeConfig.enabled) return false
         val notification = runtimeConfig.notification
         if (

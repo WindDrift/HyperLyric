@@ -20,6 +20,7 @@ import android.widget.SeekBar
 import android.widget.TextView
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.root.mediacard.MediaCardRuntimeConfig
+import com.lidesheng.hyperlyric.root.mediacard.notification.NotificationMediaCoverStyleHooker
 import com.lidesheng.hyperlyric.root.mediacard.notification.style.NotificationMediaForegroundStyler
 import com.lidesheng.hyperlyric.root.mediacard.progress.view.SquigglySeekBar
 import com.lidesheng.hyperlyric.root.mediacard.progress.view.ThumbStyle
@@ -338,9 +339,11 @@ object MediaProgressStyleHooker {
 
                     Action.FULL_AOD -> {
                         val toFullAod = chain.args.getOrNull(0) as? Boolean ?: false
+                        val keepExpanded =
+                            NotificationMediaCoverStyleHooker.shouldKeepExpandedInFullAod()
                         api.getHolder(controller)?.let { holder ->
                             waveSeekBars[holder]?.visibility =
-                                if (toFullAod) View.GONE else View.VISIBLE
+                                if (toFullAod && !keepExpanded) View.GONE else View.VISIBLE
                         }
                     }
 
