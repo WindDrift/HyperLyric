@@ -114,7 +114,7 @@ object MediaProgressStyleHooker {
             hookedClassLoaders.remove(classLoader)
             HookLogger.w(TAG, "未找到兼容的媒体进度条 Hook")
         } else {
-            HookLogger.i(
+            HookLogger.d(
                 TAG,
                 "媒体进度条 Hook 已初始化: notificationStyle=$notificationStyle, " +
                     "notificationHeadGlow=$notificationHeadGlow, islandStyle=$islandStyle, " +

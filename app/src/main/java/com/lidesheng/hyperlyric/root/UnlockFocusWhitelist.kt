@@ -96,7 +96,7 @@ object UnlockFocusWhitelist {
                     val handle = module.hook(method).intercept(ReturnTrueHooker())
                     whitelistHandles.add(handle)
                 }
-                HookLogger.i(
+                HookLogger.d(
                     TAG,
                     "焦点通知白名单 Hook 已安装: methods=${methods.joinToString { it.name }}"
                 )
@@ -116,7 +116,7 @@ object UnlockFocusWhitelist {
                 module.deoptimize(method)
                 val handle = module.hook(method).intercept(AuthResultHooker())
                 whitelistHandles.add(handle)
-                HookLogger.i(TAG, "焦点通知授权 Hook 已安装")
+                HookLogger.d(TAG, "焦点通知授权 Hook 已安装")
             }
         }.onFailure { e ->
             if (e !is ClassNotFoundException) {
@@ -134,7 +134,7 @@ object UnlockFocusWhitelist {
     private fun unhookWhitelist() {
         whitelistHandles.forEach { it.unhook() }
         whitelistHandles.clear()
-        HookLogger.i(TAG, "焦点通知白名单 Hook 已移除")
+        HookLogger.d(TAG, "焦点通知白名单 Hook 已移除")
     }
 
     class PluginLoadHooker : Hooker {

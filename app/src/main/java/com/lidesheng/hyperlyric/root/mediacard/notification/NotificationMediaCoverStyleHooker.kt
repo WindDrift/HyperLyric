@@ -40,6 +40,9 @@ object NotificationMediaCoverStyleHooker {
     )
     private val nativeApis =
         Collections.synchronizedMap(WeakHashMap<ClassLoader, NotificationMediaHostApi>())
+    private val nativeUnavailableClassLoaders = Collections.synchronizedSet(
+        Collections.newSetFromMap(WeakHashMap<ClassLoader, Boolean>())
+    )
     private val colorOsAppIconStates =
         Collections.synchronizedMap(WeakHashMap<ViewGroup, ColorOsAppIconState>())
     private val colorOsDeviceSwitchSources =
@@ -56,7 +59,6 @@ object NotificationMediaCoverStyleHooker {
 
         val api = resolveApi(classLoader) ?: run {
             hookedClassLoaders.remove(classLoader)
-            HookLogger.w(TAG, "跳过通知中心媒体卡片 Hook: reason=native_api_unavailable")
             return
         }
         NotificationMediaForegroundStyler.setAppliedListener { controller ->
@@ -93,7 +95,7 @@ object NotificationMediaCoverStyleHooker {
             hookedClassLoaders.remove(classLoader)
             HookLogger.w(TAG, "通知中心媒体卡片 Hook 安装不完整")
         } else {
-            HookLogger.i(TAG, "通知中心媒体卡片 Hook 已初始化: methods=${handles.size}")
+            HookLogger.d(TAG, "通知中心媒体卡片 Hook 已初始化: methods=${handles.size}")
         }
     }
 
@@ -670,8 +672,15 @@ object NotificationMediaCoverStyleHooker {
         classLoader ?: return null
         nativeApis[classLoader]?.let { return it }
         return runCatching { NotificationMediaHostApi.create(classLoader) }
-            .onSuccess { nativeApis[classLoader] = it }
-            .onFailure { HookLogger.w(TAG, "通知中心媒体卡片接口不可用: reason=${it.message}") }
+            .onSuccess {
+                nativeApis[classLoader] = it
+                nativeUnavailableClassLoaders.remove(classLoader)
+            }
+            .onFailure {
+                if (nativeUnavailableClassLoaders.add(classLoader)) {
+                    HookLogger.w(TAG, "通知中心媒体卡片接口不可用: reason=${it.message}")
+                }
+            }
             .getOrNull()
     }
 }

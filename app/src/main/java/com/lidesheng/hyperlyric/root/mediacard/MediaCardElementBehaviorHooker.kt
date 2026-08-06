@@ -48,7 +48,7 @@ internal object MediaCardElementBehaviorHooker {
             hookedClassLoaders.remove(classLoader)
             HookLogger.w(TAG, "媒体卡片元素行为 Hook 未安装: reason=target_method_unavailable")
         } else {
-            HookLogger.i(TAG, "媒体卡片元素行为 Hook 已初始化: methods=$installed")
+            HookLogger.d(TAG, "媒体卡片元素行为 Hook 已初始化: methods=$installed")
         }
     }
 

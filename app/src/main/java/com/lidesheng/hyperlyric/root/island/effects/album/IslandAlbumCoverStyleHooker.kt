@@ -76,7 +76,7 @@ internal object IslandAlbumCoverStyleHooker {
 
             xposedModule.deoptimize(fixMethod)
             xposedModule.hook(fixMethod).intercept(SetFixIconHook(accessor))
-            HookLogger.i(TAG, "超级岛封面样式 Hook 已初始化")
+            HookLogger.d(TAG, "超级岛封面样式 Hook 已初始化")
         } catch (e: ClassNotFoundException) {
             hookedClassLoaders.remove(classLoader)
             HookLogger.w(TAG, "当前插件不支持超级岛封面样式: reason=${e.message}")
@@ -172,7 +172,6 @@ internal object IslandAlbumCoverStyleHooker {
         val fixIcon = accessor.fixIconField.get(holder) as? ImageView
         val method = accessor.setAppIconMethod
         if (method == null) {
-            HookLogger.w(TAG, "应用图标接口不可用，保留原生封面")
             return
         }
 
@@ -186,7 +185,6 @@ internal object IslandAlbumCoverStyleHooker {
             appIcon?.visibility = View.GONE
             fixIcon?.visibility = View.VISIBLE
             iconContainer?.visibility = View.VISIBLE
-            HookLogger.w(TAG, "应用图标不可用，保留原生封面")
         }
     }
 

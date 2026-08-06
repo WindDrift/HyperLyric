@@ -15,19 +15,26 @@ object HookLogger : HyperLogger {
     @Volatile
     private var logPrefsResolved = false
 
+    @Volatile
+    private var logLevel = UIConstants.DEFAULT_LOG_LEVEL
+
     var module: XposedModule? = null
         set(value) {
             field = value
             logPrefs = null
             logPrefsResolved = false
+            refreshLogLevel()
         }
 
     override fun d(tag: String, msg: String) {
-        if (readLogLevel() < 1) return
+        if (logLevel < 1) return
         val finalMsg = format(tag, msg)
         Log.d(TAG, finalMsg)
         module?.log(Log.DEBUG, TAG, finalMsg)
     }
+
+    val isDebugEnabled: Boolean
+        get() = logLevel >= 1
 
     override fun i(tag: String, msg: String) {
         val finalMsg = format(tag, msg)
@@ -47,10 +54,11 @@ object HookLogger : HyperLogger {
         module?.log(Log.ERROR, TAG, finalMsg, e)
     }
 
-    private fun readLogLevel(): Int {
-        val prefs = resolveLogPrefs()
-        return prefs?.getInt(UIConstants.KEY_LOG_LEVEL, UIConstants.DEFAULT_LOG_LEVEL)
-            ?: UIConstants.DEFAULT_LOG_LEVEL
+    fun refreshLogLevel() {
+        logLevel = runCatching {
+            resolveLogPrefs()?.getInt(UIConstants.KEY_LOG_LEVEL, UIConstants.DEFAULT_LOG_LEVEL)
+                ?: UIConstants.DEFAULT_LOG_LEVEL
+        }.getOrDefault(UIConstants.DEFAULT_LOG_LEVEL)
     }
 
     private fun resolveLogPrefs(): SharedPreferences? {

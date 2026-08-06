@@ -85,6 +85,9 @@ object IslandExpandedMediaAmbientFlowHooker {
     private val activeBinders = Collections.synchronizedSet(
         Collections.newSetFromMap(WeakHashMap<Any, Boolean>())
     )
+    private val nativeUnavailableClassLoaders = Collections.synchronizedSet(
+        Collections.newSetFromMap(WeakHashMap<ClassLoader, Boolean>())
+    )
     private val themeStates = Collections.synchronizedMap(WeakHashMap<View, ViewThemeState>())
     private val seekBarTrackStates = Collections.synchronizedMap(
         WeakHashMap<View, SeekBarTrackState>()
@@ -103,7 +106,6 @@ object IslandExpandedMediaAmbientFlowHooker {
 
         val api = resolveApi(classLoader) ?: run {
             hookedClassLoaders.remove(classLoader)
-            HookLogger.w(TAG, "跳过展开态媒体流光 Hook: reason=native_api_unavailable")
             return
         }
 
@@ -129,7 +131,7 @@ object IslandExpandedMediaAmbientFlowHooker {
             HookLogger.w(TAG, "展开态媒体流光 Hook 不完整，已移除全部 Hook")
         } else {
             installMiniBarTrackingHook(xposedModule, classLoader)
-            HookLogger.i(
+            HookLogger.d(
                 TAG,
                 "展开态媒体流光 Hook 已初始化: methods=${api.hookMethods.size}"
             )
@@ -1264,8 +1266,15 @@ object IslandExpandedMediaAmbientFlowHooker {
         nativeApi?.let { return it }
         classLoader ?: return null
         return runCatching { NativeApi.create(classLoader) }
-            .onSuccess { nativeApi = it }
-            .onFailure { HookLogger.w(TAG, "展开态媒体原生接口不可用: reason=${it.message}") }
+            .onSuccess {
+                nativeApi = it
+                nativeUnavailableClassLoaders.remove(classLoader)
+            }
+            .onFailure {
+                if (nativeUnavailableClassLoaders.add(classLoader)) {
+                    HookLogger.w(TAG, "展开态媒体原生接口不可用: reason=${it.message}")
+                }
+            }
             .getOrNull()
     }
 

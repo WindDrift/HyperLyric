@@ -75,7 +75,7 @@ internal object StatusBarTextColorHooker {
         }
 
         if (installedCount > 0) {
-            HookLogger.i(TAG, "状态栏文字颜色 Hook 已初始化: methods=$installedCount")
+            HookLogger.d(TAG, "状态栏文字颜色 Hook 已初始化: methods=$installedCount")
         } else if (hookedClasses.isEmpty()) {
             HookLogger.w(TAG, "未找到受支持的状态栏文字颜色回调")
         }

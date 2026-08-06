@@ -210,7 +210,7 @@ internal object IslandSlotStructureInjector {
         val existingWrapper = taggedWrapper as? MaxWidthFrameLayout
         if (taggedWrapper != null && existingWrapper == null) {
             (taggedWrapper.parent as? ViewGroup)?.removeView(taggedWrapper)
-            HookLogger.i(TAG, "已移除热重载遗留的旧歌词容器: tag=$wrapperTag")
+            HookLogger.d(TAG, "已移除热重载遗留的旧歌词容器: tag=$wrapperTag")
         }
         if (existingWrapper != null) {
             existingWrapper.keepVisible = true

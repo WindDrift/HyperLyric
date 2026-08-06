@@ -1,5 +1,6 @@
 package com.lidesheng.hyperlyric.root.source
 
+import android.os.SystemClock
 import com.hchen.superlyricapi.ISuperLyricReceiver
 import com.hchen.superlyricapi.SuperLyricData
 import com.hchen.superlyricapi.SuperLyricHelper
@@ -36,6 +37,8 @@ class SuperLyricSource : LyricSource {
     private var lastMetadataTitle: String? = null
     private var lastMetadataArtist: String? = null
     private var lastMetadataAlbum: String? = null
+    private var lastDebugLyricSignature: String? = null
+    private var lastDebugLyricAt: Long = 0L
 
     fun initialize(app: android.app.Application) {
         this.app = app
@@ -54,12 +57,11 @@ class SuperLyricSource : LyricSource {
         this.sink = sink
 
         // 先检查 SuperLyric 系统服务是否可用
-        val available = try {
-            SuperLyricHelper.isAvailable()
-        } catch (e: Exception) {
-            HookLogger.w(TAG, "SuperLyric 服务不可用", e)
-            false
-        }
+        val available = runCatching { SuperLyricHelper.isAvailable() }
+            .getOrElse {
+                HookLogger.w(TAG, "跳过接收端注册: reason=availability_check_failed", it)
+                return
+            }
         if (!available) {
             HookLogger.w(TAG, "跳过接收端注册: reason=service_unavailable")
             return
@@ -67,7 +69,6 @@ class SuperLyricSource : LyricSource {
 
         val stub = object : ISuperLyricReceiver.Stub() {
             override fun onLyric(publisher: String, data: SuperLyricData) {
-                HookLogger.d(TAG, "收到歌词事件: publisher=$publisher, hasLyric=${data.hasLyric()}")
                 try {
                     handleLyric(publisher, data)
                 } catch (e: Exception) {
@@ -88,8 +89,10 @@ class SuperLyricSource : LyricSource {
 
         try {
             SuperLyricHelper.registerReceiver(stub)
-            val registered = SuperLyricHelper.isReceiverRegistered(stub)
-            HookLogger.i(TAG, "更新接收端注册状态: registered=$registered")
+            if (HookLogger.isDebugEnabled) {
+                val registered = SuperLyricHelper.isReceiverRegistered(stub)
+                HookLogger.d(TAG, "更新接收端注册状态: registered=$registered")
+            }
         } catch (e: Exception) {
             HookLogger.e(TAG, "注册接收端失败", e)
         }
@@ -107,7 +110,7 @@ class SuperLyricSource : LyricSource {
         receiver = null
         sink?.onStop()
         sink = null
-        HookLogger.i(TAG, "数据源已停止")
+        HookLogger.d(TAG, "数据源已停止")
     }
 
     private fun handleLyric(publisher: String, data: SuperLyricData) {
@@ -146,11 +149,7 @@ class SuperLyricSource : LyricSource {
 
                 @Suppress("DEPRECATION")
                 val dl = lyric.delay
-                val words = lyric.words
-                HookLogger.d(
-                    TAG, "歌词: text=${lyric.text}, start=$st, end=$et, delay=$dl, " +
-                            "words=${words?.size ?: 0}, pos=$lastKnownPosition, pub=$publisher"
-                )
+                logLyricEvent(publisher, lyric.text, st, et, dl)
 
                 if (st == 0L && et == 0L) {
                     val pos = lastKnownPosition.takeIf { it >= 0 }
@@ -163,10 +162,6 @@ class SuperLyricSource : LyricSource {
                             end = pos + dl,
                             duration = dl
                         )
-                        HookLogger.d(
-                            TAG,
-                            "→ onLyricLine (推算时间): begin=${richLine.begin}, end=${richLine.end}"
-                        )
                         currentSink.onLyricLine(richLine)
                         startPositionPolling(publisher)
                     } else {
@@ -176,12 +171,10 @@ class SuperLyricSource : LyricSource {
                                 data.translation?.text?.let { append("\n").append(it) }
                             }
                         }
-                        HookLogger.d(TAG, "→ onPlainText: $text")
                         currentSink.onPlainText(text)
                     }
                 } else {
                     val richLine = convertToRichLyricLine(lyric, data)
-                    HookLogger.d(TAG, "→ onLyricLine (原始时间): begin=$st, end=$et")
                     currentSink.onLyricLine(richLine)
                     startPositionPolling(publisher)
                 }
@@ -232,6 +225,32 @@ class SuperLyricSource : LyricSource {
         )
     }
 
+    private fun logLyricEvent(
+        publisher: String,
+        text: String,
+        startTime: Long,
+        endTime: Long,
+        delay: Long
+    ) {
+        if (!HookLogger.isDebugEnabled) return
+        val now = SystemClock.uptimeMillis()
+        val signature = "$publisher\u001F$text\u001F$startTime\u001F$endTime\u001F$delay"
+        synchronized(this) {
+            if (signature == lastDebugLyricSignature ||
+                now - lastDebugLyricAt < DEBUG_LYRIC_LOG_MIN_INTERVAL_MS
+            ) {
+                return
+            }
+            lastDebugLyricSignature = signature
+            lastDebugLyricAt = now
+        }
+        HookLogger.d(
+            TAG,
+            "歌词事件: text=$text, start=$startTime, end=$endTime, " +
+                    "delay=$delay, pos=$lastKnownPosition, pub=$publisher"
+        )
+    }
+
     private fun startPositionPolling(publisher: String) {
         if (positionPublisher == publisher && positionJob?.isActive == true) return
         positionJob?.cancel()
@@ -258,10 +277,13 @@ class SuperLyricSource : LyricSource {
         lastMetadataArtist = null
         lastMetadataAlbum = null
         lastKnownPosition = -1L
+        lastDebugLyricSignature = null
+        lastDebugLyricAt = 0L
     }
 
     companion object {
         private const val TAG = "SuperLyricSource"
+        private const val DEBUG_LYRIC_LOG_MIN_INTERVAL_MS = 200L
     }
 }
 

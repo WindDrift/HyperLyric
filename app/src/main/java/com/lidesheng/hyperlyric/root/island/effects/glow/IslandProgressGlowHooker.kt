@@ -50,7 +50,7 @@ internal object IslandProgressGlowHooker {
             onDrawMethod.isAccessible = true
             module.deoptimize(onDrawMethod)
             module.hook(onDrawMethod).intercept(BackgroundDrawHook())
-            HookLogger.i(TAG, "边缘光效进度条 Hook 已初始化")
+            HookLogger.d(TAG, "边缘光效进度条 Hook 已初始化")
         } catch (e: Throwable) {
             hookedClassLoaders.remove(classLoader)
             throw e

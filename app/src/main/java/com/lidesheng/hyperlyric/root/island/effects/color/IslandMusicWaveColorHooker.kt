@@ -106,7 +106,7 @@ internal object IslandMusicWaveColorHooker {
                 HookLogger.w(TAG, "音频律动刷新接口不可用: target=registerLottieCallback")
             }
 
-            HookLogger.i(TAG, "音频律动封面色 Hook 已初始化")
+            HookLogger.d(TAG, "音频律动封面色 Hook 已初始化")
         } catch (e: ClassNotFoundException) {
             hookedClassLoaders.remove(classLoader)
             HookLogger.w(TAG, "当前插件不支持音频律动封面色: reason=${e.message}")

@@ -31,6 +31,9 @@ object IslandExpandedMediaLayoutHooker {
         Collections.newSetFromMap(WeakHashMap<ClassLoader, Boolean>())
     )
     private val nativeApis = Collections.synchronizedMap(WeakHashMap<ClassLoader, NativeApi>())
+    private val unavailableNativeApis = Collections.synchronizedSet(
+        Collections.newSetFromMap(WeakHashMap<ClassLoader, Boolean>())
+    )
 
     fun hook(xposedModule: XposedModule, classLoader: ClassLoader) {
         if (!hookedClassLoaders.add(classLoader)) return
@@ -39,7 +42,9 @@ object IslandExpandedMediaLayoutHooker {
             NativeApi.create(classLoader)
         } catch (error: Exception) {
             hookedClassLoaders.remove(classLoader)
-            HookLogger.w(TAG, "跳过超级岛展开态媒体布局 Hook: reason=${error.message}")
+            if (unavailableNativeApis.add(classLoader)) {
+                HookLogger.w(TAG, "跳过超级岛展开态媒体布局 Hook: reason=${error.message}")
+            }
             return
         }
         nativeApis[classLoader] = api
@@ -61,7 +66,7 @@ object IslandExpandedMediaLayoutHooker {
             xposedModule.deoptimize(constructor)
             handles += xposedModule.hook(constructor).intercept(PlayerConstructorHook(api))
         }
-        HookLogger.i(TAG, "超级岛展开态媒体布局 Hook 已初始化: methods=${handles.size}")
+        HookLogger.d(TAG, "超级岛展开态媒体布局 Hook 已初始化: methods=${handles.size}")
     }
 
     private class ConstraintSetLoadHook : Hooker {
@@ -557,9 +562,14 @@ object IslandExpandedMediaLayoutHooker {
         classLoader ?: return null
         synchronized(nativeApis) { nativeApis[classLoader] }?.let { return it }
         return try {
-            NativeApi.create(classLoader).also { nativeApis[classLoader] = it }
+            NativeApi.create(classLoader).also {
+                nativeApis[classLoader] = it
+                unavailableNativeApis.remove(classLoader)
+            }
         } catch (error: Exception) {
-            HookLogger.w(TAG, "超级岛展开态媒体布局原生接口不可用: reason=${error.message}")
+            if (unavailableNativeApis.add(classLoader)) {
+                HookLogger.w(TAG, "超级岛展开态媒体布局原生接口不可用: reason=${error.message}")
+            }
             null
         }
     }

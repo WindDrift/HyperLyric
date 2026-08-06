@@ -4,10 +4,14 @@ import android.content.SharedPreferences
 import android.graphics.Typeface
 import com.lidesheng.hyperlyric.common.RootConstants
 import java.io.File
+import java.util.Collections
 
 object FontHelper {
 
-    private val loggedFontFailures = mutableSetOf<String>()
+    private const val TAG = "FontHelper"
+
+    private val loggedFontFailures = Collections.synchronizedSet(mutableSetOf<String>())
+    private val loggedFontLoads = Collections.synchronizedSet(mutableSetOf<String>())
 
     fun loadTypeface(prefs: SharedPreferences): Typeface {
         val fontWeight =
@@ -25,11 +29,13 @@ object FontHelper {
                 val file = File(customFontPath)
                 if (file.exists() && file.canRead()) {
                     baseTf = Typeface.createFromFile(file)
-                    HookLogger.d("FontHelper", "自定义字体加载成功：$customFontPath")
+                    if (HookLogger.isDebugEnabled && loggedFontLoads.add(customFontPath)) {
+                        HookLogger.d(TAG, "自定义字体加载成功：$customFontPath")
+                    }
                 } else {
                     if (loggedFontFailures.add(customFontPath)) {
                         HookLogger.w(
-                            "FontHelper",
+                            TAG,
                             "自定义字体文件不存在或无法读取：$customFontPath (存在: ${file.exists()}, 可读: ${file.canRead()})"
                         )
                     }
@@ -37,7 +43,7 @@ object FontHelper {
             } catch (e: Exception) {
                 if (loggedFontFailures.add(customFontPath)) {
                     HookLogger.w(
-                        "FontHelper",
+                        TAG,
                         "无法从文件创建字体：$customFontPath，原因: ${e.message}"
                     )
                 }

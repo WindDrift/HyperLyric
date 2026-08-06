@@ -47,6 +47,9 @@ object NotificationMediaAmbientFlowHooker {
     private val nativeApis =
         Collections.synchronizedMap(WeakHashMap<ClassLoader, NativeMusicBgApi>())
     private val themeApis = Collections.synchronizedMap(WeakHashMap<ClassLoader, CardThemeApi>())
+    private val themeUnavailableClassLoaders = Collections.synchronizedSet(
+        Collections.newSetFromMap(WeakHashMap<ClassLoader, Boolean>())
+    )
     private val nativeUnavailableClassLoaders = Collections.synchronizedSet(
         Collections.newSetFromMap(WeakHashMap<ClassLoader, Boolean>())
     )
@@ -106,7 +109,7 @@ object NotificationMediaAmbientFlowHooker {
             hookedClassLoaders.remove(classLoader)
             HookLogger.w(TAG, "未找到兼容的通知中心媒体控制方法")
         } else {
-            HookLogger.i(TAG, "通知中心媒体流光 Hook 已初始化: methods=$installed")
+            HookLogger.d(TAG, "通知中心媒体流光 Hook 已初始化: methods=$installed")
         }
     }
 
@@ -231,8 +234,15 @@ object NotificationMediaAmbientFlowHooker {
         classLoader ?: return null
         themeApis[classLoader]?.let { return it }
         return runCatching { CardThemeApi.create(classLoader) }
-            .onSuccess { themeApis[classLoader] = it }
-            .onFailure { HookLogger.w(TAG, "通知中心媒体主题接口不可用: reason=${it.message}") }
+            .onSuccess {
+                themeApis[classLoader] = it
+                themeUnavailableClassLoaders.remove(classLoader)
+            }
+            .onFailure {
+                if (themeUnavailableClassLoaders.add(classLoader)) {
+                    HookLogger.w(TAG, "通知中心媒体主题接口不可用: reason=${it.message}")
+                }
+            }
             .getOrNull()
     }
 

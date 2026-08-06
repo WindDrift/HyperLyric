@@ -55,7 +55,7 @@ class LyriconSource : LyricSource {
             return
         }
         initializeSubscriber(application)
-        HookLogger.i(TAG, "数据源已启动")
+        HookLogger.d(TAG, "数据源已启动")
     }
 
     override fun stop() {
@@ -70,7 +70,7 @@ class LyriconSource : LyricSource {
             sink?.onStop()
             sink = null
         }
-        HookLogger.i(TAG, "数据源已停止")
+        HookLogger.d(TAG, "数据源已停止")
     }
 
     fun initialize(app: Application, prefs: android.content.SharedPreferences?) {
@@ -115,11 +115,11 @@ class LyriconSource : LyricSource {
 
     private val connectionListener = object : ConnectionListener {
         override fun onConnected(subscriber: LyriconSubscriber) {
-            HookLogger.i(TAG, "订阅连接已建立")
+            HookLogger.d(TAG, "订阅连接已建立")
         }
 
         override fun onReconnected(subscriber: LyriconSubscriber) {
-            HookLogger.i(TAG, "订阅连接已恢复")
+            HookLogger.d(TAG, "订阅连接已恢复")
         }
 
         override fun onDisconnected(subscriber: LyriconSubscriber) {

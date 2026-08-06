@@ -14,6 +14,8 @@ import com.lidesheng.hyperlyric.root.utils.HookLogger
 
 object LyriconDataBridge : StateResetter {
 
+    private const val TAG = "LyriconDataBridge"
+
     val versionCounter = java.util.concurrent.atomic.AtomicInteger(0)
 
     @Volatile
@@ -62,7 +64,7 @@ object LyriconDataBridge : StateResetter {
         song: Song?,
         placeholderFormat: Int = RootConstants.DEFAULT_HOOK_PLACEHOLDER_FORMAT
     ) {
-        HookLogger.d("LyriconDataBridge", "歌曲变更: ${song?.name}")
+        HookLogger.d(TAG, "歌曲变更: ${song?.name}")
         isTextMode = false
         currentSong = song
         currentSongName = song?.name

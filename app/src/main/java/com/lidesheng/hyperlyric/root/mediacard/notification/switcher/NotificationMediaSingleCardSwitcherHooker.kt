@@ -188,7 +188,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             NotificationMediaForegroundStyler.addAppliedListener(
                 ::onForegroundColorsApplied
             )
-            HookLogger.i(
+            HookLogger.d(
                 TAG,
                 "HyperOS 3 单卡片横滑 Hook 已初始化: methods=${installedHandles.size}"
             )

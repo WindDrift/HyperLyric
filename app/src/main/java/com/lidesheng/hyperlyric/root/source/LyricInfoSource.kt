@@ -21,6 +21,10 @@ import kotlinx.coroutines.launch
 
 class LyricInfoSource(private val context: Context) : LyricSource {
 
+    private companion object {
+        const val TAG = "LyricInfoSource"
+    }
+
     override val id = "lyricinfo"
     override val displayName = "LyricInfo"
 
@@ -52,9 +56,9 @@ class LyricInfoSource(private val context: Context) : LyricSource {
         try {
             manager.addOnActiveSessionsChangedListener(sessionListener, null)
             onActiveSessionsChanged(manager.getActiveSessions(null))
-            HookLogger.i("LyricInfoSource", "数据源已启动")
+            HookLogger.d(TAG, "数据源已启动")
         } catch (e: Exception) {
-            HookLogger.e("LyricInfoSource", "数据源启动失败", e)
+            HookLogger.e(TAG, "数据源启动失败", e)
         }
     }
 
@@ -167,7 +171,9 @@ class LyricInfoSource(private val context: Context) : LyricSource {
             val songName = metadata.getString(MediaMetadata.METADATA_KEY_TITLE) ?: ""
             val artist = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: ""
 
-            logDiagnosis(lyricInfoRaw)
+            if (HookLogger.isDebugEnabled) {
+                logDiagnosis(lyricInfoRaw)
+            }
             val song = LyricInfoParser.parse(lyricInfoRaw, songName, artist)
             if (song != null && !song.lyrics.isNullOrEmpty()) {
                 lastLyricHash = currentHash
@@ -179,7 +185,7 @@ class LyricInfoSource(private val context: Context) : LyricSource {
                 sink?.onMetadata(title = songName, artist = artist, album = "", publisher = pkg)
                 handlePlaybackState(controller, playbackState)
                 HookLogger.d(
-                    "LyricInfoSource",
+                    TAG,
                     "歌词已就绪: song=$songName, lines=${song.lyrics!!.size}"
                 )
             }
@@ -188,7 +194,7 @@ class LyricInfoSource(private val context: Context) : LyricSource {
             sink?.onStop()
             LyriconDataBridge.clearState()
             clearLyrics()
-            HookLogger.d("LyricInfoSource", "歌词已清除: package=$pkg")
+            HookLogger.d(TAG, "歌词已清除: package=$pkg")
         }
     }
 
@@ -196,12 +202,14 @@ class LyricInfoSource(private val context: Context) : LyricSource {
         controller.sessionToken == activeController?.sessionToken
 
     private fun logDiagnosis(json: String) {
-        val d = LyricInfoParser.diagnose(json) ?: return
+        val diagnosis = LyricInfoParser.diagnose(json) ?: return
         HookLogger.d(
-            "LyricInfoSource",
-            "songName=${d.songName} | artist=${d.artist} | songId=${d.songId} | format=${d.format} | translation=${d.translationFormat} | lyric=${d.lyricLength}chars | ${
-                d.lyricPreview.joinToString(" | ")
-            }"
+            TAG,
+            "songName=${diagnosis.songName} | artist=${diagnosis.artist} | " +
+                    "songId=${diagnosis.songId} | format=${diagnosis.format} | " +
+                    "translation=${diagnosis.translationFormat} | " +
+                    "lyric=${diagnosis.lyricLength}chars | " +
+                    diagnosis.lyricPreview.joinToString(" | ")
         )
     }
 

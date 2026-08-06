@@ -151,7 +151,7 @@ class HookEntry : XposedModule() {
         // configuration is restart-only, so replacing them here is both unnecessary and
         // unsafe for active SystemUI card/fake-view animations.
         cleanupRuntime(preserveMediaHooks = true)
-        HookLogger.i(TAG, "超级岛歌词热重载准备完成")
+        HookLogger.d(TAG, "超级岛歌词热重载准备完成")
         return true
     }
 
@@ -224,10 +224,7 @@ class HookEntry : XposedModule() {
             if (MediaCardRuntimeConfig.current.notification.cardSwitcherEnabled) {
                 NotificationMediaSingleCardSwitcherHooker.hook(this, param.defaultClassLoader)
             } else {
-                HookLogger.i(
-                    "HookEntry",
-                    "通知中心多媒体卡片切换功能未启用，跳过媒体卡片切换 Hook"
-                )
+                HookLogger.d(TAG, "通知中心多媒体卡片切换功能未启用，跳过媒体卡片切换 Hook")
             }
             try {
                 UnlockIslandWhitelist.hook(this, param.defaultClassLoader)
@@ -248,17 +245,10 @@ class HookEntry : XposedModule() {
                 }
             }
 
-            val isSuperIslandEnabled = SystemUiEnhancementGate.isEnabled()
-
-            if (!isSuperIslandEnabled) {
-                HookLogger.i(TAG, "小米系统界面增强已禁用")
-            }
-
             activeMode = prefs.getInt(
                 RootConstants.KEY_HOOK_LYRIC_MODE,
                 RootConstants.DEFAULT_HOOK_LYRIC_MODE
             )
-            HookLogger.i(TAG, "超级岛歌词模式: mode=$activeMode")
 
             // 劫持 Application.onCreate 以初始化 Lyricon Receiver 所需的环境
             try {
@@ -271,7 +261,7 @@ class HookEntry : XposedModule() {
                     HookLogger.w(TAG, "跳过生命周期 Hook: target=Application.onCreate")
                 } else {
                     HookLogger.e(
-                        "HookEntry",
+                        TAG,
                         "安装生命周期 Hook 失败: target=Application.onCreate",
                         e
                     )
@@ -290,7 +280,7 @@ class HookEntry : XposedModule() {
                     HookLogger.w(TAG, "跳过插件加载 Hook: target=BaseDexClassLoader")
                 } else {
                     HookLogger.e(
-                        "HookEntry",
+                        TAG,
                         "安装插件加载 Hook 失败: target=BaseDexClassLoader",
                         e
                     )
@@ -336,6 +326,10 @@ class HookEntry : XposedModule() {
 
             prefListener =
                 android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+                    if (key == UIConstants.KEY_LOG_LEVEL) {
+                        HookLogger.refreshLogLevel()
+                        return@OnSharedPreferenceChangeListener
+                    }
                     if (key?.startsWith(RootConstants.KEY_HOOK_LYRICON_PROVIDER_DELAY_PREFIX) == true) {
                         lyriconSource.onPreferenceChanged(key)
                     }
@@ -347,19 +341,22 @@ class HookEntry : XposedModule() {
                             if (!SystemUiEnhancementGate.isEnabled()) {
                                 return@OnSharedPreferenceChangeListener
                             }
-                            HookLogger.i(TAG, "切换歌词源: source=$newSourceId")
                             Handler(Looper.getMainLooper()).post {
-                                sourceManager?.switchSource(newSourceId)
+                                val manager = sourceManager
+                                manager?.switchSource(newSourceId)
+                                if (manager?.getActiveSource()?.id == newSourceId) {
+                                    HookLogger.i(TAG, "歌词源切换完成: source=$newSourceId")
+                                }
                             }
                         }
 
                         RootConstants.KEY_HOOK_LYRIC_MODE -> {
                             val newMode = prefs.getInt(key, RootConstants.DEFAULT_HOOK_LYRIC_MODE)
                             if (newMode == activeMode) return@OnSharedPreferenceChangeListener
-                            HookLogger.i(TAG, "切换歌词模式: mode=$newMode")
                             Handler(Looper.getMainLooper()).post {
                                 activeMode = newMode
                                 BaseIslandRenderer.refreshActiveIsland()
+                                HookLogger.i(TAG, "歌词模式切换完成: mode=$newMode")
                             }
                         }
 
@@ -416,7 +413,7 @@ class HookEntry : XposedModule() {
             }
 
             HookLogger.i(
-                "HookEntry",
+                TAG,
                 "系统环境初始化完成: enabled=${SystemUiEnhancementGate.isEnabled()}, " +
                         "source=${sourceManager?.getActiveSource()?.displayName ?: "inactive"}, " +
                         "mode=$activeMode"
