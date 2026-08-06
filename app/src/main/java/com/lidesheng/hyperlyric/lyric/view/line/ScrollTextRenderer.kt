@@ -38,6 +38,7 @@ internal class ScrollTextRenderer : LineRenderer {
     override val isFinished get() = finished
     override val isStarted get() = true
     override var centerIfPossible = false
+    override var rightIfPossible = false
 
     val scrollProgress get() = currentUnitOffset
 
@@ -157,8 +158,12 @@ internal class ScrollTextRenderer : LineRenderer {
         viewHeight: Int
     ) {
         val vw = viewWidth.toFloat()
-        val offset = if (centerIfPossible && model.width <= vw) {
-            (vw - model.width) / 2f
+        val offset = if (model.width <= vw) {
+            when {
+                model.isAlignedRight || rightIfPossible -> vw - model.width
+                centerIfPossible -> (vw - model.width) / 2f
+                else -> 0f
+            }
         } else {
             state.scrollOffset
         }

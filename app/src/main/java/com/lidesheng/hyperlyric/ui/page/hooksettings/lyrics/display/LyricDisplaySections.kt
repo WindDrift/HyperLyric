@@ -35,7 +35,9 @@ fun LazyListScope.lyricDisplaySections(
     fontItalic: Boolean,
     onFontItalicChange: (Boolean) -> Unit,
     centerLyric: Boolean,
-    onCenterLyricChange: (Boolean) -> Unit
+    onCenterLyricChange: (Boolean) -> Unit,
+    rightLyric: Boolean,
+    onRightLyricChange: (Boolean) -> Unit
 ) {
     item(key = "basic_style_title") {
         SmallTitle(text = stringResource(id = R.string.title_basic_style))
@@ -100,6 +102,11 @@ fun LazyListScope.lyricDisplaySections(
                     title = stringResource(id = R.string.title_center_lyric),
                     checked = centerLyric,
                     onCheckedChange = onCenterLyricChange
+                )
+                SwitchPreference(
+                    title = stringResource(id = R.string.title_right_lyric),
+                    checked = rightLyric,
+                    onCheckedChange = onRightLyricChange
                 )
                 OverlayDropdownPreference(
                     title = stringResource(id = R.string.title_placeholder_format),

@@ -40,6 +40,7 @@ internal class CountdownDotsRenderer : LineRenderer {
         }
 
     override var centerIfPossible = false
+    override var rightIfPossible = false
 
     override val isPlaying: Boolean get() = progressAnimator.isAnimating
     override val isFinished: Boolean get() = progressAnimator.currentWidth >= 1f
@@ -212,7 +213,7 @@ internal class CountdownDotsRenderer : LineRenderer {
         (model.end - model.begin).takeIf { it > 0L } ?: model.duration
 
     private fun alignedStart(width: Float, model: LyricModel, viewWidth: Int): Float = when {
-        model.isAlignedRight -> viewWidth - width
+        model.isAlignedRight || rightIfPossible -> viewWidth - width
         centerIfPossible -> (viewWidth - width) / 2f
         else -> 0f
     }.coerceAtLeast(0f)

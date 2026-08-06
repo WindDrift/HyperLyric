@@ -93,6 +93,14 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
             countdownRenderer.centerIfPossible = value
         }
 
+    var rightIfPossible: Boolean = false
+        set(value) {
+            field = value
+            syncRenderer.rightIfPossible = value
+            scrollRenderer.rightIfPossible = value
+            countdownRenderer.rightIfPossible = value
+        }
+
     var playListener: LyricPlayListener? = null
         set(value) {
             field = value
@@ -203,9 +211,10 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
 
     fun configureWith(
         text: TextLook, highlight: Highlight, marquee: Marquee,
-        gradient: Boolean, fadingEdge: Int, center: Boolean
+        gradient: Boolean, fadingEdge: Int, center: Boolean, right: Boolean
     ) {
         this.centerIfPossible = center
+        this.rightIfPossible = right
         updateColor(text.color, highlight.background, highlight.foreground)
         setTextSize(text.size)
         textPaint.typeface = text.typeface
@@ -472,7 +481,7 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
         val availableWidth = measuredWidth.toFloat()
         return when {
             textWidth >= availableWidth -> 0f
-            isAlignedRight -> availableWidth - textWidth
+            isAlignedRight || rightIfPossible -> availableWidth - textWidth
             centerIfPossible -> (availableWidth - textWidth) / 2f
             else -> 0f
         }

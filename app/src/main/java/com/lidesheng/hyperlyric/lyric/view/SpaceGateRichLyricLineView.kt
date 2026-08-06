@@ -207,7 +207,8 @@ class SpaceGateRichLyricLineView(
             style.gradient,
             style.fadingEdge,
             style.wordMotion,
-            style.centerIfPossible
+            style.centerIfPossible,
+            style.rightIfPossible
         )
         applyLineStyle(
             secondary,
@@ -217,7 +218,8 @@ class SpaceGateRichLyricLineView(
             style.gradient,
             style.fadingEdge,
             style.wordMotion,
-            style.centerIfPossible
+            style.centerIfPossible,
+            style.rightIfPossible
         )
     }
 
@@ -364,10 +366,13 @@ class SpaceGateRichLyricLineView(
     private fun applyLineStyle(
         view: SpaceGateLyricLineView, text: TextLook, highlight: Highlight,
         marquee: Marquee, gradient: Boolean, fadingEdge: Int, wordMotion: WordMotion,
-        centerIfPossible: Boolean
+        centerIfPossible: Boolean, rightIfPossible: Boolean
     ) {
         view.wordMotion = wordMotion
-        view.configureWith(text, highlight, marquee, gradient, fadingEdge, centerIfPossible)
+        view.configureWith(
+            text, highlight, marquee, gradient, fadingEdge,
+            centerIfPossible, rightIfPossible
+        )
     }
 
     private fun updateLayoutTransitionX(config: String? = LayoutTransitionX.TRANSITION_CONFIG_SMOOTH) {

@@ -15,6 +15,7 @@ internal interface LineRenderer {
     val isFinished: Boolean
     val isStarted: Boolean
     var centerIfPossible: Boolean
+    var rightIfPossible: Boolean
 
     fun step(deltaNanos: Long, model: LyricModel, state: LineState, viewWidth: Int): Boolean
     fun draw(

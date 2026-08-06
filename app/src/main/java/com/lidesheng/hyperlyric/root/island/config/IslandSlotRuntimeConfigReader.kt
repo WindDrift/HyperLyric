@@ -140,6 +140,10 @@ internal object IslandSlotRuntimeConfigReader {
                 RootConstants.KEY_HOOK_CENTER_LYRIC,
                 RootConstants.DEFAULT_HOOK_CENTER_LYRIC
             ),
+            rightLyric = prefs.getBoolean(
+                RootConstants.KEY_HOOK_RIGHT_LYRIC,
+                RootConstants.DEFAULT_HOOK_RIGHT_LYRIC
+            ),
             lyricAnimationEnabled = prefs.getBoolean(
                 RootConstants.KEY_HOOK_ANIM_ENABLE,
                 RootConstants.DEFAULT_HOOK_ANIM_ENABLE

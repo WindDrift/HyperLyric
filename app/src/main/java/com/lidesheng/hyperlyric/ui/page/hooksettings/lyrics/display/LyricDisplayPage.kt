@@ -83,6 +83,14 @@ fun LyricDisplayPage() {
             )
         )
     }
+    var rightLyric by remember {
+        mutableStateOf(
+            prefs.getBoolean(
+                RootConstants.KEY_HOOK_RIGHT_LYRIC,
+                RootConstants.DEFAULT_HOOK_RIGHT_LYRIC
+            )
+        )
+    }
     var placeholderFormat by remember {
         mutableIntStateOf(
             prefs.getInt(
@@ -195,7 +203,20 @@ fun LyricDisplayPage() {
             centerLyric = centerLyric,
             onCenterLyricChange = {
                 centerLyric = it
+                if (it && rightLyric) {
+                    rightLyric = false
+                    saveConfig(RootConstants.KEY_HOOK_RIGHT_LYRIC, false)
+                }
                 saveConfig(RootConstants.KEY_HOOK_CENTER_LYRIC, it)
+            },
+            rightLyric = rightLyric,
+            onRightLyricChange = {
+                rightLyric = it
+                if (it && centerLyric) {
+                    centerLyric = false
+                    saveConfig(RootConstants.KEY_HOOK_CENTER_LYRIC, false)
+                }
+                saveConfig(RootConstants.KEY_HOOK_RIGHT_LYRIC, it)
             }
         )
     }

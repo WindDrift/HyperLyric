@@ -234,6 +234,10 @@ object LyricStyleHelper {
                 RootConstants.KEY_HOOK_CENTER_LYRIC,
                 RootConstants.DEFAULT_HOOK_CENTER_LYRIC
             ),
+            rightIfPossible = isLyricMode && prefs.getBoolean(
+                RootConstants.KEY_HOOK_RIGHT_LYRIC,
+                RootConstants.DEFAULT_HOOK_RIGHT_LYRIC
+            ),
         )
     }
 }
