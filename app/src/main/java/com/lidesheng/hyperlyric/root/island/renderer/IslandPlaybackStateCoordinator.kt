@@ -103,7 +103,9 @@ internal object IslandPlaybackStateCoordinator {
                 if (!result.isTarget) return@post
                 val currentPrefs = HookEntry.instance?.prefs ?: return@post
                 val config = IslandSlotRuntimeConfig.from(currentPrefs)
-                val expectsInjectedView = config.leftMode != 0 || config.rightMode != 0
+                val expectsInjectedView =
+                    config.leftMode != RootConstants.ISLAND_CONTENT_MODE_NONE ||
+                            config.rightMode != RootConstants.ISLAND_CONTENT_MODE_NONE
                 if (expectsInjectedView && result.mutation.injectedSlotsPresent == false) {
                     onRefreshRequested()
                     return@post

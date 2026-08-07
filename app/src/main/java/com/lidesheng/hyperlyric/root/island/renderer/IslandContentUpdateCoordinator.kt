@@ -165,7 +165,7 @@ internal object IslandContentUpdateCoordinator {
         config: IslandSlotRuntimeConfig,
         playbackActive: Boolean
     ) {
-        if (mode != 7) return
+        if (mode != RootConstants.ISLAND_CONTENT_MODE_LYRIC) return
         val lyricView = view.findViewWithTag<View>(tag) ?: return
         val line = IslandSlotContentFacade.buildSlotLyricLine(
             view = lyricView,
@@ -201,9 +201,9 @@ internal object IslandContentUpdateCoordinator {
         mediaInfo: MediaMetadataHelper.MediaInfo,
         playbackActive: Boolean
     ) {
-        if (mode == 0) return
+        if (mode == RootConstants.ISLAND_CONTENT_MODE_NONE) return
         val slotView = view.findViewWithTag<View>(tag) ?: return
-        val lineOverride = if (mode == 7) {
+        val lineOverride = if (mode == RootConstants.ISLAND_CONTENT_MODE_LYRIC) {
             IslandSlotContentFacade.buildSlotLyricLine(
                 view = slotView,
                 prefs = prefs,
@@ -242,7 +242,7 @@ internal object IslandContentUpdateCoordinator {
         config: IslandSlotRuntimeConfig,
         mediaInfo: MediaMetadataHelper.MediaInfo
     ) {
-        if (mode == 0) return
+        if (mode == RootConstants.ISLAND_CONTENT_MODE_NONE) return
         val slotView = view.findViewWithTag<View>(tag) ?: return
         IslandSlotContentFacade.configureView(
             view = slotView,

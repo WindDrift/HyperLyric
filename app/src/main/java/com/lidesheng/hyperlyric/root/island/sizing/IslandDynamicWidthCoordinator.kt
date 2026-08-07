@@ -2,6 +2,7 @@ package com.lidesheng.hyperlyric.root.island.sizing
 
 import android.view.View
 import android.view.ViewGroup
+import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.lyric.view.RichLyricLineView
 import com.lidesheng.hyperlyric.root.HookEntry
 import com.lidesheng.hyperlyric.root.island.config.IslandSlotRuntimeConfig
@@ -63,7 +64,9 @@ internal object IslandDynamicWidthCoordinator {
     ): Boolean {
         val prefs = HookEntry.instance?.prefs ?: return false
         val config = IslandSlotRuntimeConfig.from(prefs)
-        if (!config.geometry.isDynamicWidth || config.modeForTag(viewTag) != 7) return false
+        if (!config.geometry.isDynamicWidth ||
+            config.modeForTag(viewTag) != RootConstants.ISLAND_CONTENT_MODE_LYRIC
+        ) return false
         if (IslandViewRegistry.tokenFor(rootView) == null) return false
 
         val overrides = synchronized(preflightTargets) {
@@ -117,7 +120,7 @@ internal object IslandDynamicWidthCoordinator {
         )
 
         var changed = false
-        if (config.leftMode != 0) {
+        if (config.leftMode != RootConstants.ISLAND_CONTENT_MODE_NONE) {
             changed = updateDynamicSlotWidth(
                 rootView,
                 IslandProbeUtils.LEFT_PARENT_NAME,
@@ -126,7 +129,7 @@ internal object IslandDynamicWidthCoordinator {
                 baseWidthDp
             ) || changed
         }
-        if (config.rightMode != 0) {
+        if (config.rightMode != RootConstants.ISLAND_CONTENT_MODE_NONE) {
             changed = updateDynamicSlotWidth(
                 rootView,
                 IslandProbeUtils.RIGHT_PARENT_NAME,
@@ -145,7 +148,7 @@ internal object IslandDynamicWidthCoordinator {
         config: IslandSlotRuntimeConfig,
         contentWidthOverridePx: Float? = null
     ): Float? {
-        if (config.modeForTag(viewTag) != 7) return null
+        if (config.modeForTag(viewTag) != RootConstants.ISLAND_CONTENT_MODE_LYRIC) return null
         val lyricView = rootView.findViewWithTag<View>(viewTag) as? RichLyricLineView
             ?: return null
         return IslandLyricWidthCalculator.baseWidthDp(

@@ -3,6 +3,7 @@ package com.lidesheng.hyperlyric.root.island.content
 import android.content.Context
 import android.content.SharedPreferences
 import android.view.View
+import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
 import com.lidesheng.hyperlyric.lyric.model.interfaces.IRichLyricLine
 import com.lidesheng.hyperlyric.root.LyriconDataBridge
@@ -59,7 +60,7 @@ internal object IslandSlotContentFacade {
         onLineCancelled: (() -> Unit)? = null
     ): Boolean {
         configureView(view, prefs, config, mode, mediaInfo, force)
-        return if (mode == 7) {
+        return if (mode == RootConstants.ISLAND_CONTENT_MODE_LYRIC) {
             IslandLyricContentAssembler.apply(
                 view = view,
                 prefs = prefs,

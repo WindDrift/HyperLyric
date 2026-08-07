@@ -2,6 +2,7 @@ package com.lidesheng.hyperlyric.root.island.presentation
 
 import android.view.View
 import android.view.ViewGroup
+import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.lyric.view.RichLyricLineView
 import com.lidesheng.hyperlyric.lyric.view.SpaceGateRichLyricLineView
 import com.lidesheng.hyperlyric.root.HookEntry
@@ -18,10 +19,10 @@ internal object IslandLyricPlaybackController {
         val prefs = HookEntry.instance?.prefs ?: return
         val config = IslandSlotRuntimeConfig.from(prefs)
 
-        if (config.leftMode == 7) {
+        if (config.leftMode == RootConstants.ISLAND_CONTENT_MODE_LYRIC) {
             freezeLyricView(rootView.findViewWithTag(IslandProbeUtils.LEFT_TEST_VIEW_TAG), position)
         }
-        if (config.rightMode == 7) {
+        if (config.rightMode == RootConstants.ISLAND_CONTENT_MODE_LYRIC) {
             freezeLyricView(
                 rootView.findViewWithTag(IslandProbeUtils.RIGHT_TEST_VIEW_TAG),
                 position
@@ -33,10 +34,10 @@ internal object IslandLyricPlaybackController {
         val prefs = HookEntry.instance?.prefs ?: return
         val config = IslandSlotRuntimeConfig.from(prefs)
 
-        if (config.leftMode == 7) {
+        if (config.leftMode == RootConstants.ISLAND_CONTENT_MODE_LYRIC) {
             resumeLyricView(rootView.findViewWithTag(IslandProbeUtils.LEFT_TEST_VIEW_TAG), position)
         }
-        if (config.rightMode == 7) {
+        if (config.rightMode == RootConstants.ISLAND_CONTENT_MODE_LYRIC) {
             resumeLyricView(
                 rootView.findViewWithTag(IslandProbeUtils.RIGHT_TEST_VIEW_TAG),
                 position

@@ -4,6 +4,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.lyric.view.RichLyricLineView
 import com.lidesheng.hyperlyric.lyric.view.SpaceGateRichLyricLineView
 import com.lidesheng.hyperlyric.root.HookEntry
@@ -35,7 +36,7 @@ internal object IslandSlotStructureInjector {
         val config = IslandSlotRuntimeConfig.from(prefs)
 
         var changed = false
-        if (config.leftMode != 0) {
+        if (config.leftMode != RootConstants.ISLAND_CONTENT_MODE_NONE) {
             changed = injectSlot(
                 rootView,
                 IslandProbeUtils.LEFT_PARENT_NAME,
@@ -52,7 +53,7 @@ internal object IslandSlotStructureInjector {
             ) || changed
         }
 
-        if (config.rightMode != 0) {
+        if (config.rightMode != RootConstants.ISLAND_CONTENT_MODE_NONE) {
             changed = injectSlot(
                 rootView,
                 IslandProbeUtils.RIGHT_PARENT_NAME,
@@ -91,14 +92,14 @@ internal object IslandSlotStructureInjector {
         val config = IslandSlotRuntimeConfig.from(prefs)
 
         var changed = false
-        if (config.leftMode != 0) {
+        if (config.leftMode != RootConstants.ISLAND_CONTENT_MODE_NONE) {
             changed = restoreExistingSlotLightweight(
                 rootView,
                 IslandProbeUtils.LEFT_PARENT_NAME,
                 IslandProbeUtils.LEFT_TEST_VIEW_TAG
             ) || changed
         }
-        if (config.rightMode != 0) {
+        if (config.rightMode != RootConstants.ISLAND_CONTENT_MODE_NONE) {
             changed = restoreExistingSlotLightweight(
                 rootView,
                 IslandProbeUtils.RIGHT_PARENT_NAME,
@@ -114,26 +115,30 @@ internal object IslandSlotStructureInjector {
         val config = IslandSlotRuntimeConfig.from(prefs)
 
         var changed = false
-        if (config.leftMode != 0 && (moduleType == null || moduleType.endsWith("_1"))) {
+        if (config.leftMode != RootConstants.ISLAND_CONTENT_MODE_NONE &&
+            (moduleType == null || moduleType.endsWith("_1"))
+        ) {
             changed = restoreExistingSlotByTagLightweight(
                 rootView,
                 IslandProbeUtils.LEFT_TEST_VIEW_TAG
             ) || changed
         }
-        if (config.rightMode != 0 && (moduleType == null || moduleType.endsWith("_2"))) {
+        if (config.rightMode != RootConstants.ISLAND_CONTENT_MODE_NONE &&
+            (moduleType == null || moduleType.endsWith("_2"))
+        ) {
             changed = restoreExistingSlotByTagLightweight(
                 rootView,
                 IslandProbeUtils.RIGHT_TEST_VIEW_TAG
             ) || changed
         }
         if (!changed && moduleType != null && !moduleType.endsWith("_1") && !moduleType.endsWith("_2")) {
-            if (config.leftMode != 0) {
+            if (config.leftMode != RootConstants.ISLAND_CONTENT_MODE_NONE) {
                 changed = restoreExistingSlotByTagLightweight(
                     rootView,
                     IslandProbeUtils.LEFT_TEST_VIEW_TAG
                 ) || changed
             }
-            if (config.rightMode != 0) {
+            if (config.rightMode != RootConstants.ISLAND_CONTENT_MODE_NONE) {
                 changed = restoreExistingSlotByTagLightweight(
                     rootView,
                     IslandProbeUtils.RIGHT_TEST_VIEW_TAG
@@ -165,9 +170,9 @@ internal object IslandSlotStructureInjector {
         val config = IslandSlotRuntimeConfig.from(prefs)
         val checksLeft = moduleType?.endsWith("_2") != true
         val checksRight = moduleType?.endsWith("_1") != true
-        val leftReady = !checksLeft || config.leftMode == 0 ||
+        val leftReady = !checksLeft || config.leftMode == RootConstants.ISLAND_CONTENT_MODE_NONE ||
                 hasInjectedLyricSlot(rootView, IslandProbeUtils.LEFT_TEST_VIEW_TAG)
-        val rightReady = !checksRight || config.rightMode == 0 ||
+        val rightReady = !checksRight || config.rightMode == RootConstants.ISLAND_CONTENT_MODE_NONE ||
                 hasInjectedLyricSlot(rootView, IslandProbeUtils.RIGHT_TEST_VIEW_TAG)
         return leftReady && rightReady
     }
@@ -176,9 +181,12 @@ internal object IslandSlotStructureInjector {
         val prefs = HookEntry.instance?.prefs ?: return false
         val config = IslandSlotRuntimeConfig.from(prefs)
         return when {
-            moduleType?.endsWith("_1") == true -> config.leftMode != 0
-            moduleType?.endsWith("_2") == true -> config.rightMode != 0
-            else -> config.leftMode != 0 || config.rightMode != 0
+            moduleType?.endsWith("_1") == true ->
+                config.leftMode != RootConstants.ISLAND_CONTENT_MODE_NONE
+            moduleType?.endsWith("_2") == true ->
+                config.rightMode != RootConstants.ISLAND_CONTENT_MODE_NONE
+            else -> config.leftMode != RootConstants.ISLAND_CONTENT_MODE_NONE ||
+                    config.rightMode != RootConstants.ISLAND_CONTENT_MODE_NONE
         }
     }
 

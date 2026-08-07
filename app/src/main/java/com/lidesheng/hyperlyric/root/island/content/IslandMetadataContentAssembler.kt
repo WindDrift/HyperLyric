@@ -84,7 +84,7 @@ internal object IslandMetadataContentAssembler {
                 separator = separator
             )
         } else {
-            buildLegacyLine(mode, songName, artistName, albumName)
+            null
         }
 
         when (view) {
@@ -137,42 +137,6 @@ internal object IslandMetadataContentAssembler {
         return fields.mapNotNull { field ->
             fieldValues[field]?.takeIf { it.isNotBlank() }
         }.joinToString(separator)
-    }
-
-    private fun buildLegacyLine(
-        mode: Int,
-        songName: String,
-        artistName: String,
-        albumName: String
-    ): RichLyricLine? {
-        val singleModeText = when (mode) {
-            1 -> songName
-            2 -> artistName
-            3 -> albumName
-            4 -> "$songName - $artistName"
-            else -> ""
-        }
-        return when (mode) {
-            1, 2, 3, 4 -> RichLyricLine(text = singleModeText, words = emptyList())
-            5 -> RichLyricLine(
-                text = songName,
-                words = emptyList(),
-                secondary = artistName,
-                secondaryWords = emptyList()
-            )
-
-            6 -> {
-                val secondary = if (albumName.isEmpty()) artistName else "$artistName - $albumName"
-                RichLyricLine(
-                    text = songName,
-                    words = emptyList(),
-                    secondary = secondary,
-                    secondaryWords = emptyList()
-                )
-            }
-
-            else -> null
-        }
     }
 
     private fun formatDuration(durationMs: Long): String {

@@ -44,11 +44,10 @@ object LyricStyleHelper {
             res.displayMetrics
         )
 
-        val isMetadataDualLine = mode == 5 || mode == 6 ||
-                mode == RootConstants.ISLAND_CONTENT_MODE_CUSTOM_MUSIC_INFO
         // Style 层永远允许 secondary 显示；翻译开关通过 view.displayTranslation/displayRoma
         // 控制 assembler 选什么内容，无内容时 assembler 返回 alwaysShow=false → secondary GONE
-        val showSecondary = isMetadataDualLine || mode == 7
+        val showSecondary = mode == RootConstants.ISLAND_CONTENT_MODE_LYRIC ||
+                mode == RootConstants.ISLAND_CONTENT_MODE_CUSTOM_MUSIC_INFO
 
         val isLyricMode = mode == RootConstants.ISLAND_CONTENT_MODE_LYRIC
         val centerIfPossible = if (isLyricMode) {

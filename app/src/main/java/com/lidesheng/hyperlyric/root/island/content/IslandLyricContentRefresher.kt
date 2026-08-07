@@ -2,6 +2,7 @@ package com.lidesheng.hyperlyric.root.island.content
 
 import android.content.SharedPreferences
 import android.view.ViewGroup
+import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
 import com.lidesheng.hyperlyric.root.HookEntry
 import com.lidesheng.hyperlyric.root.LyriconDataBridge
@@ -31,7 +32,9 @@ internal object IslandLyricContentRefresher {
         val mediaInfo = MediaMetadataHelper.getMediaInfo(rootView.context, packageName, HookLogger)
 
         var changed = false
-        if (config.leftMode != 0 && (includeLyricSlots || config.leftMode != 7)) {
+        if (config.leftMode != RootConstants.ISLAND_CONTENT_MODE_NONE &&
+            (includeLyricSlots || config.leftMode != RootConstants.ISLAND_CONTENT_MODE_LYRIC)
+        ) {
             changed = refreshSlotContent(
                 rootView,
                 IslandProbeUtils.LEFT_TEST_VIEW_TAG,
@@ -43,7 +46,9 @@ internal object IslandLyricContentRefresher {
                 mediaInfo
             ) || changed
         }
-        if (config.rightMode != 0 && (includeLyricSlots || config.rightMode != 7)) {
+        if (config.rightMode != RootConstants.ISLAND_CONTENT_MODE_NONE &&
+            (includeLyricSlots || config.rightMode != RootConstants.ISLAND_CONTENT_MODE_LYRIC)
+        ) {
             changed = refreshSlotContent(
                 rootView,
                 IslandProbeUtils.RIGHT_TEST_VIEW_TAG,
