@@ -24,8 +24,6 @@ fun LazyListScope.lyricDisplaySections(
     onTextSizeRatioClick: () -> Unit,
     fadingEdge: Int,
     onFadingEdgeClick: () -> Unit,
-    placeholderFormat: Int,
-    onPlaceholderFormatChange: (Int) -> Unit,
     textColorStyle: Int,
     onTextColorStyleChange: (Int) -> Unit,
     customFontPath: String,
@@ -33,22 +31,12 @@ fun LazyListScope.lyricDisplaySections(
     fontWeight: Int,
     onFontWeightClick: () -> Unit,
     fontItalic: Boolean,
-    onFontItalicChange: (Boolean) -> Unit,
-    centerLyric: Boolean,
-    onCenterLyricChange: (Boolean) -> Unit,
-    rightLyric: Boolean,
-    onRightLyricChange: (Boolean) -> Unit
+    onFontItalicChange: (Boolean) -> Unit
 ) {
     item(key = "basic_style_title") {
         SmallTitle(text = stringResource(id = R.string.title_basic_style))
     }
     item(key = "basic_style_content") {
-        val placeholderOptions = listOf(
-            stringResource(id = R.string.option_placeholder_none),
-            stringResource(id = R.string.option_placeholder_title_artist),
-            stringResource(id = R.string.option_placeholder_title),
-            stringResource(id = R.string.option_placeholder_countdown)
-        )
         val textColorOptions = listOf(
             stringResource(id = R.string.option_text_color_default),
             stringResource(id = R.string.option_text_color_cover_color),
@@ -97,22 +85,6 @@ fun LazyListScope.lyricDisplaySections(
                         )
                     },
                     onClick = onFadingEdgeClick
-                )
-                SwitchPreference(
-                    title = stringResource(id = R.string.title_center_lyric),
-                    checked = centerLyric,
-                    onCheckedChange = onCenterLyricChange
-                )
-                SwitchPreference(
-                    title = stringResource(id = R.string.title_right_lyric),
-                    checked = rightLyric,
-                    onCheckedChange = onRightLyricChange
-                )
-                OverlayDropdownPreference(
-                    title = stringResource(id = R.string.title_placeholder_format),
-                    items = placeholderOptions,
-                    selectedIndex = placeholderFormat,
-                    onSelectedIndexChange = onPlaceholderFormatChange
                 )
                 OverlayDropdownPreference(
                     title = stringResource(id = R.string.title_text_color),

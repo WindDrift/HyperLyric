@@ -150,6 +150,13 @@ internal object IslandSlotRuntimeConfigReader {
                 RootConstants.KEY_HOOK_CENTER_LYRIC,
                 RootConstants.DEFAULT_HOOK_CENTER_LYRIC
             ),
+            centerMusicInfo = prefs.getBoolean(
+                RootConstants.KEY_HOOK_CENTER_MUSIC_INFO,
+                prefs.getBoolean(
+                    RootConstants.KEY_HOOK_CENTER_LYRIC,
+                    RootConstants.DEFAULT_HOOK_CENTER_MUSIC_INFO
+                )
+            ),
             rightLyric = prefs.getBoolean(
                 RootConstants.KEY_HOOK_RIGHT_LYRIC,
                 RootConstants.DEFAULT_HOOK_RIGHT_LYRIC
@@ -270,7 +277,8 @@ internal object IslandSlotRuntimeConfigReader {
         defaultValue: Int
     ): Int {
         return prefs.getInt(key, defaultValue).takeIf {
-            it == RootConstants.ISLAND_CONTENT_MODE_LYRIC ||
+            it == RootConstants.ISLAND_CONTENT_MODE_NONE ||
+                    it == RootConstants.ISLAND_CONTENT_MODE_LYRIC ||
                     it == RootConstants.ISLAND_CONTENT_MODE_CUSTOM_MUSIC_INFO
         } ?: defaultValue
     }

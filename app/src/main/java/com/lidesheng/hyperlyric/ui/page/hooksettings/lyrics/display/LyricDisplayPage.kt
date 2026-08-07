@@ -75,34 +75,6 @@ fun LyricDisplayPage() {
             )
         )
     }
-    var centerLyric by remember {
-        mutableStateOf(
-            prefs.getBoolean(
-                RootConstants.KEY_HOOK_CENTER_LYRIC,
-                RootConstants.DEFAULT_HOOK_CENTER_LYRIC
-            )
-        )
-    }
-    var rightLyric by remember {
-        mutableStateOf(
-            prefs.getBoolean(
-                RootConstants.KEY_HOOK_RIGHT_LYRIC,
-                RootConstants.DEFAULT_HOOK_RIGHT_LYRIC
-            )
-        )
-    }
-    var placeholderFormat by remember {
-        mutableIntStateOf(
-            prefs.getInt(
-                RootConstants.KEY_HOOK_PLACEHOLDER_FORMAT,
-                RootConstants.DEFAULT_HOOK_PLACEHOLDER_FORMAT
-            ).coerceIn(
-                RootConstants.PLACEHOLDER_FORMAT_NONE,
-                RootConstants.PLACEHOLDER_FORMAT_COUNTDOWN
-            )
-        )
-    }
-
     var showTextSizeDialog by remember { mutableStateOf(false) }
     var showTextSizeRatioDialog by remember { mutableStateOf(false) }
     var showFadingEdgeDialog by remember { mutableStateOf(false) }
@@ -181,11 +153,6 @@ fun LyricDisplayPage() {
             onTextSizeRatioClick = { showTextSizeRatioDialog = true },
             fadingEdge = fadingEdge,
             onFadingEdgeClick = { showFadingEdgeDialog = true },
-            placeholderFormat = placeholderFormat,
-            onPlaceholderFormatChange = {
-                placeholderFormat = it
-                saveConfig(RootConstants.KEY_HOOK_PLACEHOLDER_FORMAT, it)
-            },
             textColorStyle = textColorStyle,
             onTextColorStyleChange = {
                 textColorStyle = it
@@ -199,24 +166,6 @@ fun LyricDisplayPage() {
             onFontItalicChange = {
                 fontItalic = it
                 saveConfig(RootConstants.KEY_HOOK_FONT_ITALIC, it)
-            },
-            centerLyric = centerLyric,
-            onCenterLyricChange = {
-                centerLyric = it
-                if (it && rightLyric) {
-                    rightLyric = false
-                    saveConfig(RootConstants.KEY_HOOK_RIGHT_LYRIC, false)
-                }
-                saveConfig(RootConstants.KEY_HOOK_CENTER_LYRIC, it)
-            },
-            rightLyric = rightLyric,
-            onRightLyricChange = {
-                rightLyric = it
-                if (it && centerLyric) {
-                    centerLyric = false
-                    saveConfig(RootConstants.KEY_HOOK_CENTER_LYRIC, false)
-                }
-                saveConfig(RootConstants.KEY_HOOK_RIGHT_LYRIC, it)
             }
         )
     }

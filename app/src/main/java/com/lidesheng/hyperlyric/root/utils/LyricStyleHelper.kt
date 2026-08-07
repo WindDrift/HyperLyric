@@ -50,7 +50,21 @@ object LyricStyleHelper {
         // 控制 assembler 选什么内容，无内容时 assembler 返回 alwaysShow=false → secondary GONE
         val showSecondary = isMetadataDualLine || mode == 7
 
-        val isLyricMode = mode == 7
+        val isLyricMode = mode == RootConstants.ISLAND_CONTENT_MODE_LYRIC
+        val centerIfPossible = if (isLyricMode) {
+            prefs.getBoolean(
+                RootConstants.KEY_HOOK_CENTER_LYRIC,
+                RootConstants.DEFAULT_HOOK_CENTER_LYRIC
+            )
+        } else {
+            prefs.getBoolean(
+                RootConstants.KEY_HOOK_CENTER_MUSIC_INFO,
+                prefs.getBoolean(
+                    RootConstants.KEY_HOOK_CENTER_LYRIC,
+                    RootConstants.DEFAULT_HOOK_CENTER_MUSIC_INFO
+                )
+            )
+        }
         val isMarqueeEnabled = if (isLyricMode) {
             prefs.getBoolean(
                 RootConstants.KEY_HOOK_MARQUEE_MODE,
@@ -231,10 +245,7 @@ object LyricStyleHelper {
                 ),
             ),
             placeholder = TitleSlot.NONE,
-            centerIfPossible = prefs.getBoolean(
-                RootConstants.KEY_HOOK_CENTER_LYRIC,
-                RootConstants.DEFAULT_HOOK_CENTER_LYRIC
-            ),
+            centerIfPossible = centerIfPossible,
             rightIfPossible = isLyricMode && prefs.getBoolean(
                 RootConstants.KEY_HOOK_RIGHT_LYRIC,
                 RootConstants.DEFAULT_HOOK_RIGHT_LYRIC

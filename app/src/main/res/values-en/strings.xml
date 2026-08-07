@@ -396,8 +396,10 @@
     <string name="title_super_island_left">Super Island Left</string>
     <string name="title_super_island_right">Super Island Right</string>
     <string name="title_content_layout">Content layout</string>
-    <string name="summary_content_layout">Customize the fields and order of music information</string>
+    <string name="summary_content_layout">Customize music information and lyric layout</string>
     <string name="title_content_layout_music_info">Music information</string>
+    <string name="title_content_layout_lyric">Lyrics</string>
+    <string name="title_center_music_info">Center display</string>
     <string name="title_content_layout_first_line">First line</string>
     <string name="title_content_layout_second_line">Second line</string>
     <string name="summary_content_layout_select_fields">Choose the music information fields to display</string>
@@ -439,6 +441,7 @@
     <string name="option_audio_rhythm_cover_color">Cover color</string>
     <string name="option_audio_rhythm_cover_gradient">Cover gradient</string>
     <string name="option_island_component_hidden">Hidden</string>
+    <string name="option_content_none">No content</string>
     <string name="option_content_music_info">Music information</string>
     <string name="option_content_lyric">Lyrics</string>
     <string name="format_padding_pair">%1$d,%2$d</string>

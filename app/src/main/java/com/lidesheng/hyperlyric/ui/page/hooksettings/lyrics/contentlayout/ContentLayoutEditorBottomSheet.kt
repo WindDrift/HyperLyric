@@ -38,6 +38,7 @@ internal fun ContentLayoutEditorBottomSheet(
     title: String,
     currentFields: List<ContentLayoutField>,
     availableFields: List<ContentLayoutField>,
+    requireSelection: Boolean,
     onDismiss: () -> Unit,
     onConfirm: (List<ContentLayoutField>) -> Unit
 ) {
@@ -84,8 +85,11 @@ internal fun ContentLayoutEditorBottomSheet(
         endAction = {
             IconButton(
                 onClick = {
-                    onConfirm(draftOrder.filter { it.key in draftSelection })
-                    onDismiss()
+                    val selectedFields = draftOrder.filter { it.key in draftSelection }
+                    if (!requireSelection || selectedFields.isNotEmpty()) {
+                        onConfirm(selectedFields)
+                        onDismiss()
+                    }
                 }
             ) {
                 Icon(
@@ -123,10 +127,12 @@ internal fun ContentLayoutEditorBottomSheet(
                     ReorderableCheckboxList(
                         items = checkboxItems,
                         onCheckedChange = { key, checked ->
-                            draftSelection = if (checked) {
-                                draftSelection + key
-                            } else {
-                                draftSelection - key
+                            if (checked || !requireSelection || draftSelection.size > 1) {
+                                draftSelection = if (checked) {
+                                    draftSelection + key
+                                } else {
+                                    draftSelection - key
+                                }
                             }
                         },
                         onMove = { fromIndex, toIndex ->

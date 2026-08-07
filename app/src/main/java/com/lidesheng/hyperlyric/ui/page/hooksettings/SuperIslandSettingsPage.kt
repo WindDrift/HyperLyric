@@ -62,7 +62,8 @@ fun SuperIslandSettingsPage() {
 
     fun readContentMode(key: String, defaultValue: Int): Int {
         return prefs.getInt(key, defaultValue).takeIf {
-            it == RootConstants.ISLAND_CONTENT_MODE_LYRIC ||
+            it == RootConstants.ISLAND_CONTENT_MODE_NONE ||
+                    it == RootConstants.ISLAND_CONTENT_MODE_LYRIC ||
                     it == RootConstants.ISLAND_CONTENT_MODE_CUSTOM_MUSIC_INFO
         } ?: defaultValue
     }
@@ -347,12 +348,14 @@ fun SuperIslandSettingsPage() {
     }.map { stringResource(id = it) }
     val contentModeValues = remember {
         listOf(
+            RootConstants.ISLAND_CONTENT_MODE_NONE,
             RootConstants.ISLAND_CONTENT_MODE_CUSTOM_MUSIC_INFO,
             RootConstants.ISLAND_CONTENT_MODE_LYRIC
         )
     }
     val contentOptions = remember {
         listOf(
+            R.string.option_content_none,
             R.string.option_content_music_info,
             R.string.option_content_lyric
         )
@@ -560,7 +563,7 @@ fun SuperIslandSettingsPage() {
                     }
                 }
                 item(key = "content_title") { SmallTitle(text = stringResource(id = R.string.title_content)) }
-                item(key = "left_content") {
+                item(key = "content") {
                     Card(
                         modifier = Modifier
                             .padding(horizontal = 12.dp)
@@ -594,19 +597,6 @@ fun SuperIslandSettingsPage() {
                                         }
                                     }
                                 )
-                            }
-                        }
-                    }
-                }
-                item(key = "right_content") {
-                    Card(
-                        modifier = Modifier
-                            .padding(horizontal = 12.dp)
-                            .padding(bottom = 12.dp)
-                            .fillMaxWidth()
-                    ) {
-                        Column {
-                            if (lyricMode == 0) {
                                 OverlayDropdownPreference(
                                     title = stringResource(id = R.string.title_super_island_right),
                                     items = contentOptions,

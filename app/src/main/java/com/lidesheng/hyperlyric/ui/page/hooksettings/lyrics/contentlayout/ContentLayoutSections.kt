@@ -11,10 +11,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.lidesheng.hyperlyric.R
 import com.lidesheng.hyperlyric.common.MusicInfoLayoutPolicy
+import com.lidesheng.hyperlyric.common.RootConstants
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 
 internal enum class ContentLayoutField(
     val key: String,
@@ -80,7 +82,15 @@ internal fun LazyListScope.contentLayoutSections(
     secondLine: List<ContentLayoutField>,
     separator: ContentLayoutSeparator,
     onEditField: (Int) -> Unit,
-    onSeparatorChange: (ContentLayoutSeparator) -> Unit
+    onSeparatorChange: (ContentLayoutSeparator) -> Unit,
+    centerMusicInfo: Boolean,
+    onCenterMusicInfoChange: (Boolean) -> Unit,
+    centerLyric: Boolean,
+    onCenterLyricChange: (Boolean) -> Unit,
+    rightLyric: Boolean,
+    onRightLyricChange: (Boolean) -> Unit,
+    placeholderFormat: Int,
+    onPlaceholderFormatChange: (Int) -> Unit
 ) {
     item(key = "music_info_title") {
         SmallTitle(text = stringResource(id = R.string.title_content_layout_music_info))
@@ -115,6 +125,50 @@ internal fun LazyListScope.contentLayoutSections(
                     onSelectedIndexChange = { index ->
                         ContentLayoutSeparator.values().getOrNull(index)?.let(onSeparatorChange)
                     }
+                )
+                SwitchPreference(
+                    title = stringResource(id = R.string.title_center_music_info),
+                    checked = centerMusicInfo,
+                    onCheckedChange = onCenterMusicInfoChange
+                )
+            }
+        }
+    }
+    item(key = "lyrics_title") {
+        SmallTitle(text = stringResource(id = R.string.title_content_layout_lyric))
+    }
+    item(key = "lyrics_content") {
+        val placeholderOptions = listOf(
+            stringResource(id = R.string.option_placeholder_none),
+            stringResource(id = R.string.option_placeholder_title_artist),
+            stringResource(id = R.string.option_placeholder_title),
+            stringResource(id = R.string.option_placeholder_countdown)
+        )
+        Card(
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp)
+                .fillMaxWidth()
+        ) {
+            Column {
+                SwitchPreference(
+                    title = stringResource(id = R.string.title_center_lyric),
+                    checked = centerLyric,
+                    onCheckedChange = onCenterLyricChange
+                )
+                SwitchPreference(
+                    title = stringResource(id = R.string.title_right_lyric),
+                    checked = rightLyric,
+                    onCheckedChange = onRightLyricChange
+                )
+                OverlayDropdownPreference(
+                    title = stringResource(id = R.string.title_placeholder_format),
+                    items = placeholderOptions,
+                    selectedIndex = placeholderFormat.coerceIn(
+                        RootConstants.PLACEHOLDER_FORMAT_NONE,
+                        RootConstants.PLACEHOLDER_FORMAT_COUNTDOWN
+                    ),
+                    onSelectedIndexChange = onPlaceholderFormatChange
                 )
             }
         }

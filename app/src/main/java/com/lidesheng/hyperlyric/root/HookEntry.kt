@@ -87,6 +87,7 @@ class HookEntry : XposedModule() {
             RootConstants.KEY_HOOK_FADING_EDGE_LENGTH,
             RootConstants.KEY_HOOK_GRADIENT_PROGRESS,
             RootConstants.KEY_HOOK_CENTER_LYRIC,
+            RootConstants.KEY_HOOK_CENTER_MUSIC_INFO,
             RootConstants.KEY_HOOK_RIGHT_LYRIC,
             RootConstants.KEY_HOOK_ANIM_ENABLE,
             RootConstants.KEY_HOOK_ANIM_ID,
