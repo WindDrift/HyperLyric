@@ -25,6 +25,7 @@ hiddenapibypass = "4.3"
 shizuku = "13.1.5"
 superlyricapi = "3.4"
 lyricon-subscriber = "0.1.70"
+reorderable = "3.1.0"
 
 
 [libraries]
@@ -53,6 +54,7 @@ androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "u
 androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 androidx-compose-animation-graphics = { group = "androidx.compose.animation", name = "animation-graphics" }
+reorderable = { group = "sh.calvin.reorderable", name = "reorderable", version.ref = "reorderable" }
 
 # --- MIUI X ---
 miuix-ui-android = { group = "top.yukonga.miuix.kmp", name = "miuix-ui-android", version.ref = "miuix" }

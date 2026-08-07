@@ -56,6 +56,7 @@ object LicenseProvider {
             LicenseItem("retrofit", "square", "https://github.com/square/retrofit"),
             LicenseItem("okhttp", "square", "https://github.com/square/okhttp"),
             LicenseItem("Lyrico", "Replica0110", "https://github.com/Replica0110/Lyrico"),
+            LicenseItem("Reorderable", "Calvin-LL", "https://github.com/Calvin-LL/Reorderable"),
             LicenseItem("opencc4j", "houbb", "https://github.com/houbb/opencc4j"),
             LicenseItem("OpenCC", "BYVoid", "https://github.com/BYVoid/OpenCC"),
             LicenseItem("LDDC", "chenmozhijin", "https://github.com/chenmozhijin/LDDC")

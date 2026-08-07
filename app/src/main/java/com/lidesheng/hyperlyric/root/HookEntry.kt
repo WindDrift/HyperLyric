@@ -65,6 +65,9 @@ class HookEntry : XposedModule() {
         private val SUPER_ISLAND_RUNTIME_REFRESH_KEYS = setOf(
             RootConstants.KEY_HOOK_ISLAND_CONTENT_LEFT,
             RootConstants.KEY_HOOK_ISLAND_CONTENT_RIGHT,
+            RootConstants.KEY_HOOK_ISLAND_MUSIC_INFO_FIRST_LINE,
+            RootConstants.KEY_HOOK_ISLAND_MUSIC_INFO_SECOND_LINE,
+            RootConstants.KEY_HOOK_ISLAND_MUSIC_INFO_SEPARATOR,
             RootConstants.KEY_HOOK_ISLAND_LEFT_PADDING_LEFT,
             RootConstants.KEY_HOOK_ISLAND_LEFT_PADDING_RIGHT,
             RootConstants.KEY_HOOK_ISLAND_RIGHT_PADDING_LEFT,

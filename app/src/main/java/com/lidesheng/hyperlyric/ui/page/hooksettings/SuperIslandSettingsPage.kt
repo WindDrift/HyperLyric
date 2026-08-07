@@ -60,9 +60,24 @@ fun SuperIslandSettingsPage() {
     val prefs =
         remember { context.getSharedPreferences(UIConstants.PREF_NAME, Context.MODE_PRIVATE) }
 
-    var islandContentLeft by remember {
+    fun readContentMode(key: String, defaultValue: Int): Int {
+        return prefs.getInt(key, defaultValue).takeIf {
+            it == RootConstants.ISLAND_CONTENT_MODE_LYRIC ||
+                    it == RootConstants.ISLAND_CONTENT_MODE_CUSTOM_MUSIC_INFO
+        } ?: defaultValue
+    }
+
+    var lyricMode by remember {
         mutableIntStateOf(
             prefs.getInt(
+                RootConstants.KEY_HOOK_LYRIC_MODE,
+                RootConstants.DEFAULT_HOOK_LYRIC_MODE
+            ).coerceIn(0, 1)
+        )
+    }
+    var islandContentLeft by remember {
+        mutableIntStateOf(
+            readContentMode(
                 RootConstants.KEY_HOOK_ISLAND_CONTENT_LEFT,
                 RootConstants.DEFAULT_HOOK_ISLAND_CONTENT_LEFT
             )
@@ -70,20 +85,13 @@ fun SuperIslandSettingsPage() {
     }
     var islandContentRight by remember {
         mutableIntStateOf(
-            prefs.getInt(
+            readContentMode(
                 RootConstants.KEY_HOOK_ISLAND_CONTENT_RIGHT,
                 RootConstants.DEFAULT_HOOK_ISLAND_CONTENT_RIGHT
             )
         )
     }
-    val lyricMode by remember {
-        mutableIntStateOf(
-            prefs.getInt(
-                RootConstants.KEY_HOOK_LYRIC_MODE,
-                RootConstants.DEFAULT_HOOK_LYRIC_MODE
-            )
-        )
-    }
+
     var audioCoverStyle by remember {
         mutableIntStateOf(
             SuperIslandContentStylePolicy.readAlbumCoverStyle(prefs)
@@ -300,18 +308,6 @@ fun SuperIslandSettingsPage() {
         )
     }.map { stringResource(id = it) }
 
-    val contentOptions = remember {
-        listOf(
-            R.string.option_content_none,
-            R.string.option_content_title,
-            R.string.option_content_artist,
-            R.string.option_content_album,
-            R.string.option_content_title_artist,
-            R.string.option_content_title_plus_artist,
-            R.string.option_content_title_plus_artist_album,
-            R.string.option_content_lyric
-        )
-    }.map { stringResource(id = it) }
     val afterPauseOptions = remember {
         listOf(R.string.option_after_pause_default, R.string.option_after_pause_keep)
     }.map { stringResource(id = it) }
@@ -347,6 +343,18 @@ fun SuperIslandSettingsPage() {
             R.string.option_audio_rhythm_cover_color,
             R.string.option_audio_rhythm_cover_gradient,
             R.string.option_island_component_hidden
+        )
+    }.map { stringResource(id = it) }
+    val contentModeValues = remember {
+        listOf(
+            RootConstants.ISLAND_CONTENT_MODE_CUSTOM_MUSIC_INFO,
+            RootConstants.ISLAND_CONTENT_MODE_LYRIC
+        )
+    }
+    val contentOptions = remember {
+        listOf(
+            R.string.option_content_music_info,
+            R.string.option_content_lyric
         )
     }.map { stringResource(id = it) }
     val progressStyleOptions = remember {
@@ -574,12 +582,16 @@ fun SuperIslandSettingsPage() {
                                 OverlayDropdownPreference(
                                     title = stringResource(id = R.string.title_super_island_left),
                                     items = contentOptions,
-                                    selectedIndex = islandContentLeft,
-                                    onSelectedIndexChange = {
-                                        islandContentLeft = it; saveConfig(
-                                        RootConstants.KEY_HOOK_ISLAND_CONTENT_LEFT,
-                                        it
-                                    )
+                                    selectedIndex = contentModeValues.indexOf(islandContentLeft)
+                                        .coerceAtLeast(0),
+                                    onSelectedIndexChange = { index ->
+                                        contentModeValues.getOrNull(index)?.let { mode ->
+                                            islandContentLeft = mode
+                                            saveConfig(
+                                                RootConstants.KEY_HOOK_ISLAND_CONTENT_LEFT,
+                                                mode
+                                            )
+                                        }
                                     }
                                 )
                             }
@@ -598,12 +610,16 @@ fun SuperIslandSettingsPage() {
                                 OverlayDropdownPreference(
                                     title = stringResource(id = R.string.title_super_island_right),
                                     items = contentOptions,
-                                    selectedIndex = islandContentRight,
-                                    onSelectedIndexChange = {
-                                        islandContentRight = it; saveConfig(
-                                        RootConstants.KEY_HOOK_ISLAND_CONTENT_RIGHT,
-                                        it
-                                    )
+                                    selectedIndex = contentModeValues.indexOf(islandContentRight)
+                                        .coerceAtLeast(0),
+                                    onSelectedIndexChange = { index ->
+                                        contentModeValues.getOrNull(index)?.let { mode ->
+                                            islandContentRight = mode
+                                            saveConfig(
+                                                RootConstants.KEY_HOOK_ISLAND_CONTENT_RIGHT,
+                                                mode
+                                            )
+                                        }
                                     }
                                 )
                             }

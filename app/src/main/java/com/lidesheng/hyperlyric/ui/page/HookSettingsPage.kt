@@ -263,6 +263,10 @@ private fun LazyListScope.hookSettingsSections(
                     title = stringResource(R.string.title_super_island),
                     onClick = { navigator.navigate(Route.SuperIslandSettings) })
                 ArrowPreference(
+                    title = stringResource(R.string.title_content_layout),
+                    summary = stringResource(R.string.summary_content_layout),
+                    onClick = { navigator.navigate(Route.SuperIslandContentLayout) })
+                ArrowPreference(
                     title = stringResource(R.string.title_text),
                     onClick = { navigator.navigate(Route.LyricDisplay) })
                 ArrowPreference(

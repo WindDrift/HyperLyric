@@ -13,6 +13,12 @@ object RootConstants {
     const val KEY_HOOK_ISLAND_ALBUM_COVER_STYLE = "key_hook_island_album_cover_style"
     const val KEY_HOOK_ISLAND_CONTENT_LEFT = "key_hook_island_content_left"
     const val KEY_HOOK_ISLAND_CONTENT_RIGHT = "key_hook_island_content_right"
+    const val KEY_HOOK_ISLAND_MUSIC_INFO_FIRST_LINE =
+        "key_hook_island_music_info_first_line"
+    const val KEY_HOOK_ISLAND_MUSIC_INFO_SECOND_LINE =
+        "key_hook_island_music_info_second_line"
+    const val KEY_HOOK_ISLAND_MUSIC_INFO_SEPARATOR =
+        "key_hook_island_music_info_separator"
     const val KEY_HOOK_ISLAND_LEFT_PADDING_LEFT = "key_hook_island_left_padding_left"
     const val KEY_HOOK_ISLAND_LEFT_PADDING_RIGHT = "key_hook_island_left_padding_right"
     const val KEY_HOOK_ISLAND_RIGHT_PADDING_LEFT = "key_hook_island_right_padding_left"
@@ -239,8 +245,13 @@ object RootConstants {
     const val DEFAULT_HOOK_ISLAND_ALBUM_COVER_STYLE = ISLAND_ALBUM_COVER_STYLE_DEFAULT
     const val DEFAULT_HOOK_REMOVE_FOCUS_WHITELIST = false
     const val DEFAULT_HOOK_REMOVE_ISLAND_WHITELIST = false
-    const val DEFAULT_HOOK_ISLAND_CONTENT_LEFT = 5
-    const val DEFAULT_HOOK_ISLAND_CONTENT_RIGHT = 7
+    const val ISLAND_CONTENT_MODE_LYRIC = 7
+    const val ISLAND_CONTENT_MODE_CUSTOM_MUSIC_INFO = 8
+    const val DEFAULT_HOOK_ISLAND_CONTENT_LEFT = ISLAND_CONTENT_MODE_CUSTOM_MUSIC_INFO
+    const val DEFAULT_HOOK_ISLAND_CONTENT_RIGHT = ISLAND_CONTENT_MODE_LYRIC
+    const val DEFAULT_HOOK_ISLAND_MUSIC_INFO_FIRST_LINE = "title"
+    const val DEFAULT_HOOK_ISLAND_MUSIC_INFO_SECOND_LINE = "artist"
+    const val DEFAULT_HOOK_ISLAND_MUSIC_INFO_SEPARATOR = "hyphen"
     const val DEFAULT_HOOK_ISLAND_LEFT_PADDING_LEFT = 2
     const val DEFAULT_HOOK_ISLAND_LEFT_PADDING_RIGHT = 0
     const val DEFAULT_HOOK_ISLAND_RIGHT_PADDING_LEFT = 0

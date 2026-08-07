@@ -75,6 +75,7 @@ internal object IslandSlotContentFacade {
         } else {
             IslandMetadataContentAssembler.apply(
                 view = view,
+                prefs = prefs,
                 config = config,
                 mode = mode,
                 force = force,

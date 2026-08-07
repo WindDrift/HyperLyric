@@ -67,14 +67,24 @@ internal object IslandSlotRuntimeConfigReader {
         }
         return IslandSlotRuntimeConfig(
             activeMode = activeMode,
-            leftMode = if (activeMode == 1) 7 else prefs.getInt(
-                RootConstants.KEY_HOOK_ISLAND_CONTENT_LEFT,
-                RootConstants.DEFAULT_HOOK_ISLAND_CONTENT_LEFT
-            ),
-            rightMode = if (activeMode == 1) 7 else prefs.getInt(
-                RootConstants.KEY_HOOK_ISLAND_CONTENT_RIGHT,
-                RootConstants.DEFAULT_HOOK_ISLAND_CONTENT_RIGHT
-            ),
+            leftMode = if (activeMode == 1) {
+                RootConstants.ISLAND_CONTENT_MODE_LYRIC
+            } else {
+                readContentMode(
+                    prefs,
+                    RootConstants.KEY_HOOK_ISLAND_CONTENT_LEFT,
+                    RootConstants.DEFAULT_HOOK_ISLAND_CONTENT_LEFT
+                )
+            },
+            rightMode = if (activeMode == 1) {
+                RootConstants.ISLAND_CONTENT_MODE_LYRIC
+            } else {
+                readContentMode(
+                    prefs,
+                    RootConstants.KEY_HOOK_ISLAND_CONTENT_RIGHT,
+                    RootConstants.DEFAULT_HOOK_ISLAND_CONTENT_RIGHT
+                )
+            },
             geometry = IslandSlotGeometryConfig(
                 isDynamicWidth = dynamicWidthEnabled,
                 showAlbum = showAlbum,
@@ -252,5 +262,16 @@ internal object IslandSlotRuntimeConfigReader {
                 RootConstants.DEFAULT_HOOK_WORD_MOTION_LATIN_WAVE
             )
         )
+    }
+
+    private fun readContentMode(
+        prefs: SharedPreferences,
+        key: String,
+        defaultValue: Int
+    ): Int {
+        return prefs.getInt(key, defaultValue).takeIf {
+            it == RootConstants.ISLAND_CONTENT_MODE_LYRIC ||
+                    it == RootConstants.ISLAND_CONTENT_MODE_CUSTOM_MUSIC_INFO
+        } ?: defaultValue
     }
 }
