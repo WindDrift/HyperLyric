@@ -32,6 +32,7 @@
     <string name="title_remove_focus_whitelist">移除焦点通知白名单</string>
     <string name="summary_remove_focus_whitelist">不要和其他模块的相同功能冲突使用</string>
     <string name="title_remove_island_whitelist">移除下拉小窗白名单</string>
+    <string name="summary_remove_island_whitelist">超级岛媒体卡片</string>
     <string name="title_app_settings">应用设置</string>
     <string name="summary_app_settings">个性化、备份与恢复等</string>
     <string name="sheet_permission_title">通知权限</string>
@@ -114,6 +115,7 @@
     <string name="title_always_on_display">息屏显示</string>
     <string name="title_disable_media_card_collapsing">禁用媒体卡片折叠</string>
     <string name="title_notification_media_card_switcher">多媒体卡片切换功能</string>
+    <string name="summary_notification_media_card_switcher">通知中心媒体卡片</string>
     <string name="title_notification_media_card_switcher_mode">卡片显示模式</string>
     <string name="option_notification_media_card_switcher_single">单卡片视图</string>
     <string name="option_notification_media_card_switcher_multi">多卡片视图</string>

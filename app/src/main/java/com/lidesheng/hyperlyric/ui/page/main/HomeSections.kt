@@ -34,8 +34,6 @@ fun LazyListScope.homePageSections(
     onRestartClick: () -> Unit,
     removeFocusWhitelist: Boolean,
     onRemoveFocusWhitelistToggle: (Boolean) -> Unit,
-    removeIslandWhitelist: Boolean,
-    onRemoveIslandWhitelistToggle: (Boolean) -> Unit,
     onAppSettingsClick: () -> Unit,
 ) {
     item(key = "quote") {
@@ -133,11 +131,6 @@ fun LazyListScope.homePageSections(
                     summary = stringResource(R.string.summary_remove_focus_whitelist),
                     checked = removeFocusWhitelist,
                     onCheckedChange = onRemoveFocusWhitelistToggle,
-                )
-                SwitchPreference(
-                    title = stringResource(R.string.title_remove_island_whitelist),
-                    checked = removeIslandWhitelist,
-                    onCheckedChange = onRemoveIslandWhitelistToggle,
                 )
             }
         }

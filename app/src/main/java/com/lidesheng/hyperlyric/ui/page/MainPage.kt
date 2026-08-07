@@ -174,15 +174,6 @@ fun MainPage() {
             )
         )
     }
-    var removeIslandWhitelist by remember {
-        mutableStateOf(
-            prefs.getBoolean(
-                RootConstants.KEY_HOOK_REMOVE_ISLAND_WHITELIST,
-                RootConstants.DEFAULT_HOOK_REMOVE_ISLAND_WHITELIST
-            )
-        )
-    }
-
     // --- dialogs ---
     var showRestartDialog by remember { mutableStateOf(false) }
     var showPermissionSheet by remember { mutableStateOf(false) }
@@ -347,29 +338,6 @@ fun MainPage() {
                 removeFocusWhitelist = false
                 prefs.edit { putBoolean(RootConstants.KEY_HOOK_REMOVE_FOCUS_WHITELIST, false) }
                 PrefsBridge.putBoolean(RootConstants.KEY_HOOK_REMOVE_FOCUS_WHITELIST, false)
-            }
-        }
-    }
-
-    val toggleRemoveIslandWhitelist: (Boolean) -> Unit = remember {
-        { checked ->
-            if (checked) {
-                if (RootApplication.xposedService != null) {
-                    removeIslandWhitelist = true
-                    prefs.edit { putBoolean(RootConstants.KEY_HOOK_REMOVE_ISLAND_WHITELIST, true) }
-                    PrefsBridge.putBoolean(RootConstants.KEY_HOOK_REMOVE_ISLAND_WHITELIST, true)
-                } else {
-                    scope.launch {
-                        snackbarHostState.showSnackbar(
-                            message = msgXposedNotActive,
-                            duration = SnackbarDuration.Custom(2000L)
-                        )
-                    }
-                }
-            } else {
-                removeIslandWhitelist = false
-                prefs.edit { putBoolean(RootConstants.KEY_HOOK_REMOVE_ISLAND_WHITELIST, false) }
-                PrefsBridge.putBoolean(RootConstants.KEY_HOOK_REMOVE_ISLAND_WHITELIST, false)
             }
         }
     }
@@ -662,8 +630,6 @@ fun MainPage() {
                         onRestartClick = { showRestartDialog = true },
                         removeFocusWhitelist = removeFocusWhitelist,
                         onRemoveFocusWhitelistToggle = toggleRemoveFocusWhitelist,
-                        removeIslandWhitelist = removeIslandWhitelist,
-                        onRemoveIslandWhitelistToggle = toggleRemoveIslandWhitelist,
                         onAppSettingsClick = { navigator.navigate(Route.Settings) },
                     )
                 } else {

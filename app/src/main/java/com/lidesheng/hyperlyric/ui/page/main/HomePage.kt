@@ -36,8 +36,6 @@ fun HomePage(
     onRestartClick: () -> Unit,
     removeFocusWhitelist: Boolean,
     onRemoveFocusWhitelistToggle: (Boolean) -> Unit,
-    removeIslandWhitelist: Boolean,
-    onRemoveIslandWhitelistToggle: (Boolean) -> Unit,
     onAppSettingsClick: () -> Unit,
 ) {
     val backdrop = rememberBlurBackdrop()
@@ -91,8 +89,6 @@ fun HomePage(
                     onRestartClick = onRestartClick,
                     removeFocusWhitelist = removeFocusWhitelist,
                     onRemoveFocusWhitelistToggle = onRemoveFocusWhitelistToggle,
-                    removeIslandWhitelist = removeIslandWhitelist,
-                    onRemoveIslandWhitelistToggle = onRemoveIslandWhitelistToggle,
                     onAppSettingsClick = onAppSettingsClick,
                 )
             }

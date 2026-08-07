@@ -89,6 +89,14 @@ fun MediaCardSettingsPage() {
             )
         )
     }
+    var removeIslandWhitelist by remember {
+        mutableStateOf(
+            prefs.getBoolean(
+                RootConstants.KEY_HOOK_REMOVE_ISLAND_WHITELIST,
+                RootConstants.DEFAULT_HOOK_REMOVE_ISLAND_WHITELIST
+            )
+        )
+    }
     val backdrop = rememberBlurBackdrop()
     val blurActive = backdrop != null
     val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
@@ -162,6 +170,27 @@ fun MediaCardSettingsPage() {
                         }
                     }
                 }
+                item(key = "media_card_remove_island_whitelist") {
+                    Card(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = 12.dp)
+                            .fillMaxWidth()
+                    ) {
+                        SwitchPreference(
+                            title = stringResource(R.string.title_remove_island_whitelist),
+                            summary = stringResource(R.string.summary_remove_island_whitelist),
+                            checked = removeIslandWhitelist,
+                            onCheckedChange = { enabled ->
+                                removeIslandWhitelist = enabled
+                                PrefsBridge.putBoolean(
+                                    RootConstants.KEY_HOOK_REMOVE_ISLAND_WHITELIST,
+                                    enabled
+                                )
+                            }
+                        )
+                    }
+                }
                 item(key = "media_card_switcher") {
                     Card(
                         modifier = Modifier
@@ -172,6 +201,7 @@ fun MediaCardSettingsPage() {
                         Column {
                             SwitchPreference(
                                 title = stringResource(R.string.title_notification_media_card_switcher),
+                                summary = stringResource(R.string.summary_notification_media_card_switcher),
                                 checked = mediaCardSwitcherEnabled,
                                 onCheckedChange = { enabled ->
                                     mediaCardSwitcherEnabled = enabled
