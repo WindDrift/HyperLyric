@@ -30,7 +30,6 @@ import top.yukonga.miuix.kmp.basic.BasicComponentColors
 import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.MiuixIndication
 
 /**
  * A Pro version of Miuix BasicComponent.
@@ -97,12 +96,20 @@ fun ProComponent(
     val interactionSource = remember { MutableInteractionSource() }
 
     val clickableModifier = if (enabled && onClick != null) {
-        Modifier.clickable(
-            interactionSource = interactionSource,
-            indication = if (showIndication) MiuixIndication() else null,
-            onClick = onClick,
-            role = role
-        )
+        if (showIndication) {
+            Modifier.clickable(
+                interactionSource = interactionSource,
+                onClick = onClick,
+                role = role
+            )
+        } else {
+            Modifier.clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick,
+                role = role
+            )
+        }
     } else {
         Modifier
     }

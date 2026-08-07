@@ -3,6 +3,7 @@ package com.lidesheng.hyperlyric.common
 object RootConstants {
     // ================= HOOK & SUPER ISLAND KEYS =================
     const val KEY_HOOK_ENABLE_SUPER_ISLAND = "key_hook_enable_super_island"
+    const val KEY_HOOK_ENABLE_MEDIA_CARD = "key_hook_enable_media_card"
     const val KEY_HOOK_ENABLE_DYNAMIC_ISLAND = "key_hook_enable_dynamic_island"
     const val KEY_HOOK_LYRIC_MODE = "key_hook_lyric_mode"
     const val KEY_HOOK_LYRIC_SOURCE = "key_hook_lyric_source"
@@ -237,6 +238,7 @@ object RootConstants {
     const val MAX_HOOK_LYRICON_PROVIDER_DELAY = 5000
 
     const val DEFAULT_HOOK_ENABLE_SUPER_ISLAND = false
+    const val DEFAULT_HOOK_ENABLE_MEDIA_CARD = false
     const val DEFAULT_HOOK_ENABLE_DYNAMIC_ISLAND = false
     const val ISLAND_ALBUM_COVER_STYLE_DEFAULT = 0
     const val ISLAND_ALBUM_COVER_STYLE_CIRCLE = 1

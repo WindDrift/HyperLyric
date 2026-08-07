@@ -20,7 +20,7 @@ internal object MediaCardRuntimeConfig {
     ) {
         companion object {
             fun defaults() = Snapshot(
-                enabled = RootConstants.DEFAULT_HOOK_ENABLE_SUPER_ISLAND,
+                enabled = RootConstants.DEFAULT_HOOK_ENABLE_MEDIA_CARD,
                 notification = Notification.defaults(),
                 islandExpanded = IslandExpanded.defaults(),
                 alwaysOnDisplay = AlwaysOnDisplay.defaults()
@@ -28,8 +28,8 @@ internal object MediaCardRuntimeConfig {
 
             fun from(prefs: SharedPreferences) = Snapshot(
                 enabled = prefs.getBoolean(
-                    RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND,
-                    RootConstants.DEFAULT_HOOK_ENABLE_SUPER_ISLAND
+                    RootConstants.KEY_HOOK_ENABLE_MEDIA_CARD,
+                    RootConstants.DEFAULT_HOOK_ENABLE_MEDIA_CARD
                 ),
                 notification = Notification.from(prefs),
                 islandExpanded = IslandExpanded.from(prefs),

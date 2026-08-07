@@ -10,6 +10,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lidesheng.hyperlyric.R
+import com.lidesheng.hyperlyric.ui.component.SuperSwitchPreference
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
@@ -23,6 +24,8 @@ fun LazyListScope.homePageSections(
     onQuoteLongPress: () -> Unit,
     enableSuperIsland: Boolean,
     onSuperIslandToggle: (Boolean) -> Unit,
+    enableMediaCard: Boolean,
+    onMediaCardToggle: (Boolean) -> Unit,
     enableDynamicIsland: Boolean,
     onDynamicIslandToggle: (Boolean) -> Unit,
     onSuperIslandConfigClick: () -> Unit,
@@ -67,24 +70,18 @@ fun LazyListScope.homePageSections(
                 .fillMaxWidth()
         ) {
             Column {
-                SwitchPreference(
-                    title = stringResource(R.string.title_miui_systemui_enhancement),
-                    summary = stringResource(R.string.summary_miui_systemui_enhancement),
+                SuperSwitchPreference(
                     checked = enableSuperIsland,
                     onCheckedChange = onSuperIslandToggle,
+                    title = stringResource(R.string.title_super_island_lyrics),
+                    onClick = onSuperIslandConfigClick,
                 )
-                AnimatedVisibility(visible = enableSuperIsland) {
-                    Column {
-                        ArrowPreference(
-                            title = stringResource(R.string.title_super_island_lyrics),
-                            onClick = onSuperIslandConfigClick,
-                        )
-                        ArrowPreference(
-                            title = stringResource(R.string.title_media_cards),
-                            onClick = onMediaCardConfigClick,
-                        )
-                    }
-                }
+                SuperSwitchPreference(
+                    checked = enableMediaCard,
+                    onCheckedChange = onMediaCardToggle,
+                    title = stringResource(R.string.title_media_cards),
+                    onClick = onMediaCardConfigClick,
+                )
             }
         }
     }

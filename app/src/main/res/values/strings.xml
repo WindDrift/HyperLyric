@@ -21,10 +21,8 @@
     <string name="confirm">确认</string>
     <string name="toast_no_root">应用未获取root权限</string>
     <string name="title_basic_features">基础功能</string>
-    <string name="title_super_island_lyrics">超级岛歌词</string>
+    <string name="title_super_island_lyrics">小米超级岛歌词</string>
     <string name="summary_super_island_lyrics">仅支持已安装LSPosed v2.0的HyperOS 3设备</string>
-    <string name="title_miui_systemui_enhancement">小米系统界面增强</string>
-    <string name="summary_miui_systemui_enhancement">自定义超级岛歌词与媒体卡片样式</string>
     <string name="title_super_island_config">小米超级岛歌词自定义配置</string>
     <string name="title_dynamic_island_lyrics">通知型灵动岛歌词</string>
     <string name="summary_dynamic_island_lyrics">利用通知实现灵动岛歌词效果，适用于无root设备</string>
@@ -42,6 +40,7 @@
     <string name="title_permission_listener">获取歌词信息权限</string>
     <string name="toast_open_settings_failed">无法打开通知使用权设置</string>
     <string name="toast_xposed_module_not_active">模块未启用，请启用并重启模块</string>
+    <string name="prompt_feature_disabled_open_switch">此功能未启用，请打开右侧开关并再次点击此项进入设置</string>
     <string name="title_system_info">系统信息</string>
     <string name="info_device_model">设备型号</string>
     <string name="info_os_version">系统版本</string>
@@ -114,7 +113,6 @@
     <string name="title_notification_center">通知中心</string>
     <string name="title_always_on_display">息屏显示</string>
     <string name="title_disable_media_card_collapsing">禁用媒体卡片折叠</string>
-    <string name="summary_media_cards">更新后需重启系统界面</string>
     <string name="title_notification_media_card_switcher">多媒体卡片切换功能</string>
     <string name="title_notification_media_card_switcher_mode">卡片显示模式</string>
     <string name="option_notification_media_card_switcher_single">单卡片视图</string>
