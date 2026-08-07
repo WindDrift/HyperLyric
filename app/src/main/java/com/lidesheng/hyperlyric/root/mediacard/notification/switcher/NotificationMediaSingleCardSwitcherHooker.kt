@@ -9,6 +9,7 @@ import android.view.ViewConfiguration
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.root.mediacard.MediaCardRuntimeConfig
 import com.lidesheng.hyperlyric.root.mediacard.notification.NotificationMediaHostClasses
+import com.lidesheng.hyperlyric.root.mediacard.notification.NotificationMediaCoverStyleHooker
 import com.lidesheng.hyperlyric.root.mediacard.notification.style.NotificationMediaForegroundStyler
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import io.github.libxposed.api.XposedInterface.Chain
@@ -697,13 +698,14 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             runOnMain {
                 multiCardRenderer.setFullAodState(
                     active = active,
-                    keepExpanded = MediaCardRuntimeConfig.current.alwaysOnDisplay
-                        .disableMediaCardCollapsing
+                    keepExpanded = NotificationMediaCoverStyleHooker
+                        .shouldKeepExpandedInFullAod()
                 )
                 if (fullAodActive == active) return@runOnMain
                 fullAodActive = active
-                // Full AOD uses the compact, non-interactive media presentation.
-                // The indicator is attached to the expanded header parent, so it
+                // Full AOD is non-interactive for the carousel even when the
+                // shared policy keeps custom-layout cards expanded. The
+                // indicator is attached to the expanded header parent, so it
                 // has no meaningful position while that presentation is active.
                 updatePageIndicator(force = true)
             }

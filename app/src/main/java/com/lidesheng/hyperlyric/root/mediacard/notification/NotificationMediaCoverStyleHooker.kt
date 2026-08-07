@@ -645,16 +645,6 @@ object NotificationMediaCoverStyleHooker {
     internal fun shouldKeepExpandedInFullAod(): Boolean {
         if (!runtimeConfig.enabled) return false
         val notification = runtimeConfig.notification
-        if (
-            notification.cardSwitcherEnabled &&
-                notification.cardSwitcherMode ==
-                RootConstants.NOTIFICATION_MEDIA_CARD_SWITCHER_MODE_MULTI
-        ) {
-            // The custom carousel must follow SystemUI's compact Full AOD
-            // height and bottom-progress visibility. Only the explicit AOD
-            // preference is allowed to keep it expanded.
-            return runtimeConfig.alwaysOnDisplay.disableMediaCardCollapsing
-        }
         return notification.layoutStyle ==
                 RootConstants.NOTIFICATION_MEDIA_LAYOUT_STYLE_IOS ||
                 notification.layoutStyle ==
