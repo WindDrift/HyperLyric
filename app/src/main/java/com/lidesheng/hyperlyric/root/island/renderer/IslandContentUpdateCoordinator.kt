@@ -203,22 +203,15 @@ internal object IslandContentUpdateCoordinator {
     ) {
         if (mode == RootConstants.ISLAND_CONTENT_MODE_NONE) return
         val slotView = view.findViewWithTag<View>(tag) ?: return
-        val lineOverride = if (mode == RootConstants.ISLAND_CONTENT_MODE_LYRIC) {
-            IslandSlotContentFacade.buildSlotLyricLine(
-                view = slotView,
-                prefs = prefs,
-                config = config,
-                isLeft = tag == IslandProbeUtils.LEFT_TEST_VIEW_TAG
-            )
-        } else {
-            null
-        }
         IslandSlotContentFacade.applySlotContent(
             view = slotView,
             prefs = prefs,
             config = config,
             mode = mode,
-            lineOverride = lineOverride,
+            // Let applySlotContent configure the actual text paint first, then build the split
+            // line from that paint. This keeps the split boundary in sync with custom fonts and
+            // weight changes during a full island refresh.
+            lineOverride = null,
             playbackActive = playbackActive,
             mediaInfo = mediaInfo,
             onLineWillApply = { contentWidthPx ->

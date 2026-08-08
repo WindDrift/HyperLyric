@@ -223,9 +223,18 @@ object BaseIslandRenderer : IslandRenderer {
     override fun clearAllViews() {
         mainHandler.removeCallbacks(refreshRunnable)
         mainHandler.removeCallbacks(textColorRefreshRunnable)
-        IslandPresentationCoordinator.updatePlaybackState(false)
-        val expectedPresentationRevision =
+        val wasPlaybackActive = IslandPresentationCoordinator.isPlaybackActive()
+        if (wasPlaybackActive) {
+            IslandPresentationCoordinator.updatePlaybackState(false)
+        }
+        // A pause callback may already have queued the native restoration. Keep the same
+        // revision so a subsequent source onStop() does not cancel that first clear and cause a
+        // second visible Super Island relayout.
+        val expectedPresentationRevision = if (wasPlaybackActive) {
             IslandPresentationCoordinator.invalidatePresentation()
+        } else {
+            IslandPresentationCoordinator.currentPresentationRevision()
+        }
         IslandPlaybackStateCoordinator.markClearedByPause()
         IslandPresentationCoordinator.snapshotAttachedHosts()
             .forEach { token ->

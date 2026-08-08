@@ -121,22 +121,65 @@ internal object IslandLyricContentAssembler {
         if (rawLine.text.isNullOrEmpty()) return rawLine
 
         val density = view.resources.displayMetrics.density
-        val leftMaxPx = config.geometry.leftMaxWidthDp * density
-        val textPaint = TextPaint().apply {
+        val fallbackPaint = TextPaint().apply {
             textSize = config.textSizeSp.toFloat() * density
         }
-        val splitPx = if (config.centerLyric) {
-            val textWidth = textPaint.measureText(rawLine.text ?: "")
-            (textWidth / 2f).coerceAtMost(leftMaxPx)
+        val textPaint = when (view) {
+            is RichLyricLineView -> TextPaint(view.main.textPaint)
+            is SpaceGateRichLyricLineView -> TextPaint(view.main.textPaint)
+            else -> fallbackPaint
+        }.takeIf { it.textSize > 0f } ?: fallbackPaint
+        val secondaryPaint = when (view) {
+            is RichLyricLineView -> TextPaint(view.secondary.textPaint)
+            is SpaceGateRichLyricLineView -> TextPaint(view.secondary.textPaint)
+            else -> TextPaint(textPaint).apply {
+                textSize *= config.textSizeRatio
+            }
+        }.takeIf { it.textSize > 0f } ?: TextPaint(textPaint).apply {
+            textSize *= config.textSizeRatio
+        }
+
+        fun contentWidthPx(widthDp: Int, parentName: String): Float {
+            val wrapperWidthPx = widthDp * density
+            val paddingPx = config.geometry.paddingLeftPx(view, parentName) +
+                    config.geometry.paddingRightPx(view, parentName)
+            return (wrapperWidthPx - paddingPx).coerceAtLeast(1f)
+        }
+
+        val leftMinContentPx = contentWidthPx(
+            config.geometry.leftMinWidthDp,
+            IslandProbeUtils.LEFT_PARENT_NAME
+        )
+        val leftMaxContentPx = contentWidthPx(
+            config.geometry.leftMaxWidthDp,
+            IslandProbeUtils.LEFT_PARENT_NAME
+        )
+        val rightMinContentPx = contentWidthPx(
+            config.geometry.rightMinWidthDp,
+            IslandProbeUtils.RIGHT_PARENT_NAME
+        )
+        val rightMaxContentPx = contentWidthPx(
+            config.geometry.rightMaxWidthDp,
+            IslandProbeUtils.RIGHT_PARENT_NAME
+        )
+        val containerWidthSpec = if (config.geometry.isDynamicWidth) {
+            RichLyricLineSplitter.ContainerWidthSpec.Dynamic(
+                leftMinWidthPx = leftMinContentPx,
+                leftMaxWidthPx = leftMaxContentPx,
+                rightMinWidthPx = rightMinContentPx,
+                rightMaxWidthPx = rightMaxContentPx
+            )
         } else {
-            leftMaxPx
+            RichLyricLineSplitter.ContainerWidthSpec.Fixed(
+                leftWidthPx = leftMaxContentPx,
+                rightWidthPx = rightMaxContentPx
+            )
         }
         val splitResult = RichLyricLineSplitter.split(
-            rawLine,
-            textPaint,
-            splitPx,
-            config.textSizeRatio,
-            config.centerLyric
+            line = rawLine,
+            primaryPaint = textPaint,
+            secondaryPaint = secondaryPaint,
+            containerWidthSpec = containerWidthSpec
         )
         return if (isLeft) splitResult.left else splitResult.right
     }

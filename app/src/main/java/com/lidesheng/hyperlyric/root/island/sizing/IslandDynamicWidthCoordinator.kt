@@ -4,11 +4,13 @@ import android.view.View
 import android.view.ViewGroup
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.lyric.view.RichLyricLineView
+import com.lidesheng.hyperlyric.lyric.view.SpaceGateRichLyricLineView
 import com.lidesheng.hyperlyric.root.HookEntry
 import com.lidesheng.hyperlyric.root.island.config.IslandSlotRuntimeConfig
 import com.lidesheng.hyperlyric.root.island.host.IslandHostFacade
 import com.lidesheng.hyperlyric.root.island.host.IslandProbeUtils
 import com.lidesheng.hyperlyric.root.island.host.IslandViewRegistry
+import com.lidesheng.hyperlyric.root.island.presentation.IslandPresentationCoordinator
 import com.lidesheng.hyperlyric.root.island.view.MaxWidthFrameLayout
 import java.util.WeakHashMap
 
@@ -21,6 +23,7 @@ import java.util.WeakHashMap
  */
 internal object IslandDynamicWidthCoordinator {
     private val refreshPending = WeakHashMap<ViewGroup, Boolean>()
+    private val relayoutPending = WeakHashMap<ViewGroup, Boolean>()
     private val preflightTargets = WeakHashMap<ViewGroup, MutableMap<String, Float>>()
 
     fun requestRefresh(rootView: ViewGroup) {
@@ -39,11 +42,12 @@ internal object IslandDynamicWidthCoordinator {
                 refreshPending.remove(rootView)
             }
             if (IslandViewRegistry.tokenFor(rootView) == null) return@post
+            if (!IslandPresentationCoordinator.isPlaybackActive()) return@post
             val prefs = HookEntry.instance?.prefs ?: return@post
             val config = IslandSlotRuntimeConfig.from(prefs)
             if (!config.geometry.isDynamicWidth) return@post
             if (refreshDynamicLyricWidths(rootView, config)) {
-                IslandHostFacade.triggerSystemRelayout(rootView)
+                scheduleSystemRelayout(rootView)
             }
         }
         if (!posted) {
@@ -67,6 +71,7 @@ internal object IslandDynamicWidthCoordinator {
         if (!config.geometry.isDynamicWidth ||
             config.modeForTag(viewTag) != RootConstants.ISLAND_CONTENT_MODE_LYRIC
         ) return false
+        if (!IslandPresentationCoordinator.isPlaybackActive()) return false
         if (IslandViewRegistry.tokenFor(rootView) == null) return false
 
         val overrides = synchronized(preflightTargets) {
@@ -76,7 +81,7 @@ internal object IslandDynamicWidthCoordinator {
         }
         val changed = refreshDynamicLyricWidths(rootView, config, overrides)
         if (changed) {
-            IslandHostFacade.triggerSystemRelayout(rootView)
+            scheduleSystemRelayout(rootView)
         }
         return changed
     }
@@ -149,10 +154,17 @@ internal object IslandDynamicWidthCoordinator {
         contentWidthOverridePx: Float? = null
     ): Float? {
         if (config.modeForTag(viewTag) != RootConstants.ISLAND_CONTENT_MODE_LYRIC) return null
-        val lyricView = rootView.findViewWithTag<View>(viewTag) as? RichLyricLineView
-            ?: return null
+        val lyricView = rootView.findViewWithTag<View>(viewTag) ?: return null
+        val contentWidthPx = when (lyricView) {
+            is RichLyricLineView -> lyricView.main.lineWidth
+            is SpaceGateRichLyricLineView -> maxOf(
+                lyricView.main.lineWidth,
+                lyricView.secondary.lineWidth
+            )
+            else -> return null
+        }
         return IslandLyricWidthCalculator.baseWidthDp(
-            contentWidthPx = contentWidthOverridePx ?: lyricView.main.lineWidth,
+            contentWidthPx = contentWidthOverridePx ?: contentWidthPx,
             spec = dynamicLyricWidthSpec(rootView, parentName, config)
         )
     }
@@ -175,6 +187,37 @@ internal object IslandDynamicWidthCoordinator {
         wrapper.maxWidthPx = targetWidthPx
         wrapper.requestLayout()
         return true
+    }
+
+    private fun scheduleSystemRelayout(rootView: ViewGroup) {
+        val shouldPost = synchronized(relayoutPending) {
+            if (relayoutPending[rootView] == true) {
+                false
+            } else {
+                relayoutPending[rootView] = true
+                true
+            }
+        }
+        if (!shouldPost) return
+
+        val posted = rootView.post {
+            try {
+                if (IslandViewRegistry.tokenFor(rootView) != null &&
+                    IslandPresentationCoordinator.isPlaybackActive()
+                ) {
+                    IslandHostFacade.triggerSystemRelayout(rootView)
+                }
+            } finally {
+                synchronized(relayoutPending) {
+                    relayoutPending.remove(rootView)
+                }
+            }
+        }
+        if (!posted) {
+            synchronized(relayoutPending) {
+                relayoutPending.remove(rootView)
+            }
+        }
     }
 
     private fun dynamicLyricWidthSpec(

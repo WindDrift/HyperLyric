@@ -293,7 +293,11 @@ class RichLyricLineView(
             if (onMainLineWillApply != null) {
                 pendingMainLineWillApply = null
                 val generation = lineGeneration
-                val shouldDefer = onMainLineWillApply.invoke(main.measureLineWidth(mainResult.line))
+                val candidateWidth = maxOf(
+                    main.measureLineWidth(mainResult.line),
+                    secondary.measureLineWidth(secResult.line)
+                )
+                val shouldDefer = onMainLineWillApply.invoke(candidateWidth)
                 if (generation != lineGeneration) return
                 if (shouldDefer) {
                     preflightReadyGeneration = generation

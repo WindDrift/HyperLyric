@@ -117,6 +117,7 @@ internal object IslandPlaybackStateCoordinator {
     }
 
     fun clearActiveViewsForPause() {
+        if (clearedByPause) return
         clearActiveViewsForPauseInternal()
     }
 

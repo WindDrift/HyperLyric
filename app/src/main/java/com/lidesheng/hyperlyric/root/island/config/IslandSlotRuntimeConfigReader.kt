@@ -43,7 +43,7 @@ internal object IslandSlotRuntimeConfigReader {
             RootConstants.ISLAND_WIDTH_MODE_DYNAMIC
         )
         val dynamicWidthEnabled =
-            widthMode == RootConstants.ISLAND_WIDTH_MODE_DYNAMIC && activeMode != 1
+            widthMode == RootConstants.ISLAND_WIDTH_MODE_DYNAMIC
         val dynamicMinWidth = prefs.getInt(
             RootConstants.KEY_HOOK_ISLAND_DYNAMIC_MIN_WIDTH,
             minIslandWidth.coerceAtLeast(RootConstants.DEFAULT_HOOK_ISLAND_DYNAMIC_MIN_WIDTH)
