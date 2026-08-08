@@ -103,7 +103,10 @@ internal object IslandSlotStyleAssembler {
                 if (styleChanged) {
                     view.displayTranslation = !disableAll
                     view.displayRoma = !disableAll && !translationOnly
-                    view.setStyle(style)
+                    view.setStyle(
+                        style,
+                        isLeftSplitSide = config.isLeftTag(view.tag as? String ?: "")
+                    )
                 } else {
                     view.updateColor(
                         style.primary.color,
