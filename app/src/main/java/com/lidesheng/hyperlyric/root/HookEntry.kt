@@ -378,7 +378,8 @@ class HookEntry : XposedModule() {
                                 if (LyriconDataBridge.updatePlaceholderFormat(format)) {
                                     BaseIslandRenderer.updateLyricLine()
                                     BaseIslandRenderer.updatePosition(
-                                        LyriconDataBridge.currentPosition
+                                        LyriconDataBridge.currentPosition,
+                                        1f
                                     )
                                 }
                             }

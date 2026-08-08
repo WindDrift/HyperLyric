@@ -14,14 +14,13 @@ import android.graphics.Typeface
 import android.text.TextPaint
 import com.lidesheng.hyperlyric.lyric.view.LyricPlayListener
 import com.lidesheng.hyperlyric.lyric.view.line.model.LyricModel
-import com.lidesheng.hyperlyric.lyric.view.line.model.WordModel
 
 internal class SpaceGateWordSyncRenderer(private val view: SpaceGateLyricLineView) : LineRenderer {
 
     val bgPaint = TextPaint(Paint.ANTI_ALIAS_FLAG)
     val hlPaint = TextPaint(Paint.ANTI_ALIAS_FLAG)
 
-    val progressAnimator = SpaceGateProgressAnimator()
+    private val progressController = WordProgressController()
     private val scrollStepper = ScrollStepper()
     private val textDrawer = TextDrawer()
 
@@ -30,6 +29,19 @@ internal class SpaceGateWordSyncRenderer(private val view: SpaceGateLyricLineVie
     override var rightIfPossible = false
 
     var isCharMotionEnabled = true
+
+    var isSustainProgressEnabled: Boolean
+        get() = progressController.sustainAware
+        set(value) {
+            progressController.sustainAware = value
+        }
+
+    fun motionBottomPadding(model: LyricModel): Float =
+        if (isCharMotionEnabled && !isScrollOnly) {
+            textDrawer.motionBottomPadding(model, bgPaint.textSize)
+        } else {
+            0f
+        }
 
     var cjkMotionLiftFactor: Float
         get() = textDrawer.cjkLiftFactor
@@ -77,23 +89,24 @@ internal class SpaceGateWordSyncRenderer(private val view: SpaceGateLyricLineVie
 
     private var _playListener: LyricPlayListener = NoOpPlayListener
 
-    var lastPosition = Long.MIN_VALUE
-        private set
+    val lastPosition: Long get() = progressController.lastPosition
 
-    override val isPlaying get() = progressAnimator.isAnimating
-    override val isFinished get() = progressAnimator.hasFinished
-    override val isStarted get() = progressAnimator.hasStarted
+    override val isPlaying get() = progressController.animator.isAnimating
+    override val isFinished get() = progressController.animator.hasFinished
+    override val isStarted get() = progressController.animator.hasStarted
 
     fun setTextSize(size: Float) {
         bgPaint.textSize = size
         hlPaint.textSize = size
         textDrawer.updateMetrics(bgPaint)
+        textDrawer.clearShaderCache()
     }
 
     fun setTypeface(tf: Typeface?) {
         bgPaint.typeface = tf
         hlPaint.typeface = tf
         textDrawer.updateMetrics(bgPaint)
+        textDrawer.clearShaderCache()
     }
 
     fun setColors(background: IntArray, highlight: IntArray) {
@@ -105,8 +118,8 @@ internal class SpaceGateWordSyncRenderer(private val view: SpaceGateLyricLineVie
 
     fun updateLayout(model: LyricModel, state: LineState, viewWidth: Int, viewHeight: Int) {
         textDrawer.updateMetrics(bgPaint)
-        if (progressAnimator.hasFinished) {
-            progressAnimator.jumpTo(model.width)
+        if (progressController.animator.hasFinished) {
+            progressController.animator.jumpTo(model.width)
         }
         updateScrollState(model, state, viewWidth)
     }
@@ -118,10 +131,8 @@ internal class SpaceGateWordSyncRenderer(private val view: SpaceGateLyricLineVie
         viewWidth: Int,
         viewHeight: Int
     ) {
-        val target = exactTargetWidth(posMs, model)
-        progressAnimator.jumpTo(target)
+        progressController.seek(posMs, model)
         updateScrollState(model, state, viewWidth)
-        lastPosition = posMs
         notifyProgress(model)
     }
 
@@ -130,23 +141,15 @@ internal class SpaceGateWordSyncRenderer(private val view: SpaceGateLyricLineVie
         state: LineState,
         posMs: Long,
         viewWidth: Int,
-        viewHeight: Int
+        viewHeight: Int,
+        playbackSpeed: Float
     ) {
-        if (lastPosition != Long.MIN_VALUE && posMs < lastPosition) {
-            seek(model, state, posMs, viewWidth, viewHeight)
-            return
+        val changed = progressController.update(posMs, playbackSpeed, model)
+        if (changed && !progressController.animator.isAnimating) {
+            updateScrollState(model, state, viewWidth)
+            notifyProgress(model)
+            view.postInvalidateOnAnimation()
         }
-
-        val word = model.wordTimingNavigator.first(posMs)
-        val target = animationTargetWidth(posMs, model, word)
-
-        if (word != null && progressAnimator.currentWidth == 0f) {
-            progressAnimator.jumpTo(exactTargetWidth(posMs, model, word))
-        }
-        if (target != progressAnimator.targetWidth) {
-            progressAnimator.animateTo(target, remainingDuration(posMs, word))
-        }
-        lastPosition = posMs
     }
 
     override fun step(
@@ -155,7 +158,7 @@ internal class SpaceGateWordSyncRenderer(private val view: SpaceGateLyricLineVie
         state: LineState,
         viewWidth: Int
     ): Boolean {
-        if (progressAnimator.step(deltaNanos)) {
+        if (progressController.step(deltaNanos)) {
             updateScrollState(model, state, viewWidth)
             notifyProgress(model)
             return true
@@ -174,7 +177,7 @@ internal class SpaceGateWordSyncRenderer(private val view: SpaceGateLyricLineVie
         textDrawer.draw(
             canvas, model, viewWidth, viewHeight,
             state.scrollOffset, model.width > viewWidth,
-            progressAnimator.currentWidth,
+            progressController.animator.currentWidth,
             isGradientEnabled, isScrollOnly, isCharMotionEnabled,
             centerIfPossible, rightIfPossible,
             bgPaint, hlPaint, paint
@@ -182,85 +185,48 @@ internal class SpaceGateWordSyncRenderer(private val view: SpaceGateLyricLineVie
     }
 
     override fun reset(state: LineState) {
-        progressAnimator.reset()
+        progressController.reset()
         state.reset()
-        lastPosition = Long.MIN_VALUE
         textDrawer.clearShaderCache()
     }
 
     fun freeze(model: LyricModel, state: LineState, viewWidth: Int) {
-        progressAnimator.stopAtCurrent()
+        progressController.freeze()
         updateScrollState(model, state, viewWidth)
         notifyProgress(model)
     }
 
     private fun updateScrollState(model: LyricModel, state: LineState, viewWidth: Int) {
         val offset = scrollStepper.compute(
-            progressAnimator.currentWidth, model.width,
-            viewWidth.toFloat(), progressAnimator.hasFinished, state.isScrollFinished
+            progressController.animator.currentWidth, model.width,
+            viewWidth.toFloat(), progressController.animator.hasFinished, state.isScrollFinished
         )
         state.scrollOffset = offset
-        if (progressAnimator.hasFinished) {
+        if (progressController.animator.hasFinished) {
             state.isScrollFinished = true
         }
-    }
-
-    private fun exactTargetWidth(posMs: Long, model: LyricModel, word: WordModel? = null): Float {
-        val w = word ?: model.wordTimingNavigator.first(posMs)
-        return when {
-            w != null -> interpolateWordWidth(posMs, w)
-            posMs >= model.end -> model.width
-            posMs <= model.begin -> 0f
-            else -> progressAnimator.currentWidth
-        }
-    }
-
-    private fun animationTargetWidth(
-        posMs: Long,
-        model: LyricModel,
-        word: WordModel? = null
-    ): Float {
-        val w = word ?: model.wordTimingNavigator.first(posMs)
-        return when {
-            w != null -> w.endPosition
-            posMs >= model.end -> model.width
-            posMs <= model.begin -> 0f
-            else -> progressAnimator.currentWidth
-        }
-    }
-
-    private fun interpolateWordWidth(posMs: Long, word: WordModel): Float {
-        val duration = (word.end - word.begin).takeIf { it > 0 } ?: word.duration
-        if (duration <= 0L) return word.endPosition
-        val progress = ((posMs - word.begin).toFloat() / duration.toFloat()).coerceIn(0f, 1f)
-        return word.startPosition + (word.endPosition - word.startPosition) * progress
-    }
-
-    private fun remainingDuration(posMs: Long, word: WordModel?): Long {
-        val w = word ?: return 0L
-        return (w.end - posMs).coerceAtLeast(0L)
     }
 
     private val dummyLyricLineView by lazy { LyricLineView(view.context) }
 
     private fun notifyProgress(model: LyricModel) {
-        val current = progressAnimator.currentWidth
+        val animator = progressController.animator
+        val current = animator.currentWidth
         val total = model.width
 
-        if (!progressAnimator.hasStarted && current > 0f) {
-            progressAnimator.hasStarted = true
+        if (!animator.hasStarted && current > 0f) {
+            animator.hasStarted = true
             _playListener.onPlayStarted(dummyLyricLineView)
         }
-        if (!progressAnimator.hasFinished && current >= total) {
-            progressAnimator.hasFinished = true
+        if (!animator.hasFinished && current >= total) {
+            animator.hasFinished = true
             _playListener.onPlayEnded(dummyLyricLineView)
         }
         _playListener.onPlayProgress(dummyLyricLineView, total, current)
     }
 
     fun syncFrom(other: SpaceGateWordSyncRenderer) {
-        this.progressAnimator.syncFrom(other.progressAnimator)
-        this.lastPosition = other.lastPosition
+        progressController.syncFrom(other.progressController)
     }
 
     companion object {

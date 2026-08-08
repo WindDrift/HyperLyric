@@ -81,8 +81,11 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
 
     var isScrollOnly: Boolean = false
         set(value) {
+            if (field == value) return
             field = value
             syncRenderer.isScrollOnly = value
+            requestLayout()
+            invalidate()
         }
 
     var centerIfPossible: Boolean = false
@@ -91,6 +94,12 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
             syncRenderer.centerIfPossible = value
             scrollRenderer.centerIfPossible = value
             countdownRenderer.centerIfPossible = value
+        }
+
+    var isSustainProgressEnabled: Boolean
+        get() = syncRenderer.isSustainProgressEnabled
+        set(value) {
+            syncRenderer.isSustainProgressEnabled = value
         }
 
     var rightIfPossible: Boolean = false
@@ -194,6 +203,7 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
         }
         refreshSizes()
         updateColorsIfReady()
+        requestLayout()
         invalidate()
     }
 
@@ -271,12 +281,19 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
         }
     }
 
-    fun updatePosition(posMs: Long) {
+    fun updatePosition(posMs: Long, playbackSpeed: Float = 1f) {
         if (isStaticPreview) return
         if (isWordSync) {
             if (activeRenderer === syncRenderer && syncRenderer.isScrollOnly && !isOverflow) return
             if (playbackActive) {
-                activeRenderer.update(_model, lineState, posMs, measuredWidth, measuredHeight)
+                activeRenderer.update(
+                    _model,
+                    lineState,
+                    posMs,
+                    measuredWidth,
+                    measuredHeight,
+                    playbackSpeed
+                )
                 if (activeRenderer === countdownRenderer) invalidate()
                 if (activeRenderer.isPlaying && !activeRenderer.isFinished) {
                     animator.startIfNeeded()
@@ -416,12 +433,7 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
 
     override fun onMeasure(wSpec: Int, hSpec: Int) {
         val w = MeasureSpec.getSize(wSpec)
-        val charMotionPadding = if (isWordCharMotionEnabled) {
-            val maxLift = maxOf(wordMotion.cjkLiftFactor, wordMotion.latinLiftFactor)
-            ceil(textPaint.textSize * maxLift).toInt()
-        } else {
-            0
-        }
+        val charMotionPadding = ceil(syncRenderer.motionBottomPadding(_model)).toInt()
         val textHeight = (textPaint.descent() - textPaint.ascent()).toInt() + charMotionPadding
         setMeasuredDimension(w, resolveSize(textHeight, hSpec))
     }
@@ -446,7 +458,7 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
         lineState.reset()
         if (!isOverflow) return
         post {
-            scrollRenderer.update(_model, lineState, 0, measuredWidth, measuredHeight)
+            scrollRenderer.update(_model, lineState, 0, measuredWidth, measuredHeight, 1f)
             animator.stop()
             animator.startIfNeeded()
         }

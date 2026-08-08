@@ -46,8 +46,10 @@ class SpaceGateRichLyricLineView(
     private var pendingMainLineApplied: (() -> Unit)? = null
     private var pendingMainLineCancelled: (() -> Unit)? = null
     private var pendingPosition: Long? = null
+    private var pendingPlaybackSpeed = 1f
     private var requestMarquee = false
     private var lastPosition: Long = Long.MIN_VALUE
+    private var lastPlaybackSpeed = Float.NaN
 
     var rawLine: IRichLyricLine? = null
     private var currentMainText: String? = null
@@ -89,6 +91,7 @@ class SpaceGateRichLyricLineView(
         pendingMainLineCancelled = onMainLineCancelled
         rawLine = value
         lastPosition = Long.MIN_VALUE
+        lastPlaybackSpeed = Float.NaN
         requestMarquee = false
         if (animationTransition) {
             pendingLine = value
@@ -119,7 +122,9 @@ class SpaceGateRichLyricLineView(
         animationTransition = false
         pendingLine = null
         pendingPosition = null
+        pendingPlaybackSpeed = 1f
         lastPosition = Long.MIN_VALUE
+        lastPlaybackSpeed = Float.NaN
         currentMainText = null
         secondaryIsNextLinePreview = false
         alwaysShowSecondary = false
@@ -135,10 +140,11 @@ class SpaceGateRichLyricLineView(
         animationTransition = false
         if (pendingLine != null) {
             refreshLines()
-            pendingPosition?.let { setPosition(it) }
+            pendingPosition?.let { setPosition(it, pendingPlaybackSpeed) }
         }
         pendingLine = null
         pendingPosition = null
+        pendingPlaybackSpeed = 1f
     }
 
     fun setTransitionConfig(config: String?) {
@@ -149,20 +155,30 @@ class SpaceGateRichLyricLineView(
 
     fun seekTo(position: Long) {
         if (animationTransition) {
-            pendingPosition = position; return
+            pendingPosition = position
+            pendingPlaybackSpeed = 1f
+            return
         }
         main.seekTo(position)
         secondary.seekTo(position)
     }
 
-    fun setPosition(position: Long) {
-        if (animationTransition) {
-            pendingPosition = position; return
+    fun setPosition(position: Long, playbackSpeed: Float = 1f) {
+        val resolvedSpeed = if (playbackSpeed.isFinite() && playbackSpeed > 0f) {
+            playbackSpeed
+        } else {
+            1f
         }
-        if (lastPosition == position) return
+        if (animationTransition) {
+            pendingPosition = position
+            pendingPlaybackSpeed = resolvedSpeed
+            return
+        }
+        if (lastPosition == position && lastPlaybackSpeed == resolvedSpeed) return
         lastPosition = position
-        main.updatePosition(position)
-        secondary.updatePosition(position)
+        lastPlaybackSpeed = resolvedSpeed
+        main.updatePosition(position, resolvedSpeed)
+        secondary.updatePosition(position, resolvedSpeed)
     }
 
     fun setPlaybackActive(active: Boolean) {
@@ -353,6 +369,7 @@ class SpaceGateRichLyricLineView(
             return
         }
 
+        main.isSustainProgressEnabled = mainResult.sustainAwareProgress
         main.setLyric(mainResult.line)
         main.isScrollOnly = mainResult.isScrollOnly
         currentMainText = mainResult.line.text
@@ -361,6 +378,7 @@ class SpaceGateRichLyricLineView(
         secondaryIsNextLinePreview = secResult.isNextLinePreview
         secondary.visibleIfChanged = secResult.alwaysShow
         secondary.isStaticPreview = secResult.isNextLinePreview
+        secondary.isSustainProgressEnabled = secResult.sustainAwareProgress
         secondary.setLyric(secResult.line)
         secondary.isScrollOnly = if (secResult.isNextLinePreview) false else secResult.isScrollOnly
 

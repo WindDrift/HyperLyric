@@ -55,6 +55,13 @@ data class WordModel(
     var endPosition: Float = 0f
         private set
 
+    /** Strength of the optional sustain-aware highlight curve, in the range 0..1. */
+    var sustainStrength: Float = 0f
+        internal set
+
+    /** Whether this word uses the CJK per-character motion profile. */
+    val containsCjk: Boolean = text.any { it.isCjkTextUnit() }
+
     /** 拆分后的字符数组 */
     val chars: CharArray = text.toCharArray()
 
@@ -89,4 +96,17 @@ data class WordModel(
 }
 
 internal fun List<WordModel>.toText(): String = joinToString("") { it.text }
+
+private fun Char.isCjkTextUnit(): Boolean {
+    val block = Character.UnicodeBlock.of(this)
+    return block == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS ||
+            block == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_A ||
+            block == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_B ||
+            block == Character.UnicodeBlock.CJK_COMPATIBILITY_IDEOGRAPHS ||
+            block == Character.UnicodeBlock.HIRAGANA ||
+            block == Character.UnicodeBlock.KATAKANA ||
+            block == Character.UnicodeBlock.HANGUL_SYLLABLES ||
+            block == Character.UnicodeBlock.HANGUL_JAMO ||
+            block == Character.UnicodeBlock.HANGUL_COMPATIBILITY_JAMO
+}
 

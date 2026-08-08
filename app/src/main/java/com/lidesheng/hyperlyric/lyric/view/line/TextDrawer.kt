@@ -19,16 +19,51 @@ import com.lidesheng.hyperlyric.lyric.view.line.model.LyricModel
 import com.lidesheng.hyperlyric.lyric.view.line.model.WordModel
 import kotlin.math.abs
 import kotlin.math.max
+import kotlin.math.min
 
 internal class TextDrawer {
     private var bgColors = intArrayOf(Color.GRAY)
     private var hlColors = intArrayOf(Color.WHITE)
 
-    var cjkLiftFactor = DEFAULT_CJK_LIFT_FACTOR
-    var cjkWaveFactor = DEFAULT_CJK_WAVE_FACTOR
-    var latinByCharacter = false
-    var latinLiftFactor = DEFAULT_LATIN_LIFT_FACTOR
-    var latinWaveFactor = DEFAULT_LATIN_WAVE_FACTOR
+    private val cjkMotionSpec = MotionSpec(
+        animateByChar = true,
+        distributeCharsEvenly = false,
+        liftFactor = DEFAULT_CJK_LIFT_FACTOR,
+        waveFactor = DEFAULT_CJK_WAVE_FACTOR
+    )
+    private val latinMotionSpec = MotionSpec(
+        animateByChar = false,
+        distributeCharsEvenly = false,
+        liftFactor = DEFAULT_LATIN_LIFT_FACTOR,
+        waveFactor = DEFAULT_LATIN_WAVE_FACTOR
+    )
+
+    var cjkLiftFactor: Float
+        get() = cjkMotionSpec.liftFactor
+        set(value) {
+            cjkMotionSpec.liftFactor = value
+        }
+    var cjkWaveFactor: Float
+        get() = cjkMotionSpec.waveFactor
+        set(value) {
+            cjkMotionSpec.waveFactor = value
+        }
+    var latinByCharacter: Boolean
+        get() = latinMotionSpec.animateByChar
+        set(value) {
+            latinMotionSpec.animateByChar = value
+            latinMotionSpec.distributeCharsEvenly = value
+        }
+    var latinLiftFactor: Float
+        get() = latinMotionSpec.liftFactor
+        set(value) {
+            latinMotionSpec.liftFactor = value
+        }
+    var latinWaveFactor: Float
+        get() = latinMotionSpec.waveFactor
+        set(value) {
+            latinMotionSpec.waveFactor = value
+        }
 
     val isRainbowBg get() = bgColors.size > 1
     val isRainbowHl get() = hlColors.size > 1
@@ -36,11 +71,14 @@ internal class TextDrawer {
     private val fontMetrics = Paint.FontMetrics()
     private var baselineOffset = 0f
 
-    private var cachedRainbowShader: LinearGradient? = null
+    private val bgRainbowCache = RainbowShaderCache()
+    private val hlRainbowCache = RainbowShaderCache()
+    private var cachedSolidHighlightShader: LinearGradient? = null
+    private var lastSolidHighlightWidth = -1f
+    private var lastSolidHighlightColor = 0
     private var cachedAlphaMaskShader: LinearGradient? = null
-    private var lastTotalWidth = -1f
+    private var lastAlphaMaskTotalWidth = -1f
     private var lastHighlightWidth = -1f
-    private var lastColorsHash = 0
 
     fun setColors(background: IntArray, highlight: IntArray) {
         if (background.isNotEmpty()) bgColors = background
@@ -53,9 +91,21 @@ internal class TextDrawer {
     }
 
     fun clearShaderCache() {
-        cachedRainbowShader = null
+        bgRainbowCache.clear()
+        hlRainbowCache.clear()
+        cachedSolidHighlightShader = null
+        lastSolidHighlightWidth = -1f
+        lastSolidHighlightColor = 0
         cachedAlphaMaskShader = null
-        lastTotalWidth = -1f
+        lastAlphaMaskTotalWidth = -1f
+        lastHighlightWidth = -1f
+    }
+
+    fun motionBottomPadding(model: LyricModel, textSize: Float): Float {
+        if (model.words.isEmpty()) return 0f
+        val cjkOffset = cjkMotionSpec.effectiveOffset(textSize)
+        val latinOffset = latinMotionSpec.effectiveOffset(textSize)
+        return max(cjkOffset, latinOffset)
     }
 
     fun draw(
@@ -75,7 +125,13 @@ internal class TextDrawer {
         hlPaint: TextPaint,
         normPaint: TextPaint
     ) {
-        val y = (viewHeight / 2f) + baselineOffset
+        val motionPadding = if (charMotionEnabled && !scrollOnly) {
+            motionBottomPadding(model, bgPaint.textSize)
+        } else {
+            0f
+        }
+        val contentHeight = (viewHeight.toFloat() - motionPadding).coerceAtLeast(0f)
+        val y = contentHeight / 2f + baselineOffset
         canvas.withSave {
             val xOffset = when {
                 isOverflow -> scrollX
@@ -84,6 +140,9 @@ internal class TextDrawer {
                 else -> 0f
             }
             translate(xOffset, 0f)
+            val visibleStart = (-xOffset).coerceAtLeast(0f)
+            val visibleEnd = (viewWidth - xOffset).coerceAtMost(model.width)
+            if (visibleEnd <= visibleStart) return@withSave
 
             if (scrollOnly) {
                 canvas.drawText(model.wordText, 0f, y, normPaint)
@@ -91,7 +150,7 @@ internal class TextDrawer {
             }
 
             if (isRainbowBg) {
-                bgPaint.shader = getOrCreateRainbowShader(model.width, bgColors)
+                bgPaint.shader = getOrCreateRainbowShader(model.width, bgColors, bgRainbowCache)
             } else {
                 bgPaint.shader = null
             }
@@ -102,8 +161,8 @@ internal class TextDrawer {
                     canvas,
                     model,
                     highlightWidth,
-                    bgClipStart,
-                    Float.MAX_VALUE,
+                    max(bgClipStart, visibleStart),
+                    visibleEnd,
                     viewHeight,
                     y,
                     bgPaint
@@ -121,24 +180,20 @@ internal class TextDrawer {
                 canvas.withSave {
                     canvas.clipRect(0f, 0f, highlightWidth, viewHeight.toFloat())
 
-                    //val atEnd = highlightWidth >= model.width
-                    val atEnd = false
+                    val atEnd = highlightWidth >= model.width
                     if (useGradient && !atEnd) {
                         val baseShader = if (isRainbowHl) {
-                            getOrCreateRainbowShader(model.width, hlColors)
+                            getOrCreateRainbowShader(model.width, hlColors, hlRainbowCache)
                         } else {
-                            LinearGradient(
-                                0f, 0f, model.width, 0f,
-                                hlPaint.color, hlPaint.color,
-                                Shader.TileMode.CLAMP
-                            )
+                            getOrCreateSolidHighlightShader(model.width, hlPaint.color)
                         }
                         val maskShader = getOrCreateAlphaMaskShader(model.width, highlightWidth)
                         hlPaint.shader =
                             ComposeShader(baseShader, maskShader, PorterDuff.Mode.DST_IN)
                     } else {
                         if (isRainbowHl) {
-                            hlPaint.shader = getOrCreateRainbowShader(model.width, hlColors)
+                            hlPaint.shader =
+                                getOrCreateRainbowShader(model.width, hlColors, hlRainbowCache)
                         } else {
                             hlPaint.shader = null
                         }
@@ -148,8 +203,8 @@ internal class TextDrawer {
                             canvas,
                             model,
                             highlightWidth,
-                            0f,
-                            highlightWidth,
+                            visibleStart,
+                            min(highlightWidth, visibleEnd),
                             viewHeight,
                             y,
                             hlPaint
@@ -279,6 +334,7 @@ internal class TextDrawer {
         textSize: Float,
         motionSpec: MotionSpec
     ): Float {
+        if (motionSpec.liftFactor <= 0f || motionSpec.waveFactor <= 0f) return 0f
         val maxOffset = textSize * motionSpec.liftFactor
         val unitCenter = (unitStart + unitEnd) / 2f
         val waveLength = textSize * motionSpec.waveFactor
@@ -286,74 +342,88 @@ internal class TextDrawer {
         return maxOffset * (1f - easeOutQuint(phase))
     }
 
-    private fun WordModel.motionSpec(): MotionSpec {
-        return if (text.any { it.isCjk() }) {
-            MotionSpec(
-                animateByChar = true,
-                distributeCharsEvenly = false,
-                liftFactor = cjkLiftFactor,
-                waveFactor = cjkWaveFactor
-            )
-        } else {
-            MotionSpec(
-                animateByChar = latinByCharacter,
-                distributeCharsEvenly = latinByCharacter,
-                liftFactor = latinLiftFactor,
-                waveFactor = latinWaveFactor
-            )
-        }
-    }
-
-    private fun Char.isCjk(): Boolean {
-        val block = Character.UnicodeBlock.of(this)
-        return block == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS ||
-                block == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_A ||
-                block == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_B ||
-                block == Character.UnicodeBlock.CJK_COMPATIBILITY_IDEOGRAPHS ||
-                block == Character.UnicodeBlock.HIRAGANA ||
-                block == Character.UnicodeBlock.KATAKANA ||
-                block == Character.UnicodeBlock.HANGUL_SYLLABLES ||
-                block == Character.UnicodeBlock.HANGUL_JAMO ||
-                block == Character.UnicodeBlock.HANGUL_COMPATIBILITY_JAMO
-    }
+    private fun WordModel.motionSpec(): MotionSpec =
+        if (containsCjk) cjkMotionSpec else latinMotionSpec
 
     private fun easeOutQuint(value: Float): Float {
         val inverse = 1f - value
         return 1f - inverse * inverse * inverse * inverse * inverse
     }
 
-    private data class MotionSpec(
-        val animateByChar: Boolean,
-        val distributeCharsEvenly: Boolean,
-        val liftFactor: Float,
-        val waveFactor: Float
-    )
+    private class MotionSpec(
+        var animateByChar: Boolean,
+        var distributeCharsEvenly: Boolean,
+        var liftFactor: Float,
+        var waveFactor: Float
+    ) {
+        fun effectiveOffset(textSize: Float): Float =
+            if (waveFactor > 0f && liftFactor > 0f) textSize * liftFactor else 0f
+    }
 
-    private fun getOrCreateRainbowShader(totalWidth: Float, colors: IntArray): Shader {
+    private fun getOrCreateRainbowShader(
+        totalWidth: Float,
+        colors: IntArray,
+        cache: RainbowShaderCache
+    ): Shader {
         val colorsHash = colors.contentHashCode()
-        if (cachedRainbowShader == null || lastTotalWidth != totalWidth || lastColorsHash != colorsHash) {
-            cachedRainbowShader = LinearGradient(
+        if (cache.shader == null || cache.totalWidth != totalWidth ||
+            cache.colorsHash != colorsHash
+        ) {
+            cache.shader = LinearGradient(
                 0f, 0f, totalWidth, 0f,
                 colors, null, Shader.TileMode.CLAMP
             )
-            lastTotalWidth = totalWidth
-            lastColorsHash = colorsHash
+            cache.totalWidth = totalWidth
+            cache.colorsHash = colorsHash
         }
-        return cachedRainbowShader!!
+        return cache.shader!!
+    }
+
+    private fun getOrCreateSolidHighlightShader(totalWidth: Float, color: Int): Shader {
+        if (cachedSolidHighlightShader == null || lastSolidHighlightWidth != totalWidth ||
+            lastSolidHighlightColor != color
+        ) {
+            cachedSolidHighlightShader = LinearGradient(
+                0f, 0f, totalWidth, 0f,
+                color, color, Shader.TileMode.CLAMP
+            )
+            lastSolidHighlightWidth = totalWidth
+            lastSolidHighlightColor = color
+        }
+        return cachedSolidHighlightShader!!
     }
 
     private fun getOrCreateAlphaMaskShader(totalWidth: Float, highlightWidth: Float): Shader {
-        val edgePosition = max(highlightWidth / totalWidth, 0.9f)
-        if (cachedAlphaMaskShader == null || abs(lastHighlightWidth - highlightWidth) > 0.1f) {
+        val edgePosition = if (totalWidth > 0f) {
+            max(highlightWidth / totalWidth, 0.9f).coerceIn(0f, 1f)
+        } else {
+            1f
+        }
+        if (cachedAlphaMaskShader == null || lastAlphaMaskTotalWidth != totalWidth ||
+            abs(lastHighlightWidth - highlightWidth) > 0.1f
+        ) {
             cachedAlphaMaskShader = LinearGradient(
                 0f, 0f, highlightWidth, 0f,
                 intArrayOf(Color.BLACK, Color.BLACK, Color.TRANSPARENT),
                 floatArrayOf(0f, edgePosition, 1f),
                 Shader.TileMode.CLAMP
             )
+            lastAlphaMaskTotalWidth = totalWidth
             lastHighlightWidth = highlightWidth
         }
         return cachedAlphaMaskShader!!
+    }
+
+    private class RainbowShaderCache {
+        var shader: LinearGradient? = null
+        var totalWidth = -1f
+        var colorsHash = 0
+
+        fun clear() {
+            shader = null
+            totalWidth = -1f
+            colorsHash = 0
+        }
     }
 
     private companion object {

@@ -258,10 +258,10 @@ class SuperLyricSource : LyricSource {
         val context = app ?: return
         positionJob = positionScope.launch {
             while (isActive) {
-                val pos = MediaMetadataHelper.getPlaybackPosition(context, publisher)
-                if (pos >= 0) {
-                    lastKnownPosition = pos
-                    sink?.onPositionChanged(pos)
+                val progress = MediaMetadataHelper.getPlaybackProgress(context, publisher)
+                if (progress.position >= 0) {
+                    lastKnownPosition = progress.position
+                    sink?.onPositionChanged(progress.position, progress.playbackSpeed)
                 }
                 delay(50)
             }

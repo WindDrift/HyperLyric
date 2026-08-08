@@ -14,6 +14,7 @@ import com.lidesheng.hyperlyric.root.island.content.IslandSlotContentFacade
 import com.lidesheng.hyperlyric.root.island.effects.color.IslandMusicWaveColorHooker
 import com.lidesheng.hyperlyric.root.island.renderer.IslandRenderer
 import com.lidesheng.hyperlyric.root.utils.CoverColorHelper
+import kotlin.math.abs
 
 class RootLyricSink(
     private val renderer: IslandRenderer,
@@ -22,11 +23,15 @@ class RootLyricSink(
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private var lastPositionDispatchTimeMs = 0L
-    private var pendingPosition: Long? = null
+    private var pendingPosition: PositionSample? = null
     private var positionDispatchScheduled = false
     private var playbackActive = false
     private var lastReceivedPosition = Long.MIN_VALUE
+    private var lastReceivedPositionTimeMs = 0L
+    private var lastReceivedPlaybackSpeed = Float.NaN
     private var lastDispatchedPosition = Long.MIN_VALUE
+    private var lastDispatchedPlaybackSpeed = Float.NaN
+    private var currentPlaybackSpeed = 1f
     private var lastMetadataArtist = ""
     private var lastMetadataAlbum = ""
     private val positionDispatchRunnable = Runnable {
@@ -38,12 +43,22 @@ class RootLyricSink(
 
     private companion object {
         const val MIN_POSITION_DISPATCH_INTERVAL_MS = 33L
+        const val MIN_VALID_PLAYBACK_SPEED = 0.1f
+        const val MAX_VALID_PLAYBACK_SPEED = 4f
+        const val SPEED_CHANGE_EPSILON = 0.01f
+        const val INFERRED_SPEED_BLEND = 0.75f
     }
+
+    private data class PositionSample(val position: Long, val playbackSpeed: Float)
 
     override fun onSongChanged(song: Any?) {
         cancelPendingPositionDispatch()
         lastReceivedPosition = Long.MIN_VALUE
+        lastReceivedPositionTimeMs = 0L
+        lastReceivedPlaybackSpeed = Float.NaN
         lastDispatchedPosition = Long.MIN_VALUE
+        lastDispatchedPlaybackSpeed = Float.NaN
+        currentPlaybackSpeed = 1f
         AiTranslationGateway.cancelActiveRequests()
         val localSong = song as? Song
         LyriconDataBridge.updateSong(
@@ -102,7 +117,11 @@ class RootLyricSink(
         playbackActive = false
         cancelPendingPositionDispatch()
         lastReceivedPosition = Long.MIN_VALUE
+        lastReceivedPositionTimeMs = 0L
+        lastReceivedPlaybackSpeed = Float.NaN
         lastDispatchedPosition = Long.MIN_VALUE
+        lastDispatchedPlaybackSpeed = Float.NaN
+        currentPlaybackSpeed = 1f
         lastMetadataArtist = ""
         lastMetadataAlbum = ""
         endColorSession()
@@ -130,28 +149,35 @@ class RootLyricSink(
         renderer.refreshActiveIsland()
     }
 
-    override fun onPlaybackStateChanged(isPlaying: Boolean) {
+    override fun onPlaybackStateChanged(isPlaying: Boolean, playbackSpeed: Float) {
         playbackActive = isPlaying
+        explicitPlaybackSpeed(playbackSpeed)?.let { currentPlaybackSpeed = it }
         if (!isPlaying) cancelPendingPositionDispatch()
         renderer.onPlaybackStateChanged(isPlaying)
     }
 
-    override fun onPositionChanged(position: Long) {
-        if (position == lastReceivedPosition) return
+    override fun onPositionChanged(position: Long, playbackSpeed: Float) {
+        val now = SystemClock.uptimeMillis()
+        val resolvedSpeed = resolvePlaybackSpeed(position, playbackSpeed, now)
+        if (position == lastReceivedPosition &&
+            abs(resolvedSpeed - lastReceivedPlaybackSpeed) < SPEED_CHANGE_EPSILON
+        ) return
         lastReceivedPosition = position
+        lastReceivedPositionTimeMs = now
+        lastReceivedPlaybackSpeed = resolvedSpeed
         val lyricChanged = LyriconDataBridge.updatePosition(position)
         if (lyricChanged) {
             renderer.updateLyricLine()
         }
+        val sample = PositionSample(position, resolvedSpeed)
         if (playbackActive) {
-            dispatchPositionThrottled(position)
+            dispatchPositionThrottled(sample, now)
         } else {
-            dispatchPosition(position)
+            dispatchPosition(sample, now)
         }
     }
 
-    private fun dispatchPositionThrottled(position: Long) {
-        val now = SystemClock.uptimeMillis()
+    private fun dispatchPositionThrottled(position: PositionSample, now: Long) {
         val elapsed = now - lastPositionDispatchTimeMs
         if (elapsed >= MIN_POSITION_DISPATCH_INTERVAL_MS) {
             dispatchPosition(position, now)
@@ -168,12 +194,18 @@ class RootLyricSink(
         )
     }
 
-    private fun dispatchPosition(position: Long, now: Long = SystemClock.uptimeMillis()) {
-        if (position == lastDispatchedPosition) return
+    private fun dispatchPosition(
+        sample: PositionSample,
+        now: Long = SystemClock.uptimeMillis()
+    ) {
+        if (sample.position == lastDispatchedPosition &&
+            abs(sample.playbackSpeed - lastDispatchedPlaybackSpeed) < SPEED_CHANGE_EPSILON
+        ) return
         lastPositionDispatchTimeMs = now
-        lastDispatchedPosition = position
+        lastDispatchedPosition = sample.position
+        lastDispatchedPlaybackSpeed = sample.playbackSpeed
         pendingPosition = null
-        renderer.updatePosition(position)
+        renderer.updatePosition(sample.position, sample.playbackSpeed)
     }
 
     private fun cancelPendingPositionDispatch() {
@@ -181,6 +213,29 @@ class RootLyricSink(
         pendingPosition = null
         positionDispatchScheduled = false
     }
+
+    private fun resolvePlaybackSpeed(position: Long, reportedSpeed: Float, now: Long): Float {
+        explicitPlaybackSpeed(reportedSpeed)?.let {
+            currentPlaybackSpeed = it
+            return it
+        }
+
+        if (playbackActive && lastReceivedPosition != Long.MIN_VALUE &&
+            lastReceivedPositionTimeMs > 0L && now > lastReceivedPositionTimeMs &&
+            position >= lastReceivedPosition
+        ) {
+            val elapsedMs = now - lastReceivedPositionTimeMs
+            val inferred = (position - lastReceivedPosition).toFloat() / elapsedMs.toFloat()
+            if (inferred in MIN_VALID_PLAYBACK_SPEED..MAX_VALID_PLAYBACK_SPEED) {
+                currentPlaybackSpeed = currentPlaybackSpeed * (1f - INFERRED_SPEED_BLEND) +
+                        inferred * INFERRED_SPEED_BLEND
+            }
+        }
+        return currentPlaybackSpeed
+    }
+
+    private fun explicitPlaybackSpeed(speed: Float): Float? =
+        speed.takeIf { it.isFinite() && it in MIN_VALID_PLAYBACK_SPEED..MAX_VALID_PLAYBACK_SPEED }
 
     private fun updateColorSession(
         title: String,

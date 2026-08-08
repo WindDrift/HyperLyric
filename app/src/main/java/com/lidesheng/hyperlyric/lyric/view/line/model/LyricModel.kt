@@ -12,6 +12,7 @@ import com.lidesheng.hyperlyric.lyric.model.LyricLine
 import com.lidesheng.hyperlyric.lyric.model.LyricMetadata
 import com.lidesheng.hyperlyric.lyric.model.LyricWord
 import com.lidesheng.hyperlyric.lyric.model.extensions.TimingNavigator
+import kotlin.math.min
 
 data class LyricModel(
     val begin: Long = 0,
@@ -36,6 +37,7 @@ data class LyricModel(
             word.updateSizes(previous, paint)
             previous = word
         }
+        updateSustainStrengths(paint.textSize)
     }
 
     /**
@@ -52,6 +54,71 @@ data class LyricModel(
         } else {
             measureWidth
         }
+    }
+
+    private fun updateSustainStrengths(textSize: Float) {
+        if (words.isEmpty() || textSize <= 0f) return
+
+        val durations = LongArray(words.size) { index -> durationOf(words[index]) }
+        val paces = FloatArray(words.size) { index ->
+            val visualUnits = (words[index].textWidth / textSize).coerceAtLeast(0.5f)
+            durations[index].toFloat() / visualUnits
+        }
+
+        words.forEachIndexed { index, word ->
+            val duration = durations[index]
+            if (duration < SUSTAIN_MIN_DURATION_MS || word.textWidth <= 0f) {
+                word.sustainStrength = 0f
+                return@forEachIndexed
+            }
+
+            val peerPaces = paces.filterIndexed { peerIndex, _ ->
+                peerIndex != index && durations[peerIndex] > 0L
+            }.sorted()
+            val relativeStrength = if (peerPaces.isNotEmpty()) {
+                val baseline = median(peerPaces).coerceAtLeast(1f)
+                smoothStep(
+                    (paces[index] / baseline - SUSTAIN_RATIO_START) /
+                            (SUSTAIN_RATIO_FULL - SUSTAIN_RATIO_START)
+                )
+            } else {
+                smoothStep(
+                    (duration - SINGLE_WORD_SUSTAIN_START_MS).toFloat() /
+                            (SINGLE_WORD_SUSTAIN_FULL_MS - SINGLE_WORD_SUSTAIN_START_MS).toFloat()
+                )
+            }
+            val durationStrength = smoothStep(
+                (duration - SUSTAIN_MIN_DURATION_MS).toFloat() /
+                        (SUSTAIN_FULL_DURATION_MS - SUSTAIN_MIN_DURATION_MS).toFloat()
+            )
+            word.sustainStrength = min(relativeStrength, durationStrength)
+        }
+    }
+
+    private fun durationOf(word: WordModel): Long =
+        (word.end - word.begin).takeIf { it > 0L } ?: word.duration
+
+    private fun median(sorted: List<Float>): Float {
+        val middle = sorted.size / 2
+        return if (sorted.size % 2 == 0) {
+            (sorted[middle - 1] + sorted[middle]) / 2f
+        } else {
+            sorted[middle]
+        }
+    }
+
+    private fun smoothStep(value: Float): Float {
+        val progress = value.coerceIn(0f, 1f)
+        return progress * progress * (3f - 2f * progress)
+    }
+
+    private companion object {
+        const val SUSTAIN_MIN_DURATION_MS = 700L
+        const val SUSTAIN_FULL_DURATION_MS = 1_400L
+        const val SUSTAIN_RATIO_START = 1.4f
+        const val SUSTAIN_RATIO_FULL = 2.4f
+        const val SINGLE_WORD_SUSTAIN_START_MS = 1_000L
+        const val SINGLE_WORD_SUSTAIN_FULL_MS = 2_200L
     }
 }
 

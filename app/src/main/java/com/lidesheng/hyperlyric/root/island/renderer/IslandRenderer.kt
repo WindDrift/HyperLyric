@@ -9,7 +9,7 @@ interface IslandRenderer {
     fun refreshActiveIsland()
     fun updateLyricLine()
     fun updateTextColors()
-    fun updatePosition(position: Long)
+    fun updatePosition(position: Long, playbackSpeed: Float = 1f)
     fun onPlaybackStateChanged(isPlaying: Boolean)
     fun clearAllViews()
 }

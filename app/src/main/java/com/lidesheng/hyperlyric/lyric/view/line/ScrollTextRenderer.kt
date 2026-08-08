@@ -210,7 +210,8 @@ internal class ScrollTextRenderer : LineRenderer {
         state: LineState,
         posMs: Long,
         viewWidth: Int,
-        viewHeight: Int
+        viewHeight: Int,
+        playbackSpeed: Float
     ) {
         lastViewWidth = viewWidth
         lastLyricWidth = model.width

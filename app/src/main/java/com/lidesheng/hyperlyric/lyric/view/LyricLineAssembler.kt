@@ -28,10 +28,14 @@ internal class LyricLineAssembler(
         this.enableRelativeHighlight = enableRelativeHighlight
     }
 
-    data class MainResult(val line: LyricLine, val isScrollOnly: Boolean)
+    data class MainResult(
+        val line: LyricLine,
+        val isScrollOnly: Boolean,
+        val sustainAwareProgress: Boolean
+    )
 
     fun buildMain(source: IRichLyricLine?): MainResult {
-        if (source == null) return MainResult(LyricLine(), false)
+        if (source == null) return MainResult(LyricLine(), false, false)
 
         val hasOriginalWords = !source.words.isNullOrEmpty()
         val shouldGen = enableRelativeProgress && source.isTitleLine().not()
@@ -45,20 +49,26 @@ internal class LyricLineAssembler(
             isAlignedRight = source.isAlignedRight, metadata = source.metadata,
             text = source.text, words = words
         )
-        return MainResult(line, generated && !enableRelativeHighlight)
+        return MainResult(
+            line = line,
+            isScrollOnly = generated && !enableRelativeHighlight,
+            sustainAwareProgress = hasOriginalWords
+        )
     }
 
     data class SecondaryResult(
         val line: LyricLine,
         val alwaysShow: Boolean,
         val isScrollOnly: Boolean,
-        val isNextLinePreview: Boolean
+        val isNextLinePreview: Boolean,
+        val sustainAwareProgress: Boolean
     )
 
     fun buildSecondary(source: IRichLyricLine?): SecondaryResult {
-        if (source == null) return SecondaryResult(LyricLine(), false, false, false)
+        if (source == null) return SecondaryResult(LyricLine(), false, false, false, false)
 
         var generated = false
+        var hasOriginalWords = false
         val isNextLinePreview = source.metadata?.getBoolean(METADATA_NEXT_LINE_PREVIEW) == true
         val line = LyricLine().apply {
             begin = source.begin; end = source.end; duration = source.duration
@@ -74,6 +84,7 @@ internal class LyricLineAssembler(
                     } else {
                         words = wordBuilder.build(source, source.secondary, source.secondaryWords)
                         generated = words !== source.secondaryWords
+                        hasOriginalWords = !source.secondaryWords.isNullOrEmpty()
                     }
                 }
                 displayTranslation && (!source.translation.isNullOrBlank()
@@ -82,6 +93,7 @@ internal class LyricLineAssembler(
                     words = wordBuilder.build(source, source.translation, source.translationWords)
                     metadata = lyricMetadataOf("translation" to "true")
                     generated = words !== source.translationWords
+                    hasOriginalWords = !source.translationWords.isNullOrEmpty()
                 }
                 displayRoma -> {
                     text = source.roma
@@ -100,7 +112,13 @@ internal class LyricLineAssembler(
                         || line.words?.firstOrNull()?.begin?.let { (it - source.begin) < 500 } == true
                 )
 
-        return SecondaryResult(line, alwaysShow, generated && !enableRelativeHighlight, isNextLinePreview)
+        return SecondaryResult(
+            line = line,
+            alwaysShow = alwaysShow,
+            isScrollOnly = generated && !enableRelativeHighlight,
+            isNextLinePreview = isNextLinePreview,
+            sustainAwareProgress = hasOriginalWords
+        )
     }
 }
 

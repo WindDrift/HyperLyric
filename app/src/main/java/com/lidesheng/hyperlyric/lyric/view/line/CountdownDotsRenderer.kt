@@ -13,6 +13,7 @@ import android.graphics.Paint
 import android.graphics.Shader
 import android.text.TextPaint
 import com.lidesheng.hyperlyric.lyric.view.line.model.LyricModel
+import kotlin.math.abs
 
 internal class CountdownDotsRenderer : LineRenderer {
 
@@ -24,6 +25,7 @@ internal class CountdownDotsRenderer : LineRenderer {
     private val progressAnimator = ProgressAnimator()
     private var textSize = 0f
     private var lastPosition = Long.MIN_VALUE
+    private var lastPlaybackSpeed = 1f
 
     private var backgroundShader: Shader? = null
     private var highlightShader: Shader? = null
@@ -68,6 +70,7 @@ internal class CountdownDotsRenderer : LineRenderer {
     fun syncFrom(other: CountdownDotsRenderer) {
         progressAnimator.syncFrom(other.progressAnimator)
         lastPosition = other.lastPosition
+        lastPlaybackSpeed = other.lastPlaybackSpeed
     }
 
     fun freeze() {
@@ -90,7 +93,8 @@ internal class CountdownDotsRenderer : LineRenderer {
         state: LineState,
         posMs: Long,
         viewWidth: Int,
-        viewHeight: Int
+        viewHeight: Int,
+        playbackSpeed: Float
     ) {
         if (lastPosition != Long.MIN_VALUE && posMs < lastPosition) {
             seek(model, state, posMs, viewWidth, viewHeight)
@@ -98,12 +102,16 @@ internal class CountdownDotsRenderer : LineRenderer {
         }
 
         val exactProgress = progressAt(posMs, model)
+        val speed = normalizePlaybackSpeed(playbackSpeed)
         if (exactProgress >= 1f) {
             progressAnimator.jumpTo(1f)
             lastPosition = posMs
+            lastPlaybackSpeed = speed
             return
         }
-        if (progressAnimator.currentWidth == 0f && exactProgress > 0f) {
+        if ((progressAnimator.currentWidth == 0f && exactProgress > 0f) ||
+            abs(progressAnimator.currentWidth - exactProgress) >= REANCHOR_THRESHOLD
+        ) {
             progressAnimator.jumpTo(exactProgress)
         }
 
@@ -115,10 +123,17 @@ internal class CountdownDotsRenderer : LineRenderer {
         } else {
             1f
         }
-        if (target != progressAnimator.targetWidth || !progressAnimator.isAnimating) {
-            progressAnimator.animateTo(target, remainingPhaseDuration(posMs, model, target))
+        if (target != progressAnimator.targetWidth || !progressAnimator.isAnimating ||
+            speed != lastPlaybackSpeed
+        ) {
+            progressAnimator.animateTo(
+                target,
+                remainingPhaseDuration(posMs, model, target),
+                speed
+            )
         }
         lastPosition = posMs
+        lastPlaybackSpeed = speed
     }
 
     override fun step(
@@ -189,6 +204,7 @@ internal class CountdownDotsRenderer : LineRenderer {
     override fun reset(state: LineState) {
         progressAnimator.reset()
         lastPosition = Long.MIN_VALUE
+        lastPlaybackSpeed = 1f
         state.reset()
     }
 
@@ -289,5 +305,6 @@ internal class CountdownDotsRenderer : LineRenderer {
         const val SCALE_AMOUNT = 0.4f
         const val MAX_SCALE = 1f + SCALE_AMOUNT
         const val FADE_START_PROGRESS = 3f / 5f
+        const val REANCHOR_THRESHOLD = 0.035f
     }
 }

@@ -225,7 +225,7 @@ class LyricInfoSource(private val context: Context) : LyricSource {
                     }
                     val position = MediaMetadataHelper.estimatePlaybackPosition(state)
                     if (position >= 0L && activeController?.sessionToken == controller.sessionToken) {
-                        sink?.onPositionChanged(position)
+                        sink?.onPositionChanged(position, state.playbackSpeed)
                     }
                 } catch (_: Exception) {
                 }
@@ -237,7 +237,7 @@ class LyricInfoSource(private val context: Context) : LyricSource {
     private fun handlePlaybackState(controller: MediaController, state: PlaybackState?) {
         if (controller.sessionToken != activeController?.sessionToken) return
         val isPlaying = state?.state == PlaybackState.STATE_PLAYING
-        sink?.onPlaybackStateChanged(isPlaying)
+        sink?.onPlaybackStateChanged(isPlaying, state?.playbackSpeed ?: Float.NaN)
         dispatchPosition(state)
         if (isPlaying) {
             startPositionPolling(controller)
@@ -248,7 +248,9 @@ class LyricInfoSource(private val context: Context) : LyricSource {
 
     private fun dispatchPosition(state: PlaybackState?) {
         val position = MediaMetadataHelper.estimatePlaybackPosition(state)
-        if (position >= 0L) sink?.onPositionChanged(position)
+        if (position >= 0L) {
+            sink?.onPositionChanged(position, state?.playbackSpeed ?: Float.NaN)
+        }
     }
 
     private fun stopPositionPolling() {

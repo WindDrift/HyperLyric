@@ -28,7 +28,14 @@ internal interface LineRenderer {
     )
 
     fun seek(model: LyricModel, state: LineState, posMs: Long, viewWidth: Int, viewHeight: Int)
-    fun update(model: LyricModel, state: LineState, posMs: Long, viewWidth: Int, viewHeight: Int)
+    fun update(
+        model: LyricModel,
+        state: LineState,
+        posMs: Long,
+        viewWidth: Int,
+        viewHeight: Int,
+        playbackSpeed: Float
+    )
     fun reset(state: LineState)
 }
 

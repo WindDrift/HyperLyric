@@ -153,7 +153,7 @@ object BaseIslandRenderer : IslandRenderer {
         }
     }
 
-    override fun updatePosition(position: Long) {
+    override fun updatePosition(position: Long, playbackSpeed: Float) {
         val prefs = HookEntry.instance?.prefs ?: return
         if (!prefs.getBoolean(
                 RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND,
@@ -190,15 +190,19 @@ object BaseIslandRenderer : IslandRenderer {
                     if (indexedViews.isEmpty()) {
                         setPosition(
                             cv.findViewWithTag(IslandProbeUtils.LEFT_TEST_VIEW_TAG),
-                            position
+                            position,
+                            playbackSpeed
                         )
                         setPosition(
                             cv.findViewWithTag(IslandProbeUtils.RIGHT_TEST_VIEW_TAG),
-                            position
+                            position,
+                            playbackSpeed
                         )
                         IslandPresentationCoordinator.refreshInjectedViewIndex(token)
                     } else {
-                        indexedViews.forEach { view -> setPosition(view, position) }
+                        indexedViews.forEach { view ->
+                            setPosition(view, position, playbackSpeed)
+                        }
                     }
                     IslandHostFacade.updateProgressGlow(cv, lyricPkg, currentPrefs)
                 }
@@ -213,10 +217,10 @@ object BaseIslandRenderer : IslandRenderer {
         )
     }
 
-    private fun setPosition(view: View?, position: Long) {
+    private fun setPosition(view: View?, position: Long, playbackSpeed: Float) {
         when (view) {
-            is RichLyricLineView -> view.setPosition(position)
-            is SpaceGateRichLyricLineView -> view.setPosition(position)
+            is RichLyricLineView -> view.setPosition(position, playbackSpeed)
+            is SpaceGateRichLyricLineView -> view.setPosition(position, playbackSpeed)
         }
     }
 
