@@ -485,10 +485,12 @@ internal object NotificationMediaSingleCardSwitcherHooker {
                 Action.FULL_AOD -> fullAodActive?.let { active ->
                     state?.onFullAodStateChanged(active)
                 }
-                Action.FOREGROUND ->
+                Action.FOREGROUND -> {
+                    state?.onNativeForegroundColorsUpdated()
                     NotificationMediaSingleCardSwitcherHooker.onForegroundColorsApplied(
                         viewController
                     )
+                }
             }
             return result
         }
@@ -1065,6 +1067,14 @@ internal object NotificationMediaSingleCardSwitcherHooker {
             runOnMain {
                 if (isSwitcherUsable()) {
                     pageIndicator.updateTint(resolveIndicatorColor())
+                }
+            }
+        }
+
+        fun onNativeForegroundColorsUpdated() {
+            runOnMain {
+                if (isSwitcherUsable()) {
+                    multiCardRenderer.refreshUiMode()
                 }
             }
         }

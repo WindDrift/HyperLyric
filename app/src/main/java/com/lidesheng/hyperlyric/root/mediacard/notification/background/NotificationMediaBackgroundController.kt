@@ -1,6 +1,7 @@
 package com.lidesheng.hyperlyric.root.mediacard.notification.background
 
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
@@ -75,10 +76,13 @@ internal object NotificationMediaBackgroundController {
         val blurAmount = currentBlurAmount()
         val autoInvert = currentAutoInvert()
         val softCoverTone = currentSoftCoverTone()
+        val nightMode = context.resources.configuration.uiMode and
+            Configuration.UI_MODE_NIGHT_MASK
         val artworkUpdated = readField(controller, "isArtWorkUpdate") == true
         val mediaIdentity = NotificationMediaDataIdentity.of(mediaData)
         val token =
-            "$style:$blurAmount:$autoInvert:$softCoverTone:$packageName:$mediaIdentity:$width:$height"
+            "$style:$blurAmount:$autoInvert:$softCoverTone:$nightMode:" +
+                "$packageName:$mediaIdentity:$width:$height"
         if (state.token == token && (state.customApplied || state.renderPending) && !artworkUpdated) {
             return
         }
@@ -131,6 +135,18 @@ internal object NotificationMediaBackgroundController {
                 state.artworkFingerprint = rendered.artworkFingerprint
                 state.renderPending = false
             }
+        }
+    }
+
+    /**
+     * Rebinds the last media payload after SystemUI reports a UI-mode change.
+     * The night-mode value participates in the render token, so unchanged
+     * cards stay cheap while theme-dependent backgrounds invalidate correctly.
+     */
+    fun onUiModeChanged(controller: Any) {
+        if (!isActive(controller)) return
+        states[controller]?.lastMediaData?.let { mediaData ->
+            onBind(controller, mediaData)
         }
     }
 

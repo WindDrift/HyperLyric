@@ -218,6 +218,18 @@ internal class NotificationMediaMultiCardRenderer(
     private val detachMethod = findMethod(controllerClass, "detach") {
         it.parameterCount == 0
     }
+    private val updateMediaBackgroundMethod = findMethod(
+        controllerClass,
+        "updateMediaBackground"
+    ) {
+        it.parameterCount == 0
+    }
+    private val updateForegroundColorsMethod = findMethod(
+        controllerClass,
+        "updateForegroundColors"
+    ) {
+        it.parameterCount == 0
+    }
 
     private var holderConstructor: Constructor<*>? = null
     private var controllerConstructor: Constructor<*>? = null
@@ -431,6 +443,28 @@ internal class NotificationMediaMultiCardRenderer(
     }
 
     fun headerTranslation(): Float? = scrollView?.translationX
+
+    /**
+     * SystemUI's configuration callback only refreshes its single native
+     * mediaViewController. Visible carousel pages use independently created
+     * controllers, so mirror the same background -> foreground update order
+     * for every page when that native controller reports a UI-mode refresh.
+     */
+    fun refreshUiMode() {
+        if (!isActive) return
+        cards.values.forEach { card ->
+            invokeUiModeRefresh(card, updateMediaBackgroundMethod, "背景")
+            invokeUiModeRefresh(card, updateForegroundColorsMethod, "前景色")
+        }
+    }
+
+    private fun invokeUiModeRefresh(card: Card, method: Method?, target: String) {
+        method ?: return
+        runCatching { method.invoke(card.controller) }
+            .onFailure { error ->
+                warn("刷新多媒体卡片${target}失败: key=${card.key}", error)
+            }
+    }
 
     /**
      * Mirrors MiuiMediaViewControllerImpl.onFullAodStateChanged for every

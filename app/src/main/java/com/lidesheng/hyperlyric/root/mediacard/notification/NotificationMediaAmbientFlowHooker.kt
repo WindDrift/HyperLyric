@@ -133,7 +133,8 @@ object NotificationMediaAmbientFlowHooker {
             "attach" -> ControllerHook(Action.ATTACH)
             "detach" -> ControllerHook(Action.DETACH)
             "bindMediaData" -> ControllerHook(Action.BIND)
-            "updateForegroundColors", "updateMediaBackground" -> NativeBackgroundUpdateHook()
+            "updateForegroundColors", "updateMediaBackground" ->
+                NativeBackgroundUpdateHook(method.name)
             "onDraw" -> ProgressDrawHook()
             else -> null
         }
@@ -196,11 +197,13 @@ object NotificationMediaAmbientFlowHooker {
 
     enum class Action { ATTACH, DETACH, BIND }
 
-    class NativeBackgroundUpdateHook : Hooker {
+    class NativeBackgroundUpdateHook(
+        private val methodName: String
+    ) : Hooker {
         override fun intercept(chain: Chain): Any? {
             if (!MediaCardRuntimeConfig.current.enabled) return chain.proceed()
             val controller = chain.thisObject ?: return chain.proceed()
-            return if (NotificationMediaBackgroundController.shouldSuppressNativeBackground(
+            val result = if (NotificationMediaBackgroundController.shouldSuppressNativeBackground(
                     controller
                 )
             ) {
@@ -208,6 +211,11 @@ object NotificationMediaAmbientFlowHooker {
             } else {
                 chain.proceed()
             }
+            if (methodName == "updateForegroundColors") {
+                NotificationMediaBackgroundController.onUiModeChanged(controller)
+                refreshCustomFlowTone(controller)
+            }
+            return result
         }
     }
 
@@ -490,6 +498,10 @@ object NotificationMediaAmbientFlowHooker {
             tone = currentFlowTone(view.context),
             playing = state.isPlaying && state.hasColors
         )
+    }
+
+    private fun refreshCustomFlowTone(controller: Any) {
+        states[controller]?.let(::configureCustomView)
     }
 
     private fun resolveNativeApi(classLoader: ClassLoader?): NativeMusicBgApi? {
