@@ -1,7 +1,7 @@
 package com.lidesheng.hyperlyric.common
 
 object SuperIslandWidthPolicy {
-    const val SIDE_COMPONENT_WIDTH_DP = 20
+    const val SIDE_COMPONENT_WIDTH_DP = 22
     const val MIN_ISLAND_WIDTH_DP = 20
     const val MAX_SIDE_WIDTH_DP = 120
 
