@@ -369,8 +369,17 @@ internal object IslandSlotStructureInjector {
             wrapper.minimumWidth = 0
             changed = true
         }
-        if (wrapper.maxWidthPx != widthPx) {
-            wrapper.maxWidthPx = widthPx
+        // Dynamic width is refined from the current lyric line after the wrapper is attached.
+        // Keep that measured value during a lifecycle re-ensure (especially pause/keep),
+        // otherwise the paused path skips the width refresh and leaves the wrapper at the
+        // configured maximum until playback resumes.
+        val targetMaxWidthPx = if (config.geometry.isDynamicWidth && wrapper.maxWidthPx > 0) {
+            minOf(wrapper.maxWidthPx, widthPx)
+        } else {
+            widthPx
+        }
+        if (wrapper.maxWidthPx != targetMaxWidthPx) {
+            wrapper.maxWidthPx = targetMaxWidthPx
             changed = true
         }
         val layoutParams = wrapper.layoutParams
