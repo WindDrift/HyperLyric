@@ -18,6 +18,7 @@ import com.lidesheng.hyperlyric.lyric.view.WordMotion
  * 负责根据用户配置和歌曲信息（如封面）生成 RichLyricLineView 所需的样式对象
  */
 object LyricStyleHelper {
+    private const val COVER_BACKGROUND_ALPHA = 144
 
     /**
      * 构建歌词样式对象
@@ -157,16 +158,16 @@ object LyricStyleHelper {
             }
             val darkColors = palette?.second
             if (darkColors != null && darkColors.isNotEmpty()) {
-                val translucentDarkColors = darkColors.map {
+                val backgroundCoverColors = darkColors.map {
                     Color.argb(
-                        191,
+                        COVER_BACKGROUND_ALPHA,
                         Color.red(it),
                         Color.green(it),
                         Color.blue(it)
                     )
                 }.toIntArray()
                 primaryColors = darkColors   // 无逐字/标题 -> 封面颜色
-                bgColors = translucentDarkColors // 未唱到 -> 封面颜色(75%透明度)
+                bgColors = backgroundCoverColors // 未唱到 -> 封面颜色(alpha 144)
                 hlColors = darkColors        // 已唱到 -> 封面颜色
             } else {
                 primaryColors = intArrayOf(Color.WHITE)

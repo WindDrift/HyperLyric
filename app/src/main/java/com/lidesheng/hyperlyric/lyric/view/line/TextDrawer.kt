@@ -77,7 +77,7 @@ internal class TextDrawer {
     private var lastSolidHighlightWidth = -1f
     private var lastSolidHighlightColor = 0
     private var cachedAlphaMaskShader: LinearGradient? = null
-    private var lastAlphaMaskTotalWidth = -1f
+    private var lastAlphaMaskFeatherWidth = -1f
     private var lastHighlightWidth = -1f
 
     fun setColors(background: IntArray, highlight: IntArray) {
@@ -97,7 +97,7 @@ internal class TextDrawer {
         lastSolidHighlightWidth = -1f
         lastSolidHighlightColor = 0
         cachedAlphaMaskShader = null
-        lastAlphaMaskTotalWidth = -1f
+        lastAlphaMaskFeatherWidth = -1f
         lastHighlightWidth = -1f
     }
 
@@ -177,17 +177,31 @@ internal class TextDrawer {
             }
 
             if (highlightWidth > 0f) {
+                val atEnd = highlightWidth >= model.width
+                val featherWidth = if (useGradient && !atEnd) {
+                    hlPaint.textSize * HIGHLIGHT_FEATHER_WIDTH_FACTOR
+                } else {
+                    0f
+                }
+                val hasFeather = featherWidth > 0f
+                val highlightClipEnd = if (hasFeather) {
+                    min(model.width, highlightWidth + featherWidth)
+                } else {
+                    min(model.width, highlightWidth)
+                }
                 canvas.withSave {
-                    canvas.clipRect(0f, 0f, highlightWidth, viewHeight.toFloat())
+                    canvas.clipRect(0f, 0f, highlightClipEnd, viewHeight.toFloat())
 
-                    val atEnd = highlightWidth >= model.width
-                    if (useGradient && !atEnd) {
+                    if (hasFeather) {
                         val baseShader = if (isRainbowHl) {
                             getOrCreateRainbowShader(model.width, hlColors, hlRainbowCache)
                         } else {
                             getOrCreateSolidHighlightShader(model.width, hlPaint.color)
                         }
-                        val maskShader = getOrCreateAlphaMaskShader(model.width, highlightWidth)
+                        val maskShader = getOrCreateAlphaMaskShader(
+                            highlightWidth,
+                            featherWidth
+                        )
                         hlPaint.shader =
                             ComposeShader(baseShader, maskShader, PorterDuff.Mode.DST_IN)
                     } else {
@@ -204,7 +218,7 @@ internal class TextDrawer {
                             model,
                             highlightWidth,
                             visibleStart,
-                            min(highlightWidth, visibleEnd),
+                            min(highlightClipEnd, visibleEnd),
                             viewHeight,
                             y,
                             hlPaint
@@ -393,22 +407,24 @@ internal class TextDrawer {
         return cachedSolidHighlightShader!!
     }
 
-    private fun getOrCreateAlphaMaskShader(totalWidth: Float, highlightWidth: Float): Shader {
-        val edgePosition = if (totalWidth > 0f) {
-            max(highlightWidth / totalWidth, 0.9f).coerceIn(0f, 1f)
-        } else {
-            1f
-        }
-        if (cachedAlphaMaskShader == null || lastAlphaMaskTotalWidth != totalWidth ||
+    private fun getOrCreateAlphaMaskShader(
+        highlightWidth: Float,
+        featherWidth: Float
+    ): Shader {
+        if (cachedAlphaMaskShader == null ||
+            lastAlphaMaskFeatherWidth != featherWidth ||
             abs(lastHighlightWidth - highlightWidth) > 0.1f
         ) {
             cachedAlphaMaskShader = LinearGradient(
-                0f, 0f, highlightWidth, 0f,
-                intArrayOf(Color.BLACK, Color.BLACK, Color.TRANSPARENT),
-                floatArrayOf(0f, edgePosition, 1f),
+                highlightWidth,
+                0f,
+                highlightWidth + featherWidth,
+                0f,
+                HIGHLIGHT_FEATHER_COLORS,
+                HIGHLIGHT_FEATHER_STOPS,
                 Shader.TileMode.CLAMP
             )
-            lastAlphaMaskTotalWidth = totalWidth
+            lastAlphaMaskFeatherWidth = featherWidth
             lastHighlightWidth = highlightWidth
         }
         return cachedAlphaMaskShader!!
@@ -427,6 +443,24 @@ internal class TextDrawer {
     }
 
     private companion object {
+        const val HIGHLIGHT_FEATHER_WIDTH_FACTOR = 0.45f
+        val HIGHLIGHT_FEATHER_COLORS = intArrayOf(
+            Color.BLACK,
+            Color.argb(244, 0, 0, 0),
+            Color.argb(184, 0, 0, 0),
+            Color.argb(92, 0, 0, 0),
+            Color.argb(24, 0, 0, 0),
+            Color.TRANSPARENT
+        )
+        val HIGHLIGHT_FEATHER_STOPS = floatArrayOf(
+            0f,
+            0.18f,
+            0.42f,
+            0.66f,
+            0.84f,
+            1f
+        )
+
         const val DEFAULT_CJK_LIFT_FACTOR = 0.055f
         const val DEFAULT_CJK_WAVE_FACTOR = 2.8f
         const val DEFAULT_LATIN_LIFT_FACTOR = 0.08f
