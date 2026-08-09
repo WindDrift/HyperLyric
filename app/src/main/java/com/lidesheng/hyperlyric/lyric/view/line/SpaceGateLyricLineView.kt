@@ -233,8 +233,8 @@ open class SpaceGateLyricLineView(context: Context, attrs: AttributeSet? = null)
         this.rightIfPossible = right
         updateColor(text.color, highlight.background, highlight.foreground)
         setTextSize(text.size)
-        textPaint.typeface = text.typeface
-        syncRenderer.setTypeface(text.typeface)
+        textPaint.applyFont(text.typeface, text.fontVariationSettings)
+        syncRenderer.setFont(text.typeface, text.fontVariationSettings)
         syncRenderer.isGradientEnabled = gradient
         countdownRenderer.isGradientEnabled = gradient
 

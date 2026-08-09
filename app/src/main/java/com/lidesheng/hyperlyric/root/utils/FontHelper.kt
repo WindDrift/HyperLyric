@@ -11,6 +11,11 @@ import java.util.Collections
 
 object FontHelper {
 
+    data class LoadedFont(
+        val typeface: Typeface,
+        val variationSettings: String?
+    )
+
     private const val TAG = "FontHelper"
 
     private val loggedFontFailures = Collections.synchronizedSet(mutableSetOf<String>())
@@ -20,16 +25,24 @@ object FontHelper {
     @Volatile
     private var narrowTypefaceCache: NarrowTypefaceCacheEntry? = null
 
-    fun loadTypeface(prefs: SharedPreferences): Typeface {
+    fun loadFont(prefs: SharedPreferences): LoadedFont {
         val config = readFontConfig(prefs)
         val narrowEnabled = prefs.getBoolean(
             RootConstants.KEY_HOOK_NARROW_LATIN_FONT,
             RootConstants.DEFAULT_HOOK_NARROW_LATIN_FONT
         )
         if (narrowEnabled) {
-            loadNarrowTypeface(config)?.let { return it }
+            loadNarrowTypeface(config)?.let {
+                return LoadedFont(
+                    typeface = it,
+                    variationSettings = "'wght' ${config.weight}"
+                )
+            }
         }
-        return loadBaseTypeface(config)
+        return LoadedFont(
+            typeface = loadBaseTypeface(config),
+            variationSettings = null
+        )
     }
 
     private fun readFontConfig(prefs: SharedPreferences): FontConfig {

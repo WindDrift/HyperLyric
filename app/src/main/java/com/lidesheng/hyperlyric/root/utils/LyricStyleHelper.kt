@@ -33,7 +33,7 @@ object LyricStyleHelper {
     ): LyricViewStyle {
         val fontSize =
             prefs.getInt(RootConstants.KEY_HOOK_TEXT_SIZE, RootConstants.DEFAULT_HOOK_TEXT_SIZE)
-        val tf = FontHelper.loadTypeface(prefs)
+        val font = FontHelper.loadFont(prefs)
 
         val textSizeRatio = prefs.getFloat(
             RootConstants.KEY_HOOK_TEXT_SIZE_RATIO,
@@ -184,7 +184,8 @@ object LyricStyleHelper {
             primary = TextLook(
                 color = primaryColors,
                 size = primarySizePx,
-                typeface = tf,
+                typeface = font.typeface,
+                fontVariationSettings = font.variationSettings,
                 relativeProgress = prefs.getBoolean(
                     RootConstants.KEY_HOOK_SYLLABLE_RELATIVE,
                     RootConstants.DEFAULT_HOOK_SYLLABLE_RELATIVE
@@ -197,7 +198,8 @@ object LyricStyleHelper {
             secondary = TextLook(
                 color = if (showSecondary) primaryColors else intArrayOf(Color.TRANSPARENT),
                 size = if (showSecondary) primarySizePx * textSizeRatio else 0f,
-                typeface = tf,
+                typeface = font.typeface,
+                fontVariationSettings = font.variationSettings,
             ),
             highlight = Highlight(
                 background = bgColors,

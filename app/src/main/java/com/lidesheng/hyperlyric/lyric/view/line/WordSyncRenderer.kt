@@ -102,9 +102,9 @@ internal class WordSyncRenderer(private val view: LyricLineView) : LineRenderer 
         textDrawer.clearShaderCache()
     }
 
-    fun setTypeface(tf: Typeface?) {
-        bgPaint.typeface = tf
-        hlPaint.typeface = tf
+    fun setFont(tf: Typeface?, variationSettings: String?) {
+        bgPaint.applyFont(tf, variationSettings)
+        hlPaint.applyFont(tf, variationSettings)
         textDrawer.updateMetrics(bgPaint)
         textDrawer.clearShaderCache()
     }
