@@ -57,7 +57,7 @@ internal class NotificationMediaPlaybackPolicy(
             HookLogger.w(TAG, "读取忽略音乐音频焦点设置失败，改用 MediaData.isPlaying", error)
         }.getOrDefault(false)
 
-        HookLogger.i(
+        HookLogger.d(
             TAG,
             "音频焦点策略: ignoreMusicFocus=$ignoreMusicFocus, " +
                 "实际并发状态以 MediaData.isPlaying 为准"
@@ -188,7 +188,7 @@ internal class NotificationMediaPlaybackPolicy(
                 concurrentCandidate = true
                 if (!concurrentConfirmed) {
                     concurrentConfirmed = true
-                    HookLogger.i(
+                    HookLogger.d(
                         TAG,
                         "确认并行播放，保持卡片顺序: playing=$playingCount"
                     )
@@ -198,7 +198,7 @@ internal class NotificationMediaPlaybackPolicy(
                 concurrentCandidate = false
                 concurrentConfirmed = false
                 if (wasConcurrent) {
-                    HookLogger.i(
+                    HookLogger.d(
                         TAG,
                         "音频焦点切换完成，恢复单播放排序: playing=$playingCount"
                     )

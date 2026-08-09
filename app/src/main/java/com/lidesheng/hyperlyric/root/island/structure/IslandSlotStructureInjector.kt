@@ -177,19 +177,6 @@ internal object IslandSlotStructureInjector {
         return leftReady && rightReady
     }
 
-    fun expectsConfiguredSlot(moduleType: String? = null): Boolean {
-        val prefs = HookEntry.instance?.prefs ?: return false
-        val config = IslandSlotRuntimeConfig.from(prefs)
-        return when {
-            moduleType?.endsWith("_1") == true ->
-                config.leftMode != RootConstants.ISLAND_CONTENT_MODE_NONE
-            moduleType?.endsWith("_2") == true ->
-                config.rightMode != RootConstants.ISLAND_CONTENT_MODE_NONE
-            else -> config.leftMode != RootConstants.ISLAND_CONTENT_MODE_NONE ||
-                    config.rightMode != RootConstants.ISLAND_CONTENT_MODE_NONE
-        }
-    }
-
     private fun injectSlot(
         rootView: ViewGroup,
         parentName: String,

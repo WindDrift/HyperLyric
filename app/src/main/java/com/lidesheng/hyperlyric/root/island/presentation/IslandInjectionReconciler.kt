@@ -48,8 +48,7 @@ internal object IslandInjectionReconciler {
     enum class Outcome {
         APPLIED,
         RESTORED_NATIVE,
-        NO_OP,
-        TARGET_STRUCTURE_MISSING
+        NO_OP
     }
 
     data class Result(
@@ -143,34 +142,16 @@ internal object IslandInjectionReconciler {
         }
         IslandViewRegistry.refreshInjectedViews(root)
         val injectedSlotsPresent = IslandSlotStructureInjector.hasInjectedLyricText(root)
-        val expectsInjectedSlots = when (target) {
-            Target.RealRoot,
-            Target.FakeSnapshot -> IslandSlotStructureInjector.expectsConfiguredSlot()
-
-            is Target.RealModule -> {
-                IslandSlotStructureInjector.expectsConfiguredSlot(target.moduleType)
-            }
-        }
-        val configuredStructureReady = when (target) {
-            Target.RealRoot,
-            Target.FakeSnapshot -> IslandSlotStructureInjector.hasAllConfiguredSlots(root)
-
-            is Target.RealModule -> {
-                IslandSlotStructureInjector.hasAllConfiguredSlots(root, target.moduleType)
-            }
-        }
         val relayoutRequested = target == Target.RealRoot && layoutMayHaveChanged
         if (relayoutRequested) {
             IslandHostFacade.triggerSystemRelayout(root)
         }
 
         return Result(
-            outcome = when {
-                expectsInjectedSlots && !configuredStructureReady -> {
-                    Outcome.TARGET_STRUCTURE_MISSING
-                }
-                layoutMayHaveChanged || contentChanged -> Outcome.APPLIED
-                else -> Outcome.NO_OP
+            outcome = if (layoutMayHaveChanged || contentChanged) {
+                Outcome.APPLIED
+            } else {
+                Outcome.NO_OP
             },
             layoutMayHaveChanged = layoutMayHaveChanged,
             contentChanged = contentChanged,

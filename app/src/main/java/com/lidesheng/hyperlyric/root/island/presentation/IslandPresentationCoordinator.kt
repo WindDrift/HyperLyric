@@ -226,11 +226,7 @@ internal object IslandPresentationCoordinator {
                 IslandInjectionReconciler.Result.NO_OP
             }
         }
-        return logResult(
-            reason = IslandReconcileReason.FAKE_SNAPSHOT,
-            owner = resolvedOwner,
-            result = ReconcileResult(decision, mutation)
-        )
+        return ReconcileResult(decision, mutation)
     }
 
     fun onFakeTransitionHandoff(
@@ -258,13 +254,7 @@ internal object IslandPresentationCoordinator {
             transition.frozenPosition
         )
         IslandHostFacade.showRealHost(realRoot)
-        return logResult(
-            reason = IslandReconcileReason.FAKE_SNAPSHOT,
-            owner = IslandRenderPolicy.OwnerEvidence.Media(
-                transition.realHost.packageName
-            ),
-            result = ReconcileResult(decision, mutation)
-        )
+        return ReconcileResult(decision, mutation)
     }
 
     fun onFakeTransitionEnded(
@@ -483,7 +473,7 @@ internal object IslandPresentationCoordinator {
 
             IslandRenderPolicy.Decision.PENDING -> IslandInjectionReconciler.Result.NO_OP
         }
-        return logResult(reason, owner, ReconcileResult(decision, mutation))
+        return ReconcileResult(decision, mutation)
     }
 
     private fun reconcileModule(
@@ -511,7 +501,7 @@ internal object IslandPresentationCoordinator {
 
             IslandRenderPolicy.Decision.PENDING -> IslandInjectionReconciler.Result.NO_OP
         }
-        return logResult(reason, owner, ReconcileResult(decision, mutation))
+        return ReconcileResult(decision, mutation)
     }
 
     private fun removeRealHost(
@@ -526,11 +516,7 @@ internal object IslandPresentationCoordinator {
             root,
             IslandInjectionReconciler.Target.RealRoot
         )
-        return logResult(
-            reason = reason,
-            owner = IslandRenderPolicy.OwnerEvidence.NotMedia,
-            result = ReconcileResult(IslandRenderPolicy.Decision.NOT_MEDIA, mutation)
-        )
+        return ReconcileResult(IslandRenderPolicy.Decision.NOT_MEDIA, mutation)
     }
 
     private fun discardFakeTransitionsForHost(
@@ -543,22 +529,6 @@ internal object IslandPresentationCoordinator {
         owner: IslandRenderPolicy.OwnerEvidence
     ): IslandRenderPolicy.Decision {
         return decisionEvaluator.evaluate(owner)
-    }
-
-    private fun logResult(
-        reason: IslandReconcileReason,
-        owner: IslandRenderPolicy.OwnerEvidence,
-        result: ReconcileResult
-    ): ReconcileResult {
-        if (result.mutation.outcome ==
-            IslandInjectionReconciler.Outcome.TARGET_STRUCTURE_MISSING
-        ) {
-            HookLogger.w(
-                TAG,
-                "超级岛结构缺失: reason=$reason, owner=$owner"
-            )
-        }
-        return result
     }
 
     private fun observeRealHostAttachment(root: ViewGroup) {
