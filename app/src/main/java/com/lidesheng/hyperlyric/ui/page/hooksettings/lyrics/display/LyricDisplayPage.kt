@@ -75,6 +75,14 @@ fun LyricDisplayPage() {
             )
         )
     }
+    var narrowLatinFont by remember {
+        mutableStateOf(
+            prefs.getBoolean(
+                RootConstants.KEY_HOOK_NARROW_LATIN_FONT,
+                RootConstants.DEFAULT_HOOK_NARROW_LATIN_FONT
+            )
+        )
+    }
     var showTextSizeDialog by remember { mutableStateOf(false) }
     var showTextSizeRatioDialog by remember { mutableStateOf(false) }
     var showFadingEdgeDialog by remember { mutableStateOf(false) }
@@ -166,6 +174,11 @@ fun LyricDisplayPage() {
             onFontItalicChange = {
                 fontItalic = it
                 saveConfig(RootConstants.KEY_HOOK_FONT_ITALIC, it)
+            },
+            narrowLatinFont = narrowLatinFont,
+            onNarrowLatinFontChange = {
+                narrowLatinFont = it
+                saveConfig(RootConstants.KEY_HOOK_NARROW_LATIN_FONT, it)
             }
         )
     }

@@ -31,7 +31,9 @@ fun LazyListScope.lyricDisplaySections(
     fontWeight: Int,
     onFontWeightClick: () -> Unit,
     fontItalic: Boolean,
-    onFontItalicChange: (Boolean) -> Unit
+    onFontItalicChange: (Boolean) -> Unit,
+    narrowLatinFont: Boolean,
+    onNarrowLatinFontChange: (Boolean) -> Unit
 ) {
     item(key = "basic_style_title") {
         SmallTitle(text = stringResource(id = R.string.title_basic_style))
@@ -120,6 +122,11 @@ fun LazyListScope.lyricDisplaySections(
                         )
                     },
                     onClick = onFontPathClick
+                )
+                SwitchPreference(
+                    title = stringResource(id = R.string.title_narrow_latin_font),
+                    checked = narrowLatinFont,
+                    onCheckedChange = onNarrowLatinFontChange
                 )
                 ArrowPreference(
                     title = stringResource(id = R.string.title_font_weight),

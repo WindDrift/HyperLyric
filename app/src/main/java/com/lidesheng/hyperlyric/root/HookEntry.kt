@@ -109,6 +109,7 @@ class HookEntry : XposedModule() {
             RootConstants.KEY_HOOK_SWAP_TRANSLATION,
             RootConstants.KEY_HOOK_NEXT_LYRIC_LINE,
             RootConstants.KEY_HOOK_CUSTOM_FONT_PATH,
+            RootConstants.KEY_HOOK_NARROW_LATIN_FONT,
             RootConstants.KEY_HOOK_WORD_MOTION_ENABLED,
             RootConstants.KEY_HOOK_WORD_MOTION_CJK_LIFT,
             RootConstants.KEY_HOOK_WORD_MOTION_CJK_WAVE,

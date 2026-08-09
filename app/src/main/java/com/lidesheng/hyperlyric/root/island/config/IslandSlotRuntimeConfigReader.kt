@@ -244,6 +244,10 @@ internal object IslandSlotRuntimeConfigReader {
             textColorStyle = LyricTextColorStylePolicy.read(prefs),
             customFontPath = prefs.getString(RootConstants.KEY_HOOK_CUSTOM_FONT_PATH, null)
                 .orEmpty(),
+            narrowLatinFont = prefs.getBoolean(
+                RootConstants.KEY_HOOK_NARROW_LATIN_FONT,
+                RootConstants.DEFAULT_HOOK_NARROW_LATIN_FONT
+            ),
             wordMotionEnabled = prefs.getBoolean(
                 RootConstants.KEY_HOOK_WORD_MOTION_ENABLED,
                 RootConstants.DEFAULT_HOOK_WORD_MOTION_ENABLED
