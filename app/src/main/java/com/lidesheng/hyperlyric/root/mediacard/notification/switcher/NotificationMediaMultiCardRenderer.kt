@@ -11,6 +11,7 @@ import android.view.VelocityTracker
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
+import com.lidesheng.hyperlyric.root.mediacard.notification.NotificationMediaHostApi
 import com.lidesheng.hyperlyric.root.mediacard.notification.NotificationMediaHostClasses
 import com.lidesheng.hyperlyric.root.mediacard.notification.style.NotificationMediaForegroundStyler
 import com.lidesheng.hyperlyric.root.utils.HookLogger
@@ -267,6 +268,9 @@ internal class NotificationMediaMultiCardRenderer(
     private var originalParentClipToPadding: Boolean? = null
     private var clipParent: ViewGroup? = null
     private var carouselBleedEnabled = false
+    private val nativeHostApi: NotificationMediaHostApi? = runCatching {
+        templateController.javaClass.classLoader?.let(NotificationMediaHostApi::create)
+    }.getOrNull()
     private val cards = LinkedHashMap<String, Card>()
     private val pageVisibility = NotificationMediaPageVisibilityController(
         pageContainer = { pageContainer },
@@ -716,7 +720,7 @@ internal class NotificationMediaMultiCardRenderer(
             pages.addView(player, pageParams)
             attachMethod?.invoke(controller, holder)
             onPlayerAttached(player, holder)
-            bind(card, data)
+            bind(card, data, refreshArtworkIfMissing = true)
             card
         }.onFailure { error ->
             onPlayerDetached(player)
@@ -726,13 +730,47 @@ internal class NotificationMediaMultiCardRenderer(
         }.getOrNull()
     }
 
-    private fun bind(card: Card, data: Any) {
+    private fun bind(
+        card: Card,
+        data: Any,
+        refreshArtworkIfMissing: Boolean = false
+    ) {
         bindMethod?.invoke(card.controller, data)
+        if (refreshArtworkIfMissing) {
+            refreshArtworkIfMissing(card, data)
+        }
         observePlayback(card)
         copyNativeChrome(card)
         if (compactAodActive) {
             captureFullAodRestoreState(card)
             applyCardAodPresentation(card, compact = true)
+        }
+    }
+
+    /**
+     * A SystemUI restart can create the first cloned controller before the
+     * native artwork field has reached its holder. Refresh only a newly
+     * created page whose album view is still empty; normal metadata updates
+     * keep the native bind timing and animation untouched.
+     */
+    private fun refreshArtworkIfMissing(card: Card, data: Any) {
+        val api = nativeHostApi ?: return
+        val holder = api.getHolder(card.controller) ?: return
+        val albumImage = runCatching { api.getAlbumImage(holder) }.getOrNull() ?: return
+        if (albumImage.drawable != null) return
+
+        api.refreshArtwork(card.controller, data)
+        if (albumImage.drawable == null) {
+            card.player.post {
+                if (card.player.parent != null) {
+                    val retryHolder = api.getHolder(card.controller) ?: return@post
+                    val retryImage = runCatching { api.getAlbumImage(retryHolder) }
+                        .getOrNull() ?: return@post
+                    if (retryImage.drawable == null) {
+                        api.refreshArtwork(card.controller, data)
+                    }
+                }
+            }
         }
     }
 
