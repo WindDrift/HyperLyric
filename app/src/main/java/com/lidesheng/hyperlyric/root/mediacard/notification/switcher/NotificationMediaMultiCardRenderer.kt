@@ -1,6 +1,7 @@
 package com.lidesheng.hyperlyric.root.mediacard.notification.switcher
 
 import android.content.Context
+import android.content.res.Configuration
 import android.media.session.MediaController
 import android.view.LayoutInflater
 import android.view.MotionEvent
@@ -107,19 +108,20 @@ internal class NotificationMediaMultiCardRenderer(
         private val shouldIgnoreTouch: (MotionEvent) -> Boolean,
         private val onScrollPositionChanged: (Int) -> Unit,
         private val onGestureReleased: (Float) -> Unit,
-        private val onGestureStarted: () -> Unit
+        private val onGestureStarted: (Int) -> Unit
     ) : HorizontalScrollView(context) {
         private var velocityTracker: VelocityTracker? = null
         private var ignoredGesture = false
         private var handlingGesture = false
+        private var downX = 0f
 
         override fun onInterceptTouchEvent(event: MotionEvent): Boolean {
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     finishGesture(snap = false)
+                    downX = event.x
                     ignoredGesture = shouldIgnoreTouch(event)
                     if (!ignoredGesture) {
-                        onGestureStarted()
                         velocityTracker = VelocityTracker.obtain()
                         velocityTracker?.addMovement(event)
                     }
@@ -143,6 +145,14 @@ internal class NotificationMediaMultiCardRenderer(
 
             val intercepted = super.onInterceptTouchEvent(event)
             if (intercepted) {
+                if (!handlingGesture) {
+                    val direction = when {
+                        event.x < downX -> 1
+                        event.x > downX -> -1
+                        else -> 0
+                    }
+                    onGestureStarted(direction)
+                }
                 handlingGesture = true
                 // Start at the header, not at this view. Calling
                 // requestDisallowInterceptTouchEvent on this view itself
@@ -204,6 +214,7 @@ internal class NotificationMediaMultiCardRenderer(
             velocityTracker = null
             ignoredGesture = false
             handlingGesture = false
+            downX = 0f
         }
     }
 
@@ -248,13 +259,19 @@ internal class NotificationMediaMultiCardRenderer(
     private var pageOrderGeneration = 0
     private var originalVisibility = View.VISIBLE
     private var originalAlpha = 1f
+    private var hostLayoutChangeListener: View.OnLayoutChangeListener? = null
     private var originalHostClipChildren: Boolean? = null
     private var originalHostClipToPadding: Boolean? = null
     private var clipHost: ViewGroup? = null
     private var originalParentClipChildren: Boolean? = null
     private var originalParentClipToPadding: Boolean? = null
     private var clipParent: ViewGroup? = null
+    private var carouselBleedEnabled = false
     private val cards = LinkedHashMap<String, Card>()
+    private val pageVisibility = NotificationMediaPageVisibilityController(
+        pageContainer = { pageContainer },
+        onBleedChanged = ::setCarouselBleed
+    )
 
     val isActive: Boolean
         get() = scrollView != null && pageContainer != null && originalCard != null
@@ -374,6 +391,18 @@ internal class NotificationMediaMultiCardRenderer(
             updatePageWidths()
             onScrollPositionChanged(scrollView?.scrollX ?: 0)
         }
+        if (!pageVisibility.isRevealedForGesture) {
+            val restingIndex = if (orderChanged) {
+                if (visualAnchor != null && visualAnchor.key in nextCards) {
+                    nextCards.keys.indexOf(visualAnchor.key)
+                } else {
+                    selectedIndex
+                }
+            } else {
+                currentPageIndex().takeIf { it >= 0 } ?: selectedIndex
+            }
+            hidePagesExcept(restingIndex)
+        }
         if (compactAodActive) applyAodPresentation()
         return NotificationMediaMultiCardSyncResult.SUCCESS
     }
@@ -444,6 +473,56 @@ internal class NotificationMediaMultiCardRenderer(
 
     fun headerTranslation(): Float? = scrollView?.translationX
 
+    private fun revealPagesForGesture(direction: Int) {
+        pageVisibility.revealForGesture(currentPageIndex(), direction)
+    }
+
+    private fun hidePagesExcept(index: Int) {
+        pageVisibility.hideExcept(index)
+    }
+
+    private fun schedulePageVisibilityAfterScroll(
+        targetIndex: Int,
+        generation: Int
+    ) {
+        val scroller = scrollView ?: return
+        val pages = pageContainer ?: return
+        val visibilityToken = pageVisibility.beginHideSchedule()
+
+        fun check() {
+            if (
+                !pageVisibility.isScheduleCurrent(visibilityToken) ||
+                generation != pageOrderGeneration ||
+                scrollView !== scroller
+            ) {
+                return
+            }
+            val first = pages.getChildAt(0)
+            val target = pages.getChildAt(targetIndex)
+            if (first == null || target == null) return
+            if (targetIndex > 0 && (pages.width <= 0 || target.width <= 0)) {
+                scroller.postOnAnimation(::check)
+                return
+            }
+            val targetX = target.left - first.left
+            if (scroller.scrollX != targetX) {
+                scroller.postOnAnimation(::check)
+                return
+            }
+            hidePagesExcept(targetIndex)
+        }
+
+        scroller.postOnAnimation(::check)
+    }
+
+    private fun currentPageIndex(): Int {
+        val count = cards.size
+        if (count == 0) return -1
+        return pageLocation(scrollView?.scrollX ?: 0)
+            .roundToInt()
+            .coerceIn(0, count - 1)
+    }
+
     /**
      * SystemUI's configuration callback only refreshes its single native
      * mediaViewController. Visible carousel pages use independently created
@@ -488,6 +567,7 @@ internal class NotificationMediaMultiCardRenderer(
         val original = originalCard
         cards.values.filter { !it.original }.forEach(::destroyExtraCard)
         cards.clear()
+        removeHostLayoutListener()
 
         val container = scrollView
         val restoreParams = originalLayoutParams
@@ -514,6 +594,7 @@ internal class NotificationMediaMultiCardRenderer(
         compactAodActive = false
         originalVisibility = View.VISIBLE
         originalAlpha = 1f
+        pageVisibility.invalidate()
         header = null
         pageOrderGeneration++
     }
@@ -554,7 +635,10 @@ internal class NotificationMediaMultiCardRenderer(
             shouldIgnoreTouch = shouldIgnoreScrollTouch,
             onScrollPositionChanged = ::onScrollPositionChanged,
             onGestureReleased = ::onGestureReleased,
-            onGestureStarted = onGestureStarted
+            onGestureStarted = { direction ->
+                revealPagesForGesture(direction)
+                onGestureStarted()
+            }
         ).apply {
             isHorizontalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_NEVER
@@ -604,10 +688,12 @@ internal class NotificationMediaMultiCardRenderer(
             originalLayoutParams = restoreParams
             scrollView = scroller
             pageContainer = pages
+            installHostLayoutListener(host)
             updatePageWidths()
             scroller.post(::updatePageWidths)
             true
         }.onFailure { error ->
+            removeHostLayoutListener()
             restoreOriginalVisualState()
             restoreCarouselClipState()
             pageWidthPx = 0
@@ -684,6 +770,7 @@ internal class NotificationMediaMultiCardRenderer(
         if (container != null) {
             (container.parent as? ViewGroup)?.removeView(container)
         }
+        removeHostLayoutListener()
         restoreCarouselClipState()
         if (host != null && original.player.parent == null) {
             runCatching {
@@ -705,6 +792,7 @@ internal class NotificationMediaMultiCardRenderer(
         pageGapPx = 0
         originalVisibility = View.VISIBLE
         originalAlpha = 1f
+        pageVisibility.invalidate()
     }
 
     private fun restoreOriginalVisualState() {
@@ -861,18 +949,78 @@ internal class NotificationMediaMultiCardRenderer(
 
     private fun updatePageWidths() {
         val pages = pageContainer ?: return
-        val width = pageWidthPx.takeIf { it > 0 }
-            ?: originalCard?.player?.width?.takeIf { it > 0 }
-            ?: header?.width?.takeIf { it > 0 }
+        val original = originalCard
+        val host = header
+        val previousWidth = pageWidthPx
+        val previousSidePadding = sidePaddingPx
+        val previousGap = pageGapPx
+        val previousContainerHeight = scrollView?.layoutParams?.height
+        val currentIndex = currentPageIndex()
+        val measuredWidth = if (original != null && host != null) {
+            resolveOriginalPageWidth(host, original.player, original.player.layoutParams)
+        } else {
+            0
+        }
+        val width = measuredWidth.takeIf { it > 0 }
+            ?: pageWidthPx.takeIf { it > 0 }
+            ?: original?.player?.width?.takeIf { it > 0 }
+            ?: host?.width?.takeIf { it > 0 }
             ?: 0
         if (width <= 0) return
-        if (pageWidthPx <= 0) pageWidthPx = width
+        host?.context?.let { context ->
+            sidePaddingPx = resolveSidePadding(context)
+            pageGapPx = sidePaddingPx
+        }
+        pageWidthPx = width
+
+        val originalParams = original?.player?.layoutParams
+        val measuredHeight = original?.player?.height?.takeIf { it > 0 }
+            ?: originalParams?.height?.takeIf { it > 0 }
+        val layoutChanged = previousWidth != pageWidthPx ||
+            previousSidePadding != sidePaddingPx ||
+            previousGap != pageGapPx ||
+            (measuredHeight != null && previousContainerHeight != measuredHeight)
+
         val scroller = scrollView
         scroller?.layoutParams?.let { rawParams ->
             val params = rawParams as? FrameLayout.LayoutParams ?: return@let
             val desiredWidth = width + sidePaddingPx * 2
+            var paramsChanged = false
             if (params.width != desiredWidth) {
                 params.width = desiredWidth
+                paramsChanged = true
+            }
+            if (measuredHeight != null && params.height != measuredHeight) {
+                params.height = measuredHeight
+                paramsChanged = true
+            }
+            if (originalParams is ViewGroup.MarginLayoutParams) {
+                val leftMargin = originalParams.leftMargin - sidePaddingPx
+                val rightMargin = originalParams.rightMargin - sidePaddingPx
+                if (params.leftMargin != leftMargin) {
+                    params.leftMargin = leftMargin
+                    paramsChanged = true
+                }
+                if (params.rightMargin != rightMargin) {
+                    params.rightMargin = rightMargin
+                    paramsChanged = true
+                }
+                if (params.topMargin != originalParams.topMargin) {
+                    params.topMargin = originalParams.topMargin
+                    paramsChanged = true
+                }
+                if (params.bottomMargin != originalParams.bottomMargin) {
+                    params.bottomMargin = originalParams.bottomMargin
+                    paramsChanged = true
+                }
+            }
+            if (originalParams is FrameLayout.LayoutParams &&
+                params.gravity != originalParams.gravity
+            ) {
+                params.gravity = originalParams.gravity
+                paramsChanged = true
+            }
+            if (paramsChanged) {
                 scroller.layoutParams = params
             }
         }
@@ -894,6 +1042,20 @@ internal class NotificationMediaMultiCardRenderer(
             child.layoutParams = params
         }
         pages.requestLayout()
+
+        if (layoutChanged && !pageVisibility.isRevealedForGesture && currentIndex >= 0) {
+            val generation = pageOrderGeneration
+            pages.post {
+                if (
+                    generation == pageOrderGeneration &&
+                    scrollView === scroller &&
+                    !pageVisibility.isRevealedForGesture
+                ) {
+                    scrollToPage(currentIndex, animate = false, generation = generation)
+                    hidePagesExcept(currentIndex)
+                }
+            }
+        }
     }
 
     private fun onScrollPositionChanged(scrollX: Int) {
@@ -925,6 +1087,7 @@ internal class NotificationMediaMultiCardRenderer(
         scroller.post {
             if (generation == pageOrderGeneration && scrollView === scroller) {
                 scrollToPage(target, animate = true, generation = generation)
+                schedulePageVisibilityAfterScroll(target, generation)
             }
         }
     }
@@ -1219,13 +1382,74 @@ internal class NotificationMediaMultiCardRenderer(
         ).coerceAtLeast(1)
     }
 
+    private fun installHostLayoutListener(host: ViewGroup) {
+        removeHostLayoutListener()
+        val listener = View.OnLayoutChangeListener {
+                _, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom ->
+            if (
+                right - left != oldRight - oldLeft ||
+                bottom - top != oldBottom - oldTop
+            ) {
+                updatePageWidths()
+                if (carouselBleedEnabled) setCarouselBleed(enabled = true)
+            }
+        }
+        hostLayoutChangeListener = listener
+        host.addOnLayoutChangeListener(listener)
+    }
+
+    private fun removeHostLayoutListener() {
+        val host = header
+        val listener = hostLayoutChangeListener ?: return
+        host?.removeOnLayoutChangeListener(listener)
+        hostLayoutChangeListener = null
+    }
+
+    private fun setCarouselBleed(enabled: Boolean) {
+        carouselBleedEnabled = enabled
+        if (enabled && isLandscapeNotificationViewport()) {
+            // Landscape notification media is hosted in a narrow centered
+            // column. Keep that host as the hard viewport; otherwise the
+            // full-width parent exposes media pages in the empty side areas.
+            clipHost?.let { host ->
+                host.clipChildren = true
+                host.clipToPadding = false
+            }
+            clipParent?.let { parent ->
+                originalParentClipChildren?.let { parent.clipChildren = it }
+                originalParentClipToPadding?.let { parent.clipToPadding = it }
+            }
+        } else if (enabled) {
+            clipHost?.let { host ->
+                host.clipChildren = false
+                host.clipToPadding = false
+            }
+            clipParent?.let { parent ->
+                parent.clipChildren = false
+                parent.clipToPadding = false
+            }
+        } else {
+            clipHost?.let { host ->
+                originalHostClipChildren?.let { host.clipChildren = it }
+                originalHostClipToPadding?.let { host.clipToPadding = it }
+            }
+            clipParent?.let { parent ->
+                originalParentClipChildren?.let { parent.clipChildren = it }
+                originalParentClipToPadding?.let { parent.clipToPadding = it }
+            }
+        }
+    }
+
+    private fun isLandscapeNotificationViewport(): Boolean {
+        return header?.resources?.configuration?.orientation ==
+            Configuration.ORIENTATION_LANDSCAPE
+    }
+
     private fun allowCarouselBleed(host: ViewGroup) {
         if (clipHost == null) {
             clipHost = host
             originalHostClipChildren = host.clipChildren
             originalHostClipToPadding = host.clipToPadding
-            host.clipChildren = false
-            host.clipToPadding = false
         }
 
         val parent = host.parent as? ViewGroup ?: return
@@ -1233,12 +1457,11 @@ internal class NotificationMediaMultiCardRenderer(
             clipParent = parent
             originalParentClipChildren = parent.clipChildren
             originalParentClipToPadding = parent.clipToPadding
-            parent.clipChildren = false
-            parent.clipToPadding = false
         }
     }
 
     private fun restoreCarouselClipState() {
+        setCarouselBleed(enabled = false)
         clipHost?.let { host ->
             originalHostClipChildren?.let { host.clipChildren = it }
             originalHostClipToPadding?.let { host.clipToPadding = it }
@@ -1253,6 +1476,7 @@ internal class NotificationMediaMultiCardRenderer(
         originalHostClipToPadding = null
         originalParentClipChildren = null
         originalParentClipToPadding = null
+        carouselBleedEnabled = false
     }
 
     private fun applyConstraintSet(constraintSet: Any?, target: View?) {
