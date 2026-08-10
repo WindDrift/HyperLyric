@@ -83,6 +83,21 @@ internal object IslandTextHooker {
                     )
                 }
 
+            animationDelegateClass.declaredMethods
+                .filter {
+                    it.name == "fakeViewToExpanded" &&
+                            it.parameterTypes.size == 2 &&
+                            it.parameterTypes[0].name == CONTENT_VIEW_CLASS &&
+                            it.parameterTypes[1] == Boolean::class.javaPrimitiveType
+                }
+                .forEach { method ->
+                    method.isAccessible = true
+                    module.deoptimize(method)
+                    module.hook(method).intercept(
+                        FakeIslandTransitionHooker.ExpandedViewTransitionHook()
+                    )
+                }
+
             cl.loadClass(EVENT_COORDINATOR_CLASS).declaredMethods
                 .filter {
                     it.name == "updateFreeformFakeView" &&

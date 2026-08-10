@@ -463,6 +463,10 @@ object IslandExpandedMediaAmbientFlowHooker {
         }
     }
 
+    fun applyFakeTransitionTheme(fakeContentView: ViewGroup) {
+        applyContentViewTheme(fakeContentView)
+    }
+
     private fun applyContentViewTheme(contentView: View) {
         val isFakeView = contentView.javaClass.name == FAKE_CONTENT_VIEW_CLASS
         val dataOwner = if (isFakeView) {
@@ -472,9 +476,15 @@ object IslandExpandedMediaAmbientFlowHooker {
         } else {
             contentView
         }
-        if (!IslandProbeUtils.isMediaIsland(IslandProbeUtils.getCurrentIslandData(dataOwner))) return
 
         val api = nativeApi ?: return
+        val ownerView = dataOwner as? View
+        val isMediaIsland = IslandProbeUtils.isMediaIsland(
+            IslandProbeUtils.getCurrentIslandData(dataOwner)
+        )
+        if (!isMediaIsland && (ownerView == null || findBinderForContentOwner(ownerView, api) == null)) {
+            return
+        }
         val target = api.findContentBackgroundTarget(contentView) ?: return
         if (IslandExpandedMediaBackgroundController.isActive()) {
             return
