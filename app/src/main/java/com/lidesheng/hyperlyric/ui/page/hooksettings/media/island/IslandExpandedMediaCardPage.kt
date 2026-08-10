@@ -127,7 +127,10 @@ fun IslandExpandedMediaCardPage() {
             prefs.getInt(
                 RootConstants.KEY_HOOK_ISLAND_EXPANDED_MEDIA_SOFT_COVER_TONE,
                 RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_SOFT_COVER_TONE
-            ).coerceIn(0, 100)
+            ).coerceIn(
+                RootConstants.MEDIA_SOFT_COVER_TONE_LIGHT,
+                RootConstants.MEDIA_SOFT_COVER_TONE_FOLLOW_SYSTEM
+            )
         )
     }
     var islandExpandedCardTheme by remember {

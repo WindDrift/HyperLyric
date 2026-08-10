@@ -149,6 +149,7 @@
     <string name="option_notification_media_background_linear_gradient">Linear gradient</string>
     <string name="option_notification_media_background_soft_cover">Soft cover</string>
     <string name="title_media_soft_cover_tone">Soft cover tone</string>
+    <string name="option_media_soft_cover_tone_follow_system">Follow system</string>
     <string name="option_media_soft_cover_tone_light">Light</string>
     <string name="option_media_soft_cover_tone_dark">Dark</string>
     <string name="title_notification_media_background_color_animation">Background transition</string>

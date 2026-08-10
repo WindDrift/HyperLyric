@@ -173,6 +173,7 @@
     <string name="option_notification_media_background_linear_gradient">线性渐变</string>
     <string name="option_notification_media_background_soft_cover">柔光封面</string>
     <string name="title_media_soft_cover_tone">柔光封面明暗</string>
+    <string name="option_media_soft_cover_tone_follow_system">跟随系统</string>
     <string name="option_media_soft_cover_tone_light">浅色</string>
     <string name="option_media_soft_cover_tone_dark">深色</string>
     <string name="title_notification_media_background_color_animation">背景切换动画</string>

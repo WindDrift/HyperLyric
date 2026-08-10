@@ -9,6 +9,7 @@ import android.graphics.drawable.Icon
 import android.graphics.drawable.TransitionDrawable
 import android.widget.ImageView
 import com.lidesheng.hyperlyric.common.RootConstants
+import com.lidesheng.hyperlyric.common.media.MediaCardTonePolicy
 import com.lidesheng.hyperlyric.root.mediacard.MediaCardRuntimeConfig
 import com.lidesheng.hyperlyric.root.mediacard.notification.NotificationMediaDataIdentity
 import com.lidesheng.hyperlyric.root.mediacard.notification.style.NotificationMediaForegroundStyler
@@ -75,7 +76,7 @@ internal object NotificationMediaBackgroundController {
         val style = currentStyle()
         val blurAmount = currentBlurAmount()
         val autoInvert = currentAutoInvert()
-        val softCoverTone = currentSoftCoverTone()
+        val softCoverTone = currentSoftCoverTone(context)
         val nightMode = context.resources.configuration.uiMode and
             Configuration.UI_MODE_NIGHT_MASK
         val artworkUpdated = readField(controller, "isArtWorkUpdate") == true
@@ -264,8 +265,12 @@ internal object NotificationMediaBackgroundController {
         return MediaCardRuntimeConfig.current.notification.backgroundStyle
     }
 
-    private fun currentSoftCoverTone(): Int =
-        MediaCardRuntimeConfig.current.notification.softCoverTone
+    private fun currentSoftCoverTone(context: Context): Int =
+        MediaCardTonePolicy.resolveSoftCoverTone(
+            configuredTone = MediaCardRuntimeConfig.current.notification.softCoverTone,
+            isSystemDark = context.resources.configuration.uiMode and
+                Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+        )
 
     private fun currentBlurAmount(): Int =
         MediaCardRuntimeConfig.current.notification.backgroundBlur

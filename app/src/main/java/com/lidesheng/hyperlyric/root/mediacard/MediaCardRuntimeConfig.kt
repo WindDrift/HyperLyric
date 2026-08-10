@@ -255,7 +255,7 @@ internal object MediaCardRuntimeConfig {
                     RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_SOFT_COVER_TONE
                 ).coerceIn(
                     RootConstants.MEDIA_SOFT_COVER_TONE_LIGHT,
-                    RootConstants.MEDIA_SOFT_COVER_TONE_DARK
+                    RootConstants.MEDIA_SOFT_COVER_TONE_FOLLOW_SYSTEM
                 )
             )
         }
@@ -424,7 +424,7 @@ internal object MediaCardRuntimeConfig {
                     RootConstants.DEFAULT_HOOK_ISLAND_EXPANDED_MEDIA_SOFT_COVER_TONE
                 ).coerceIn(
                     RootConstants.MEDIA_SOFT_COVER_TONE_LIGHT,
-                    RootConstants.MEDIA_SOFT_COVER_TONE_DARK
+                    RootConstants.MEDIA_SOFT_COVER_TONE_FOLLOW_SYSTEM
                 )
             )
         }

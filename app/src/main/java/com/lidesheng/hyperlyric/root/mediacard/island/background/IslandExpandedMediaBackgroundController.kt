@@ -1,6 +1,7 @@
 package com.lidesheng.hyperlyric.root.mediacard.island.background
 
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
@@ -11,6 +12,7 @@ import android.os.Looper
 import android.view.View
 import android.widget.ImageView
 import com.lidesheng.hyperlyric.common.RootConstants
+import com.lidesheng.hyperlyric.common.media.MediaCardTonePolicy
 import com.lidesheng.hyperlyric.root.mediacard.MediaCardRuntimeConfig
 import com.lidesheng.hyperlyric.root.mediacard.notification.background.MediaBackgroundRendererPool
 import com.lidesheng.hyperlyric.root.mediacard.notification.background.NotificationMediaColorConfig
@@ -108,6 +110,23 @@ internal object IslandExpandedMediaBackgroundController {
         allowRetry = true
     )
 
+    fun onUiModeChanged(binder: Any) {
+        if (!isActive() ||
+            MediaCardRuntimeConfig.current.islandExpanded.softCoverTone !=
+                RootConstants.MEDIA_SOFT_COVER_TONE_FOLLOW_SYSTEM
+        ) {
+            return
+        }
+        val binderState = states[binder] ?: return
+        val mediaData = binderState.lastMediaData ?: return
+        bindInternal(
+            binder = binder,
+            mediaData = mediaData,
+            api = binderState.api,
+            allowRetry = true
+        )
+    }
+
     private fun bindInternal(
         binder: Any,
         mediaData: Any,
@@ -120,6 +139,7 @@ internal object IslandExpandedMediaBackgroundController {
         }
         val binderState = states.getOrPut(binder) { BinderState(api) }
         binderState.api = api
+        binderState.lastMediaData = mediaData
         val context = api.getContext(binder)
         val packageName = api.getMediaPackageName(mediaData) ?: run {
             restore(binder)
@@ -145,7 +165,7 @@ internal object IslandExpandedMediaBackgroundController {
         val style = currentStyle()
         val blurAmount = currentBlurAmount()
         val autoInvert = currentAutoInvert()
-        val softCoverTone = currentSoftCoverTone()
+        val softCoverTone = currentSoftCoverTone(context)
         val artworkSize = runCatching {
             artwork?.loadDrawable(context)?.let { drawable ->
                 positiveSize(drawable.intrinsicWidth, drawable.intrinsicHeight)
@@ -620,8 +640,12 @@ internal object IslandExpandedMediaBackgroundController {
         return MediaCardRuntimeConfig.current.islandExpanded.backgroundStyle
     }
 
-    private fun currentSoftCoverTone(): Int =
-        MediaCardRuntimeConfig.current.islandExpanded.softCoverTone
+    private fun currentSoftCoverTone(context: Context): Int =
+        MediaCardTonePolicy.resolveSoftCoverTone(
+            configuredTone = MediaCardRuntimeConfig.current.islandExpanded.softCoverTone,
+            isSystemDark = context.resources.configuration.uiMode and
+                Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+        )
 
     private fun currentBlurAmount(): Int =
         MediaCardRuntimeConfig.current.islandExpanded.backgroundBlur
@@ -644,6 +668,7 @@ internal object IslandExpandedMediaBackgroundController {
         var retryLayoutListener: View.OnLayoutChangeListener? = null,
         var pendingMediaData: Any? = null,
         var pendingApi: IslandExpandedMediaBackgroundApi? = null,
+        var lastMediaData: Any? = null,
         val targets: MutableMap<View, TargetState> = WeakHashMap()
     )
 

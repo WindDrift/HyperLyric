@@ -291,12 +291,16 @@ fun LazyListScope.notificationCenterMediaBackgroundSection(
                         ) {
                             Column {
                                 val toneValues = listOf(
+                                    RootConstants.MEDIA_SOFT_COVER_TONE_FOLLOW_SYSTEM,
                                     RootConstants.MEDIA_SOFT_COVER_TONE_LIGHT,
                                     RootConstants.MEDIA_SOFT_COVER_TONE_DARK
                                 )
                                 OverlayDropdownPreference(
                                     title = stringResource(R.string.title_media_soft_cover_tone),
                                     items = listOf(
+                                        stringResource(
+                                            R.string.option_media_soft_cover_tone_follow_system
+                                        ),
                                         stringResource(R.string.option_media_soft_cover_tone_light),
                                         stringResource(R.string.option_media_soft_cover_tone_dark)
                                     ),

@@ -113,7 +113,10 @@ fun NotificationCenterMediaCardPage() {
             prefs.getInt(
                 RootConstants.KEY_HOOK_NOTIFICATION_MEDIA_SOFT_COVER_TONE,
                 RootConstants.DEFAULT_HOOK_NOTIFICATION_MEDIA_SOFT_COVER_TONE
-            ).coerceIn(0, 100)
+            ).coerceIn(
+                RootConstants.MEDIA_SOFT_COVER_TONE_LIGHT,
+                RootConstants.MEDIA_SOFT_COVER_TONE_FOLLOW_SYSTEM
+            )
         )
     }
     var notificationCardTheme by remember {

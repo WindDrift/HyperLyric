@@ -53,6 +53,7 @@ import androidx.constraintlayout.compose.Dimension
 import androidx.constraintlayout.compose.Visibility
 import androidx.constraintlayout.compose.layoutId
 import com.lidesheng.hyperlyric.R
+import com.lidesheng.hyperlyric.common.media.MediaCardTonePolicy
 import com.lidesheng.hyperlyric.root.mediacard.progress.view.SquigglySeekBar
 import com.lidesheng.hyperlyric.root.mediacard.progress.view.ThumbStyle
 import com.lidesheng.hyperlyric.ui.anim.albumArtFlip
@@ -83,6 +84,7 @@ fun MediaPreviewCard(
     hideProgressThumb: Boolean = false
 ) {
     val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val isSoftCoverDark = MediaCardTonePolicy.isSoftCoverDark(softCoverTone, isSystemDark)
 
     val defaultLightColor = Color.White
     val defaultLightContentColor = Color.Black
@@ -231,7 +233,7 @@ fun MediaPreviewCard(
         val colorConfig = PreviewMediaStyleConfig.getColorConfig(
             currentTrackIndex,
             backgroundStyle,
-            if (backgroundStyle == 5) softCoverTone == 1 else isSystemDark
+            if (backgroundStyle == 5) isSoftCoverDark else isSystemDark
         )
         val onSurfaceColor = if (backgroundStyle > 0) {
             colorConfig.textPrimary
@@ -360,9 +362,9 @@ fun MediaPreviewCard(
 
                     5 -> {
                         val softBgRes = if (currentTrackIndex == 0) {
-                            if (softCoverTone == 1) R.drawable.preview_bg_soft_dark_1 else R.drawable.preview_bg_soft_light_1
+                            if (isSoftCoverDark) R.drawable.preview_bg_soft_dark_1 else R.drawable.preview_bg_soft_light_1
                         } else {
-                            if (softCoverTone == 1) R.drawable.preview_bg_soft_dark_2 else R.drawable.preview_bg_soft_light_2
+                            if (isSoftCoverDark) R.drawable.preview_bg_soft_dark_2 else R.drawable.preview_bg_soft_light_2
                         }
                         androidx.compose.foundation.Image(
                             painter = androidx.compose.ui.res.painterResource(softBgRes),

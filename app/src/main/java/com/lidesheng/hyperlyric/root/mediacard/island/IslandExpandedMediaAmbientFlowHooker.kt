@@ -301,6 +301,7 @@ object IslandExpandedMediaAmbientFlowHooker {
             val binder = chain.thisObject ?: return chain.proceed()
             val holder = chain.args.firstOrNull() ?: return chain.proceed()
             if (IslandExpandedMediaBackgroundController.isActive()) {
+                IslandExpandedMediaBackgroundController.onUiModeChanged(binder)
                 val api = nativeApi ?: return chain.proceed()
                 val foregroundApplied = runCatching {
                     val foregroundApplied =
