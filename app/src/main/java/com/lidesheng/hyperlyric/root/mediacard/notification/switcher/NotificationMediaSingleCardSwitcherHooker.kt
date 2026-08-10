@@ -64,6 +64,7 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         WeakHashMap<View, ControllerState>()
     )
     private val hookedTouchMethods = Collections.synchronizedSet(mutableSetOf<Method>())
+    private val uiModeRefreshInProgress = ThreadLocal<Boolean>()
 
     fun hook(xposedModule: XposedModule, classLoader: ClassLoader) {
         if (!hookedClassLoaders.add(classLoader)) return
@@ -201,6 +202,25 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         return states
             .flatMap { state -> state.extraCardControllers() }
             .toSet()
+    }
+
+    fun refreshForUiMode() {
+        val states = synchronized(viewStates) { viewStates.values.toSet() }
+        states.forEach { state -> state.refreshForUiMode() }
+    }
+
+    fun runWithUiModeRefreshGuard(block: () -> Unit) {
+        val previous = uiModeRefreshInProgress.get()
+        uiModeRefreshInProgress.set(true)
+        try {
+            block()
+        } finally {
+            if (previous == null) {
+                uiModeRefreshInProgress.remove()
+            } else {
+                uiModeRefreshInProgress.set(previous)
+            }
+        }
     }
 
     private fun registerLayoutController(controller: Any, classLoader: ClassLoader) {
@@ -493,7 +513,9 @@ internal object NotificationMediaSingleCardSwitcherHooker {
                     state?.onFullAodStateChanged(active)
                 }
                 Action.FOREGROUND -> {
-                    state?.onNativeForegroundColorsUpdated()
+                    if (uiModeRefreshInProgress.get() != true) {
+                        state?.onNativeForegroundColorsUpdated()
+                    }
                     NotificationMediaSingleCardSwitcherHooker.onForegroundColorsApplied(
                         viewController
                     )
@@ -1079,6 +1101,14 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         }
 
         fun onNativeForegroundColorsUpdated() {
+            runOnMain {
+                if (isSwitcherUsable()) {
+                    multiCardRenderer.refreshUiMode()
+                }
+            }
+        }
+
+        fun refreshForUiMode() {
             runOnMain {
                 if (isSwitcherUsable()) {
                     multiCardRenderer.refreshUiMode()

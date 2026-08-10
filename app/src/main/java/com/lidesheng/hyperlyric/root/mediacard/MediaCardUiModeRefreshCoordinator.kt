@@ -6,10 +6,12 @@ import com.lidesheng.hyperlyric.root.mediacard.notification.switcher.Notificatio
 
 internal object MediaCardUiModeRefreshCoordinator {
     fun refresh() {
-        val extraControllers =
-            NotificationMediaSingleCardSwitcherHooker.extraCardControllers()
-        // The original controller's foreground refresh fans out to cloned controllers.
-        NotificationMediaAmbientFlowHooker.refreshForUiMode(extraControllers)
+        NotificationMediaSingleCardSwitcherHooker.runWithUiModeRefreshGuard {
+            val extraControllers =
+                NotificationMediaSingleCardSwitcherHooker.extraCardControllers()
+            NotificationMediaAmbientFlowHooker.refreshForUiMode(extraControllers)
+            NotificationMediaSingleCardSwitcherHooker.refreshForUiMode()
+        }
         IslandExpandedMediaAmbientFlowHooker.refreshForUiMode()
     }
 }
