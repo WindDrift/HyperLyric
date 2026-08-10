@@ -46,6 +46,13 @@ object LyriconDataBridge : StateResetter {
     @Volatile
     var isTextMode: Boolean = false
 
+    /**
+     * Full-song lyric sources publish this state from [updateSong]. Streaming sources leave it
+     * unknown and are considered ready only after a non-empty line or plain-text event arrives.
+     */
+    @Volatile
+    private var fullSongLyricsAvailable: Boolean? = null
+
     /** AI 翻译完成后的回调，由 LyriconSource 设置 */
     var onAiTranslationComplete: (() -> Unit)? = null
 
@@ -66,6 +73,7 @@ object LyriconDataBridge : StateResetter {
     ) {
         HookLogger.d(TAG, "歌曲变更: ${song?.name}")
         isTextMode = false
+        fullSongLyricsAvailable = song?.lyrics?.any(::hasRenderableLine) == true
         currentSong = song
         currentSongName = song?.name
         currentLyric = null
@@ -128,6 +136,7 @@ object LyriconDataBridge : StateResetter {
 
     fun updateLyric(text: String?) {
         isTextMode = true
+        fullSongLyricsAvailable = null
         currentLyric = text
         currentLyricLine = if (!text.isNullOrBlank()) {
             val lines = text.lines()
@@ -143,6 +152,7 @@ object LyriconDataBridge : StateResetter {
 
     fun updateLyricLine(line: IRichLyricLine) {
         isTextMode = false
+        fullSongLyricsAvailable = null
         currentLyricLine = line
         currentNextLyricLine = null
         currentLyric = line.text
@@ -158,9 +168,23 @@ object LyriconDataBridge : StateResetter {
         activePackageName = null
         currentLyricPackageName = null
         isTextMode = false
+        fullSongLyricsAvailable = null
         timingNavigator = TimingNavigator(emptyArray())
 
         versionCounter.incrementAndGet()
+    }
+
+    /**
+     * Returns whether the current source has content that justifies owning the island text slots.
+     * A whole-song source wins over the current line so an interlude cannot remove the view.
+     */
+    fun hasLyricsForPresentation(): Boolean {
+        fullSongLyricsAvailable?.let { return it }
+        return !currentLyric.isNullOrBlank() || hasRenderableLine(currentLyricLine)
+    }
+
+    private fun hasRenderableLine(line: IRichLyricLine?): Boolean {
+        return line != null && (!line.text.isNullOrBlank() || !line.words.isNullOrEmpty())
     }
 
     private fun rebuildTimeline(song: Song, selectCurrentPosition: Boolean) {

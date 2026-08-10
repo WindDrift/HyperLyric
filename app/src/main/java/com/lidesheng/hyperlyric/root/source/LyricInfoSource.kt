@@ -188,6 +188,12 @@ class LyricInfoSource(private val context: Context) : LyricSource {
                     TAG,
                     "歌词已就绪: song=$songName, lines=${song.lyrics!!.size}"
                 )
+            } else if (hasLyrics && pkg == activePkg && isCurrentController(controller)) {
+                // A non-empty lyricInfo payload can still contain an empty or invalid lyric body.
+                // Do not keep the previous song's full-song state in that case.
+                sink?.onStop()
+                clearLyrics()
+                HookLogger.d(TAG, "歌词已清除: package=$pkg, reason=empty_or_invalid_lyric_info")
             }
         } else if (hasLyrics && pkg == activePkg && isCurrent) {
             // Only the selected session may clear the lyrics it supplied.

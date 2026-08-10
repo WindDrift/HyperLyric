@@ -48,6 +48,7 @@ internal class IslandPresentationDecisionEvaluator(
             IslandRenderPolicy.Input(
                 owner = owner,
                 lyricPackageName = LyriconDataBridge.currentLyricPackageName,
+                hasLyricsForPresentation = LyriconDataBridge.hasLyricsForPresentation(),
                 enabled = IslandProbeUtils.isSuperIslandEnabled(),
                 playbackActive = presentationState.isPlaybackActive(),
                 pauseBehavior = currentPauseBehavior()
