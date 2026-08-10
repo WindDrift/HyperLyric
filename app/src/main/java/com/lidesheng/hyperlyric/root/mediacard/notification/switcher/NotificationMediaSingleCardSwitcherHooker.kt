@@ -196,6 +196,13 @@ internal object NotificationMediaSingleCardSwitcherHooker {
         }
     }
 
+    fun extraCardControllers(): Set<Any> {
+        val states = synchronized(viewStates) { viewStates.values.toSet() }
+        return states
+            .flatMap { state -> state.extraCardControllers() }
+            .toSet()
+    }
+
     private fun registerLayoutController(controller: Any, classLoader: ClassLoader) {
         if (layoutStates.containsKey(controller)) return
 
@@ -1078,6 +1085,8 @@ internal object NotificationMediaSingleCardSwitcherHooker {
                 }
             }
         }
+
+        fun extraCardControllers(): Set<Any> = multiCardRenderer.extraCardControllers()
 
         private fun resolveIndicatorColor(): Int? {
             if (multiCardRenderer.isActive) {

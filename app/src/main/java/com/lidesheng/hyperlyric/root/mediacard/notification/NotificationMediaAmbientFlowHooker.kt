@@ -219,6 +219,24 @@ object NotificationMediaAmbientFlowHooker {
         }
     }
 
+    /** Replays native color callbacks for live controllers after a UI-mode change. */
+    fun refreshForUiMode(nativeControllersToSkip: Set<Any> = emptySet()) {
+        if (!MediaCardRuntimeConfig.current.enabled) return
+
+        val controllers = synchronized(states) { states.keys.toList() }
+        controllers.forEach { controller ->
+            runCatching {
+                if (controller !in nativeControllersToSkip) {
+                    // NativeBackgroundUpdateHook owns the custom background/tone refresh.
+                    invokeZeroArgMethods(controller, "updateMediaBackground")
+                    invokeZeroArgMethods(controller, "updateForegroundColors")
+                }
+            }.onFailure { error ->
+                HookLogger.w(TAG, "刷新通知中心媒体卡片主题失败", error)
+            }
+        }
+    }
+
     class ProgressDrawHook : Hooker {
         override fun intercept(chain: Chain): Any? {
             if (MediaCardRuntimeConfig.current.enabled) {
@@ -502,6 +520,15 @@ object NotificationMediaAmbientFlowHooker {
 
     private fun refreshCustomFlowTone(controller: Any) {
         states[controller]?.let(::configureCustomView)
+    }
+
+    private fun invokeZeroArgMethods(receiver: Any, name: String) {
+        findNearestMethods(receiver.javaClass, name)
+            .filter { method -> method.parameterCount == 0 }
+            .forEach { method ->
+                method.isAccessible = true
+                method.invoke(receiver)
+            }
     }
 
     private fun resolveNativeApi(classLoader: ClassLoader?): NativeMusicBgApi? {

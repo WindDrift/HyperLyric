@@ -18,6 +18,7 @@ import com.lidesheng.hyperlyric.root.island.hooks.IslandModuleRestoreHooker
 import com.lidesheng.hyperlyric.root.island.hooks.RealIslandHooker
 import com.lidesheng.hyperlyric.root.island.hooks.SystemUIHookRegistry
 import com.lidesheng.hyperlyric.root.island.renderer.BaseIslandRenderer
+import com.lidesheng.hyperlyric.root.mediacard.MediaCardConfigurationRefreshHooker
 import com.lidesheng.hyperlyric.root.mediacard.MediaCardElementBehaviorHooker
 import com.lidesheng.hyperlyric.root.mediacard.MediaCardRuntimeConfig
 import com.lidesheng.hyperlyric.root.mediacard.island.IslandExpandedMediaAmbientFlowHooker
@@ -222,6 +223,7 @@ class HookEntry : XposedModule() {
             StatusBarTextColorHooker.hook(this, param.defaultClassLoader)
             MediaCardRuntimeConfig.load(prefs)
             if (MediaCardRuntimeConfig.current.enabled) {
+                MediaCardConfigurationRefreshHooker.hook(this, param.defaultClassLoader)
                 MediaProgressStyleHooker.hook(this, param.defaultClassLoader)
                 MediaCardElementBehaviorHooker.hook(this, param.defaultClassLoader)
                 IslandExpandedMediaAmbientFlowHooker.hook(this, param.defaultClassLoader)

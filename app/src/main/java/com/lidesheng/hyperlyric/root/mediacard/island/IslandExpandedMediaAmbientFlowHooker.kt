@@ -93,6 +93,7 @@ object IslandExpandedMediaAmbientFlowHooker {
         WeakHashMap<View, SeekBarTrackState>()
     )
     private val restoringNativeForeground = ThreadLocal<Boolean>()
+    private val uiModeRefreshBinder = ThreadLocal<Any?>()
     private val bindingBinder = ThreadLocal<Any?>()
     private val colorExecutor = Executors.newSingleThreadExecutor { task ->
         Thread(task, "HyperLyric-IslandMediaColor").apply { isDaemon = true }
@@ -158,6 +159,34 @@ object IslandExpandedMediaAmbientFlowHooker {
                 method.name == "onUpdate" && method.parameterCount == 2
 
             else -> false
+        }
+    }
+
+    /** Replays active media binders after a SystemUI night-mode change. */
+    fun refreshForUiMode() {
+        if (!MediaCardRuntimeConfig.current.enabled) return
+        val api = nativeApi ?: return
+        val binders = synchronized(activeBinders) { activeBinders.toList() }
+        binders.forEach { binder ->
+            runCatching {
+                val previousRefreshBinder = uiModeRefreshBinder.get()
+                uiModeRefreshBinder.set(binder)
+                try {
+                    // Rebind once; foreground still runs for real and dummy holders.
+                    IslandExpandedMediaBackgroundController.onUiModeChanged(binder)
+                    api.getHolders(binder).forEach { holder ->
+                        api.applyNativeForeground(binder, holder)
+                    }
+                } finally {
+                    if (previousRefreshBinder == null) {
+                        uiModeRefreshBinder.remove()
+                    } else {
+                        uiModeRefreshBinder.set(previousRefreshBinder)
+                    }
+                }
+            }.onFailure { error ->
+                HookLogger.w(TAG, "刷新超级岛媒体卡片主题失败", error)
+            }
         }
     }
 
@@ -301,7 +330,9 @@ object IslandExpandedMediaAmbientFlowHooker {
             val binder = chain.thisObject ?: return chain.proceed()
             val holder = chain.args.firstOrNull() ?: return chain.proceed()
             if (IslandExpandedMediaBackgroundController.isActive()) {
-                IslandExpandedMediaBackgroundController.onUiModeChanged(binder)
+                if (uiModeRefreshBinder.get() !== binder) {
+                    IslandExpandedMediaBackgroundController.onUiModeChanged(binder)
+                }
                 val api = nativeApi ?: return chain.proceed()
                 val foregroundApplied = runCatching {
                     val foregroundApplied =

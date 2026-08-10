@@ -287,6 +287,12 @@ internal class NotificationMediaMultiCardRenderer(
             cards.values.any { it.controller === controller }
     }
 
+    fun extraCardControllers(): Set<Any> = cards.values
+        .asSequence()
+        .filterNot { it.original }
+        .map { it.controller }
+        .toSet()
+
     fun attachOriginal(player: View, holder: Any): Boolean {
         if (originalCard != null) return true
         val parent = player.parent as? ViewGroup ?: return false
@@ -459,15 +465,10 @@ internal class NotificationMediaMultiCardRenderer(
             .coerceIn(0, count - 1)
     }
 
-    /**
-     * SystemUI's configuration callback only refreshes its single native
-     * mediaViewController. Visible carousel pages use independently created
-     * controllers, so mirror the same background -> foreground update order
-     * for every page when that native controller reports a UI-mode refresh.
-     */
+    /** Mirrors the original controller's UI-mode refresh to cloned pages. */
     fun refreshUiMode() {
         if (!isActive) return
-        cards.values.forEach { card ->
+        cards.values.filterNot { it.original }.forEach { card ->
             invokeUiModeRefresh(card, updateMediaBackgroundMethod, "背景")
             invokeUiModeRefresh(card, updateForegroundColorsMethod, "前景色")
         }
