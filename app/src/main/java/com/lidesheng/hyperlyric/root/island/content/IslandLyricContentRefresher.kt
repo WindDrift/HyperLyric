@@ -76,7 +76,7 @@ internal object IslandLyricContentRefresher {
         mediaInfo: MediaMetadataHelper.MediaInfo
     ): Boolean {
         val view = rootView.findViewWithTag<android.view.View>(viewTag) ?: return false
-        return IslandSlotContentFacade.applySlotContent(
+        val contentChanged = IslandSlotContentFacade.applySlotContent(
             view,
             prefs,
             config,
@@ -95,5 +95,11 @@ internal object IslandLyricContentRefresher {
                 IslandDynamicWidthCoordinator.clearPreflight(rootView, viewTag)
             }
         )
+        if (mode == RootConstants.ISLAND_CONTENT_MODE_CUSTOM_MUSIC_INFO &&
+            IslandDynamicWidthCoordinator.cacheMetadataWidth(rootView, viewTag)
+        ) {
+            return true
+        }
+        return contentChanged
     }
 }

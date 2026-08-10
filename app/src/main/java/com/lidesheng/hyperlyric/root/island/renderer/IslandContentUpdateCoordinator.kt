@@ -43,7 +43,7 @@ internal object IslandContentUpdateCoordinator {
         prepareSharedCoverPalette(packageName, mediaInfo, prefs)
         IslandHostFacade.updateHostGlow(view, prefs)
         IslandHostFacade.updateProgressGlow(view, packageName, mediaInfo, prefs)
-        updateSlot(
+        val leftChanged = updateSlot(
             view,
             IslandProbeUtils.LEFT_TEST_VIEW_TAG,
             config.leftMode,
@@ -52,7 +52,7 @@ internal object IslandContentUpdateCoordinator {
             mediaInfo,
             playbackActive
         )
-        updateSlot(
+        val rightChanged = updateSlot(
             view,
             IslandProbeUtils.RIGHT_TEST_VIEW_TAG,
             config.rightMode,
@@ -61,6 +61,13 @@ internal object IslandContentUpdateCoordinator {
             mediaInfo,
             playbackActive
         )
+        if ((config.leftMode == RootConstants.ISLAND_CONTENT_MODE_CUSTOM_MUSIC_INFO &&
+                    leftChanged) ||
+            (config.rightMode == RootConstants.ISLAND_CONTENT_MODE_CUSTOM_MUSIC_INFO &&
+                    rightChanged)
+        ) {
+            IslandDynamicWidthCoordinator.requestRefresh(view)
+        }
         IslandMusicWaveColorHooker.refresh()
     }
 
@@ -200,10 +207,10 @@ internal object IslandContentUpdateCoordinator {
         config: IslandSlotRuntimeConfig,
         mediaInfo: MediaMetadataHelper.MediaInfo,
         playbackActive: Boolean
-    ) {
-        if (mode == RootConstants.ISLAND_CONTENT_MODE_NONE) return
-        val slotView = view.findViewWithTag<View>(tag) ?: return
-        IslandSlotContentFacade.applySlotContent(
+    ): Boolean {
+        if (mode == RootConstants.ISLAND_CONTENT_MODE_NONE) return false
+        val slotView = view.findViewWithTag<View>(tag) ?: return false
+        val contentChanged = IslandSlotContentFacade.applySlotContent(
             view = slotView,
             prefs = prefs,
             config = config,
@@ -225,6 +232,12 @@ internal object IslandContentUpdateCoordinator {
                 IslandDynamicWidthCoordinator.clearPreflight(view, tag)
             }
         )
+        if (mode == RootConstants.ISLAND_CONTENT_MODE_CUSTOM_MUSIC_INFO &&
+            IslandDynamicWidthCoordinator.cacheMetadataWidth(view, tag)
+        ) {
+            return true
+        }
+        return contentChanged
     }
 
     private fun updateSlotColors(

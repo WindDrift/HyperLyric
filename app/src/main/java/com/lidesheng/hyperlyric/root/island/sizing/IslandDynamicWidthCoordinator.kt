@@ -15,7 +15,7 @@ import com.lidesheng.hyperlyric.root.island.view.MaxWidthFrameLayout
 import java.util.WeakHashMap
 
 /**
- * Owns the root-scoped state and UI scheduling for dynamic lyric width updates.
+ * Owns the root-scoped state and UI scheduling for dynamic slot width updates.
  *
  * The actual width math stays in [IslandLyricWidthCalculator]. This coordinator only reads the
  * current lyric View state, retains preflight candidates until the line is committed, and asks
@@ -25,6 +25,7 @@ internal object IslandDynamicWidthCoordinator {
     private val refreshPending = WeakHashMap<ViewGroup, Boolean>()
     private val relayoutPending = WeakHashMap<ViewGroup, Boolean>()
     private val preflightTargets = WeakHashMap<ViewGroup, MutableMap<String, Float>>()
+    private val metadataContentWidths = WeakHashMap<ViewGroup, MutableMap<String, Float>>()
 
     fun requestRefresh(rootView: ViewGroup) {
         val shouldPost = synchronized(refreshPending) {
@@ -46,7 +47,7 @@ internal object IslandDynamicWidthCoordinator {
             val prefs = HookEntry.instance?.prefs ?: return@post
             val config = IslandSlotRuntimeConfig.from(prefs)
             if (!config.geometry.isDynamicWidth) return@post
-            if (refreshDynamicLyricWidths(rootView, config)) {
+            if (refreshDynamicSlotWidths(rootView, config)) {
                 scheduleSystemRelayout(rootView)
             }
         }
@@ -79,11 +80,31 @@ internal object IslandDynamicWidthCoordinator {
             rootTargets[viewTag] = contentWidthPx
             rootTargets.toMap()
         }
-        val changed = refreshDynamicLyricWidths(rootView, config, overrides)
+        val changed = refreshDynamicSlotWidths(rootView, config, overrides)
         if (changed) {
             scheduleSystemRelayout(rootView)
         }
         return changed
+    }
+
+    /**
+     * Stores the currently rendered music-info width for later lyric refreshes.
+     * Music metadata normally changes only when the media item changes, while lyric lines can
+     * change frequently; keeping this value per host avoids re-reading the metadata view on every
+     * lyric update.
+     */
+    fun cacheMetadataWidth(rootView: ViewGroup, viewTag: String): Boolean {
+        val view = rootView.findViewWithTag<View>(viewTag) ?: return false
+        val contentWidthPx = metadataContentWidthPx(view) ?: return false
+        return synchronized(metadataContentWidths) {
+            val rootWidths = metadataContentWidths.getOrPut(rootView) { hashMapOf() }
+            if (rootWidths[viewTag] == contentWidthPx) {
+                false
+            } else {
+                rootWidths[viewTag] = contentWidthPx
+                true
+            }
+        }
     }
 
     fun clearPreflight(rootView: ViewGroup, viewTag: String) {
@@ -96,22 +117,22 @@ internal object IslandDynamicWidthCoordinator {
         }
     }
 
-    private fun refreshDynamicLyricWidths(
+    private fun refreshDynamicSlotWidths(
         rootView: ViewGroup,
         config: IslandSlotRuntimeConfig,
         contentWidthOverrides: Map<String, Float> = emptyMap()
     ): Boolean {
         if (!config.geometry.isDynamicWidth) return false
 
-        val lyricBaseWidthDp = listOf(
-            dynamicLyricBaseWidthDp(
+        val slotBaseWidthDp = listOf(
+            dynamicSlotBaseWidthDp(
                 rootView,
                 IslandProbeUtils.LEFT_PARENT_NAME,
                 IslandProbeUtils.LEFT_TEST_VIEW_TAG,
                 config,
                 contentWidthOverrides[IslandProbeUtils.LEFT_TEST_VIEW_TAG]
             ),
-            dynamicLyricBaseWidthDp(
+            dynamicSlotBaseWidthDp(
                 rootView,
                 IslandProbeUtils.RIGHT_PARENT_NAME,
                 IslandProbeUtils.RIGHT_TEST_VIEW_TAG,
@@ -119,7 +140,7 @@ internal object IslandDynamicWidthCoordinator {
                 contentWidthOverrides[IslandProbeUtils.RIGHT_TEST_VIEW_TAG]
             )
         ).filterNotNull().maxOrNull() ?: return false
-        val baseWidthDp = lyricBaseWidthDp.coerceIn(
+        val baseWidthDp = slotBaseWidthDp.coerceIn(
             config.geometry.rightMinWidthDp.toFloat(),
             config.geometry.rightMaxWidthDp.toFloat()
         )
@@ -146,27 +167,61 @@ internal object IslandDynamicWidthCoordinator {
         return changed
     }
 
-    private fun dynamicLyricBaseWidthDp(
+    private fun dynamicSlotBaseWidthDp(
         rootView: ViewGroup,
         parentName: String,
         viewTag: String,
         config: IslandSlotRuntimeConfig,
         contentWidthOverridePx: Float? = null
     ): Float? {
-        if (config.modeForTag(viewTag) != RootConstants.ISLAND_CONTENT_MODE_LYRIC) return null
-        val lyricView = rootView.findViewWithTag<View>(viewTag) ?: return null
-        val contentWidthPx = when (lyricView) {
-            is RichLyricLineView -> lyricView.main.lineWidth
-            is SpaceGateRichLyricLineView -> maxOf(
-                lyricView.main.lineWidth,
-                lyricView.secondary.lineWidth
-            )
+        val contentWidthPx = when (config.modeForTag(viewTag)) {
+            RootConstants.ISLAND_CONTENT_MODE_LYRIC -> {
+                val lyricView = rootView.findViewWithTag<View>(viewTag) ?: return null
+                when (lyricView) {
+                    is RichLyricLineView -> contentWidthOverridePx ?: lyricView.main.lineWidth
+                    is SpaceGateRichLyricLineView -> contentWidthOverridePx ?: maxOf(
+                        lyricView.main.lineWidth,
+                        lyricView.secondary.lineWidth
+                    )
+                    else -> return null
+                }
+            }
+
+            RootConstants.ISLAND_CONTENT_MODE_CUSTOM_MUSIC_INFO -> {
+                metadataContentWidthPx(rootView, viewTag) ?: return null
+            }
+
             else -> return null
         }
         return IslandLyricWidthCalculator.baseWidthDp(
-            contentWidthPx = contentWidthOverridePx ?: contentWidthPx,
+            contentWidthPx = contentWidthPx,
             spec = dynamicLyricWidthSpec(rootView, parentName, config)
         )
+    }
+
+    private fun metadataContentWidthPx(rootView: ViewGroup, viewTag: String): Float? {
+        val cachedWidth = synchronized(metadataContentWidths) {
+            metadataContentWidths[rootView]?.get(viewTag)
+        }
+        if (cachedWidth != null) return cachedWidth
+
+        val view = rootView.findViewWithTag<View>(viewTag) ?: return null
+        val measuredWidth = metadataContentWidthPx(view) ?: return null
+        synchronized(metadataContentWidths) {
+            metadataContentWidths.getOrPut(rootView) { hashMapOf() }[viewTag] = measuredWidth
+        }
+        return measuredWidth
+    }
+
+    private fun metadataContentWidthPx(view: View): Float? {
+        return when (view) {
+            is RichLyricLineView -> maxOf(view.main.lineWidth, view.secondary.lineWidth)
+            is SpaceGateRichLyricLineView -> maxOf(
+                view.main.lineWidth,
+                view.secondary.lineWidth
+            )
+            else -> null
+        }
     }
 
     private fun updateDynamicSlotWidth(
