@@ -14,6 +14,7 @@ import com.lidesheng.hyperlyric.root.island.content.IslandSlotContentFacade
 import com.lidesheng.hyperlyric.root.island.effects.color.IslandMusicWaveColorHooker
 import com.lidesheng.hyperlyric.root.island.renderer.IslandRenderer
 import com.lidesheng.hyperlyric.root.utils.CoverColorHelper
+import com.lidesheng.hyperlyric.root.utils.HookLogger
 import kotlin.math.abs
 
 class RootLyricSink(
@@ -42,11 +43,13 @@ class RootLyricSink(
     }
 
     private companion object {
+        const val TAG = "RootLyricSink"
         const val MIN_POSITION_DISPATCH_INTERVAL_MS = 33L
         const val MIN_VALID_PLAYBACK_SPEED = 0.1f
         const val MAX_VALID_PLAYBACK_SPEED = 4f
         const val SPEED_CHANGE_EPSILON = 0.01f
         const val INFERRED_SPEED_BLEND = 0.75f
+        const val MAX_DEBUG_TEXT_LENGTH = 80
     }
 
     private data class PositionSample(val position: Long, val playbackSpeed: Float)
@@ -75,7 +78,8 @@ class RootLyricSink(
                 title = localSong.name.orEmpty(),
                 artist = localSong.artist.orEmpty(),
                 album = lastMetadataAlbum,
-                songId = localSong.id
+                songId = localSong.id,
+                reason = "song_changed"
             )
         } else {
             lastMetadataArtist = ""
@@ -143,7 +147,8 @@ class RootLyricSink(
             artist = song?.artist?.takeIf { it.isNotBlank() }
                 ?: lastMetadataArtist,
             album = lastMetadataAlbum,
-            songId = song?.id
+            songId = song?.id,
+            reason = "metadata_changed"
         )
         IslandSlotContentFacade.invalidate()
         renderer.refreshActiveIsland()
@@ -237,20 +242,57 @@ class RootLyricSink(
     private fun explicitPlaybackSpeed(speed: Float): Float? =
         speed.takeIf { it.isFinite() && it in MIN_VALID_PLAYBACK_SPEED..MAX_VALID_PLAYBACK_SPEED }
 
+    private fun debugText(value: String): String {
+        val normalized = value
+            .replace('\r', ' ')
+            .replace('\n', ' ')
+            .replace('\t', ' ')
+            .trim()
+        if (normalized.isEmpty()) return "<empty>"
+        return normalized.take(MAX_DEBUG_TEXT_LENGTH).let {
+            if (normalized.length > MAX_DEBUG_TEXT_LENGTH) "$it…" else it
+        }
+    }
+
     private fun updateColorSession(
         title: String,
         artist: String,
         album: String,
-        songId: String?
+        songId: String?,
+        reason: String
     ) {
+        val packageName = LyriconDataBridge.currentLyricPackageName.orEmpty()
         val previousRevision = CoverColorHelper.currentSession()?.revision
         val current = CoverColorHelper.activateSession(
-            packageName = LyriconDataBridge.currentLyricPackageName.orEmpty(),
+            packageName = packageName,
             title = title,
             artist = artist,
             album = album,
             songId = songId
-        ) ?: return
+        ) ?: run {
+            HookLogger.dState(
+                stateId = "RootLyricSink.colorSession.invalid",
+                tag = TAG,
+                state = "$packageName|$title|$artist|$songId"
+            ) {
+                "颜色会话未更新: reason=$reason, package=${packageName.ifEmpty { "<empty>" }}, " +
+                        "title=\"${debugText(title)}\", artist=\"${debugText(artist)}\", " +
+                        "songIdPresent=${!songId.isNullOrBlank()}"
+            }
+            return
+        }
+        HookLogger.dState(
+            stateId = "RootLyricSink.colorSession",
+            tag = TAG,
+            state = "${current.revision}|${current.mediaKey}|${current.title}|${current.artist}"
+        ) {
+            "颜色会话已同步: reason=$reason, revision=${current.revision}, " +
+                    "revisionChanged=${previousRevision != current.revision}, " +
+                    "package=${packageName.ifEmpty { "<empty>" }}, " +
+                    "title=\"${debugText(title)}\", artist=\"${debugText(artist)}\", " +
+                    "album=\"${debugText(album)}\", songIdPresent=${!songId.isNullOrBlank()}, " +
+                    "mediaKeyHash=${current.mediaKey.hashCode()}"
+        }
         if (previousRevision != current.revision) {
             IslandSlotContentFacade.invalidate()
             IslandMusicWaveColorHooker.refresh()

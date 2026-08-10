@@ -122,17 +122,60 @@ internal object IslandMusicWaveColorHooker {
     fun refresh() {
         runOnMain {
             val sharedPrefs = prefs
-            if (sharedPrefs == null || !isEnabled(sharedPrefs)) {
+            val disabledReason = when {
+                sharedPrefs == null -> "no_remote_preferences"
+                !SystemUiEnhancementGate.isEnabled() -> "system_ui_enhancement_disabled"
+                !SuperIslandContentStylePolicy.usesMusicWaveCoverColor(
+                    SuperIslandContentStylePolicy.readMusicWaveStyle(sharedPrefs)
+                ) -> "music_wave_cover_color_disabled"
+
+                else -> null
+            }
+            if (disabledReason != null) {
+                HookLogger.dState(
+                    stateId = "IslandMusicWaveColorHooker.refresh",
+                    tag = TAG,
+                    state = "disabled|$disabledReason"
+                ) {
+                    "音频律动封面色未生效: reason=$disabledReason"
+                }
                 restoreNativeColors()
             } else {
+                val effectivePrefs = sharedPrefs ?: return@runOnMain
                 val colorSession = CoverColorHelper.currentSession()
                 val artworkRequest = CoverColorHelper.currentArtworkRequest()
                 val synced = when {
-                    artworkRequest != null -> applyCachedColors(sharedPrefs, artworkRequest)
-                    colorSession != null -> applyCachedColors(sharedPrefs, colorSession)
+                    artworkRequest != null -> applyCachedColors(effectivePrefs, artworkRequest)
+                    colorSession != null -> applyCachedColors(effectivePrefs, colorSession)
                     else -> false
                 }
-                if (!synced) restoreNativeColors()
+                if (!synced) {
+                    val reason = if (artworkRequest == null && colorSession == null) {
+                        "no_color_session"
+                    } else {
+                        "no_cached_palette"
+                    }
+                    HookLogger.dState(
+                        stateId = "IslandMusicWaveColorHooker.refresh",
+                        tag = TAG,
+                        state = "not_synced|$reason"
+                    ) {
+                        "音频律动封面色未同步: reason=$reason, " +
+                                "sessionRevision=${colorSession?.revision}, " +
+                                "artworkRevision=${artworkRequest?.revision}"
+                    }
+                    restoreNativeColors()
+                } else {
+                    HookLogger.dState(
+                        stateId = "IslandMusicWaveColorHooker.refresh",
+                        tag = TAG,
+                        state = "synced|${desiredToken?.hashCode()}|${desiredColors?.top}|${desiredColors?.bottom}"
+                    ) {
+                        "音频律动封面色已同步: tokenHash=${desiredToken?.hashCode()}, " +
+                                "top=#${Integer.toHexString(desiredColors?.top ?: 0)}, " +
+                                "bottom=#${Integer.toHexString(desiredColors?.bottom ?: 0)}"
+                    }
+                }
             }
         }
     }
@@ -171,8 +214,17 @@ internal object IslandMusicWaveColorHooker {
             } catch (_: Exception) {
             }
         }
-        applyColorsToTrackedHolders(colors, holder)
+        val appliedTargetCount = applyColorsToTrackedHolders(colors, holder)
         overrideApplied = true
+        HookLogger.dState(
+            stateId = "IslandMusicWaveColorHooker.apply",
+            tag = TAG,
+            state = "${token.hashCode()}|${colors.top}|${colors.bottom}|$appliedTargetCount"
+        ) {
+            "音频律动封面色已注入: tokenHash=${token.hashCode()}, " +
+                    "top=#${Integer.toHexString(colors.top)}, bottom=#${Integer.toHexString(colors.bottom)}, " +
+                    "appliedTargets=$appliedTargetCount, trackedHolders=${trackedHolderCount()}"
+        }
         invalidateTrackedLottieViews()
     }
 
@@ -182,6 +234,13 @@ internal object IslandMusicWaveColorHooker {
         if (overrideApplied) {
             restoreTrackedNativeColors()
             overrideApplied = false
+            HookLogger.dState(
+                stateId = "IslandMusicWaveColorHooker.apply",
+                tag = TAG,
+                state = "restored"
+            ) {
+                "音频律动封面色已恢复原生颜色"
+            }
         }
         invalidateTrackedLottieViews()
     }
@@ -305,8 +364,8 @@ internal object IslandMusicWaveColorHooker {
     private fun applyColorsToTrackedHolders(
         colors: WaveColors,
         immediateHolder: Any? = null
-    ) {
-        val accessor = colorAccessor ?: return
+    ): Int {
+        val accessor = colorAccessor ?: return 0
         val holders = synchronized(trackedHolders) {
             trackedHolders.keys.toList()
         }
@@ -324,7 +383,14 @@ internal object IslandMusicWaveColorHooker {
         if (!wroteColor) {
             // 静态字段不需要 holder；实例字段会在 holder 注册后补写。
             accessor.write(colors)
+            return if (accessor.usesStaticFields) 1 else 0
         }
+        return if (accessor.usesStaticFields) 1 else holders.size +
+                if (immediateHolder != null && holders.none { it === immediateHolder }) 1 else 0
+    }
+
+    private fun trackedHolderCount(): Int = synchronized(trackedHolders) {
+        trackedHolders.size
     }
 
     private fun invalidateTrackedLottieViews() {
@@ -403,7 +469,16 @@ internal object IslandMusicWaveColorHooker {
                         isTokenForSession(desiredToken, colorSession)
                     ) {
                         desiredColors?.let {
-                            applyColorsToTrackedHolders(it, holder)
+                            val appliedTargetCount = applyColorsToTrackedHolders(it, holder)
+                            HookLogger.dState(
+                                stateId = "IslandMusicWaveColorHooker.callback",
+                                tag = TAG,
+                                state = "${desiredToken?.hashCode()}|$appliedTargetCount|${trackedHolderCount()}"
+                            ) {
+                                "音频律动封面色已补写: tokenHash=${desiredToken?.hashCode()}, " +
+                                        "appliedTargets=$appliedTargetCount, " +
+                                        "trackedHolders=${trackedHolderCount()}"
+                            }
                         }
                     }
                 }

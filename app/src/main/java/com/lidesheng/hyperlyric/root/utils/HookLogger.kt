@@ -18,11 +18,16 @@ object HookLogger : HyperLogger {
     @Volatile
     private var logLevel = UIConstants.DEFAULT_LOG_LEVEL
 
+    private val debugStates = HashMap<String, String>()
+
     var module: XposedModule? = null
         set(value) {
             field = value
             logPrefs = null
             logPrefsResolved = false
+            synchronized(debugStates) {
+                debugStates.clear()
+            }
             refreshLogLevel()
         }
 
@@ -31,6 +36,28 @@ object HookLogger : HyperLogger {
         val finalMsg = format(tag, msg)
         Log.d(TAG, finalMsg)
         module?.log(Log.DEBUG, TAG, finalMsg)
+    }
+
+    /**
+     * Emits a diagnostic only when a low-frequency state changes. Callers keep the message
+     * lazy so adding diagnostics does not add formatting work while Debug logging is disabled.
+     */
+    fun dState(
+        stateId: String,
+        tag: String,
+        state: String,
+        message: () -> String
+    ) {
+        if (!isDebugEnabled) return
+        val changed = synchronized(debugStates) {
+            if (debugStates[stateId] == state) {
+                false
+            } else {
+                debugStates[stateId] = state
+                true
+            }
+        }
+        if (changed) d(tag, message())
     }
 
     val isDebugEnabled: Boolean

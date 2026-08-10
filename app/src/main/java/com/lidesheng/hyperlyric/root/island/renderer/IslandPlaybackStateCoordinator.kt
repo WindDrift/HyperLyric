@@ -11,6 +11,7 @@ import com.lidesheng.hyperlyric.root.island.config.IslandSlotRuntimeConfig
 import com.lidesheng.hyperlyric.root.island.effects.glow.IslandProgressGlowController
 import com.lidesheng.hyperlyric.root.island.presentation.IslandPresentationCoordinator
 import com.lidesheng.hyperlyric.root.island.presentation.IslandReconcileReason
+import com.lidesheng.hyperlyric.root.utils.HookLogger
 
 /**
  * Owns pause/resume behavior for injected lyric views.
@@ -36,6 +37,13 @@ internal object IslandPlaybackStateCoordinator {
                 RootConstants.DEFAULT_HOOK_ENABLE_SUPER_ISLAND
             )
         ) {
+            HookLogger.dState(
+                stateId = "IslandPlaybackStateCoordinator.policy",
+                tag = "IslandPlaybackStateCoordinator",
+                state = "disabled|$isPlaying"
+            ) {
+                "播放策略未执行: reason=super_island_disabled, isPlaying=$isPlaying"
+            }
             onClearRequested()
             return
         }
@@ -48,6 +56,7 @@ internal object IslandPlaybackStateCoordinator {
             RootConstants.KEY_HOOK_ISLAND_BEHAVIOR_AFTER_PAUSE,
             RootConstants.DEFAULT_HOOK_ISLAND_BEHAVIOR_AFTER_PAUSE
         )
+        val wasClearedByPause = clearedByPause
 
         if (isPlaying) {
             if (clearedByPause) {
@@ -63,6 +72,21 @@ internal object IslandPlaybackStateCoordinator {
         } else if (stateChanged) {
             applyPlaybackStateToActiveViews(false)
         }
+        val action = when {
+            isPlaying && wasClearedByPause -> "restore_after_pause"
+            isPlaying && stateChanged -> "resume_active_views"
+            !isPlaying && behavior == 0 && !wasClearedByPause -> "clear_on_pause"
+            !isPlaying && stateChanged -> "freeze_active_views"
+            else -> "no_change"
+        }
+        HookLogger.dState(
+            stateId = "IslandPlaybackStateCoordinator.policy",
+            tag = "IslandPlaybackStateCoordinator",
+            state = "$isPlaying|$behavior|$stateChanged|$clearedByPause|$action"
+        ) {
+            "播放策略已处理: isPlaying=$isPlaying, pauseBehavior=$behavior, " +
+                    "stateChanged=$stateChanged, clearedByPause=$clearedByPause, action=$action"
+        }
     }
 
     private fun restoreActiveViewsAfterPause(onRefreshRequested: () -> Unit) {
@@ -74,6 +98,13 @@ internal object IslandPlaybackStateCoordinator {
             IslandPresentationCoordinator.currentPresentationRevision()
         val activeViews = IslandPresentationCoordinator.snapshotAttachedHosts(lyricPkg)
         if (activeViews.isEmpty()) {
+            HookLogger.dState(
+                stateId = "IslandPlaybackStateCoordinator.restore",
+                tag = "IslandPlaybackStateCoordinator",
+                state = "no_hosts"
+            ) {
+                "暂停恢复未找到宿主: reason=no_attached_hosts, package=$lyricPkg"
+            }
             onRefreshRequested()
             return
         }

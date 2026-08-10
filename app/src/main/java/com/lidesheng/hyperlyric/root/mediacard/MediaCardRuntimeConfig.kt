@@ -2,6 +2,7 @@ package com.lidesheng.hyperlyric.root.mediacard
 
 import android.content.SharedPreferences
 import com.lidesheng.hyperlyric.common.RootConstants
+import com.lidesheng.hyperlyric.root.utils.HookLogger
 
 internal object MediaCardRuntimeConfig {
     @Volatile
@@ -9,7 +10,27 @@ internal object MediaCardRuntimeConfig {
         private set
 
     fun load(prefs: SharedPreferences) {
-        current = Snapshot.from(prefs)
+        val snapshot = Snapshot.from(prefs)
+        current = snapshot
+        val summary = "enabled=${snapshot.enabled}, " +
+                "notification(layout=${snapshot.notification.layoutStyle}, " +
+                "theme=${snapshot.notification.cardTheme}, " +
+                "cover=${snapshot.notification.coverStyle}, " +
+                "ambient=${snapshot.notification.ambientFlowMode}, " +
+                "progress=${snapshot.notification.progressStyle}), " +
+                "expanded(layout=${snapshot.islandExpanded.layoutStyle}, " +
+                "theme=${snapshot.islandExpanded.cardTheme}, " +
+                "cover=${snapshot.islandExpanded.coverStyle}, " +
+                "ambient=${snapshot.islandExpanded.ambientFlowMode}, " +
+                "progress=${snapshot.islandExpanded.progressStyle}), " +
+                "aodCollapseDisabled=${snapshot.alwaysOnDisplay.disableMediaCardCollapsing}"
+        HookLogger.dState(
+            stateId = "MediaCardRuntimeConfig",
+            tag = "MediaCardRuntimeConfig",
+            state = summary
+        ) {
+            "媒体卡片实际配置: $summary"
+        }
     }
 
     data class Snapshot(

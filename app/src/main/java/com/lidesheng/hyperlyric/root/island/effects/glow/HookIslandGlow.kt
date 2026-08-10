@@ -72,7 +72,15 @@ object HookIslandGlow {
             val data = chain.args.getOrNull(0)
             val color = prepareHighlightColor(view, data)
             if (color != null) {
-                injectTickerDataHighlightColor(data, color)
+                val result = injectTickerDataHighlightColor(data, color)
+                HookLogger.dState(
+                    stateId = "HookIslandGlow.apply:${System.identityHashCode(view)}",
+                    tag = TAG,
+                    state = "$color|$result"
+                ) {
+                    "媒体岛光效颜色注入: color=$color, result=$result, " +
+                            "view=${System.identityHashCode(view)}"
+                }
             }
             return chain.proceed()
         }
@@ -86,6 +94,13 @@ object HookIslandGlow {
                     RootConstants.DEFAULT_HOOK_ENABLE_SUPER_ISLAND
                 )
             ) {
+                HookLogger.dState(
+                    stateId = "HookIslandGlow.prepare",
+                    tag = TAG,
+                    state = "super_island_disabled"
+                ) {
+                    "媒体岛光效颜色未准备: reason=super_island_disabled"
+                }
                 return@runCatching null
             }
             if (!sharedPrefs.getBoolean(
@@ -93,21 +108,62 @@ object HookIslandGlow {
                     RootConstants.DEFAULT_HOOK_ISLAND_GLOW_EXTRACT_COLOR
                 )
             ) {
+                HookLogger.dState(
+                    stateId = "HookIslandGlow.prepare",
+                    tag = TAG,
+                    state = "extract_disabled"
+                ) {
+                    "媒体岛光效颜色未准备: reason=color_extraction_disabled"
+                }
                 return@runCatching null
             }
 
             val mediaInfoFromIsland = IslandProbeUtils.extractMediaIslandInfo(islandData)
-                ?: return@runCatching null
+                ?: run {
+                    HookLogger.dState(
+                        stateId = "HookIslandGlow.prepare",
+                        tag = TAG,
+                        state = "not_media_island"
+                    ) {
+                        "媒体岛光效颜色未准备: reason=not_media_island"
+                    }
+                    return@runCatching null
+                }
             val pkgName = mediaInfoFromIsland.packageName
             val lyricPkg = LyriconDataBridge.currentLyricPackageName
             if (pkgName.isEmpty() || lyricPkg.isNullOrEmpty() || pkgName != lyricPkg) {
+                HookLogger.dState(
+                    stateId = "HookIslandGlow.prepare",
+                    tag = TAG,
+                    state = "lyric_owner_mismatch|$pkgName|${lyricPkg.orEmpty()}"
+                ) {
+                    "媒体岛光效颜色未准备: reason=lyric_owner_mismatch, " +
+                            "mediaPackage=$pkgName, lyricPackage=${lyricPkg ?: "<none>"}"
+                }
                 return@runCatching null
             }
 
-            val context = view?.context ?: return@runCatching null
+            val context = view?.context ?: run {
+                HookLogger.dState(
+                    stateId = "HookIslandGlow.prepare",
+                    tag = TAG,
+                    state = "view_context_missing"
+                ) {
+                    "媒体岛光效颜色未准备: reason=view_context_missing"
+                }
+                return@runCatching null
+            }
             val mediaInfo = MediaMetadataHelper.getMediaInfo(context, pkgName, HookLogger)
-            val colorSession = CoverColorHelper.currentSession(pkgName)
-                ?: return@runCatching null
+            val colorSession = CoverColorHelper.currentSession(pkgName) ?: run {
+                HookLogger.dState(
+                    stateId = "HookIslandGlow.prepare",
+                    tag = TAG,
+                    state = "no_color_session"
+                ) {
+                    "媒体岛光效颜色未准备: reason=no_matching_color_session"
+                }
+                return@runCatching null
+            }
             val artworkRequest = mediaInfo.albumArt?.let {
                 CoverColorHelper.ensureArtworkColors(
                     packageName = pkgName,
@@ -130,35 +186,56 @@ object HookIslandGlow {
             val color = palette
                 ?.second
                 ?.firstOrNull()
-                ?: return@runCatching null
+                ?: run {
+                    HookLogger.dState(
+                        stateId = "HookIslandGlow.prepare",
+                        tag = TAG,
+                        state = "no_palette|${colorSession.revision}"
+                    ) {
+                        "媒体岛光效颜色未准备: reason=no_cached_cover_palette, " +
+                                "sessionRevision=${colorSession.revision}"
+                    }
+                    return@runCatching null
+                }
 
-            String.format("#%08X", color)
+            val colorString = String.format("#%08X", color)
+            HookLogger.dState(
+                stateId = "HookIslandGlow.prepare",
+                tag = TAG,
+                state = "ready|${colorSession.revision}|${artworkRequest?.revision}|$colorString"
+            ) {
+                "媒体岛光效颜色已准备: color=$colorString, sessionRevision=${colorSession.revision}, " +
+                        "artworkRevision=${artworkRequest?.revision}, source=cover"
+            }
+            colorString
         }.onFailure { e ->
             HookLogger.e(TAG, "解析媒体岛光效颜色失败", e)
         }.getOrNull()
     }
 
-    private fun injectTickerDataHighlightColor(islandData: Any?, color: String) {
-        runCatching {
-            val receiver = islandData ?: return
+    private fun injectTickerDataHighlightColor(islandData: Any?, color: String): String {
+        return runCatching {
+            val receiver = islandData ?: return@runCatching "island_data_null"
             val getTickerData = receiver.javaClass.methods.find {
                 it.name == "getTickerData" && it.parameterTypes.isEmpty()
-            } ?: return
+            } ?: return@runCatching "getter_missing"
             val setTickerData = receiver.javaClass.methods.find {
                 it.name == "setTickerData" &&
                         it.parameterTypes.size == 1 &&
                         it.parameterTypes[0] == String::class.java
-            } ?: return
+            } ?: return@runCatching "setter_missing"
 
-            val tickerData = getTickerData.invoke(receiver) as? String ?: return
-            if (tickerData.isBlank()) return
+            val tickerData = getTickerData.invoke(receiver) as? String
+                ?: return@runCatching "ticker_data_null"
+            if (tickerData.isBlank()) return@runCatching "ticker_data_blank"
 
             val json = JSONObject(tickerData)
             json.put("highlightColor", color)
             setTickerData.invoke(receiver, json.toString())
+            "applied"
         }.onFailure { e ->
             HookLogger.e(TAG, "向 tickerData 注入 highlightColor 失败", e)
-        }
+        }.getOrDefault("exception")
     }
 
     fun updateMusicGlow(
@@ -170,6 +247,13 @@ object HookIslandGlow {
             RootConstants.DEFAULT_HOOK_ISLAND_GLOW_EXTRACT_COLOR
         )
         if (!enabled) {
+            HookLogger.dState(
+                stateId = "HookIslandGlow.config",
+                tag = TAG,
+                state = "disabled"
+            ) {
+                "媒体岛光效未生效: reason=color_extraction_disabled"
+            }
             clearViewHighlightColor(contentView)
             rememberGlowEnabled(contentView, false)
             return

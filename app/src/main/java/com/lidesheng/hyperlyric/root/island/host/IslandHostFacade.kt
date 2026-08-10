@@ -7,15 +7,27 @@ import com.lidesheng.hyperlyric.common.SuperIslandContentStylePolicy
 import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
 import com.lidesheng.hyperlyric.root.island.effects.glow.HookIslandGlow
 import com.lidesheng.hyperlyric.root.island.effects.glow.IslandProgressGlowController
+import com.lidesheng.hyperlyric.root.utils.HookLogger
 
 internal object IslandHostFacade {
     fun applyHostSettings(rootView: ViewGroup, prefs: SharedPreferences) {
+        val albumStyle = SuperIslandContentStylePolicy.readAlbumCoverStyle(prefs)
         val showAlbum = SuperIslandContentStylePolicy.isAlbumCoverVisible(
-            SuperIslandContentStylePolicy.readAlbumCoverStyle(prefs)
+            albumStyle
         )
+        val rhythmStyle = SuperIslandContentStylePolicy.readMusicWaveStyle(prefs)
         val showRhythm = SuperIslandContentStylePolicy.isMusicWaveVisible(
-            SuperIslandContentStylePolicy.readMusicWaveStyle(prefs)
+            rhythmStyle
         )
+        val rootId = System.identityHashCode(rootView)
+        HookLogger.dState(
+            stateId = "IslandHostFacade:$rootId",
+            tag = "IslandHostFacade",
+            state = "$albumStyle|$rhythmStyle|$showAlbum|$showRhythm"
+        ) {
+            "宿主显示配置: root=$rootId, albumStyle=$albumStyle, showAlbum=$showAlbum, " +
+                    "musicWaveStyle=$rhythmStyle, showRhythm=$showRhythm"
+        }
 
         IslandViewHelper.toggleContainer(
             rootView,

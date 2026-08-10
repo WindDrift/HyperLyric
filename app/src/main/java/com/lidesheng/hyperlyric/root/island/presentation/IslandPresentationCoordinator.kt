@@ -1,6 +1,8 @@
 package com.lidesheng.hyperlyric.root.island.presentation
 
 import android.view.ViewGroup
+import com.lidesheng.hyperlyric.common.RootConstants
+import com.lidesheng.hyperlyric.root.HookEntry
 import com.lidesheng.hyperlyric.root.LyriconDataBridge
 import com.lidesheng.hyperlyric.root.island.host.IslandHostFacade
 import com.lidesheng.hyperlyric.root.island.host.IslandProbeUtils
@@ -89,7 +91,15 @@ internal object IslandPresentationCoordinator {
         owner: IslandRenderPolicy.OwnerEvidence
     ): ReconcileResult {
         if (owner == IslandRenderPolicy.OwnerEvidence.NotMedia) {
-            return removeRealHost(root, IslandReconcileReason.SYSTEM_UPDATE_COMPLETE)
+            val result = removeRealHost(root, IslandReconcileReason.SYSTEM_UPDATE_COMPLETE)
+            logReconcile(
+                root = root,
+                target = IslandInjectionReconciler.Target.RealRoot,
+                owner = owner,
+                reason = IslandReconcileReason.SYSTEM_UPDATE_COMPLETE,
+                result = result
+            )
+            return result
         }
 
         if (owner is IslandRenderPolicy.OwnerEvidence.Media) {
@@ -438,7 +448,15 @@ internal object IslandPresentationCoordinator {
             token != null &&
             isHostFrozenForFakeTransition(token)
         ) {
-            return ReconcileResult.noOp(IslandRenderPolicy.Decision.TARGET)
+            return ReconcileResult.noOp(IslandRenderPolicy.Decision.TARGET).also {
+                logReconcile(
+                    root = root,
+                    target = IslandInjectionReconciler.Target.RealRoot,
+                    owner = owner,
+                    reason = reason,
+                    result = it
+                )
+            }
         }
         val mutation = when (decision) {
             IslandRenderPolicy.Decision.TARGET -> {
@@ -468,12 +486,28 @@ internal object IslandPresentationCoordinator {
             }
 
             IslandRenderPolicy.Decision.NOT_MEDIA -> {
-                return removeRealHost(root, reason)
+                return removeRealHost(root, reason).also {
+                    logReconcile(
+                        root = root,
+                        target = IslandInjectionReconciler.Target.RealRoot,
+                        owner = owner,
+                        reason = reason,
+                        result = it
+                    )
+                }
             }
 
             IslandRenderPolicy.Decision.PENDING -> IslandInjectionReconciler.Result.NO_OP
         }
-        return ReconcileResult(decision, mutation)
+        return ReconcileResult(decision, mutation).also {
+            logReconcile(
+                root = root,
+                target = IslandInjectionReconciler.Target.RealRoot,
+                owner = owner,
+                reason = reason,
+                result = it
+            )
+        }
     }
 
     private fun reconcileModule(
@@ -501,7 +535,15 @@ internal object IslandPresentationCoordinator {
 
             IslandRenderPolicy.Decision.PENDING -> IslandInjectionReconciler.Result.NO_OP
         }
-        return ReconcileResult(decision, mutation)
+        return ReconcileResult(decision, mutation).also {
+            logReconcile(
+                root = holderRoot,
+                target = target,
+                owner = owner,
+                reason = reason,
+                result = it
+            )
+        }
     }
 
     private fun removeRealHost(
@@ -529,6 +571,53 @@ internal object IslandPresentationCoordinator {
         owner: IslandRenderPolicy.OwnerEvidence
     ): IslandRenderPolicy.Decision {
         return decisionEvaluator.evaluate(owner)
+    }
+
+    private fun logReconcile(
+        root: ViewGroup,
+        target: IslandInjectionReconciler.Target,
+        owner: IslandRenderPolicy.OwnerEvidence,
+        reason: IslandReconcileReason,
+        result: ReconcileResult
+    ) {
+        val mutation = result.mutation
+        val enabled = IslandProbeUtils.isSuperIslandEnabled()
+        val playbackActive = presentationState.isPlaybackActive()
+        val pauseBehavior = HookEntry.instance?.prefs?.getInt(
+            RootConstants.KEY_HOOK_ISLAND_BEHAVIOR_AFTER_PAUSE,
+            RootConstants.DEFAULT_HOOK_ISLAND_BEHAVIOR_AFTER_PAUSE
+        ) ?: RootConstants.DEFAULT_HOOK_ISLAND_BEHAVIOR_AFTER_PAUSE
+        val lyricPackage = LyriconDataBridge.currentLyricPackageName
+        val ownerPackage = (owner as? IslandRenderPolicy.OwnerEvidence.Media)?.packageName
+        val hasLyrics = LyriconDataBridge.hasLyricsForPresentation()
+        val state = listOf(
+            reason,
+            owner,
+            result.decision,
+            mutation.outcome,
+            enabled,
+            playbackActive,
+            pauseBehavior,
+            lyricPackage,
+            hasLyrics,
+            mutation.layoutMayHaveChanged,
+            mutation.contentChanged,
+            mutation.injectedSlotsPresent,
+            mutation.relayoutRequested
+        ).joinToString("|")
+        HookLogger.dState(
+            stateId = "IslandPresentation:${System.identityHashCode(root)}:$target",
+            tag = TAG,
+            state = state
+        ) {
+            "超级岛注入决策: root=${System.identityHashCode(root)}, target=$target, " +
+                    "owner=${ownerPackage ?: owner}, reason=$reason, decision=${result.decision}, " +
+                    "enabled=$enabled, playbackActive=$playbackActive, pauseBehavior=$pauseBehavior, " +
+                    "lyricPackage=${lyricPackage ?: "<none>"}, hasLyrics=$hasLyrics, " +
+                    "outcome=${mutation.outcome}, layoutChanged=${mutation.layoutMayHaveChanged}, " +
+                    "contentChanged=${mutation.contentChanged}, " +
+                    "injectedSlots=${mutation.injectedSlotsPresent}, relayout=${mutation.relayoutRequested}"
+        }
     }
 
     private fun observeRealHostAttachment(root: ViewGroup) {

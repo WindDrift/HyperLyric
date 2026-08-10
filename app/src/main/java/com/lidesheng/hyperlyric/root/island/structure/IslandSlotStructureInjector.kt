@@ -32,7 +32,16 @@ internal object IslandSlotStructureInjector {
         reconfigureExisting: Boolean = true,
         suppressAnimation: Boolean = false
     ): Boolean {
-        val prefs = HookEntry.instance?.prefs ?: return false
+        val prefs = HookEntry.instance?.prefs ?: run {
+            HookLogger.dState(
+                stateId = "IslandSlotStructureInjector:${System.identityHashCode(rootView)}:all",
+                tag = TAG,
+                state = "prefs_missing"
+            ) {
+                "歌词结构未注入: reason=remote_preferences_missing, root=${System.identityHashCode(rootView)}"
+            }
+            return false
+        }
         val config = IslandSlotRuntimeConfig.from(prefs)
 
         var changed = false
@@ -186,20 +195,31 @@ internal object IslandSlotStructureInjector {
         config: IslandSlotRuntimeConfig,
         suppressAnimation: Boolean
     ): Boolean {
-        val widthPx = config.geometry.widthPx(rootView, parentName) ?: return false
+        val widthPx = config.geometry.widthPx(rootView, parentName) ?: run {
+            logSlotSkip(rootView, viewTag, "width_missing")
+            return false
+        }
 
-        val parent =
-            IslandViewHelper.findViewByName(rootView, parentName) as? ViewGroup ?: return false
+        val parent = IslandViewHelper.findViewByName(rootView, parentName) as? ViewGroup ?: run {
+            logSlotSkip(rootView, viewTag, "parent_missing")
+            return false
+        }
         val container = IslandViewHelper.findViewByName(
             parent,
             IslandProbeUtils.TEXT_CONTAINER_NAME
-        ) as? ViewGroup ?: return false
+        ) as? ViewGroup ?: run {
+            logSlotSkip(rootView, viewTag, "text_container_missing")
+            return false
+        }
 
         val wrapperTag = "${viewTag}_WRAPPER"
 
         IslandViewHelper.showForInjection(container)
 
-        HookEntry.instance?.prefs ?: return false
+        HookEntry.instance?.prefs ?: run {
+            logSlotSkip(rootView, viewTag, "remote_preferences_missing")
+            return false
+        }
 
         val taggedWrapper = container.findViewWithTag<View>(wrapperTag)
         val existingWrapper = taggedWrapper as? MaxWidthFrameLayout
@@ -280,6 +300,16 @@ internal object IslandSlotStructureInjector {
         forceWrapperLayout(wrapperView, container, widthPx)
 
         return true
+    }
+
+    private fun logSlotSkip(rootView: ViewGroup, viewTag: String, reason: String) {
+        HookLogger.dState(
+            stateId = "IslandSlotStructureInjector:${System.identityHashCode(rootView)}:$viewTag",
+            tag = TAG,
+            state = reason
+        ) {
+            "歌词结构未注入: root=${System.identityHashCode(rootView)}, tag=$viewTag, reason=$reason"
+        }
     }
 
     private fun restoreExistingSlotLightweight(

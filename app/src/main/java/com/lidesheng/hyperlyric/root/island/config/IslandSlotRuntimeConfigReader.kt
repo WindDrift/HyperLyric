@@ -6,6 +6,7 @@ import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.common.SuperIslandContentStylePolicy
 import com.lidesheng.hyperlyric.common.SuperIslandWidthPolicy
 import com.lidesheng.hyperlyric.root.island.sizing.IslandSlotGeometryConfig
+import com.lidesheng.hyperlyric.root.utils.HookLogger
 
 /**
  * Reads one immutable Super Island slot configuration snapshot from preferences.
@@ -65,7 +66,7 @@ internal object IslandSlotRuntimeConfigReader {
         } else {
             fixedIslandWidth
         }
-        return IslandSlotRuntimeConfig(
+        val config = IslandSlotRuntimeConfig(
             activeMode = activeMode,
             leftMode = if (activeMode == 1) {
                 RootConstants.ISLAND_CONTENT_MODE_LYRIC
@@ -273,6 +274,33 @@ internal object IslandSlotRuntimeConfigReader {
                 RootConstants.DEFAULT_HOOK_WORD_MOTION_LATIN_WAVE
             )
         )
+        if (!HookLogger.isDebugEnabled) return config
+        val summary = listOf(
+            "mode=${config.activeMode}/${config.leftMode}/${config.rightMode}",
+            "width=${config.geometry.isDynamicWidth}:${config.geometry.leftMinWidthDp}-" +
+                    "${config.geometry.leftMaxWidthDp}/${config.geometry.rightMinWidthDp}-" +
+                    "${config.geometry.rightMaxWidthDp}",
+            "album=${config.geometry.showAlbum}",
+            "rhythm=${config.geometry.showRhythm}",
+            "pause=${config.pauseBehavior}",
+            "text=${config.textSizeSp}/${config.textSizeRatio}/${config.fontWeight}/${config.fontItalic}",
+            "animation=${config.lyricAnimationEnabled}:${config.lyricAnimationId}",
+            "marquee=${config.lyricMarqueeEnabled}:${config.lyricMarqueeSpeed}",
+            "metadataMarquee=${config.metadataMarqueeEnabled}:${config.metadataMarqueeSpeed}",
+            "translation=${config.disableTranslation}/${config.translationOnly}/${config.swapTranslation}",
+            "next=${config.nextLyricLine}/${config.autoSwitchTranslation}",
+            "color=${config.textColorStyle}",
+            "font=${config.customFontPath.isNotBlank()}/${config.narrowLatinFont}",
+            "wordMotion=${config.wordMotionEnabled}"
+        ).joinToString(",")
+        HookLogger.dState(
+            stateId = "IslandSlotRuntimeConfig",
+            tag = "IslandSlotRuntimeConfig",
+            state = summary
+        ) {
+            "超级岛歌词实际配置: $summary, styleSignature=${config.styleSignature.hashCode()}"
+        }
+        return config
     }
 
     private fun readContentMode(

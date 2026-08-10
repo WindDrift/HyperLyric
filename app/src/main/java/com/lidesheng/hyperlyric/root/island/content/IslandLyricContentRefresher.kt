@@ -26,7 +26,16 @@ internal object IslandLyricContentRefresher {
         force: Boolean = false,
         suppressAnimation: Boolean = false
     ): Boolean {
-        val prefs = HookEntry.instance?.prefs ?: return false
+        val prefs = HookEntry.instance?.prefs ?: run {
+            HookLogger.dState(
+                stateId = "IslandLyricContentRefresher:${System.identityHashCode(rootView)}:prefs",
+                tag = "IslandLyricContentRefresher",
+                state = "missing"
+            ) {
+                "歌词内容未刷新: reason=remote_preferences_missing, root=${System.identityHashCode(rootView)}"
+            }
+            return false
+        }
         val config = IslandSlotRuntimeConfig.from(prefs)
         val packageName = LyriconDataBridge.currentLyricPackageName.orEmpty()
         val mediaInfo = MediaMetadataHelper.getMediaInfo(rootView.context, packageName, HookLogger)
@@ -75,7 +84,17 @@ internal object IslandLyricContentRefresher {
         suppressAnimation: Boolean,
         mediaInfo: MediaMetadataHelper.MediaInfo
     ): Boolean {
-        val view = rootView.findViewWithTag<android.view.View>(viewTag) ?: return false
+        val view = rootView.findViewWithTag<android.view.View>(viewTag) ?: run {
+            HookLogger.dState(
+                stateId = "IslandLyricContentRefresher:${System.identityHashCode(rootView)}:$viewTag",
+                tag = "IslandLyricContentRefresher",
+                state = "missing|$mode"
+            ) {
+                "歌词内容未刷新: root=${System.identityHashCode(rootView)}, tag=$viewTag, " +
+                        "mode=$mode, reason=tagged_view_missing"
+            }
+            return false
+        }
         val contentChanged = IslandSlotContentFacade.applySlotContent(
             view,
             prefs,

@@ -19,6 +19,7 @@ object MediaMetadataHelper {
 
     private val sessionLock = Any()
     private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
+    private val debugStates = HashMap<String, String>()
 
     @Volatile
     private var mediaSessionManager: MediaSessionManager? = null
@@ -35,6 +36,7 @@ object MediaMetadataHelper {
         val artist: String = "",
         val album: String = "",
         val albumArt: Bitmap? = null,
+        val artworkSource: String = "none",
         val duration: Long = -1L
     )
 
@@ -59,7 +61,42 @@ object MediaMetadataHelper {
         if (packageName.isEmpty()) return MediaInfo()
 
         return try {
-            findController(context, packageName)?.metadata?.toMediaInfo() ?: MediaInfo()
+            val controller = findController(context, packageName)
+            if (controller == null) {
+                debug(
+                    logger,
+                    packageName,
+                    "no_controller"
+                ) {
+                    "媒体信息未读取: package=$packageName, reason=no_matching_controller"
+                }
+                return MediaInfo()
+            }
+            val metadata = controller.metadata
+            if (metadata == null) {
+                debug(
+                    logger,
+                    packageName,
+                    "no_metadata"
+                ) {
+                    "媒体信息未读取: package=$packageName, reason=controller_metadata_null"
+                }
+                return MediaInfo()
+            }
+            val mediaInfo = metadata.toMediaInfo()
+            debug(
+                logger,
+                packageName,
+                "ok|${mediaInfo.title.hashCode()}|${mediaInfo.artist.hashCode()}|" +
+                        "${mediaInfo.albumArt?.width}x${mediaInfo.albumArt?.height}|${mediaInfo.artworkSource}"
+            ) {
+                "媒体信息已读取: package=$packageName, title=\"${debugText(mediaInfo.title)}\", " +
+                        "artist=\"${debugText(mediaInfo.artist)}\", album=\"${debugText(mediaInfo.album)}\", " +
+                        "albumArt=${mediaInfo.albumArt != null}, " +
+                        "artworkSource=${mediaInfo.artworkSource}, " +
+                        "bitmap=${mediaInfo.albumArt?.width}x${mediaInfo.albumArt?.height}"
+            }
+            mediaInfo
         } catch (e: Exception) {
             logger?.e("MediaMetadataHelper", "获取媒体信息失败 ($packageName)", e)
             MediaInfo()
@@ -177,18 +214,23 @@ object MediaMetadataHelper {
      * 扩展方法：多级兜底提取封面
      * 优先级：ALBUM_ART > ART > DISPLAY_ICON
      */
-    private fun MediaMetadata.extractAlbumArt(): Bitmap? {
+    private fun MediaMetadata.extractAlbumArt(): ArtworkResult {
         return try {
-            getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
-                ?: getBitmap(MediaMetadata.METADATA_KEY_ART)
-                ?: getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)
+            getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)?.let {
+                ArtworkResult(it, "album_art")
+            } ?: getBitmap(MediaMetadata.METADATA_KEY_ART)?.let {
+                ArtworkResult(it, "art")
+            } ?: getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)?.let {
+                ArtworkResult(it, "display_icon")
+            } ?: ArtworkResult(null, "none")
         } catch (_: Exception) {
-            null
+            ArtworkResult(null, "error")
         }
     }
 
     private fun MediaMetadata.toMediaInfo(): MediaInfo {
         val mediaDescription = description
+        val artwork = extractAlbumArt()
         return MediaInfo(
             title = getString(MediaMetadata.METADATA_KEY_TITLE)
                 ?: getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE)
@@ -201,9 +243,33 @@ object MediaMetadataHelper {
             album = getString(MediaMetadata.METADATA_KEY_ALBUM)
                 ?: getString(MediaMetadata.METADATA_KEY_DISPLAY_DESCRIPTION)
                 ?: mediaDescription.description?.toString().orEmpty(),
-            albumArt = extractAlbumArt(),
+            albumArt = artwork.bitmap,
+            artworkSource = artwork.source,
             duration = extractDuration()
         )
+    }
+
+    private data class ArtworkResult(
+        val bitmap: Bitmap?,
+        val source: String
+    )
+
+    private fun debug(
+        logger: HyperLogger?,
+        packageName: String,
+        state: String,
+        message: () -> String
+    ) {
+        if (logger == null) return
+        val changed = synchronized(debugStates) {
+            if (debugStates[packageName] == state) {
+                false
+            } else {
+                debugStates[packageName] = state
+                true
+            }
+        }
+        if (changed) logger.d("MediaMetadataHelper", message())
     }
 
     private fun MediaMetadata.extractDuration(): Long {
@@ -213,5 +279,19 @@ object MediaMetadataHelper {
             -1L
         }
     }
+
+    private fun debugText(value: String): String {
+        val normalized = value
+            .replace('\r', ' ')
+            .replace('\n', ' ')
+            .replace('\t', ' ')
+            .trim()
+        if (normalized.isEmpty()) return "<empty>"
+        return normalized.take(MAX_DEBUG_TEXT_LENGTH).let {
+            if (normalized.length > MAX_DEBUG_TEXT_LENGTH) "$it…" else it
+        }
+    }
+
+    private const val MAX_DEBUG_TEXT_LENGTH = 80
 
 }

@@ -166,7 +166,18 @@ internal object StatusBarTextColorHooker {
         textColor = color
 
         val prefs = HookEntry.instance?.prefs ?: return
-        if (LyricTextColorStylePolicy.followsStatusBar(LyricTextColorStylePolicy.read(prefs))) {
+        val followsStatusBar = LyricTextColorStylePolicy.followsStatusBar(
+            LyricTextColorStylePolicy.read(prefs)
+        )
+        if (followsStatusBar) {
+            HookLogger.dState(
+                stateId = "StatusBarTextColorHooker.effectiveColor",
+                tag = TAG,
+                state = color.toString()
+            ) {
+                "状态栏文字颜色已捕获: color=#${Integer.toHexString(color)}, " +
+                        "action=refresh_lyric_colors"
+            }
             textColorChangedListener?.invoke()
         }
     }

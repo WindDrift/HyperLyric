@@ -340,6 +340,7 @@ class HookEntry : XposedModule() {
                 android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
                     if (key == UIConstants.KEY_LOG_LEVEL) {
                         HookLogger.refreshLogLevel()
+                        HookLogger.d(TAG, "日志配置已刷新: level=${prefs.getInt(key, UIConstants.DEFAULT_LOG_LEVEL)}")
                         return@OnSharedPreferenceChangeListener
                     }
                     if (key?.startsWith(RootConstants.KEY_HOOK_LYRICON_PROVIDER_DELAY_PREFIX) == true) {
@@ -351,12 +352,17 @@ class HookEntry : XposedModule() {
                                 prefs.getString(key, RootConstants.DEFAULT_HOOK_LYRIC_SOURCE)
                                     ?: RootConstants.DEFAULT_HOOK_LYRIC_SOURCE
                             if (!SystemUiEnhancementGate.isEnabled()) {
+                                HookLogger.d(
+                                    TAG,
+                                    "配置未生效: key=$key, reason=system_ui_enhancement_disabled"
+                                )
                                 return@OnSharedPreferenceChangeListener
                             }
                             Handler(Looper.getMainLooper()).post {
                                 val manager = sourceManager
                                 manager?.switchSource(newSourceId)
-                                if (manager?.getActiveSource()?.id == newSourceId) {
+                                val activeSourceId = manager?.getActiveSource()?.id
+                                if (activeSourceId == newSourceId) {
                                     HookLogger.i(TAG, "歌词源切换完成: source=$newSourceId")
                                 }
                             }
@@ -364,7 +370,13 @@ class HookEntry : XposedModule() {
 
                         RootConstants.KEY_HOOK_LYRIC_MODE -> {
                             val newMode = prefs.getInt(key, RootConstants.DEFAULT_HOOK_LYRIC_MODE)
-                            if (newMode == activeMode) return@OnSharedPreferenceChangeListener
+                            if (newMode == activeMode) {
+                                HookLogger.d(
+                                    TAG,
+                                    "配置未生效: key=$key, value=$newMode, reason=value_unchanged"
+                                )
+                                return@OnSharedPreferenceChangeListener
+                            }
                             Handler(Looper.getMainLooper()).post {
                                 activeMode = newMode
                                 BaseIslandRenderer.refreshActiveIsland()
@@ -378,11 +390,17 @@ class HookEntry : XposedModule() {
                                 RootConstants.DEFAULT_HOOK_PLACEHOLDER_FORMAT
                             )
                             Handler(Looper.getMainLooper()).post {
-                                if (LyriconDataBridge.updatePlaceholderFormat(format)) {
+                                val changed = LyriconDataBridge.updatePlaceholderFormat(format)
+                                if (changed) {
                                     BaseIslandRenderer.updateLyricLine()
                                     BaseIslandRenderer.updatePosition(
                                         LyriconDataBridge.currentPosition,
                                         1f
+                                    )
+                                } else {
+                                    HookLogger.d(
+                                        TAG,
+                                        "配置未生效: key=$key, value=$format, reason=value_unchanged_or_no_active_lyric"
                                     )
                                 }
                             }

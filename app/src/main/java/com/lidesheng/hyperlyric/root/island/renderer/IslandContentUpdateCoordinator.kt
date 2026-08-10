@@ -129,28 +129,79 @@ internal object IslandContentUpdateCoordinator {
             IslandSlotRuntimeConfig
         ) -> Unit
     ) {
-        if (!IslandPresentationCoordinator.shouldRenderInjectedIsland()) return
+        if (!IslandPresentationCoordinator.shouldRenderInjectedIsland()) {
+            HookLogger.dState(
+                stateId = "IslandContentUpdateCoordinator.activeHosts",
+                tag = "IslandContentUpdateCoordinator",
+                state = "skip|presentation_not_target"
+            ) {
+                "颜色刷新未执行: reason=presentation_not_target"
+            }
+            return
+        }
         val packageName = LyriconDataBridge.currentLyricPackageName
             ?.takeIf { it.isNotEmpty() }
-            ?: return
+            ?: run {
+                HookLogger.dState(
+                    stateId = "IslandContentUpdateCoordinator.activeHosts",
+                    tag = "IslandContentUpdateCoordinator",
+                    state = "skip|no_lyric_package"
+                ) {
+                    "颜色刷新未执行: reason=no_lyric_package"
+                }
+                return
+            }
         val expectedLyricVersion = LyriconDataBridge.versionCounter.get()
         val expectedPresentationRevision =
             IslandPresentationCoordinator.currentPresentationRevision()
 
-        IslandPresentationCoordinator.snapshotAttachedHosts(packageName).forEach { token ->
+        val hosts = IslandPresentationCoordinator.snapshotAttachedHosts(packageName)
+        val frozenHostCount = hosts.count {
+            IslandPresentationCoordinator.isHostFrozenForFakeTransition(it)
+        }
+        HookLogger.dState(
+            stateId = "IslandContentUpdateCoordinator.activeHosts",
+            tag = "IslandContentUpdateCoordinator",
+            state = "hosts|$packageName|${hosts.size}|$frozenHostCount|$expectedLyricVersion|$expectedPresentationRevision"
+        ) {
+            "颜色刷新目标: package=$packageName, attachedHosts=${hosts.size}, " +
+                    "frozenHosts=$frozenHostCount, lyricVersion=$expectedLyricVersion, " +
+                    "presentationRevision=$expectedPresentationRevision"
+        }
+
+        hosts.forEach { token ->
             if (IslandPresentationCoordinator.isHostFrozenForFakeTransition(token)) {
                 return@forEach
             }
             token.root.post {
-                if (!IslandPresentationCoordinator.isCurrentHost(token) ||
-                    IslandPresentationCoordinator.isHostFrozenForFakeTransition(token) ||
+                val skipReason = when {
+                    !IslandPresentationCoordinator.isCurrentHost(token) -> "host_stale"
+                    IslandPresentationCoordinator.isHostFrozenForFakeTransition(token) ->
+                        "fake_transition_frozen"
+
                     !IslandPresentationCoordinator.isCurrentPresentation(
                         expectedPresentationRevision
-                    ) ||
-                    LyriconDataBridge.versionCounter.get() != expectedLyricVersion ||
-                    LyriconDataBridge.currentLyricPackageName != packageName ||
-                    !IslandPresentationCoordinator.shouldRenderInjectedIsland()
-                ) {
+                    ) -> "presentation_revision_changed"
+
+                    LyriconDataBridge.versionCounter.get() != expectedLyricVersion ->
+                        "lyric_version_changed"
+
+                    LyriconDataBridge.currentLyricPackageName != packageName ->
+                        "lyric_owner_changed"
+
+                    !IslandPresentationCoordinator.shouldRenderInjectedIsland() ->
+                        "presentation_not_target"
+
+                    else -> null
+                }
+                if (skipReason != null) {
+                    HookLogger.dState(
+                        stateId = "IslandContentUpdateCoordinator.colorRefreshSkip",
+                        tag = "IslandContentUpdateCoordinator",
+                        state = skipReason
+                    ) {
+                        "颜色刷新目标失效: reason=$skipReason, package=$packageName"
+                    }
                     return@post
                 }
                 val prefs = HookEntry.instance?.prefs ?: return@post
@@ -248,8 +299,26 @@ internal object IslandContentUpdateCoordinator {
         config: IslandSlotRuntimeConfig,
         mediaInfo: MediaMetadataHelper.MediaInfo
     ) {
-        if (mode == RootConstants.ISLAND_CONTENT_MODE_NONE) return
-        val slotView = view.findViewWithTag<View>(tag) ?: return
+        if (mode == RootConstants.ISLAND_CONTENT_MODE_NONE) {
+            HookLogger.dState(
+                stateId = "IslandContentUpdateCoordinator.slotColor:$tag",
+                tag = "IslandContentUpdateCoordinator",
+                state = "mode_none"
+            ) {
+                "歌词颜色未提交: tag=$tag, reason=content_mode_none"
+            }
+            return
+        }
+        val slotView = view.findViewWithTag<View>(tag) ?: run {
+            HookLogger.dState(
+                stateId = "IslandContentUpdateCoordinator.slotColor:$tag",
+                tag = "IslandContentUpdateCoordinator",
+                state = "slot_missing|$mode"
+            ) {
+                "歌词颜色未提交: tag=$tag, mode=$mode, reason=slot_view_missing"
+            }
+            return
+        }
         IslandSlotContentFacade.configureView(
             view = slotView,
             prefs = prefs,
@@ -282,7 +351,20 @@ internal object IslandContentUpdateCoordinator {
                     )
         if (!usesCoverPalette) return
 
-        val albumArt = mediaInfo.albumArt?.takeUnless { it.isRecycled } ?: return
+        val rawAlbumArt = mediaInfo.albumArt
+        val albumArt = rawAlbumArt?.takeUnless { it.isRecycled } ?: run {
+            HookLogger.dState(
+                stateId = "IslandContentUpdateCoordinator.coverInput",
+                tag = "IslandContentUpdateCoordinator",
+                state = "no_art|${rawAlbumArt == null}|${rawAlbumArt?.isRecycled == true}"
+            ) {
+                        "共享取色未执行: reason=${if (rawAlbumArt == null) "album_art_missing" else "album_art_recycled"}, " +
+                        "package=$packageName, artworkSource=${mediaInfo.artworkSource}, " +
+                        "titlePresent=${mediaInfo.title.isNotBlank()}, " +
+                        "artistPresent=${mediaInfo.artist.isNotBlank()}"
+            }
+            return
+        }
         CoverColorHelper.ensureArtworkColors(
             packageName = packageName,
             title = mediaInfo.title,

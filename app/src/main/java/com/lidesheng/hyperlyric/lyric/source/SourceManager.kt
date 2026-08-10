@@ -27,6 +27,12 @@ class SourceManager(
         }
 
         activeSource = source
+        if (source.id != sourceId) {
+            logger.d(
+                "SourceManager",
+                "歌词源配置回退: requested=$sourceId, actual=${source.id}, reason=unavailable"
+            )
+        }
         logger.i("SourceManager", "启动歌词源: ${source.displayName}")
         source.start(sink)
     }

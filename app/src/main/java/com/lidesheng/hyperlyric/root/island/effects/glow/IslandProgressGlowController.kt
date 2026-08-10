@@ -45,6 +45,13 @@ internal object IslandProgressGlowController {
         prefs: SharedPreferences
     ) {
         if (!SystemUiEnhancementGate.isEnabled()) {
+            HookLogger.dState(
+                stateId = "IslandProgressGlowController.gate",
+                tag = TAG,
+                state = "system_ui_disabled"
+            ) {
+                "进度光效未生效: reason=system_ui_enhancement_disabled"
+            }
             clear(rootView)
             return
         }
@@ -53,6 +60,13 @@ internal object IslandProgressGlowController {
                 RootConstants.DEFAULT_HOOK_ISLAND_PROGRESS_GLOW
             )
         ) {
+            HookLogger.dState(
+                stateId = "IslandProgressGlowController.gate",
+                tag = TAG,
+                state = "preference_disabled"
+            ) {
+                "进度光效未生效: reason=preference_disabled"
+            }
             clear(rootView)
             return
         }
@@ -74,6 +88,13 @@ internal object IslandProgressGlowController {
             forceRefresh = mediaInfo != null
         )
         if (playbackProgress.fraction < 0f) {
+            HookLogger.dState(
+                stateId = "IslandProgressGlowController.input",
+                tag = TAG,
+                state = "invalid_progress"
+            ) {
+                "进度光效未生效: reason=invalid_playback_progress"
+            }
             clear(rootView)
             return
         }
@@ -81,6 +102,13 @@ internal object IslandProgressGlowController {
         val backgroundView = cachedBackgroundView(rootView) ?: findBackgroundView(rootView)?.also {
             replaceBackgroundView(rootView, it)
         } ?: run {
+            HookLogger.dState(
+                stateId = "IslandProgressGlowController.input",
+                tag = TAG,
+                state = "background_missing"
+            ) {
+                "进度光效未生效: reason=background_view_missing"
+            }
             clear(rootView)
             return
         }
@@ -96,6 +124,14 @@ internal object IslandProgressGlowController {
             colors.track,
             progressStyle
         )
+        HookLogger.dState(
+            stateId = "IslandProgressGlowController.applied",
+            tag = TAG,
+            state = "applied|$progressStyle|${colors.progress.size}|${colors.track}"
+        ) {
+            "进度光效已应用: style=$progressStyle, progressColors=${colors.progress.size}, " +
+                    "track=#${Integer.toHexString(colors.track)}"
+        }
     }
 
     fun clear(rootView: ViewGroup) {
@@ -210,6 +246,13 @@ internal object IslandProgressGlowController {
                 RootConstants.DEFAULT_HOOK_ISLAND_GLOW_EXTRACT_COLOR
             )
         ) {
+            HookLogger.dState(
+                stateId = "IslandProgressGlowController.colors",
+                tag = TAG,
+                state = "fallback|extract_disabled"
+            ) {
+                "进度光效颜色回退: reason=cover_color_extraction_disabled"
+            }
             return ProgressColors(
                 intArrayOf(DEFAULT_PROGRESS_COLOR),
                 DEFAULT_TRACK_COLOR
@@ -224,7 +267,15 @@ internal object IslandProgressGlowController {
             ?: return ProgressColors(
                 intArrayOf(DEFAULT_PROGRESS_COLOR),
                 DEFAULT_TRACK_COLOR
-        )
+            ).also {
+                HookLogger.dState(
+                    stateId = "IslandProgressGlowController.colors",
+                    tag = TAG,
+                    state = "fallback|no_session"
+                ) {
+                    "进度光效颜色回退: reason=no_matching_color_session, package=$packageName"
+                }
+            }
         val artworkRequest = mediaInfo?.albumArt?.let { bitmap ->
             CoverColorHelper.ensureArtworkColors(
                 packageName = packageName,
@@ -244,18 +295,43 @@ internal object IslandProgressGlowController {
         ?: return ProgressColors(
             intArrayOf(DEFAULT_PROGRESS_COLOR),
             DEFAULT_TRACK_COLOR
-        )
+        ).also {
+            HookLogger.dState(
+                stateId = "IslandProgressGlowController.colors",
+                tag = TAG,
+                state = "fallback|no_palette"
+            ) {
+                "进度光效颜色回退: reason=no_cached_cover_palette, package=$packageName"
+            }
+        }
         val highlights = palette.second.takeIf { it.isNotEmpty() }
             ?: return ProgressColors(
                 intArrayOf(DEFAULT_PROGRESS_COLOR),
                 DEFAULT_TRACK_COLOR
-            )
+            ).also {
+                HookLogger.dState(
+                    stateId = "IslandProgressGlowController.colors",
+                    tag = TAG,
+                    state = "fallback|empty_highlight"
+                ) {
+                    "进度光效颜色回退: reason=empty_cover_highlight_palette, package=$packageName"
+                }
+            }
         val highlight = highlights.first()
         val highlightBackground = palette.first.firstOrNull() ?: highlight
         return ProgressColors(
             progress = highlights.copyOf(),
             track = withAlpha(highlightBackground, COVER_TRACK_ALPHA)
-        )
+        ).also {
+            HookLogger.dState(
+                stateId = "IslandProgressGlowController.colors",
+                tag = TAG,
+                state = "cover|$useGradient|${it.progress.size}|${it.track}"
+            ) {
+                "进度光效颜色已解析: source=cover, gradient=$useGradient, " +
+                        "progressColors=${it.progress.size}"
+            }
+        }
     }
 
     private fun withAlpha(color: Int, alpha: Int): Int {

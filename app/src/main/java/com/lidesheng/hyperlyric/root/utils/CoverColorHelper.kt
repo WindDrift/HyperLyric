@@ -5,6 +5,7 @@ import com.lidesheng.hyperlyric.common.color.ColorExtractor
 import kotlin.math.abs
 
 object CoverColorHelper {
+    private const val TAG = "CoverColorHelper"
 
     /**
      * 歌词源确认的颜色会话。revision 用于隔离同一歌曲键在不同播放会话中的迟到回调，
@@ -111,9 +112,17 @@ object CoverColorHelper {
     @Synchronized
     fun endSession(): Boolean {
         if (activeSession == null) return false
+        val revision = activeSession?.revision
         activeSession = null
         activeArtworkRequest = null
         sessionRevision++
+        HookLogger.dState(
+            stateId = "CoverColorHelper.session",
+            tag = TAG,
+            state = "ended|$revision|$sessionRevision"
+        ) {
+            "颜色会话结束: previousRevision=$revision, nextRevision=$sessionRevision"
+        }
         return true
     }
 
@@ -141,11 +150,43 @@ object CoverColorHelper {
         artist: String,
         bitmap: Bitmap
     ): ArtworkRequest? {
-        if (bitmap.isRecycled) return null
+        if (bitmap.isRecycled) {
+            HookLogger.dState(
+                stateId = "CoverColorHelper.artwork",
+                tag = TAG,
+                state = "recycled"
+            ) {
+                "封面取色跳过: reason=bitmap_recycled"
+            }
+            return null
+        }
         val fingerprint = bitmapFingerprint(bitmap)
         return synchronized(this) {
-            val current = activeSession ?: return@synchronized null
+            val current = activeSession ?: run {
+                HookLogger.dState(
+                    stateId = "CoverColorHelper.artwork",
+                    tag = TAG,
+                    state = "no_session"
+                ) {
+                    "封面取色跳过: reason=no_active_color_session"
+                }
+                return@synchronized null
+            }
             if (!matchesArtworkMetadataLocked(current, packageName, title, artist)) {
+                HookLogger.dState(
+                    stateId = "CoverColorHelper.artwork",
+                    tag = TAG,
+                    state = "metadata_mismatch|${current.revision}|${packageName.normalizeMediaText()}|" +
+                            "${title.normalizeMediaText()}|${artist.normalizeMediaText()}"
+                ) {
+                    "封面取色跳过: reason=metadata_mismatch, sessionRevision=${current.revision}, " +
+                            "sessionTitle=\"${debugText(current.title)}\", " +
+                            "sessionArtist=\"${debugText(current.artist)}\", " +
+                            "mediaTitle=\"${debugText(title.normalizeMediaText())}\", " +
+                            "mediaArtist=\"${debugText(artist.normalizeMediaText())}\", " +
+                            "packageMatches=${current.packageName == packageName.normalizeMediaText()}, " +
+                            "mediaPackage=${packageName.normalizeMediaText().ifEmpty { "<empty>" }}"
+                }
                 return@synchronized null
             }
 
@@ -182,15 +223,35 @@ object CoverColorHelper {
             artist = artist,
             bitmap = bitmap
         ) ?: return null
-        getCachedColors(
+        val cachedColors = getCachedColors(
             useGradient = true,
             request = request
-        ) ?: extractColors(
+        )
+        val colors = cachedColors ?: extractColors(
             bitmap = bitmap,
             useGradient = true,
             request = request
         )
-        return request.takeIf(::isCurrentArtwork)
+        val current = request.takeIf(::isCurrentArtwork)
+        val paletteState = when {
+            current == null -> "stale_request|${request.revision}"
+            colors == null -> "no_palette|${request.revision}"
+            colors.first.isEmpty() || colors.second.isEmpty() ->
+                "empty_palette|${request.revision}"
+
+            cachedColors != null -> "cache_hit|${request.revision}|${colors.first.size}|${colors.second.size}"
+            else -> "extracted|${request.revision}|${colors.first.size}|${colors.second.size}"
+        }
+        HookLogger.dState(
+            stateId = "CoverColorHelper.palette",
+            tag = TAG,
+            state = paletteState
+        ) {
+            "封面调色板结果: sessionRevision=${request.colorSession.revision}, " +
+                    "artworkRevision=${request.revision}, source=${paletteState.substringBefore('|')}, " +
+                    "onWhite=${colors?.first?.size ?: 0}, onBlack=${colors?.second?.size ?: 0}"
+        }
+        return current
     }
 
     @Synchronized
@@ -253,10 +314,21 @@ object CoverColorHelper {
                 }
                 ?.colors
         }
-        if (cachedColors != null) return cachedColors.forGradient(useGradient)
+        if (cachedColors != null) {
+            return cachedColors.forGradient(useGradient)
+        }
 
         val readableBitmap = if (bitmap.config == Bitmap.Config.HARDWARE) {
-            bitmap.copy(Bitmap.Config.ARGB_8888, false) ?: return null
+            bitmap.copy(Bitmap.Config.ARGB_8888, false) ?: run {
+                HookLogger.dState(
+                    stateId = "CoverColorHelper.extract",
+                    tag = TAG,
+                    state = "hardware_copy_failed"
+                ) {
+                    "封面调色板提取跳过: reason=hardware_bitmap_copy_failed"
+                }
+                return null
+            }
         } else {
             bitmap
         }
@@ -282,6 +354,16 @@ object CoverColorHelper {
                     )
                     trimCache()
                 }
+            }
+        }
+        if (colors == null) {
+            HookLogger.dState(
+                stateId = "CoverColorHelper.extract",
+                tag = TAG,
+                state = "discarded|${request.colorSession.revision}|${request.revision}"
+            ) {
+                "封面调色板未写入缓存: reason=stale_artwork_request, " +
+                        "sessionRevision=${request.colorSession.revision}, artworkRevision=${request.revision}"
             }
         }
         return colors?.forGradient(useGradient)
@@ -367,6 +449,13 @@ object CoverColorHelper {
         return trim().lowercase().replace(WHITESPACE_REGEX, " ")
     }
 
+    private fun debugText(value: String): String {
+        if (value.isEmpty()) return "<empty>"
+        return value.take(MAX_DEBUG_TEXT_LENGTH).let {
+            if (value.length > MAX_DEBUG_TEXT_LENGTH) "$it…" else it
+        }
+    }
+
     private fun isCompatibleTitle(first: String, second: String): Boolean {
         if (first == second) return true
         return first.removeVersionSuffix() == second.removeVersionSuffix()
@@ -427,4 +516,5 @@ object CoverColorHelper {
     private const val FINGERPRINT_GRID_SIZE = 8
     private const val RGB_CHANNEL_COUNT = 3
     private const val MAX_AVERAGE_CHANNEL_DELTA = 12L
+    private const val MAX_DEBUG_TEXT_LENGTH = 80
 }

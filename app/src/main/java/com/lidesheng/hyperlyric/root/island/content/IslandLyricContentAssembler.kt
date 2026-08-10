@@ -16,6 +16,7 @@ import com.lidesheng.hyperlyric.lyric.view.yoyo.animateUpdate
 import com.lidesheng.hyperlyric.root.LyriconDataBridge
 import com.lidesheng.hyperlyric.root.island.config.IslandSlotRuntimeConfig
 import com.lidesheng.hyperlyric.root.island.host.IslandProbeUtils
+import com.lidesheng.hyperlyric.root.utils.HookLogger
 import com.lidesheng.hyperlyric.root.utils.TranslationHelper
 
 internal object IslandLyricContentAssembler {
@@ -38,6 +39,10 @@ internal object IslandLyricContentAssembler {
             config = config,
             isLeft = view.tag == IslandProbeUtils.LEFT_TEST_VIEW_TAG
         )
+        val nextLinePreviewEnabledForView = isNextLinePreviewEnabled(prefs, config)
+        val disableAll = TranslationHelper.isTranslationDisabled(prefs) ||
+                nextLinePreviewEnabledForView
+        val translationOnly = TranslationHelper.isTranslationOnly(prefs)
         val signature = "lyric|${lineContentSignature(targetLine)}|${config.styleSignature}"
         if (!force && IslandSlotContentSignatureCache.get(view) == signature) {
             applyPlaybackActive(view, playbackActive)
@@ -70,10 +75,8 @@ internal object IslandLyricContentAssembler {
             }
         }
 
-        val suppressContentAnimation = suppressAnimation || isNextLinePreviewEnabled(
-            prefs,
-            config
-        ) || view.parent == null || !view.isAttachedToWindow
+        val suppressContentAnimation = suppressAnimation || nextLinePreviewEnabledForView ||
+                view.parent == null || !view.isAttachedToWindow
         if (config.lyricAnimationEnabled && !suppressContentAnimation) {
             val preset = YoYoPresets.getById(config.lyricAnimationId) ?: YoYoPresets.Default
             when (view) {
@@ -85,6 +88,33 @@ internal object IslandLyricContentAssembler {
             applyLine(view)
         }
         IslandSlotContentSignatureCache.set(view, signature)
+        val viewKey = view.tag?.toString() ?: view.javaClass.simpleName
+        val animated = config.lyricAnimationEnabled && !suppressContentAnimation
+        val linePresent = targetLine != null
+        val secondaryPresent = !targetLine?.secondary.isNullOrBlank()
+        val translationPresent = !targetLine?.translation.isNullOrBlank()
+        val debugState = listOf(
+            linePresent,
+            secondaryPresent,
+            translationPresent,
+            disableAll,
+            translationOnly,
+            nextLinePreviewEnabledForView,
+            animated,
+            view.isAttachedToWindow
+        ).joinToString("|")
+        HookLogger.dState(
+            stateId = "IslandLyricContentAssembler:$viewKey",
+            tag = "IslandLyricContentAssembler",
+            state = debugState
+        ) {
+            "歌词内容状态已提交: tag=$viewKey, linePresent=$linePresent, " +
+                    "secondaryPresent=$secondaryPresent, translationPresent=$translationPresent, " +
+                    "translationOnly=$translationOnly, disableAll=$disableAll, " +
+                    "nextLinePreview=$nextLinePreviewEnabledForView, " +
+                    "animationEnabled=${config.lyricAnimationEnabled}, animated=$animated, " +
+                    "attached=${view.isAttachedToWindow}"
+        }
         return true
     }
 
