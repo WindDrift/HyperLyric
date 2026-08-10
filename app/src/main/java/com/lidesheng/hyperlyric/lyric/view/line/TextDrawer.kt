@@ -123,7 +123,9 @@ internal class TextDrawer {
         rightIfPossible: Boolean,
         bgPaint: TextPaint,
         hlPaint: TextPaint,
-        normPaint: TextPaint
+        normPaint: TextPaint,
+        gradientStartX: Float,
+        gradientEndX: Float
     ) {
         val motionPadding = if (charMotionEnabled && !scrollOnly) {
             motionBottomPadding(model, bgPaint.textSize)
@@ -150,7 +152,12 @@ internal class TextDrawer {
             }
 
             if (isRainbowBg) {
-                bgPaint.shader = getOrCreateRainbowShader(model.width, bgColors, bgRainbowCache)
+                bgPaint.shader = getOrCreateRainbowShader(
+                    gradientStartX,
+                    gradientEndX,
+                    bgColors,
+                    bgRainbowCache
+                )
             } else {
                 bgPaint.shader = null
             }
@@ -194,7 +201,12 @@ internal class TextDrawer {
 
                     if (hasFeather) {
                         val baseShader = if (isRainbowHl) {
-                            getOrCreateRainbowShader(model.width, hlColors, hlRainbowCache)
+                            getOrCreateRainbowShader(
+                                gradientStartX,
+                                gradientEndX,
+                                hlColors,
+                                hlRainbowCache
+                            )
                         } else {
                             getOrCreateSolidHighlightShader(model.width, hlPaint.color)
                         }
@@ -207,7 +219,12 @@ internal class TextDrawer {
                     } else {
                         if (isRainbowHl) {
                             hlPaint.shader =
-                                getOrCreateRainbowShader(model.width, hlColors, hlRainbowCache)
+                                getOrCreateRainbowShader(
+                                    gradientStartX,
+                                    gradientEndX,
+                                    hlColors,
+                                    hlRainbowCache
+                                )
                         } else {
                             hlPaint.shader = null
                         }
@@ -375,19 +392,19 @@ internal class TextDrawer {
     }
 
     private fun getOrCreateRainbowShader(
-        totalWidth: Float,
+        startX: Float,
+        endX: Float,
         colors: IntArray,
         cache: RainbowShaderCache
     ): Shader {
         val colorsHash = colors.contentHashCode()
-        if (cache.shader == null || cache.totalWidth != totalWidth ||
+        if (cache.shader == null || cache.startX != startX ||
+            cache.endX != endX ||
             cache.colorsHash != colorsHash
         ) {
-            cache.shader = LinearGradient(
-                0f, 0f, totalWidth, 0f,
-                colors, null, Shader.TileMode.CLAMP
-            )
-            cache.totalWidth = totalWidth
+            cache.shader = LyricGradientShader.create(startX, endX, colors)
+            cache.startX = startX
+            cache.endX = endX
             cache.colorsHash = colorsHash
         }
         return cache.shader!!
@@ -432,12 +449,14 @@ internal class TextDrawer {
 
     private class RainbowShaderCache {
         var shader: LinearGradient? = null
-        var totalWidth = -1f
+        var startX = Float.NaN
+        var endX = Float.NaN
         var colorsHash = 0
 
         fun clear() {
             shader = null
-            totalWidth = -1f
+            startX = Float.NaN
+            endX = Float.NaN
             colorsHash = 0
         }
     }

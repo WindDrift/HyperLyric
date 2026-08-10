@@ -115,6 +115,11 @@ class SpaceGateRichLyricLineView(
         secondary.siblingView = sibling?.secondary
     }
 
+    fun setSplitGradientConfig(isRightSide: Boolean, sibling: SpaceGateRichLyricLineView?) {
+        main.setSplitGradientPeer(isRightSide, sibling?.main)
+        secondary.setSplitGradientPeer(isRightSide, sibling?.secondary)
+    }
+
     fun reset() {
         cancelNextLinePromotion()
         line = null

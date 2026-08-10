@@ -180,8 +180,14 @@ internal class SpaceGateWordSyncRenderer(private val view: SpaceGateLyricLineVie
             progressController.animator.currentWidth,
             isGradientEnabled, isScrollOnly, isCharMotionEnabled,
             centerIfPossible, rightIfPossible,
-            bgPaint, hlPaint, paint
+            bgPaint, hlPaint, paint,
+            view.resolveSplitGradientStartX(),
+            view.resolveSplitGradientEndX(model.width)
         )
+    }
+
+    fun clearGradientShaderCache() {
+        textDrawer.clearShaderCache()
     }
 
     override fun reset(state: LineState) {

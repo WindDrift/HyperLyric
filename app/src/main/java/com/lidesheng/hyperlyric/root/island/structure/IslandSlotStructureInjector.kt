@@ -498,6 +498,9 @@ internal object IslandSlotStructureInjector {
         val rightView =
             rootView.findViewWithTag<View>(IslandProbeUtils.RIGHT_TEST_VIEW_TAG) as? SpaceGateRichLyricLineView
 
+        leftView?.setSplitGradientConfig(isRightSide = false, sibling = rightView)
+        rightView?.setSplitGradientConfig(isRightSide = true, sibling = leftView)
+
         leftView?.main?.spaceGateEnabled = false
         leftView?.secondary?.spaceGateEnabled = false
         rightView?.main?.spaceGateEnabled = false

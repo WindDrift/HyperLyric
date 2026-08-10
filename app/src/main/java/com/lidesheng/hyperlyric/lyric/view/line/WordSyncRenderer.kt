@@ -180,7 +180,8 @@ internal class WordSyncRenderer(private val view: LyricLineView) : LineRenderer 
             progressController.animator.currentWidth,
             isGradientEnabled, isScrollOnly, isCharMotionEnabled,
             centerIfPossible, rightIfPossible,
-            bgPaint, hlPaint, paint
+            bgPaint, hlPaint, paint,
+            0f, model.width
         )
     }
 

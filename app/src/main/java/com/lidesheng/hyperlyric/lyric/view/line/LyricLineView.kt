@@ -9,7 +9,6 @@ package com.lidesheng.hyperlyric.lyric.view.line
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.LinearGradient
 import android.graphics.Shader
 import android.text.TextPaint
 import android.util.AttributeSet
@@ -508,9 +507,7 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
         if (rainbowShader != null && rainbowShaderHash == hash && rainbowShaderWidth == lineWidth) {
             return rainbowShader!!
         }
-        val positions = FloatArray(colors.size) { i -> i.toFloat() / (colors.size - 1) }
-        rainbowShader =
-            LinearGradient(0f, 0f, lineWidth, 0f, colors, positions, Shader.TileMode.CLAMP)
+        rainbowShader = LyricGradientShader.create(0f, lineWidth, colors)
         rainbowShaderHash = hash
         rainbowShaderWidth = lineWidth
         return rainbowShader!!

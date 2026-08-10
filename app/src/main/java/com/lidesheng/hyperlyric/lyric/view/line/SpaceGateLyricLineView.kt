@@ -9,7 +9,6 @@ package com.lidesheng.hyperlyric.lyric.view.line
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.LinearGradient
 import android.graphics.Shader
 import android.text.TextPaint
 import android.util.AttributeSet
@@ -46,6 +45,9 @@ open class SpaceGateLyricLineView(context: Context, attrs: AttributeSet? = null)
     var siblingView: SpaceGateLyricLineView? = null
     var spaceGateEnabled = true
 
+    private var splitGradientPeer: SpaceGateLyricLineView? = null
+    private var isRightSplitGradientSide = false
+
 
     val textPaint: TextPaint = TextPaintX().apply { textSize = 24f.sp }
 
@@ -79,6 +81,24 @@ open class SpaceGateLyricLineView(context: Context, attrs: AttributeSet? = null)
     fun setPeerLineWidth(width: Float) {
         scrollRenderer.peerLineWidth = width
     }
+
+    fun setSplitGradientPeer(isRightSide: Boolean, peer: SpaceGateLyricLineView?) {
+        if (isRightSplitGradientSide == isRightSide && splitGradientPeer === peer) return
+        isRightSplitGradientSide = isRightSide
+        splitGradientPeer = peer
+        clearSplitGradientShaders()
+    }
+
+    private fun splitGradientPeerWidth(): Float = splitGradientPeer?.lineWidth
+        ?.takeIf { it.isFinite() && it > 0f }
+        ?: 0f
+
+    internal fun resolveSplitGradientStartX(): Float =
+        if (isRightSplitGradientSide) -splitGradientPeerWidth() else 0f
+
+    internal fun resolveSplitGradientEndX(localWidth: Float): Float =
+        localWidth.coerceAtLeast(0f) +
+            if (isRightSplitGradientSide) 0f else splitGradientPeerWidth()
 
     val isPlainText: Boolean get() = _model.isPlainText && !_model.isCountdownLine()
     val isWordSync: Boolean get() = !isPlainText
@@ -375,6 +395,7 @@ open class SpaceGateLyricLineView(context: Context, attrs: AttributeSet? = null)
 
     fun refreshSizes() {
         _model.updateSizes(textPaint)
+        splitGradientPeer?.onSplitGradientGeometryChanged()
     }
 
     fun relayout() {
@@ -603,19 +624,36 @@ open class SpaceGateLyricLineView(context: Context, attrs: AttributeSet? = null)
 
     private var rainbowShader: Shader? = null
     private var rainbowShaderHash = 0
-    private var rainbowShaderWidth = -1f
+    private var rainbowShaderStartX = Float.NaN
+    private var rainbowShaderEndX = Float.NaN
 
     private fun makeRainbowShader(colors: IntArray): Shader {
         val hash = colors.contentHashCode()
-        if (rainbowShader != null && rainbowShaderHash == hash && rainbowShaderWidth == lineWidth) {
+        val startX = resolveSplitGradientStartX()
+        val endX = resolveSplitGradientEndX(lineWidth)
+        if (rainbowShader != null && rainbowShaderHash == hash &&
+            rainbowShaderStartX == startX && rainbowShaderEndX == endX
+        ) {
             return rainbowShader!!
         }
-        val positions = FloatArray(colors.size) { i -> i.toFloat() / (colors.size - 1) }
-        rainbowShader =
-            LinearGradient(0f, 0f, lineWidth, 0f, colors, positions, Shader.TileMode.CLAMP)
+        rainbowShader = LyricGradientShader.create(startX, endX, colors)
         rainbowShaderHash = hash
-        rainbowShaderWidth = lineWidth
+        rainbowShaderStartX = startX
+        rainbowShaderEndX = endX
         return rainbowShader!!
+    }
+
+    private fun clearSplitGradientShaders() {
+        rainbowShader = null
+        rainbowShaderStartX = Float.NaN
+        rainbowShaderEndX = Float.NaN
+        syncRenderer.clearGradientShaderCache()
+        updatePlainTextColors()
+        invalidate()
+    }
+
+    private fun onSplitGradientGeometryChanged() {
+        clearSplitGradientShaders()
     }
 
     private inner class Animator : Choreographer.FrameCallback {
