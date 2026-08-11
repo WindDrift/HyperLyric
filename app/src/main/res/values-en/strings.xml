@@ -103,6 +103,7 @@
     <string name="lyric_mode_verbatim">Lyricon Verbatim Lyrics</string>
     <string name="lyric_mode_separated">Lyricon Separated Lyrics</string>
     <string name="title_lyric_mode">Lyric Mode</string>
+    <string name="title_enable">Enable</string>
     <string name="title_lyric_source">Lyric Source</string>
     <string name="lyric_source_lyricon">Lyricon</string>
     <string name="lyric_source_superlyric">SuperLyric</string>

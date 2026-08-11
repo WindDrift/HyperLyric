@@ -222,21 +222,17 @@ class HookEntry : XposedModule() {
             }
             StatusBarTextColorHooker.hook(this, param.defaultClassLoader)
             MediaCardRuntimeConfig.load(prefs)
-            if (MediaCardRuntimeConfig.current.enabled) {
-                MediaCardConfigurationRefreshHooker.hook(this, param.defaultClassLoader)
-                MediaProgressStyleHooker.hook(this, param.defaultClassLoader)
-                MediaCardElementBehaviorHooker.hook(this, param.defaultClassLoader)
-                IslandExpandedMediaAmbientFlowHooker.hook(this, param.defaultClassLoader)
-                IslandExpandedMediaLayoutHooker.hook(this, param.defaultClassLoader)
-                NotificationMediaAmbientFlowHooker.hook(this, param.defaultClassLoader)
-                NotificationMediaCoverStyleHooker.hook(this, param.defaultClassLoader)
-                if (MediaCardRuntimeConfig.current.notification.cardSwitcherEnabled) {
-                    NotificationMediaSingleCardSwitcherHooker.hook(this, param.defaultClassLoader)
-                } else {
-                    HookLogger.d(TAG, "通知中心多媒体卡片切换功能未启用，跳过媒体卡片切换 Hook")
-                }
+            MediaCardConfigurationRefreshHooker.hook(this, param.defaultClassLoader)
+            MediaProgressStyleHooker.hook(this, param.defaultClassLoader)
+            MediaCardElementBehaviorHooker.hook(this, param.defaultClassLoader)
+            IslandExpandedMediaAmbientFlowHooker.hook(this, param.defaultClassLoader)
+            IslandExpandedMediaLayoutHooker.hook(this, param.defaultClassLoader)
+            NotificationMediaAmbientFlowHooker.hook(this, param.defaultClassLoader)
+            NotificationMediaCoverStyleHooker.hook(this, param.defaultClassLoader)
+            if (MediaCardRuntimeConfig.current.notification.cardSwitcherEnabled) {
+                NotificationMediaSingleCardSwitcherHooker.hook(this, param.defaultClassLoader)
             } else {
-                HookLogger.i(TAG, "媒体卡片功能未启用，跳过媒体卡片 Hook")
+                HookLogger.d(TAG, "通知中心多媒体卡片切换功能未启用，跳过媒体卡片切换 Hook")
             }
             try {
                 UnlockIslandWhitelist.hook(this, param.defaultClassLoader)

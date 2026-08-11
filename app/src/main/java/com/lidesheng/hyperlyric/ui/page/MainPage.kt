@@ -129,7 +129,6 @@ fun MainPage() {
     val msgPermissionNotGranted = stringResource(R.string.toast_permission_not_granted)
     val msgOpenSettingsFailed = stringResource(R.string.toast_open_settings_failed)
     val msgXposedNotActive = stringResource(R.string.toast_xposed_module_not_active)
-    val msgFeatureDisabled = stringResource(R.string.prompt_feature_disabled_open_switch)
 
     // --- prefs & state ---
     val prefs =
@@ -139,22 +138,6 @@ fun MainPage() {
             prefs.getBoolean(
                 UIConstants.KEY_FLOATING_NAV_BAR,
                 UIConstants.DEFAULT_FLOATING_NAV_BAR
-            )
-        )
-    }
-    var enableSuperIsland by remember {
-        mutableStateOf(
-            prefs.getBoolean(
-                RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND,
-                RootConstants.DEFAULT_HOOK_ENABLE_SUPER_ISLAND
-            )
-        )
-    }
-    var enableMediaCard by remember {
-        mutableStateOf(
-            prefs.getBoolean(
-                RootConstants.KEY_HOOK_ENABLE_MEDIA_CARD,
-                RootConstants.DEFAULT_HOOK_ENABLE_MEDIA_CARD
             )
         )
     }
@@ -201,18 +184,6 @@ fun MainPage() {
                         UIConstants.DEFAULT_FLOATING_NAV_BAR
                     )
 
-                RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND ->
-                    enableSuperIsland = p.getBoolean(
-                        RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND,
-                        RootConstants.DEFAULT_HOOK_ENABLE_SUPER_ISLAND
-                    )
-
-                RootConstants.KEY_HOOK_ENABLE_MEDIA_CARD ->
-                    enableMediaCard = p.getBoolean(
-                        RootConstants.KEY_HOOK_ENABLE_MEDIA_CARD,
-                        RootConstants.DEFAULT_HOOK_ENABLE_MEDIA_CARD
-                    )
-
                 RootConstants.KEY_HOOK_ENABLE_DYNAMIC_ISLAND ->
                     enableDynamicIsland = p.getBoolean(
                         RootConstants.KEY_HOOK_ENABLE_DYNAMIC_ISLAND,
@@ -247,52 +218,6 @@ fun MainPage() {
     }
 
     // --- callbacks (remembered for reference stability) ---
-    val toggleSuperIsland: (Boolean) -> Unit = remember {
-        { isChecked ->
-            if (isChecked) {
-                if (RootApplication.xposedService != null) {
-                    enableSuperIsland = true
-                    prefs.edit { putBoolean(RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND, true) }
-                    PrefsBridge.putBoolean(RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND, true)
-                } else {
-                    scope.launch {
-                        snackbarHostState.showSnackbar(
-                            message = msgXposedNotActive,
-                            duration = SnackbarDuration.Custom(2000L)
-                        )
-                    }
-                }
-            } else {
-                enableSuperIsland = false
-                prefs.edit { putBoolean(RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND, false) }
-                PrefsBridge.putBoolean(RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND, false)
-            }
-        }
-    }
-
-    val toggleMediaCard: (Boolean) -> Unit = remember {
-        { isChecked ->
-            if (isChecked) {
-                if (RootApplication.xposedService != null) {
-                    enableMediaCard = true
-                    prefs.edit { putBoolean(RootConstants.KEY_HOOK_ENABLE_MEDIA_CARD, true) }
-                    PrefsBridge.putBoolean(RootConstants.KEY_HOOK_ENABLE_MEDIA_CARD, true)
-                } else {
-                    scope.launch {
-                        snackbarHostState.showSnackbar(
-                            message = msgXposedNotActive,
-                            duration = SnackbarDuration.Custom(2000L)
-                        )
-                    }
-                }
-            } else {
-                enableMediaCard = false
-                prefs.edit { putBoolean(RootConstants.KEY_HOOK_ENABLE_MEDIA_CARD, false) }
-                PrefsBridge.putBoolean(RootConstants.KEY_HOOK_ENABLE_MEDIA_CARD, false)
-            }
-        }
-    }
-
     val toggleDynamicIsland: (Boolean) -> Unit = remember {
         { isChecked ->
             if (isChecked) {
@@ -596,36 +521,10 @@ fun MainPage() {
                         randomQuote = randomQuote,
                         onQuoteClick = { randomQuote = QuotesData.list.random() },
                         onQuoteLongPress = { navigator.navigate(Route.Poetry) },
-                        enableSuperIsland = enableSuperIsland,
-                        onSuperIslandToggle = toggleSuperIsland,
-                        enableMediaCard = enableMediaCard,
-                        onMediaCardToggle = toggleMediaCard,
                         enableDynamicIsland = enableDynamicIsland,
                         onDynamicIslandToggle = toggleDynamicIsland,
-                        onSuperIslandConfigClick = {
-                            if (enableSuperIsland) {
-                                navigator.navigate(Route.HookSettings)
-                            } else {
-                                scope.launch {
-                                    snackbarHostState.showSnackbar(
-                                        message = msgFeatureDisabled,
-                                        duration = SnackbarDuration.Custom(2000L)
-                                    )
-                                }
-                            }
-                        },
-                        onMediaCardConfigClick = {
-                            if (enableMediaCard) {
-                                navigator.navigate(Route.MediaCardSettings)
-                            } else {
-                                scope.launch {
-                                    snackbarHostState.showSnackbar(
-                                        message = msgFeatureDisabled,
-                                        duration = SnackbarDuration.Custom(2000L)
-                                    )
-                                }
-                            }
-                        },
+                        onSuperIslandConfigClick = { navigator.navigate(Route.HookSettings) },
+                        onMediaCardConfigClick = { navigator.navigate(Route.MediaCardSettings) },
                         onDynamicIslandConfigClick = { navigator.navigate(Route.DynamicIslandNotification) },
                         onRestartClick = { showRestartDialog = true },
                         removeFocusWhitelist = removeFocusWhitelist,

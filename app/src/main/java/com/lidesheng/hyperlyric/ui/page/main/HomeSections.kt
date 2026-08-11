@@ -10,7 +10,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lidesheng.hyperlyric.R
-import com.lidesheng.hyperlyric.ui.component.SuperSwitchPreference
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
@@ -22,10 +21,6 @@ fun LazyListScope.homePageSections(
     randomQuote: String,
     onQuoteClick: () -> Unit,
     onQuoteLongPress: () -> Unit,
-    enableSuperIsland: Boolean,
-    onSuperIslandToggle: (Boolean) -> Unit,
-    enableMediaCard: Boolean,
-    onMediaCardToggle: (Boolean) -> Unit,
     enableDynamicIsland: Boolean,
     onDynamicIslandToggle: (Boolean) -> Unit,
     onSuperIslandConfigClick: () -> Unit,
@@ -68,15 +63,11 @@ fun LazyListScope.homePageSections(
                 .fillMaxWidth()
         ) {
             Column {
-                SuperSwitchPreference(
-                    checked = enableSuperIsland,
-                    onCheckedChange = onSuperIslandToggle,
+                ArrowPreference(
                     title = stringResource(R.string.title_super_island_lyrics),
                     onClick = onSuperIslandConfigClick,
                 )
-                SuperSwitchPreference(
-                    checked = enableMediaCard,
-                    onCheckedChange = onMediaCardToggle,
+                ArrowPreference(
                     title = stringResource(R.string.title_media_cards),
                     onClick = onMediaCardConfigClick,
                 )

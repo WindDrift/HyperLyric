@@ -21,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,17 +36,22 @@ import com.lidesheng.hyperlyric.R
 import com.lidesheng.hyperlyric.common.PrefsBridge
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.common.UIConstants
+import com.lidesheng.hyperlyric.root.RootApplication
 import com.lidesheng.hyperlyric.ui.navigation.LocalNavigator
 import com.lidesheng.hyperlyric.ui.navigation.Route
 import com.lidesheng.hyperlyric.ui.utils.BlurredBar
 import com.lidesheng.hyperlyric.ui.utils.pageScrollModifiers
 import com.lidesheng.hyperlyric.ui.utils.rememberBlurBackdrop
+import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.SnackbarDuration
+import top.yukonga.miuix.kmp.basic.SnackbarHost
+import top.yukonga.miuix.kmp.basic.SnackbarHostState
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TopAppBar
@@ -55,6 +61,7 @@ import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Close
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -75,7 +82,19 @@ fun HookSettingsPage() {
             ) ?: "lyricon"
         )
     }
+    var hookEnabled by remember {
+        mutableStateOf(
+            prefs.getBoolean(
+                RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND,
+                RootConstants.DEFAULT_HOOK_ENABLE_SUPER_ISLAND
+            )
+        )
+    }
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val xposedNotActiveMessage = stringResource(R.string.toast_xposed_module_not_active)
     Scaffold(
+        snackbarHost = { SnackbarHost(state = snackbarHostState) },
         topBar = {
             BlurredBar(backdrop, blurActive) {
                 TopAppBar(
@@ -115,16 +134,72 @@ fun HookSettingsPage() {
                 ),
                 contentPadding = contentPadding,
             ) {
-                hookSettingsSections(lyricSource, onLyricSourceChange = { lyricSource = it })
+                hookSettingsSections(
+                    hookEnabled = hookEnabled,
+                    onHookEnabledChange = { enabled ->
+                        if (enabled) {
+                            if (RootApplication.xposedService != null) {
+                                hookEnabled = true
+                                prefs.edit {
+                                    putBoolean(
+                                        RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND,
+                                        true
+                                    )
+                                }
+                                PrefsBridge.putBoolean(
+                                    RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND,
+                                    true
+                                )
+                            } else {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        message = xposedNotActiveMessage,
+                                        duration = SnackbarDuration.Custom(2000L)
+                                    )
+                                }
+                            }
+                        } else {
+                            hookEnabled = false
+                            prefs.edit {
+                                putBoolean(
+                                    RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND,
+                                    false
+                                )
+                            }
+                            PrefsBridge.putBoolean(
+                                RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND,
+                                false
+                            )
+                        }
+                    },
+                    lyricSource = lyricSource,
+                    onLyricSourceChange = { lyricSource = it },
+                )
             }
         }
     }
 }
 
 private fun LazyListScope.hookSettingsSections(
+    hookEnabled: Boolean,
+    onHookEnabledChange: (Boolean) -> Unit,
     lyricSource: String,
     onLyricSourceChange: (String) -> Unit
 ) {
+    item(key = "hook_enable") {
+        Card(
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp)
+                .fillMaxWidth()
+        ) {
+            SwitchPreference(
+                title = stringResource(R.string.title_enable),
+                checked = hookEnabled,
+                onCheckedChange = onHookEnabledChange,
+            )
+        }
+    }
     item(key = "lyric_mode") {
         val context = LocalContext.current
         val prefs =
@@ -157,6 +232,7 @@ private fun LazyListScope.hookSettingsSections(
                 title = stringResource(R.string.title_lyric_mode),
                 items = lyricModeOptions,
                 selectedIndex = lyricMode,
+                enabled = hookEnabled,
                 onSelectedIndexChange = { index ->
                     lyricMode = index
                     prefs.edit { putInt(RootConstants.KEY_HOOK_LYRIC_MODE, index) }
@@ -167,6 +243,7 @@ private fun LazyListScope.hookSettingsSections(
                 title = stringResource(R.string.title_lyric_source),
                 items = sourceOptions,
                 selectedIndex = sourceIds.indexOf(lyricSource).coerceAtLeast(0),
+                enabled = hookEnabled,
                 onSelectedIndexChange = { index ->
                     val newSource = sourceIds[index]
                     onLyricSourceChange(newSource)
@@ -261,30 +338,38 @@ private fun LazyListScope.hookSettingsSections(
             Column {
                 ArrowPreference(
                     title = stringResource(R.string.title_super_island),
+                    enabled = hookEnabled,
                     onClick = { navigator.navigate(Route.SuperIslandSettings) })
                 ArrowPreference(
                     title = stringResource(R.string.title_content_layout),
                     summary = stringResource(R.string.summary_content_layout),
+                    enabled = hookEnabled,
                     onClick = { navigator.navigate(Route.SuperIslandContentLayout) })
                 ArrowPreference(
                     title = stringResource(R.string.title_text),
+                    enabled = hookEnabled,
                     onClick = { navigator.navigate(Route.LyricDisplay) })
                 ArrowPreference(
                     title = stringResource(R.string.title_marquee),
+                    enabled = hookEnabled,
                     onClick = { navigator.navigate(Route.LyricScroll) })
                 ArrowPreference(
                     title = stringResource(R.string.title_verbatim_lyric),
+                    enabled = hookEnabled,
                     onClick = { navigator.navigate(Route.VerbatimLyric) })
                 ArrowPreference(
                     title = stringResource(R.string.title_double_line_content),
                     summary = stringResource(R.string.summary_double_line_content),
+                    enabled = hookEnabled,
                     onClick = { navigator.navigate(Route.LyricTranslation) })
                 ArrowPreference(
                     title = stringResource(R.string.title_lyric_anim),
+                    enabled = hookEnabled,
                     onClick = { navigator.navigate(Route.LyricAnimation) })
                 AnimatedVisibility(visible = lyricSource == "lyricon") {
                     ArrowPreference(
                         title = stringResource(R.string.title_lyric_provider),
+                        enabled = hookEnabled,
                         onClick = { navigator.navigate(Route.LyricProvider) })
                 }
             }

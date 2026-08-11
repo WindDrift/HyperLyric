@@ -41,17 +41,14 @@ internal object MediaCardRuntimeConfig {
     ) {
         companion object {
             fun defaults() = Snapshot(
-                enabled = RootConstants.DEFAULT_HOOK_ENABLE_MEDIA_CARD,
+                enabled = true,
                 notification = Notification.defaults(),
                 islandExpanded = IslandExpanded.defaults(),
                 alwaysOnDisplay = AlwaysOnDisplay.defaults()
             )
 
             fun from(prefs: SharedPreferences) = Snapshot(
-                enabled = prefs.getBoolean(
-                    RootConstants.KEY_HOOK_ENABLE_MEDIA_CARD,
-                    RootConstants.DEFAULT_HOOK_ENABLE_MEDIA_CARD
-                ),
+                enabled = true,
                 notification = Notification.from(prefs),
                 islandExpanded = IslandExpanded.from(prefs),
                 alwaysOnDisplay = AlwaysOnDisplay.from(prefs)
