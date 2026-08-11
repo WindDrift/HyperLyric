@@ -3,27 +3,35 @@ package com.lidesheng.hyperlyric.ui.page.main
 import android.content.Intent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import com.lidesheng.hyperlyric.R
 import top.yukonga.miuix.kmp.basic.BasicComponent
@@ -34,28 +42,45 @@ import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-fun LazyListScope.aboutPageSections(
+internal const val ABOUT_LOGO_SPACER_KEY = "about_logo_spacer"
+
+@Composable
+fun AboutHeader(
     aboutAppVersion: String?,
-    aboutDeviceModel: String,
-    aboutOsVersion: String,
-    aboutAndroidVersion: String,
-    onHelpClick: () -> Unit,
-    onLicensesClick: () -> Unit,
-    onChangelogClick: () -> Unit,
-    onContributorsClick: () -> Unit,
+    topPadding: Dp,
+    scrollProgressProvider: () -> Float,
+    onHeightChanged: (Dp) -> Unit,
 ) {
-    item(key = "about_header") {
-        val version = aboutAppVersion ?: stringResource(R.string.version_unknown)
+    val density = LocalDensity.current
+    val version = aboutAppVersion ?: stringResource(R.string.version_unknown)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = topPadding),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 20.dp),
+            modifier = Modifier.onSizeChanged { size ->
+                with(density) {
+                    onHeightChanged(size.height.toDp())
+                }
+            },
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Box(
                 modifier = Modifier
-                    .size(80.dp)
-                    .squircleClip(20.dp)
+                    .size(88.dp)
+                    .graphicsLayer {
+                        val iconProgress = ((scrollProgressProvider() - 0.35f) / 0.15f)
+                            .coerceIn(0f, 1f)
+                        clip = true
+                        shape = RoundedCornerShape(24.dp)
+                        alpha = 1f - iconProgress
+                        scaleX = 1f - (iconProgress * 0.05f)
+                        scaleY = 1f - (iconProgress * 0.05f)
+                    }
+                    .squircleClip(24.dp)
                     .background(colorResource(R.color.app_icon_red)),
                 contentAlignment = Alignment.Center,
             ) {
@@ -69,101 +94,135 @@ fun LazyListScope.aboutPageSections(
                         .scale(1.5f),
                 )
             }
-            Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = "HyperLyric",
-                style = MiuixTheme.textStyles.title2,
+                color = MiuixTheme.colorScheme.onBackground,
                 fontWeight = FontWeight.Bold,
-                color = MiuixTheme.colorScheme.onSurface,
+                fontSize = 35.sp,
+                modifier = Modifier
+                    .padding(top = 12.dp, bottom = 5.dp)
+                    .graphicsLayer {
+                        val projectNameProgress = ((scrollProgressProvider() - 0.20f) / 0.15f)
+                            .coerceIn(0f, 1f)
+                        alpha = 1f - projectNameProgress
+                        scaleX = 1f - (projectNameProgress * 0.05f)
+                        scaleY = 1f - (projectNameProgress * 0.05f)
+                    },
             )
             Text(
                 text = version,
-                fontSize = MiuixTheme.textStyles.body2.fontSize,
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                modifier = Modifier.padding(top = 4.dp)
+                fontSize = 14.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .graphicsLayer {
+                        val versionProgress = ((scrollProgressProvider() - 0.05f) / 0.15f)
+                            .coerceIn(0f, 1f)
+                        alpha = 1f - versionProgress
+                        scaleX = 1f - (versionProgress * 0.05f)
+                        scaleY = 1f - (versionProgress * 0.05f)
+                    },
             )
         }
     }
+}
 
-    item(key = "about_header_spacer") {
-        Spacer(modifier = Modifier.height(104.dp))
-    }
-
-    item(key = "system_info_content") {
-        Card(
+fun LazyListScope.aboutPageSections(
+    logoSpacerHeight: Dp,
+    contentBottomPadding: Dp,
+    aboutDeviceModel: String,
+    aboutOsVersion: String,
+    aboutAndroidVersion: String,
+    onHelpClick: () -> Unit,
+    onLicensesClick: () -> Unit,
+    onChangelogClick: () -> Unit,
+    onContributorsClick: () -> Unit,
+) {
+    item(key = ABOUT_LOGO_SPACER_KEY) {
+        Box(
             modifier = Modifier
-                .padding(horizontal = 12.dp)
-                .padding(bottom = 12.dp)
                 .fillMaxWidth()
-        ) {
-            Column {
-                BasicComponent(
-                    title = aboutDeviceModel,
-                    summary = stringResource(R.string.info_device_model)
-                )
-                BasicComponent(
-                    title = aboutOsVersion,
-                    summary = stringResource(R.string.info_os_version)
-                )
-                BasicComponent(
-                    title = aboutAndroidVersion,
-                    summary = stringResource(R.string.info_android_version)
-                )
-            }
-        }
-    }
-
-    item(key = "help_title") {
-        SmallTitle(
-            text = stringResource(R.string.title_help)
+                .height(logoSpacerHeight),
         )
     }
 
-    item(key = "help_content") {
-        Card(
+    item(key = "about_content") {
+        Column(
             modifier = Modifier
-                .padding(horizontal = 12.dp)
-                .padding(bottom = 12.dp)
-                .fillMaxWidth()
+                .fillParentMaxHeight()
+                .padding(bottom = contentBottomPadding),
         ) {
-            Column {
+            Card(
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 12.dp)
+                    .fillMaxWidth()
+            ) {
+                Column {
+                    BasicComponent(
+                        title = aboutDeviceModel,
+                        summary = stringResource(R.string.info_device_model)
+                    )
+                    BasicComponent(
+                        title = aboutOsVersion,
+                        summary = stringResource(R.string.info_os_version)
+                    )
+                    BasicComponent(
+                        title = aboutAndroidVersion,
+                        summary = stringResource(R.string.info_android_version)
+                    )
+                }
+            }
+
+            SmallTitle(
+                text = stringResource(R.string.title_help)
+            )
+
+            Card(
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 12.dp)
+                    .fillMaxWidth()
+            ) {
+                Column {
+                    ArrowPreference(
+                        title = stringResource(R.string.title_help),
+                        onClick = onHelpClick,
+                    )
+                    ArrowPreference(
+                        title = stringResource(R.string.title_changelog),
+                        onClick = onChangelogClick,
+                    )
+                }
+            }
+
+            val context = LocalContext.current
+            Card(
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 12.dp)
+                    .fillMaxWidth()
+            ) {
                 ArrowPreference(
-                    title = stringResource(R.string.title_help),
-                    onClick = onHelpClick,
+                    title = stringResource(R.string.title_contributors),
+                    onClick = onContributorsClick,
                 )
                 ArrowPreference(
-                    title = stringResource(R.string.title_changelog),
-                    onClick = onChangelogClick,
+                    title = stringResource(R.string.title_project),
+                    onClick = {
+                        val uri = "https://github.com/limczhh/HyperLyric".toUri()
+                        val intent = Intent(Intent.ACTION_VIEW, uri)
+                        context.startActivity(intent)
+                    }
+                )
+                ArrowPreference(
+                    title = stringResource(R.string.title_licenses),
+                    onClick = onLicensesClick,
                 )
             }
-        }
-    }
 
-    item(key = "developer_content") {
-        val context = LocalContext.current
-        Card(
-            modifier = Modifier
-                .padding(horizontal = 12.dp)
-                .padding(bottom = 12.dp)
-                .fillMaxWidth()
-        ) {
-
-            ArrowPreference(
-                title = stringResource(R.string.title_contributors),
-                onClick = onContributorsClick,
-            )
-            ArrowPreference(
-                title = stringResource(R.string.title_project),
-                onClick = {
-                    val uri = "https://github.com/limczhh/HyperLyric".toUri()
-                    val intent = Intent(Intent.ACTION_VIEW, uri)
-                    context.startActivity(intent)
-                }
-            )
-            ArrowPreference(
-                title = stringResource(R.string.title_licenses),
-                onClick = onLicensesClick,
-            )
+            Spacer(modifier = Modifier.height(12.dp))
         }
     }
 }

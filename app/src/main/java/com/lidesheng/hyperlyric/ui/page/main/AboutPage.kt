@@ -5,9 +5,15 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import com.lidesheng.hyperlyric.R
 import com.lidesheng.hyperlyric.ui.utils.BlurredBar
 import com.lidesheng.hyperlyric.ui.utils.pageContentPadding
@@ -15,7 +21,7 @@ import com.lidesheng.hyperlyric.ui.utils.pageScrollModifiers
 import com.lidesheng.hyperlyric.ui.utils.rememberBlurBackdrop
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -32,18 +38,50 @@ fun AboutPage(
     onContributorsClick: () -> Unit,
 ) {
     val backdrop = rememberBlurBackdrop()
-    val blurActive = backdrop != null
-    val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
     val topAppBarScrollBehavior = MiuixScrollBehavior()
     val lazyListState = rememberLazyListState()
+    var logoHeightDp by remember { mutableStateOf(300.dp) }
+
+    val scrollProgress by remember {
+        derivedStateOf {
+            when {
+                lazyListState.firstVisibleItemIndex > 0 -> 1f
+
+                else -> {
+                    val spacer = lazyListState.layoutInfo.visibleItemsInfo
+                        .firstOrNull { it.key == ABOUT_LOGO_SPACER_KEY }
+                    if (spacer != null && spacer.size > 0) {
+                        (
+                            lazyListState.firstVisibleItemScrollOffset.toFloat() / spacer.size
+                            ).coerceIn(0f, 1f)
+                    } else {
+                        0f
+                    }
+                }
+            }
+        }
+    }
+    val collapsed by remember { derivedStateOf { scrollProgress == 1f } }
+    val blurActive by remember(backdrop) {
+        derivedStateOf { backdrop != null && scrollProgress == 1f }
+    }
 
     Scaffold(
         topBar = {
+            val barColor = if (blurActive) {
+                Color.Transparent
+            } else {
+                if (collapsed) MiuixTheme.colorScheme.surface else Color.Transparent
+            }
+            val titleColor = MiuixTheme.colorScheme.onSurface.copy(
+                alpha = ((scrollProgress - 0.35f) / 0.65f).coerceIn(0f, 1f),
+            )
             BlurredBar(backdrop, blurActive) {
-                TopAppBar(
+                SmallTopAppBar(
                     color = barColor,
                     title = stringResource(R.string.about),
-                    largeTitle = "",
+                    titleColor = titleColor,
+                    defaultWindowInsetsPadding = false,
                     scrollBehavior = topAppBarScrollBehavior,
                 )
             }
@@ -56,6 +94,12 @@ fun AboutPage(
         )
 
         Box(modifier = if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier) {
+            AboutHeader(
+                aboutAppVersion = aboutAppVersion,
+                topPadding = contentPadding.calculateTopPadding() + 92.dp,
+                scrollProgressProvider = { scrollProgress },
+                onHeightChanged = { logoHeightDp = it },
+            )
             LazyColumn(
                 state = lazyListState,
                 modifier = Modifier.pageScrollModifiers(
@@ -63,10 +107,13 @@ fun AboutPage(
                     showTopAppBar = true,
                     topAppBarScrollBehavior = topAppBarScrollBehavior,
                 ),
-                contentPadding = contentPadding,
+                contentPadding = PaddingValues(
+                    top = contentPadding.calculateTopPadding(),
+                ),
             ) {
                 aboutPageSections(
-                    aboutAppVersion = aboutAppVersion,
+                    logoSpacerHeight = logoHeightDp + 218.dp,
+                    contentBottomPadding = contentPadding.calculateBottomPadding(),
                     aboutDeviceModel = aboutDeviceModel,
                     aboutOsVersion = aboutOsVersion,
                     aboutAndroidVersion = aboutAndroidVersion,
