@@ -419,7 +419,10 @@
     <string name="content_layout_field_title">Title</string>
     <string name="content_layout_field_artist">Artist</string>
     <string name="content_layout_field_album">Album</string>
-    <string name="content_layout_field_duration">Duration</string>
+    <string name="content_layout_field_duration">Total Duration</string>
+    <string name="content_layout_field_elapsed">Elapsed Time</string>
+    <string name="content_layout_field_remaining">Remaining Time</string>
+    <string name="content_layout_field_progress_percent">Playback Progress</string>
     <string name="title_super_island_width_mode">Super Island Width Mode</string>
     <string name="option_super_island_width_fixed">Fixed width</string>
     <string name="option_super_island_width_dynamic">Dynamic width</string>

@@ -219,6 +219,64 @@ internal class SpaceGateScrollTextRenderer : LineRenderer {
         startFromBeginning(model, state)
     }
 
+    /**
+     * Updates the text model without restarting an already-running marquee.
+     * Dynamic music-info fields use this path because their text changes while
+     * the marquee itself should keep its current offset and delay.
+     */
+    fun updateModelPreservingScroll(
+        previousWidth: Float,
+        model: LyricModel,
+        state: LineState,
+        viewWidth: Int
+    ) {
+        lastViewWidth = viewWidth
+        val viewWidthFloat = viewWidth.toFloat()
+        val wasOverflow = previousWidth > viewWidthFloat
+        val previousUnit = (previousWidth + ghostSpacing).coerceAtLeast(0f)
+        val progress = if (previousUnit > 0f) {
+            (currentUnitOffset / previousUnit).coerceIn(0f, 1f)
+        } else {
+            0f
+        }
+
+        lastLyricWidth = model.width
+        if (model.width <= viewWidthFloat) {
+            state.scrollOffset = 0f
+            state.isScrollFinished = true
+            markFinished(state)
+            return
+        }
+
+        if (!wasOverflow) {
+            isRunning = false
+            isPendingDelay = false
+            finished = false
+            currentRepeat = 0
+            currentUnitOffset = 0f
+            delayRemainingNanos = 0L
+            _isAtTail = false
+        } else {
+            currentUnitOffset = progress * (model.width + ghostSpacing)
+        }
+
+        if (finished) {
+            state.scrollOffset = -currentUnitOffset
+            state.isScrollFinished = true
+            return
+        }
+
+        val unit = model.width + ghostSpacing
+        val newProgress = (currentUnitOffset / unit).coerceIn(0f, 1f)
+        state.scrollOffset = -interpolator.getInterpolation(newProgress) * unit
+        state.isScrollFinished = false
+    }
+
+    fun resumeIfNeeded() {
+        if (repeatCount == 0 || finished || isRunning || isPendingDelay) return
+        scheduleDelay(initialDelayMs.toLong())
+    }
+
     private fun startFromBeginning(model: LyricModel, state: LineState) {
         resetInternal()
         state.reset()

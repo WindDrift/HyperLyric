@@ -13,6 +13,9 @@ object MusicInfoLayoutPolicy {
     const val FIELD_ARTIST = "artist"
     const val FIELD_ALBUM = "album"
     const val FIELD_DURATION = "duration"
+    const val FIELD_ELAPSED = "elapsed"
+    const val FIELD_REMAINING = "remaining"
+    const val FIELD_PROGRESS_PERCENT = "progress_percent"
 
     const val SEPARATOR_PLUS = "plus"
     const val SEPARATOR_SPACE = "space"
@@ -26,7 +29,10 @@ object MusicInfoLayoutPolicy {
         FIELD_TITLE,
         FIELD_ARTIST,
         FIELD_ALBUM,
-        FIELD_DURATION
+        FIELD_DURATION,
+        FIELD_ELAPSED,
+        FIELD_REMAINING,
+        FIELD_PROGRESS_PERCENT
     )
 
     val defaultFirstLine: List<String> = listOf(FIELD_TITLE)

@@ -92,6 +92,66 @@ object BaseIslandRenderer : IslandRenderer {
 
     }
 
+    override fun updateMetadata() {
+        val prefs = HookEntry.instance?.prefs ?: return
+        if (!prefs.getBoolean(
+                RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND,
+                RootConstants.DEFAULT_HOOK_ENABLE_SUPER_ISLAND
+            )
+        ) {
+            refreshActiveIsland()
+            return
+        }
+        if (!shouldRenderInjectedIsland()) {
+            refreshActiveIsland()
+            return
+        }
+
+        val lyricPkg = LyriconDataBridge.currentLyricPackageName
+            ?.takeIf { it.isNotEmpty() }
+            ?: run {
+                refreshActiveIsland()
+                return
+            }
+        val expectedLyricVersion = LyriconDataBridge.versionCounter.get()
+        val expectedPresentationRevision =
+            IslandPresentationCoordinator.currentPresentationRevision()
+        val snapshots = IslandPresentationCoordinator.snapshotAttachedInjectedHosts(lyricPkg)
+        if (snapshots.isEmpty()) {
+            refreshActiveIsland()
+            return
+        }
+
+        snapshots.forEach { snapshot ->
+            val token = snapshot.host
+            if (IslandPresentationCoordinator.isHostFrozenForFakeTransition(token)) {
+                return@forEach
+            }
+            val cv = token.root
+            cv.post {
+                if (!IslandPresentationCoordinator.isCurrentHost(token) ||
+                    IslandPresentationCoordinator.isHostFrozenForFakeTransition(token) ||
+                    !IslandPresentationCoordinator.isCurrentPresentation(
+                        expectedPresentationRevision
+                    ) ||
+                    LyriconDataBridge.versionCounter.get() != expectedLyricVersion ||
+                    LyriconDataBridge.currentLyricPackageName != lyricPkg ||
+                    !shouldRenderInjectedIsland()
+                ) {
+                    return@post
+                }
+                val currentPrefs = HookEntry.instance?.prefs ?: return@post
+                IslandContentUpdateCoordinator.updateMetadataForView(
+                    view = cv,
+                    packageName = lyricPkg,
+                    prefs = currentPrefs,
+                    config = IslandSlotRuntimeConfig.from(currentPrefs),
+                    playbackActive = IslandPresentationCoordinator.isPlaybackActive()
+                )
+            }
+        }
+    }
+
     override fun updateLyricLine() {
         if ((HookEntry.instance?.prefs?.getBoolean(
                 RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND,
@@ -187,23 +247,25 @@ object BaseIslandRenderer : IslandRenderer {
                         return@post
                     }
                     val currentPrefs = HookEntry.instance?.prefs ?: return@post
+                    val playbackViews: Iterable<View>
                     if (indexedViews.isEmpty()) {
-                        setPosition(
-                            cv.findViewWithTag(IslandProbeUtils.LEFT_TEST_VIEW_TAG),
-                            position,
-                            playbackSpeed
-                        )
-                        setPosition(
-                            cv.findViewWithTag(IslandProbeUtils.RIGHT_TEST_VIEW_TAG),
-                            position,
-                            playbackSpeed
-                        )
+                        val leftView = cv.findViewWithTag<View>(IslandProbeUtils.LEFT_TEST_VIEW_TAG)
+                        val rightView = cv.findViewWithTag<View>(IslandProbeUtils.RIGHT_TEST_VIEW_TAG)
+                        setPosition(leftView, position, playbackSpeed)
+                        setPosition(rightView, position, playbackSpeed)
+                        playbackViews = listOfNotNull(leftView, rightView)
                         IslandPresentationCoordinator.refreshInjectedViewIndex(token)
                     } else {
                         indexedViews.forEach { view ->
                             setPosition(view, position, playbackSpeed)
                         }
+                        playbackViews = indexedViews
                     }
+                    IslandContentUpdateCoordinator.updatePlaybackProgressForViews(
+                        rootView = cv,
+                        slotViews = playbackViews,
+                        position = position
+                    )
                     IslandHostFacade.updateProgressGlow(cv, lyricPkg, currentPrefs)
                 }
             }

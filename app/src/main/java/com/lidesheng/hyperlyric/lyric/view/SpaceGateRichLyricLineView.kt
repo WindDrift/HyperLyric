@@ -72,11 +72,16 @@ class SpaceGateRichLyricLineView(
         setLineInternal(value, onMainLineWillApply, onMainLineApplied, onMainLineCancelled)
     }
 
+    fun updateMetadataLine(value: IRichLyricLine?) {
+        setLineInternal(value, null, null, null, preserveMarquee = true)
+    }
+
     private fun setLineInternal(
         value: IRichLyricLine?,
         onMainLineWillApply: ((Float) -> Boolean)?,
         onMainLineApplied: (() -> Unit)?,
-        onMainLineCancelled: (() -> Unit)?
+        onMainLineCancelled: (() -> Unit)?,
+        preserveMarquee: Boolean = false
     ) {
         val cancellation = pendingMainLineCancelled
         pendingMainLineWillApply = null
@@ -90,13 +95,15 @@ class SpaceGateRichLyricLineView(
         pendingMainLineApplied = onMainLineApplied
         pendingMainLineCancelled = onMainLineCancelled
         rawLine = value
-        lastPosition = Long.MIN_VALUE
-        lastPlaybackSpeed = Float.NaN
-        requestMarquee = false
+        if (!preserveMarquee) {
+            lastPosition = Long.MIN_VALUE
+            lastPlaybackSpeed = Float.NaN
+            requestMarquee = false
+        }
         if (animationTransition) {
             pendingLine = value
         } else {
-            refreshLines()
+            refreshLines(preserveMarquee = preserveMarquee)
         }
     }
 
@@ -308,7 +315,8 @@ class SpaceGateRichLyricLineView(
     private fun refreshLines(
         allowNextLinePromotion: Boolean = true,
         bypassIdentityCheck: Boolean = false,
-        skipMainLinePreflight: Boolean = false
+        skipMainLinePreflight: Boolean = false,
+        preserveMarquee: Boolean = false
     ) {
         if (nextLineTransitionRunning) return
         if (skipMainLinePreflight) {
@@ -347,7 +355,8 @@ class SpaceGateRichLyricLineView(
                             refreshLines(
                                 allowNextLinePromotion = allowNextLinePromotion,
                                 bypassIdentityCheck = bypassIdentityCheck,
-                                skipMainLinePreflight = true
+                                skipMainLinePreflight = true,
+                                preserveMarquee = preserveMarquee
                             )
                         }
                     } else {
@@ -355,7 +364,8 @@ class SpaceGateRichLyricLineView(
                         refreshLines(
                             allowNextLinePromotion = allowNextLinePromotion,
                             bypassIdentityCheck = bypassIdentityCheck,
-                            skipMainLinePreflight = true
+                            skipMainLinePreflight = true,
+                            preserveMarquee = preserveMarquee
                         )
                     }
                     return
@@ -375,7 +385,11 @@ class SpaceGateRichLyricLineView(
         }
 
         main.isSustainProgressEnabled = mainResult.sustainAwareProgress
-        main.setLyric(mainResult.line)
+        if (preserveMarquee) {
+            main.setLyricPreservingScroll(mainResult.line)
+        } else {
+            main.setLyric(mainResult.line)
+        }
         main.isScrollOnly = mainResult.isScrollOnly
         currentMainText = mainResult.line.text
 
@@ -384,7 +398,11 @@ class SpaceGateRichLyricLineView(
         secondary.visibleIfChanged = secResult.alwaysShow
         secondary.isStaticPreview = secResult.isNextLinePreview
         secondary.isSustainProgressEnabled = secResult.sustainAwareProgress
-        secondary.setLyric(secResult.line)
+        if (preserveMarquee) {
+            secondary.setLyricPreservingScroll(secResult.line)
+        } else {
+            secondary.setLyric(secResult.line)
+        }
         secondary.isScrollOnly = if (secResult.isNextLinePreview) false else secResult.isScrollOnly
 
         // 只有主、副行真正提交后，才把这一行标记为已应用。动态宽度预检可能会在此之前

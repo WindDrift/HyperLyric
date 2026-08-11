@@ -19,7 +19,7 @@ import com.lidesheng.hyperlyric.root.utils.HookLogger
 internal object IslandSlotContentFacade {
 
     fun invalidate(view: View? = null) {
-        IslandSlotContentSignatureCache.invalidate(view)
+        IslandMetadataContentAssembler.invalidate(view)
         IslandSlotStyleAssembler.invalidate(view)
     }
 
@@ -55,12 +55,15 @@ internal object IslandSlotContentFacade {
         playbackActive: Boolean = true,
         suppressAnimation: Boolean = false,
         mediaInfo: MediaMetadataHelper.MediaInfo = currentMediaInfo(view.context),
+        playbackPosition: Long = LyriconDataBridge.currentPosition,
+        playbackDuration: Long = mediaInfo.duration,
         onLineWillApply: ((Float) -> Boolean)? = null,
         onLineApplied: (() -> Unit)? = null,
         onLineCancelled: (() -> Unit)? = null
     ): Boolean {
         configureView(view, prefs, config, mode, mediaInfo, force)
         return if (mode == RootConstants.ISLAND_CONTENT_MODE_LYRIC) {
+            IslandMetadataContentAssembler.clearState(view)
             IslandLyricContentAssembler.apply(
                 view = view,
                 prefs = prefs,
@@ -80,9 +83,19 @@ internal object IslandSlotContentFacade {
                 config = config,
                 mode = mode,
                 force = force,
-                mediaInfo = mediaInfo
+                mediaInfo = mediaInfo,
+                playbackPosition = playbackPosition,
+                playbackDuration = playbackDuration
             )
         }
+    }
+
+    fun clearMetadataState(view: View) {
+        IslandMetadataContentAssembler.clearState(view)
+    }
+
+    fun updatePlaybackProgress(view: View, position: Long): Boolean {
+        return IslandMetadataContentAssembler.updatePlaybackProgress(view, position)
     }
 
     fun applyLyricLineContent(

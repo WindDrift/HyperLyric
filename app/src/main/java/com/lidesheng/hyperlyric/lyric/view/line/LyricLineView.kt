@@ -207,6 +207,38 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
     }
 
     /**
+     * Replaces a plain-text line while keeping the current marquee state.
+     * This is intentionally separate from [setLyric], which is expected to
+     * start a new line from its initial delay.
+     */
+    fun setLyricPreservingScroll(rawLine: LyricLine?) {
+        val line = if (rawLine?.text.isNullOrBlank() && !rawLine.isCountdownLine()) null else rawLine
+        val previousModel = _model
+        val model = line?.normalize()?.createModel() ?: emptyLyricModel()
+
+        if (activeRenderer !== scrollRenderer || !model.isPlainText) {
+            setLyric(rawLine)
+            return
+        }
+
+        _model = model
+        refreshSizes()
+        updateColorsIfReady()
+        scrollRenderer.updateModelPreservingScroll(
+            previousWidth = previousModel.width,
+            model = _model,
+            state = lineState,
+            viewWidth = measuredWidth
+        )
+        if (playbackActive && scrollUnlocked && _model.width > measuredWidth) {
+            scrollRenderer.resumeIfNeeded()
+            animator.startIfNeeded()
+        }
+        requestLayout()
+        invalidate()
+    }
+
+    /**
      * Measures a candidate line with the same model-building rules as [setLyric], without
      * replacing the line that is currently being displayed.
      */

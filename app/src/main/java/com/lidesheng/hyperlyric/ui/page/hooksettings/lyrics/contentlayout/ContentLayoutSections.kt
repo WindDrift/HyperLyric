@@ -37,6 +37,18 @@ internal enum class ContentLayoutField(
     Duration(
         key = MusicInfoLayoutPolicy.FIELD_DURATION,
         labelRes = R.string.content_layout_field_duration
+    ),
+    Elapsed(
+        key = MusicInfoLayoutPolicy.FIELD_ELAPSED,
+        labelRes = R.string.content_layout_field_elapsed
+    ),
+    Remaining(
+        key = MusicInfoLayoutPolicy.FIELD_REMAINING,
+        labelRes = R.string.content_layout_field_remaining
+    ),
+    ProgressPercent(
+        key = MusicInfoLayoutPolicy.FIELD_PROGRESS_PERCENT,
+        labelRes = R.string.content_layout_field_progress_percent
     )
 }
 

@@ -150,8 +150,7 @@ class RootLyricSink(
             songId = song?.id,
             reason = "metadata_changed"
         )
-        IslandSlotContentFacade.invalidate()
-        renderer.refreshActiveIsland()
+        renderer.updateMetadata()
     }
 
     override fun onPlaybackStateChanged(isPlaying: Boolean, playbackSpeed: Float) {
