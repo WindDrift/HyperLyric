@@ -1,6 +1,5 @@
 package com.lidesheng.hyperlyric.ui.page.main
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -21,8 +20,6 @@ fun LazyListScope.homePageSections(
     randomQuote: String,
     onQuoteClick: () -> Unit,
     onQuoteLongPress: () -> Unit,
-    enableDynamicIsland: Boolean,
-    onDynamicIslandToggle: (Boolean) -> Unit,
     onSuperIslandConfigClick: () -> Unit,
     onMediaCardConfigClick: () -> Unit,
     onDynamicIslandConfigClick: () -> Unit,
@@ -75,30 +72,6 @@ fun LazyListScope.homePageSections(
         }
     }
 
-    item(key = "basic_features_content_dynamic_island") {
-        Card(
-            modifier = Modifier
-                .padding(horizontal = 12.dp)
-                .padding(bottom = 12.dp)
-                .fillMaxWidth()
-        ) {
-            Column {
-                SwitchPreference(
-                    title = stringResource(R.string.title_dynamic_island_lyrics),
-                    summary = stringResource(R.string.summary_dynamic_island_lyrics),
-                    checked = enableDynamicIsland,
-                    onCheckedChange = onDynamicIslandToggle,
-                )
-                AnimatedVisibility(visible = enableDynamicIsland) {
-                    ArrowPreference(
-                        title = stringResource(R.string.title_dynamic_island_config),
-                        onClick = onDynamicIslandConfigClick,
-                    )
-                }
-            }
-        }
-    }
-
     item(key = "special_features_title") {
         SmallTitle(
             text = stringResource(R.string.title_special_features)
@@ -116,6 +89,11 @@ fun LazyListScope.homePageSections(
                 ArrowPreference(
                     title = stringResource(R.string.title_restart_ui),
                     onClick = onRestartClick,
+                )
+                ArrowPreference(
+                    title = stringResource(R.string.title_dynamic_island_lyrics),
+                    summary = stringResource(R.string.summary_dynamic_island_lyrics),
+                    onClick = onDynamicIslandConfigClick,
                 )
                 SwitchPreference(
                     title = stringResource(R.string.title_remove_focus_whitelist),

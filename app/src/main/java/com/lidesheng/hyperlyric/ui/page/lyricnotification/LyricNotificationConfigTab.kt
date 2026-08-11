@@ -13,6 +13,8 @@ fun LyricNotificationConfigTab(
     lazyListState: LazyListState,
     scrollBehavior: ScrollBehavior,
     contentPadding: PaddingValues,
+    dynamicIslandEnabled: Boolean,
+    onDynamicIslandToggle: (Boolean) -> Unit,
     notificationType: Int,
     onNotificationTypeChange: (Int) -> Unit,
     islandLeftIconStyle: Int,
@@ -58,6 +60,8 @@ fun LyricNotificationConfigTab(
         contentPadding = contentPadding
     ) {
         configSections(
+            dynamicIslandEnabled = dynamicIslandEnabled,
+            onDynamicIslandToggle = onDynamicIslandToggle,
             notificationType = notificationType,
             onNotificationTypeChange = onNotificationTypeChange,
             islandLeftIconStyle = islandLeftIconStyle,
