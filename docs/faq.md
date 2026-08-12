@@ -22,7 +22,7 @@ HyperLyric 6.0 及之后的版本必须安装 Lyricon Central 和目标音乐软
 
 ### LyricInfo 是怎么工作的？
 
-有些音乐软件可以直接把歌词写入 MediaSession 元数据；对于不能这样做的软件，可以使用 LyricInfo 模块把歌词写入元数据。HyperLyric 再从元数据中读取歌词。这种方式也用于 ColorOS 16 锁屏岛等使用媒体元数据的场景。
+建议安装 LyricInfo，因为主流音乐软件通常不会把歌词写入 MediaSession 元数据。少数第三方播放器可能支持直接输出这类元数据，这种情况下可以不安装。其他软件可以使用 LyricInfo 模块把歌词写入元数据，HyperLyric 再从元数据中读取歌词。这种方式也用于 ColorOS 16 锁屏岛等使用媒体元数据的场景。
 
 ### 已经配置好了，为什么还是没有歌词？
 

@@ -76,7 +76,7 @@ HyperLyric 可在设置中切换三种 Xposed 歌词来源。逐字、翻译和�
 | :--- | :--- | :--- |
 | **Lyricon** | 通过 LyricProvider 提供逐行、逐字、翻译等歌词数据；具体能力取决于播放器对应的 LyricProvider | [Lyricon Central](https://github.com/tomakino/lyricon/releases/tag/core) + [LyricProvider](https://github.com/proify/LyricProvider/releases) |
 | **SuperLyric** | 通过 SuperLyric 模块持续提供普通或逐字歌词；不支持下一句歌词和 AI 翻译 | [SuperLyric](https://github.com/HChenX/SuperLyric) |
-| **LyricInfo** | 从媒体元数据读取标准化歌词；逐行/逐字、翻译和下一句歌词等内容取决于元数据本身 | [LyricInfo](https://github.com/limczhh/LyricInfo)（可选） |
+| **LyricInfo** | 从媒体元数据读取标准化歌词；逐行/逐字、翻译和下一句歌词等内容取决于元数据本身 | [LyricInfo](https://github.com/limczhh/LyricInfo)（推荐安装；播放器自身能把歌词写入 MediaSession 元数据时可不安装） |
 
 ## 截图
 

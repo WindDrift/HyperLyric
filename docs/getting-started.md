@@ -20,7 +20,7 @@ HyperLyric 支持三种歌词源。它们的工作方式和支持的音乐软件
 | :--- | :--- | :--- |
 | **Lyricon** | 通过 LyricProvider 提供歌词。HyperLyric 6.0 及之后的版本需要 Lyricon Central 和对应的 LyricProvider。 | [Lyricon Central](https://github.com/tomakino/lyricon/releases/tag/core) · [LyricProvider](https://github.com/proify/LyricProvider/releases) |
 | **SuperLyric** | SuperLyric 模块同时负责歌词调度和歌词提供。 | [SuperLyric](https://github.com/HChenX/SuperLyric) |
-| **LyricInfo** | 读取音乐软件写入的 MediaSession 元数据；也可以配合 LyricInfo 模块把歌词写入元数据。 | [LyricInfo](https://github.com/limczhh/LyricInfo) |
+| **LyricInfo** | 读取音乐软件写入的 MediaSession 元数据；主流音乐软件通常需要 LyricInfo 模块把歌词写入元数据。 | [LyricInfo](https://github.com/limczhh/LyricInfo)（推荐安装） |
 
 ### 3. 安装并启用所选歌词源
 
@@ -28,7 +28,7 @@ HyperLyric 支持三种歌词源。它们的工作方式和支持的音乐软件
 
 - Lyricon：HyperLyric 6.0 及之后的版本必须同时安装 Lyricon Central 和对应的 LyricProvider。
 - SuperLyric：只需要安装 SuperLyric。
-- LyricInfo：如果音乐软件自身能够提供歌词元数据，通常不需要额外模块；如果需要由 LyricInfo 写入元数据，再安装 LyricInfo。
+- LyricInfo：建议安装 LyricInfo，因为主流音乐软件通常不会把歌词写入 MediaSession 元数据。只有音乐软件自身支持输出这类元数据时，才可以不安装。
 
 在 LSPosed 中勾选需要使用歌词的音乐软件。
 

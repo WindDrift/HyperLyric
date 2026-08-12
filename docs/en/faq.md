@@ -22,7 +22,7 @@ Install SuperLyric only. It handles both lyric scheduling and lyric providing. E
 
 ### How does LyricInfo work?
 
-Some music apps write lyrics directly into MediaSession metadata. For apps that do not, the LyricInfo module can write lyrics into that metadata. HyperLyric then reads the metadata. This is also the kind of metadata used by scenarios such as the ColorOS 16 lock-screen island.
+LyricInfo is recommended because mainstream music apps usually do not write lyrics into MediaSession metadata. A few third-party players may provide this metadata themselves, in which case LyricInfo can be skipped. For other apps, the LyricInfo module writes lyrics into the metadata and HyperLyric reads it. This is also the kind of metadata used by scenarios such as the ColorOS 16 lock-screen island.
 
 ### I configured everything, but no lyrics appear. What should I check?
 

@@ -76,7 +76,7 @@ HyperLyric can switch between three Xposed lyric sources. Word timing, translati
 | :--- | :--- | :--- |
 | **Lyricon** | Provides line-synced, word-synced, and translated lyrics through LyricProvider; exact capabilities depend on the player's LyricProvider | [Lyricon Central](https://github.com/tomakino/lyricon/releases/tag/core) + [LyricProvider](https://github.com/proify/LyricProvider/releases) |
 | **SuperLyric** | Continuously provides line-synced or word-synced lyrics through the SuperLyric module; next-line lyrics and AI translation are unavailable | [SuperLyric](https://github.com/HChenX/SuperLyric) |
-| **LyricInfo** | Reads normalized lyrics from media metadata; line/word timing, translations, and next-line lyrics depend on the metadata itself | [LyricInfo](https://github.com/limczhh/LyricInfo) (optional) |
+| **LyricInfo** | Reads normalized lyrics from media metadata; line/word timing, translations, and next-line lyrics depend on the metadata itself | [LyricInfo](https://github.com/limczhh/LyricInfo) (recommended; optional when the player writes lyric metadata into MediaSession itself) |
 
 ## Screenshots
 

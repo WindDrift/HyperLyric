@@ -20,7 +20,7 @@ HyperLyric supports three lyric sources. Their working methods and supported mus
 | :--- | :--- | :--- |
 | **Lyricon** | Provides lyrics through LyricProvider. HyperLyric 6.0 and later requires Lyricon Central and the matching LyricProvider. | [Lyricon Central](https://github.com/tomakino/lyricon/releases/tag/core) · [LyricProvider](https://github.com/proify/LyricProvider/releases) |
 | **SuperLyric** | The SuperLyric module handles both lyric scheduling and lyric providing. | [SuperLyric](https://github.com/HChenX/SuperLyric) |
-| **LyricInfo** | Reads MediaSession metadata written by the music app; the LyricInfo module can also write lyrics into that metadata. | [LyricInfo](https://github.com/limczhh/LyricInfo) |
+| **LyricInfo** | Reads MediaSession metadata written by the music app; mainstream music apps usually need the LyricInfo module to write lyrics into that metadata. | [LyricInfo](https://github.com/limczhh/LyricInfo) (recommended) |
 
 ### 3. Install and enable the selected source
 
@@ -28,7 +28,7 @@ Install the dependencies listed above, then enable HyperLyric and the installed 
 
 - Lyricon: HyperLyric 6.0 and later requires both Lyricon Central and the matching LyricProvider.
 - SuperLyric: install SuperLyric only.
-- LyricInfo: no extra module is usually needed when the music app already provides lyric metadata. Install LyricInfo when it must write the metadata.
+- LyricInfo: LyricInfo is recommended because mainstream music apps usually do not write lyrics into MediaSession metadata. Skip it only when the music app provides that metadata itself.
 
 Select the music app that should receive lyrics in LSPosed.
 
