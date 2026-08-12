@@ -74,9 +74,9 @@ HyperLyric can switch between three Xposed lyric sources. Word timing, translati
 
 | Source | Main capabilities | Dependency |
 | :--- | :--- | :--- |
-| **Lyricon** | Rich line-synced, word-synced, and translated lyrics; exact capabilities depend on the player's LyricProvider | [Lyricon central](https://github.com/tomakino/lyricon/releases/tag/core) + [LyricProvider](https://github.com/proify/LyricProvider/releases) |
-| **SuperLyric** | Streams line-synced or word-synced lyrics with low latency; next-line lyrics and AI translation are unavailable | [SuperLyric](https://github.com/HChenX/SuperLyric) |
-| **LyricInfo** | Reads normalized lyrics from media metadata, with line/word timing, translation, next-line lyrics, and AI translation | [LyricInfo](https://github.com/limczhh/LyricInfo) (optional) |
+| **Lyricon** | Provides line-synced, word-synced, and translated lyrics through LyricProvider; exact capabilities depend on the player's LyricProvider | [Lyricon Central](https://github.com/tomakino/lyricon/releases/tag/core) + [LyricProvider](https://github.com/proify/LyricProvider/releases) |
+| **SuperLyric** | Continuously provides line-synced or word-synced lyrics through the SuperLyric module; next-line lyrics and AI translation are unavailable | [SuperLyric](https://github.com/HChenX/SuperLyric) |
+| **LyricInfo** | Reads normalized lyrics from media metadata; line/word timing, translations, and next-line lyrics depend on the metadata itself | [LyricInfo](https://github.com/limczhh/LyricInfo) (optional) |
 
 ## Screenshots
 
@@ -100,7 +100,7 @@ HyperLyric can switch between three Xposed lyric sources. Word timing, translati
 
 | Feature | Android | System | Notes |
 | :--- | :--- | :--- | :--- |
-| **HyperIsland lyrics and media card enhancements** | Android 15+ | HyperOS 3 | Requires root, LSPosed v2.0, and `miui.systemui.plugin` |
+| **HyperIsland lyrics and media card enhancements** | Android 15+ | HyperOS 3 | Requires the LSPosed v2.0 framework |
 | **Notification Spotlight allowlist bypass** | Android 13+ | HyperOS 2, HyperOS 3 | Uses Xposed to bypass sending restrictions |
 | **Pull-down mini-window allowlist bypass** | Android 16 | HyperOS 3.0.300+ | Enables pull-down expansion for HyperIsland media cards |
 | **Live Update lyric notifications** | Android 16 | HyperOS 3.0.300+, ColorOS 16 | Uses the standard Android Live Update API |
@@ -110,12 +110,17 @@ HyperLyric can switch between three Xposed lyric sources. Word timing, translati
 
 Download the latest build from [GitHub Releases](https://github.com/limczhh/HyperLyric/releases):
 
-- **Online**: Includes AI translation and experimental online lyric features.
-- **Offline**: Removes network-backed implementations while retaining local lyrics, HyperIsland, and SystemUI enhancements.
+- **Online**: Adds AI translation and an online lyric source that ordinary apps can call by sending notifications.
+- **Offline**: Only removes network features; the other core features are essentially the same.
 
 ## Standalone notification mode
 
-Without root, HyperLyric can listen to media metadata and display lyrics through Xiaomi Notification Spotlight or Android Live Update notifications. This mode includes a player allowlist, notification styling, and a Quick Settings tile, but provides fewer features and narrower compatibility than the Xposed HyperIsland mode.
+Without LSPosed, HyperLyric can listen to media metadata and display lyrics through Xiaomi Notification Spotlight or Android Live Update notifications. This mode includes a player allowlist, notification styling, and a Quick Settings tile.
+
+## Setup and troubleshooting
+
+- [Basic setup guide](docs/en/getting-started.md)
+- [FAQ](docs/en/faq.md)
 
 ## Credits and license
 

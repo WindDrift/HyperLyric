@@ -14,7 +14,6 @@ local.properties
 .codegraph
 .kotlin/
 .vscode/
-docs/
 小米超级岛反编译相关/
 app/build/
 app/release/

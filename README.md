@@ -74,9 +74,9 @@ HyperLyric 可在设置中切换三种 Xposed 歌词来源。逐字、翻译和�
 
 | 歌词源 | 主要能力 | 依赖 |
 | :--- | :--- | :--- |
-| **Lyricon** | 支持逐行、逐字、翻译等丰富歌词数据；具体能力取决于播放器对应的 LyricProvider | [Lyricon central](https://github.com/tomakino/lyricon/releases/tag/core) + [LyricProvider](https://github.com/proify/LyricProvider/releases) |
-| **SuperLyric** | 以低延迟方式持续提供普通或逐字歌词；不支持下一句歌词和 AI 翻译 | [SuperLyric](https://github.com/HChenX/SuperLyric) |
-| **LyricInfo** | 从媒体元数据读取标准化歌词，支持逐行/逐字、翻译、下一句歌词和 AI 翻译 | [LyricInfo](https://github.com/limczhh/LyricInfo)（可选） |
+| **Lyricon** | 通过 LyricProvider 提供逐行、逐字、翻译等歌词数据；具体能力取决于播放器对应的 LyricProvider | [Lyricon Central](https://github.com/tomakino/lyricon/releases/tag/core) + [LyricProvider](https://github.com/proify/LyricProvider/releases) |
+| **SuperLyric** | 通过 SuperLyric 模块持续提供普通或逐字歌词；不支持下一句歌词和 AI 翻译 | [SuperLyric](https://github.com/HChenX/SuperLyric) |
+| **LyricInfo** | 从媒体元数据读取标准化歌词；逐行/逐字、翻译和下一句歌词等内容取决于元数据本身 | [LyricInfo](https://github.com/limczhh/LyricInfo)（可选） |
 
 ## 截图
 
@@ -100,7 +100,7 @@ HyperLyric 可在设置中切换三种 Xposed 歌词来源。逐字、翻译和�
 
 | 功能 | Android 版本 | 系统版本 | 说明 |
 | :--- | :--- | :--- | :--- |
-| **超级岛歌词与媒体岛增强** | Android 15+ | HyperOS 3 | 需要 Root、LSPosed v2.0 和 `miui.systemui.plugin` |
+| **超级岛歌词与媒体岛增强** | Android 15+ | HyperOS 3 | 需要 LSPosed v2.0 框架支持 |
 | **焦点通知白名单解除** | Android 13+ | HyperOS 2、HyperOS 3 | 通过 Xposed 绕过发送限制 |
 | **下拉小窗白名单解除** | Android 16 | HyperOS 3.0.300+ | 用于超级岛媒体卡片下拉扩展 |
 | **实时通知歌词** | Android 16 | HyperOS 3.0.300+、ColorOS 16 | 使用标准 Android 实时通知接口 |
@@ -110,12 +110,17 @@ HyperLyric 可在设置中切换三种 Xposed 歌词来源。逐字、翻译和�
 
 前往 [GitHub Releases](https://github.com/limczhh/HyperLyric/releases) 下载最新版本：
 
-- **Online**：包含 AI 翻译和实验性在线歌词等网络功能。
-- **Offline**：移除网络相关实现，保留本地歌词、超级岛和 SystemUI 增强能力。
+- **Online**：除核心功能外，还提供 AI 翻译，以及一个可供普通应用通过发送通知调用的在线歌词源。
+- **Offline**：只移除联网功能，其他核心功能没有本质区别。
 
 ## 独立通知模式
 
-不使用 Root 时，HyperLyric 也可监听媒体元数据，并通过小米焦点通知或 Android 实时通知显示歌词。该模式支持音乐应用白名单、通知样式和快捷设置磁贴，但功能与兼容性弱于 Xposed 超级岛模式。
+不使用 LSPosed 时，HyperLyric 也可监听媒体元数据，并通过小米焦点通知或 Android 实时通知显示歌词。该模式支持音乐应用白名单、通知样式和快捷设置磁贴。
+
+## 配置与问题
+
+- [基础配置教程](docs/getting-started.md)
+- [常见问题](docs/faq.md)
 
 ## 致谢与协议
 
