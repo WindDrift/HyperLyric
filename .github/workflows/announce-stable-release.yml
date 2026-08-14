@@ -6,7 +6,6 @@ on:
 
 permissions:
   contents: read
-  models: read
 
 concurrency:
   group: announce-stable-release-${{ github.event.release.tag_name }}
@@ -24,7 +23,6 @@ jobs:
         with:
           ref: ${{ github.event.release.tag_name }}
           sparse-checkout: |
-            .github/prompts
             .github/scripts
           sparse-checkout-cone-mode: false
 
@@ -103,55 +101,36 @@ jobs:
             release-assets/HyperLyric-online-*.apk
             release-assets/HyperLyric-offline-*.apk
 
-      - name: 提取中文更新日志 Extract Chinese Release Notes
+      - name: 提取中英文更新日志 Extract Bilingual Release Notes
         shell: bash
         run: |
           set -euo pipefail
 
-          awk '
-            /^##[[:space:]]+更新内容[[:space:]]*$/ { in_section=1; next }
-            in_section && /^##[[:space:]]+/ { exit }
-            in_section { print }
-          ' release-body.md > release-notes-zh.md
+          extract_section() {
+            local heading="$1"
+            local output="$2"
+
+            awk -v heading="$heading" '
+              $0 ~ "^[[:space:]]*" heading "[[:space:]]*$" { in_section=1; next }
+              in_section && /^##[[:space:]]+/ { exit }
+              in_section { print }
+            ' release-body.md > "$output"
+
+            sed -i \
+              -e '/^[[:space:]]*<!--.*-->[[:space:]]*$/d' \
+              -e '/^[[:space:]]*<!--[[:space:]]*$/,/^[[:space:]]*-->[[:space:]]*$/d' \
+              "$output"
+          }
+
+          extract_section '## 更新内容' release-notes-zh.md
+          extract_section '## Changelog' release-notes-en.md
 
           if ! grep -q '[^[:space:]]' release-notes-zh.md; then
-            cp release-body.md release-notes-zh.md
-          fi
-
-          sed -i \
-            -e '/^[[:space:]]*<!--.*-->[[:space:]]*$/d' \
-            -e '/^[[:space:]]*<!--[[:space:]]*$/,/^[[:space:]]*-->[[:space:]]*$/d' \
-            release-notes-zh.md
-          if ! grep -q '[^[:space:]]' release-notes-zh.md; then
-            echo '::error::Release 的更新内容为空，请先填写 Draft Release 的更新说明再发布'
+            echo '::error::Release 的中文更新内容为空，请检查正式版正文'
             exit 1
           fi
-
-      - name: 自动翻译为英文 Translate Release Notes
-        id: translate
-        uses: actions/ai-inference@v1
-        with:
-          prompt-file: release-notes-zh.md
-          system-prompt-file: .github/prompts/translate-release-notes.prompt.txt
-          model: openai/gpt-4o
-          max-completion-tokens: 500
-          temperature: 0.2
-
-      - name: 保存英文更新日志 Save English Release Notes
-        env:
-          RESPONSE_FILE: ${{ steps.translate.outputs.response-file }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [[ -z "$RESPONSE_FILE" || ! -s "$RESPONSE_FILE" ]]; then
-            echo '::error::GitHub Models 没有返回英文更新日志'
-            exit 1
-          fi
-
-          cp "$RESPONSE_FILE" release-notes-en.md
           if ! grep -q '[^[:space:]]' release-notes-en.md; then
-            echo '::error::英文更新日志为空'
+            echo '::error::Release 的英文 Changelog 为空，请检查正式版正文'
             exit 1
           fi
 

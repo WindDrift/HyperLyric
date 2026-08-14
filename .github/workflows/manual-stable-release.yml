@@ -129,7 +129,7 @@ jobs:
         uses: actions/ai-inference@v1
         with:
           prompt-file: stable-commit-input.md
-          system-prompt-file: .github/prompts/generate-release-notes.prompt.txt
+          system-prompt-file: .github/prompts/generate-bilingual-release-notes.prompt.txt
           model: openai/gpt-4o
           max-completion-tokens: 800
           temperature: 0.2
@@ -146,10 +146,17 @@ jobs:
             exit 1
           fi
 
-          cp "$RESPONSE_FILE" stable-notes-draft.md
-          sed -i -E 's/^##[[:space:]]+/### /' stable-notes-draft.md
-          if ! grep -q '[^[:space:]]' stable-notes-draft.md; then
-            echo '::error::正式版更新日志草稿为空'
+          cp "$RESPONSE_FILE" stable-notes-bilingual.md
+          if ! grep -q '^##[[:space:]]+更新内容[[:space:]]*$' stable-notes-bilingual.md; then
+            echo '::error::正式版中文更新日志草稿缺少“## 更新内容”标题'
+            exit 1
+          fi
+          if ! grep -q '^##[[:space:]]+Changelog[[:space:]]*$' stable-notes-bilingual.md; then
+            echo '::error::正式版英文更新日志草稿缺少“## Changelog”标题'
+            exit 1
+          fi
+          if ! grep -q '[^[:space:]]' stable-notes-bilingual.md; then
+            echo '::error::正式版中英文更新日志草稿为空'
             exit 1
           fi
 
@@ -257,10 +264,8 @@ jobs:
           set -euo pipefail
 
           {
-            echo '## 更新内容'
-            echo
-            echo '<!-- 以下为 AI 根据提交记录生成的草稿，请在正式发布前检查并修改。 -->'
-            cat stable-notes-draft.md
+            echo '<!-- 以下为 AI 根据提交记录生成的中英文草稿，请在正式发布前检查并修改。 -->'
+            cat stable-notes-bilingual.md
             echo
             echo '## SHA-256 校验'
             echo
