@@ -9,6 +9,7 @@ import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
 import com.lidesheng.hyperlyric.root.HookEntry
 import com.lidesheng.hyperlyric.root.LyriconDataBridge
 import com.lidesheng.hyperlyric.root.island.host.IslandProbeUtils
+import com.lidesheng.hyperlyric.root.media.CurrentMediaInfoResolver
 import com.lidesheng.hyperlyric.root.utils.CoverColorHelper
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import io.github.libxposed.api.XposedInterface.Chain
@@ -153,7 +154,7 @@ object HookIslandGlow {
                 }
                 return@runCatching null
             }
-            val mediaInfo = MediaMetadataHelper.getMediaInfo(context, pkgName, HookLogger)
+            val mediaInfo = CurrentMediaInfoResolver.getMediaInfo(context, pkgName, HookLogger)
             val colorSession = CoverColorHelper.currentSession(pkgName) ?: run {
                 HookLogger.dState(
                     stateId = "HookIslandGlow.prepare",

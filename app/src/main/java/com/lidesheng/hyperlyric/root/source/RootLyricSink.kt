@@ -5,6 +5,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import com.lidesheng.hyperlyric.common.RootConstants
+import com.lidesheng.hyperlyric.lyric.model.LyricMediaMetadata
 import com.lidesheng.hyperlyric.lyric.model.Song
 import com.lidesheng.hyperlyric.lyric.model.interfaces.IRichLyricLine
 import com.lidesheng.hyperlyric.lyric.source.LyricSink
@@ -33,6 +34,7 @@ class RootLyricSink(
     private var lastDispatchedPosition = Long.MIN_VALUE
     private var lastDispatchedPlaybackSpeed = Float.NaN
     private var currentPlaybackSpeed = 1f
+    private var lastMetadataTitle = ""
     private var lastMetadataArtist = ""
     private var lastMetadataAlbum = ""
     private val positionDispatchRunnable = Runnable {
@@ -72,6 +74,7 @@ class RootLyricSink(
             ) ?: RootConstants.DEFAULT_HOOK_PLACEHOLDER_FORMAT
         )
         if (localSong != null) {
+            lastMetadataTitle = localSong.name.orEmpty()
             lastMetadataArtist = localSong.artist.orEmpty()
             lastMetadataAlbum = ""
             updateColorSession(
@@ -82,6 +85,7 @@ class RootLyricSink(
                 reason = "song_changed"
             )
         } else {
+            lastMetadataTitle = ""
             lastMetadataArtist = ""
             lastMetadataAlbum = ""
             endColorSession()
@@ -126,6 +130,7 @@ class RootLyricSink(
         lastDispatchedPosition = Long.MIN_VALUE
         lastDispatchedPlaybackSpeed = Float.NaN
         currentPlaybackSpeed = 1f
+        lastMetadataTitle = ""
         lastMetadataArtist = ""
         lastMetadataAlbum = ""
         endColorSession()
@@ -133,17 +138,22 @@ class RootLyricSink(
         LyriconDataBridge.clearState()
     }
 
-    override fun onMetadata(title: String?, artist: String?, album: String?, publisher: String?) {
-        if (title != null) LyriconDataBridge.currentSongName = title
-        if (artist != null) lastMetadataArtist = artist
-        if (album != null) lastMetadataAlbum = album
-        if (!publisher.isNullOrEmpty()) {
-            LyriconDataBridge.updateLyricPackage(publisher)
-        }
+    override fun onMetadata(metadata: LyricMediaMetadata?) {
+        val normalized = metadata?.normalized()
+        LyriconDataBridge.updateMediaMetadata(normalized)
+        lastMetadataTitle = normalized?.title.orEmpty()
+        lastMetadataArtist = normalized?.artist.orEmpty()
+        lastMetadataAlbum = normalized?.album.orEmpty()
+        normalized?.packageName?.let(LyriconDataBridge::updateLyricPackage)
         val song = LyriconDataBridge.currentSong
+        LyriconDataBridge.currentSongName = normalized?.title ?: song?.name
+        if (normalized == null) {
+            renderer.updateMetadata()
+            return
+        }
         updateColorSession(
             title = song?.name?.takeIf { it.isNotBlank() }
-                ?: LyriconDataBridge.currentSongName.orEmpty(),
+                ?: lastMetadataTitle,
             artist = song?.artist?.takeIf { it.isNotBlank() }
                 ?: lastMetadataArtist,
             album = lastMetadataAlbum,

@@ -2,6 +2,7 @@ package com.lidesheng.hyperlyric.root.source
 
 import android.app.Application
 import com.lidesheng.hyperlyric.common.RootConstants
+import com.lidesheng.hyperlyric.lyric.model.LyricMediaMetadata
 import com.lidesheng.hyperlyric.lyric.source.LyricSink
 import com.lidesheng.hyperlyric.lyric.source.LyricSource
 import com.lidesheng.hyperlyric.root.LyriconDataBridge
@@ -38,6 +39,7 @@ class LyriconSource : LyricSource {
     private var subscriber: LyriconSubscriber? = null
 
     private var activeProviderPackageName: String? = null
+    private var activePlayerPackageName: String? = null
     private var activeProviderDelayMs: Int = RootConstants.DEFAULT_HOOK_LYRICON_PROVIDER_DELAY
     private var prefs: android.content.SharedPreferences? = null
 
@@ -67,6 +69,8 @@ class LyriconSource : LyricSource {
             HookLogger.e(TAG, "清理歌词订阅连接失败", e)
         } finally {
             subscriber = null
+            activeProviderPackageName = null
+            activePlayerPackageName = null
             sink?.onStop()
             sink = null
         }
@@ -135,6 +139,7 @@ class LyriconSource : LyricSource {
         override fun onActiveProviderChanged(providerInfo: ProviderInfo?) {
             sink?.onStop()
             activeProviderPackageName = providerInfo?.providerPackageName
+            activePlayerPackageName = providerInfo?.playerPackageName
             activeProviderDelayMs = providerInfo?.providerPackageName
                 ?.let(::readProviderDelay)
                 ?: RootConstants.DEFAULT_HOOK_LYRICON_PROVIDER_DELAY
@@ -145,6 +150,17 @@ class LyriconSource : LyricSource {
         override fun onSongChanged(song: Song?) {
             val localSong = song?.toLocalSong()
             sink?.onSongChanged(localSong)
+            sink?.onMetadata(
+                localSong?.let {
+                    LyricMediaMetadata(
+                        sourceId = id,
+                        packageName = activePlayerPackageName,
+                        songId = it.id,
+                        title = it.name,
+                        artist = it.artist
+                    )
+                }
+            )
             BaseIslandRenderer.refreshActiveIsland()
         }
 

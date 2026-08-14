@@ -3,6 +3,7 @@ package com.lidesheng.hyperlyric.root
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.lyric.model.RichLyricLine
 import com.lidesheng.hyperlyric.lyric.model.Song
+import com.lidesheng.hyperlyric.lyric.model.LyricMediaMetadata
 import com.lidesheng.hyperlyric.lyric.model.extensions.TimingNavigator
 import com.lidesheng.hyperlyric.lyric.model.interfaces.IRichLyricLine
 import com.lidesheng.hyperlyric.lyric.source.StateResetter
@@ -23,6 +24,10 @@ object LyriconDataBridge : StateResetter {
 
     @Volatile
     var currentSongName: String? = null
+
+    /** Latest media fields supplied by the active lyric source, before MediaSession fallback. */
+    @Volatile
+    var currentLyricMediaMetadata: LyricMediaMetadata? = null
 
     @Volatile
     var currentLyric: String? = null
@@ -74,6 +79,7 @@ object LyriconDataBridge : StateResetter {
         HookLogger.d(TAG, "歌曲变更: ${song?.name}")
         isTextMode = false
         fullSongLyricsAvailable = song?.lyrics?.any(::hasRenderableLine) == true
+        currentLyricMediaMetadata = null
         currentSong = song
         currentSongName = song?.name
         currentLyric = null
@@ -88,6 +94,10 @@ object LyriconDataBridge : StateResetter {
         } else {
             timingNavigator = TimingNavigator(emptyArray())
         }
+    }
+
+    fun updateMediaMetadata(metadata: LyricMediaMetadata?) {
+        currentLyricMediaMetadata = metadata?.normalized()
     }
 
     fun applyTranslation(translatedSong: Song) {
@@ -161,6 +171,7 @@ object LyriconDataBridge : StateResetter {
     override fun clearState() {
         currentSong = null
         currentSongName = null
+        currentLyricMediaMetadata = null
         currentLyric = null
         currentLyricLine = null
         currentNextLyricLine = null

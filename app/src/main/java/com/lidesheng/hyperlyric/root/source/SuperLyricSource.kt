@@ -6,6 +6,7 @@ import com.hchen.superlyricapi.SuperLyricData
 import com.hchen.superlyricapi.SuperLyricHelper
 import com.hchen.superlyricapi.SuperLyricLine
 import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
+import com.lidesheng.hyperlyric.lyric.model.LyricMediaMetadata
 import com.lidesheng.hyperlyric.lyric.model.LyricWord
 import com.lidesheng.hyperlyric.lyric.model.RichLyricLine
 import com.lidesheng.hyperlyric.lyric.source.LyricSink
@@ -133,10 +134,13 @@ class SuperLyricSource : LyricSource {
         if (lastMetadataKey != metadataKey) {
             lastMetadataKey = metadataKey
             currentSink.onMetadata(
-                lastMetadataTitle,
-                lastMetadataArtist,
-                lastMetadataAlbum,
-                publisher
+                LyricMediaMetadata(
+                    sourceId = id,
+                    packageName = publisher,
+                    title = lastMetadataTitle,
+                    artist = lastMetadataArtist,
+                    album = lastMetadataAlbum
+                )
             )
         }
         startPositionPolling(publisher)

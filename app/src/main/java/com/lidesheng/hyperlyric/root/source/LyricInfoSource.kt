@@ -7,6 +7,7 @@ import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import com.lidesheng.hyperlyric.common.lyric.LyricInfoParser
 import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
+import com.lidesheng.hyperlyric.lyric.model.LyricMediaMetadata
 import com.lidesheng.hyperlyric.lyric.source.LyricSink
 import com.lidesheng.hyperlyric.lyric.source.LyricSource
 import com.lidesheng.hyperlyric.root.LyriconDataBridge
@@ -38,6 +39,7 @@ class LyricInfoSource(private val context: Context) : LyricSource {
     private var hasLyrics: Boolean = false
     private var activePkg: String? = null
     private var activeController: MediaController? = null
+    private var lastMetadataKey: String? = null
 
     private var positionJob: Job? = null
     private val positionJob_supervisor = SupervisorJob()
@@ -84,6 +86,7 @@ class LyricInfoSource(private val context: Context) : LyricSource {
         lastLyricHash = 0
         activePkg = null
         activeController = null
+        lastMetadataKey = null
         stopPositionPolling()
     }
 
@@ -160,16 +163,29 @@ class LyricInfoSource(private val context: Context) : LyricSource {
         val currentHash = lyricInfoRaw?.hashCode() ?: 0
 
         if (!lyricInfoRaw.isNullOrBlank() && currentHash != 0) {
+            val songName = metadata.getString(MediaMetadata.METADATA_KEY_TITLE) ?: ""
+            val artist = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: ""
+            val album = metadata.getString(MediaMetadata.METADATA_KEY_ALBUM)
+            val mediaMetadata = LyricMediaMetadata(
+                sourceId = id,
+                packageName = pkg,
+                title = songName,
+                artist = artist,
+                album = album
+            )
+            val metadataKey = listOf(pkg, songName, artist, album).joinToString("\u001F")
+
             if (currentHash == lastLyricHash && pkg == activePkg) {
                 if (!isCurrent) {
                     activeController = controller
                     handlePlaybackState(controller, playbackState)
                 }
+                if (metadataKey != lastMetadataKey) {
+                    lastMetadataKey = metadataKey
+                    sink?.onMetadata(mediaMetadata)
+                }
                 return
             }
-
-            val songName = metadata.getString(MediaMetadata.METADATA_KEY_TITLE) ?: ""
-            val artist = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: ""
 
             if (HookLogger.isDebugEnabled) {
                 logDiagnosis(lyricInfoRaw)
@@ -182,7 +198,8 @@ class LyricInfoSource(private val context: Context) : LyricSource {
                 activeController = controller
                 LyriconDataBridge.updateLyricPackage(pkg)
                 sink?.onSongChanged(song)
-                sink?.onMetadata(title = songName, artist = artist, album = "", publisher = pkg)
+                lastMetadataKey = metadataKey
+                sink?.onMetadata(mediaMetadata)
                 handlePlaybackState(controller, playbackState)
                 HookLogger.d(
                     TAG,

@@ -9,6 +9,7 @@ import com.lidesheng.hyperlyric.root.LyriconDataBridge
 import com.lidesheng.hyperlyric.root.island.config.IslandSlotRuntimeConfig
 import com.lidesheng.hyperlyric.root.island.host.IslandProbeUtils
 import com.lidesheng.hyperlyric.root.island.sizing.IslandDynamicWidthCoordinator
+import com.lidesheng.hyperlyric.root.media.CurrentMediaInfoResolver
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 
 /**
@@ -38,7 +39,7 @@ internal object IslandLyricContentRefresher {
         }
         val config = IslandSlotRuntimeConfig.from(prefs)
         val packageName = LyriconDataBridge.currentLyricPackageName.orEmpty()
-        val mediaInfo = MediaMetadataHelper.getMediaInfo(rootView.context, packageName, HookLogger)
+        val mediaInfo = CurrentMediaInfoResolver.getMediaInfo(rootView.context, packageName, HookLogger)
 
         var changed = false
         if (config.leftMode != RootConstants.ISLAND_CONTENT_MODE_NONE &&

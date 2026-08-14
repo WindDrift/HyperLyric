@@ -8,6 +8,7 @@ import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
 import com.lidesheng.hyperlyric.lyric.model.interfaces.IRichLyricLine
 import com.lidesheng.hyperlyric.root.LyriconDataBridge
 import com.lidesheng.hyperlyric.root.island.config.IslandSlotRuntimeConfig
+import com.lidesheng.hyperlyric.root.media.CurrentMediaInfoResolver
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 
 /**
@@ -137,6 +138,6 @@ internal object IslandSlotContentFacade {
 
     private fun currentMediaInfo(context: Context): MediaMetadataHelper.MediaInfo {
         val targetPkg = LyriconDataBridge.currentLyricPackageName ?: ""
-        return MediaMetadataHelper.getMediaInfo(context, targetPkg, HookLogger)
+        return CurrentMediaInfoResolver.getMediaInfo(context, targetPkg, HookLogger)
     }
 }

@@ -16,6 +16,7 @@ import com.lidesheng.hyperlyric.root.island.host.IslandHostFacade
 import com.lidesheng.hyperlyric.root.island.host.IslandProbeUtils
 import com.lidesheng.hyperlyric.root.island.presentation.IslandPresentationCoordinator
 import com.lidesheng.hyperlyric.root.island.sizing.IslandDynamicWidthCoordinator
+import com.lidesheng.hyperlyric.root.media.CurrentMediaInfoResolver
 import com.lidesheng.hyperlyric.root.utils.CoverColorHelper
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 
@@ -39,7 +40,7 @@ internal object IslandContentUpdateCoordinator {
         config: IslandSlotRuntimeConfig,
         playbackActive: Boolean
     ) {
-        val mediaInfo = MediaMetadataHelper.getMediaInfo(view.context, packageName, HookLogger)
+        val mediaInfo = CurrentMediaInfoResolver.getMediaInfo(view.context, packageName, HookLogger)
         prepareSharedCoverPalette(packageName, mediaInfo, prefs)
         IslandHostFacade.updateHostGlow(view, prefs)
         IslandHostFacade.updateProgressGlow(view, packageName, mediaInfo, prefs)
@@ -83,7 +84,7 @@ internal object IslandContentUpdateCoordinator {
         config: IslandSlotRuntimeConfig,
         playbackActive: Boolean
     ) {
-        val mediaInfo = MediaMetadataHelper.getMediaInfo(view.context, packageName, HookLogger)
+        val mediaInfo = CurrentMediaInfoResolver.getMediaInfo(view.context, packageName, HookLogger)
         prepareSharedCoverPalette(packageName, mediaInfo, prefs)
         IslandHostFacade.updateHostGlow(view, prefs)
         IslandHostFacade.updateProgressGlow(view, packageName, mediaInfo, prefs)
@@ -169,7 +170,7 @@ internal object IslandContentUpdateCoordinator {
         prefs: SharedPreferences,
         config: IslandSlotRuntimeConfig
     ) {
-        val mediaInfo = MediaMetadataHelper.getMediaInfo(view.context, packageName, HookLogger)
+        val mediaInfo = CurrentMediaInfoResolver.getMediaInfo(view.context, packageName, HookLogger)
         prepareSharedCoverPalette(packageName, mediaInfo, prefs)
         updateSlotColors(
             view,
