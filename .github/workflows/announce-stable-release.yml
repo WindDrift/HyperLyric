@@ -1,0 +1,135 @@
+name: Announce Stable Release to Telegram
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  models: read
+
+concurrency:
+  group: announce-stable-release-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  announce:
+    name: Send Stable APKs to Telegram
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 拉取发布版本文件 Checkout Release Files
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          sparse-checkout: |
+            .github/prompts
+            .github/scripts
+          sparse-checkout-cone-mode: false
+
+      - name: 下载已发布的 APK Download Release APKs
+        id: assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+
+          gh release download "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --dir release-assets \
+            --pattern 'HyperLyric-online-*.apk' \
+            --pattern 'HyperLyric-offline-*.apk' \
+            --clobber
+
+          find_one_apk() {
+            local pattern="$1"
+            local label="$2"
+            local files=()
+
+            mapfile -t files < <(find release-assets -maxdepth 1 -type f -name "$pattern" -print | sort)
+            if [[ "${#files[@]}" -ne 1 ]]; then
+              echo "::error::$label APK 数量不是 1，实际为 ${#files[@]}"
+              printf '%s\n' "${files[@]}"
+              exit 1
+            fi
+
+            printf '%s' "${files[0]}"
+          }
+
+          ONLINE_APK="$(find_one_apk 'HyperLyric-online-*.apk' online)"
+          OFFLINE_APK="$(find_one_apk 'HyperLyric-offline-*.apk' offline)"
+
+          {
+            echo "online=$ONLINE_APK"
+            echo "offline=$OFFLINE_APK"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: 提取中文更新日志 Extract Chinese Release Notes
+        env:
+          RELEASE_BODY: ${{ github.event.release.body }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          printf '%s' "$RELEASE_BODY" > release-body.md
+          awk '
+            /^##[[:space:]]+更新内容[[:space:]]*$/ { in_section=1; next }
+            in_section && /^##[[:space:]]+/ { exit }
+            in_section { print }
+          ' release-body.md > release-notes-zh.md
+
+          if ! grep -q '[^[:space:]]' release-notes-zh.md; then
+            cp release-body.md release-notes-zh.md
+          fi
+
+          sed -i \
+            -e '/^[[:space:]]*<!--.*-->[[:space:]]*$/d' \
+            -e '/^[[:space:]]*<!--[[:space:]]*$/,/^[[:space:]]*-->[[:space:]]*$/d' \
+            release-notes-zh.md
+          if ! grep -q '[^[:space:]]' release-notes-zh.md; then
+            echo '::error::Release 的更新内容为空，请先填写 Draft Release 的更新说明再发布'
+            exit 1
+          fi
+
+      - name: 自动翻译为英文 Translate Release Notes
+        id: translate
+        uses: actions/ai-inference@v1
+        with:
+          prompt-file: .github/prompts/translate-release-notes.prompt.yml
+          file_input: |
+            release_notes: release-notes-zh.md
+
+      - name: 保存英文更新日志 Save English Release Notes
+        env:
+          RESPONSE_FILE: ${{ steps.translate.outputs.response-file }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$RESPONSE_FILE" || ! -s "$RESPONSE_FILE" ]]; then
+            echo '::error::GitHub Models 没有返回英文更新日志'
+            exit 1
+          fi
+
+          cp "$RESPONSE_FILE" release-notes-en.md
+          if ! grep -q '[^[:space:]]' release-notes-en.md; then
+            echo '::error::英文更新日志为空'
+            exit 1
+          fi
+
+      - name: 发送到 Telegram Send to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_URL: ${{ github.event.release.html_url }}
+          RELEASE_NOTES_ZH_FILE: release-notes-zh.md
+          RELEASE_NOTES_EN_FILE: release-notes-en.md
+          ONLINE_APK: ${{ steps.assets.outputs.online }}
+          OFFLINE_APK: ${{ steps.assets.outputs.offline }}
+        shell: bash
+        run: bash .github/scripts/send-telegram-release.sh
