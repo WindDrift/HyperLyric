@@ -212,7 +212,7 @@ fun MediaPreviewCard(
 
         // Derive image track index from rotation so it swaps exactly halfway through the flip
         val imageTrackIndex = ((Math.round(albumRotation.value / 180f)
-            .toInt() % tracks.size) + tracks.size) % tracks.size
+            % tracks.size) + tracks.size) % tracks.size
         val imageTrack = tracks[imageTrackIndex]
 
         LaunchedEffect(playAtEnd, coverStyle) {

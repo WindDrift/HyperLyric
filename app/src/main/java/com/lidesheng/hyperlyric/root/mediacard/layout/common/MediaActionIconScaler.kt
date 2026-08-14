@@ -143,6 +143,7 @@ internal object MediaActionIconScaler {
             source.colorFilter = colorFilter
         }
 
+        @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
         override fun getOpacity(): Int = source.opacity
 
         override fun getIntrinsicWidth(): Int = source.intrinsicWidth

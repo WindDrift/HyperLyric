@@ -214,7 +214,7 @@ internal class NotificationMediaPageIndicator {
                 it.type == Int::class.javaPrimitiveType
             }
             queuedPositionsField = findField(indicatorClass, "mQueuedPositions") {
-                java.util.List::class.java.isAssignableFrom(it.type)
+                List::class.java.isAssignableFrom(it.type)
             }
             pageIndicator
         }.onFailure { error ->
@@ -262,7 +262,7 @@ internal class NotificationMediaPageIndicator {
         val position = positionField ?: return false
         val queuedPositions = queuedPositionsField ?: return false
         return runCatching {
-            val queue = queuedPositions.get(view) as? MutableList<Any>
+            val queue = queuedPositions.get(view) as? MutableList<*>
                 ?: error("PageIndicator.mQueuedPositions 类型不匹配")
             queue.clear()
             animating.setBoolean(view, false)
