@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_description">在 HyperOS3 媒体超级岛上体验歌词，以带来更好的体验</string>
+    <string name="app_description">为小米 HyperOS 3 带来超级岛歌词</string>
     <string name="label_lyric_listener_service">获取媒体信息权限</string>
     <string name="label_lyric_enable_service">HyperLyric媒体信息监听</string>
     <string name="provider_release_home">https://github.com/proify/LyricProvider/releases</string>
