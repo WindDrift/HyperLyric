@@ -1,7 +1,7 @@
 package com.lidesheng.hyperlyric.ui.navigation
 
 import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.navigation3.runtime.NavKey
+import top.yukonga.miuix.kmp.nav.core.NavKey
 
 class Navigator(val backStack: MutableList<NavKey>) {
     fun navigate(route: NavKey) {

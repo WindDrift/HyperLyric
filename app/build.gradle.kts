@@ -56,8 +56,8 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
 
     buildFeatures {
@@ -111,8 +111,7 @@ dependencies {
     implementation(libs.miuix.preference.android)
     implementation(libs.miuix.blur.android)
     implementation(libs.miuix.icons.android)
-    implementation(libs.miuix.navigation3.ui.android)
-    implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.miuix.nav.android)
     implementation(libs.androidx.compose.animation.graphics)
 
     // --- 调试工具 ---
