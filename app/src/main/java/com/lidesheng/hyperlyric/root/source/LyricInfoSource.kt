@@ -113,7 +113,7 @@ class LyricInfoSource(private val context: Context) : LyricSource {
                         onMetadataUpdate(ctrl)
 
                     override fun onPlaybackStateChanged(state: PlaybackState?) {
-                        if (state?.state == PlaybackState.STATE_PLAYING && !isCurrentController(ctrl)) {
+                        if (state?.state == PlaybackState.STATE_PLAYING) {
                             onMetadataUpdate(ctrl, state)
                         } else if (isCurrentController(ctrl)) {
                             handlePlaybackState(ctrl, state)
@@ -163,26 +163,12 @@ class LyricInfoSource(private val context: Context) : LyricSource {
         val currentHash = lyricInfoRaw?.hashCode() ?: 0
 
         if (!lyricInfoRaw.isNullOrBlank() && currentHash != 0) {
-            val songName = metadata.getString(MediaMetadata.METADATA_KEY_TITLE) ?: ""
-            val artist = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: ""
-            val album = metadata.getString(MediaMetadata.METADATA_KEY_ALBUM)
-            val mediaMetadata = LyricMediaMetadata(
-                sourceId = id,
-                packageName = pkg,
-                title = songName,
-                artist = artist,
-                album = album
-            )
-            val metadataKey = listOf(pkg, songName, artist, album).joinToString("\u001F")
-
             if (currentHash == lastLyricHash && pkg == activePkg) {
                 if (!isCurrent) {
                     activeController = controller
                     handlePlaybackState(controller, playbackState)
-                }
-                if (metadataKey != lastMetadataKey) {
-                    lastMetadataKey = metadataKey
-                    sink?.onMetadata(mediaMetadata)
+                } else if (playbackStateOverride != null) {
+                    handlePlaybackState(controller, playbackState)
                 }
                 return
             }
@@ -190,8 +176,24 @@ class LyricInfoSource(private val context: Context) : LyricSource {
             if (HookLogger.isDebugEnabled) {
                 logDiagnosis(lyricInfoRaw)
             }
-            val song = LyricInfoParser.parse(lyricInfoRaw, songName, artist)
-            if (song != null && !song.lyrics.isNullOrEmpty()) {
+            val payload = LyricInfoParser.parsePayload(lyricInfoRaw)
+            val song = payload?.song
+            if (payload != null && song?.lyrics?.isNullOrEmpty() == false) {
+                val mediaMetadata = LyricMediaMetadata(
+                    sourceId = id,
+                    packageName = pkg,
+                    songId = payload.songId,
+                    title = payload.title,
+                    artist = payload.artist,
+                    album = payload.album
+                )
+                val metadataKey = listOf(
+                    pkg,
+                    payload.songId,
+                    payload.title,
+                    payload.artist,
+                    payload.album
+                ).joinToString("\u001F")
                 lastLyricHash = currentHash
                 hasLyrics = true
                 activePkg = pkg
@@ -203,21 +205,32 @@ class LyricInfoSource(private val context: Context) : LyricSource {
                 handlePlaybackState(controller, playbackState)
                 HookLogger.d(
                     TAG,
-                    "歌词已就绪: song=$songName, lines=${song.lyrics!!.size}"
+                    "歌词已就绪: song=${song.name.orEmpty()}, " +
+                            "lines=${song.lyrics!!.size}"
                 )
-            } else if (hasLyrics && pkg == activePkg && isCurrentController(controller)) {
+            } else if (
+                hasLyrics &&
+                pkg == activePkg &&
+                isCurrentController(controller) &&
+                playbackState?.state == PlaybackState.STATE_PLAYING
+            ) {
                 // A non-empty lyricInfo payload can still contain an empty or invalid lyric body.
                 // Do not keep the previous song's full-song state in that case.
                 sink?.onStop()
                 clearLyrics()
                 HookLogger.d(TAG, "歌词已清除: package=$pkg, reason=empty_or_invalid_lyric_info")
             }
-        } else if (hasLyrics && pkg == activePkg && isCurrent) {
-            // Only the selected session may clear the lyrics it supplied.
+        } else if (
+            hasLyrics &&
+            pkg == activePkg &&
+            isCurrent &&
+            playbackState?.state == PlaybackState.STATE_PLAYING
+        ) {
+            // A playing track without LyricInfo must not keep the previous track's injected view.
             sink?.onStop()
             LyriconDataBridge.clearState()
             clearLyrics()
-            HookLogger.d(TAG, "歌词已清除: package=$pkg")
+            HookLogger.d(TAG, "歌词已清除: package=$pkg, reason=missing_lyric_info")
         }
     }
 

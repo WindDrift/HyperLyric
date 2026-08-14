@@ -11,7 +11,7 @@ class LyricInfoLyricSource : ServiceLyricSource {
         val lyricInfo = data.lyricInfoRaw
         if (lyricInfo.isNullOrBlank()) return null
         return try {
-            val song = LyricInfoParser.parse(lyricInfo, data.identityTitle, data.identityArtist)
+            val song = LyricInfoParser.parse(lyricInfo)
             song?.lyrics?.map { LrcLine(it.begin, it.text ?: "") }
         } catch (_: Exception) {
             null

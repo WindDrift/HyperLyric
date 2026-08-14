@@ -10,13 +10,20 @@ object LyricInfoParser {
 
     private val LRC_TIME_RE = Pattern.compile("\\[(\\d{2}):(\\d{2})\\.(\\d{2,3})]")
 
-    fun parse(json: String, songName: String, artist: String): Song? {
+    fun parse(json: String): Song? = parsePayload(json)?.song
+
+    fun parsePayload(json: String): LyricInfoPayload? {
         return try {
             val obj = JSONObject(json)
             val lyricRaw = obj.optString("lyric", "").trim()
             val format = obj.optString("format", "").trim()
             val translationFormat = obj.optString("translation", "").trim()
             if (lyricRaw.isBlank()) return null
+
+            val title = obj.optionalText("songName")
+            val artist = obj.optionalText("artist")
+            val album = obj.optionalText("album")
+            val songId = obj.optionalText("songId")
 
             val hasTranslation = translationFormat.isNotBlank()
             val allLines = lyricRaw.lines().filter { it.isNotBlank() }
@@ -77,7 +84,18 @@ object LyricInfoParser {
             }
 
             if (resultLines.isEmpty()) return null
-            Song(name = songName, artist = artist, lyrics = resultLines)
+            LyricInfoPayload(
+                song = Song(
+                    id = songId,
+                    name = title,
+                    artist = artist,
+                    lyrics = resultLines
+                ),
+                songId = songId,
+                title = title,
+                artist = artist,
+                album = album
+            )
         } catch (_: Exception) {
             null
         }
@@ -194,9 +212,20 @@ object LyricInfoParser {
             null
         }
     }
+
+    private fun JSONObject.optionalText(key: String): String? =
+        optString(key, "").trim().takeIf { it.isNotEmpty() }
 }
 
 private data class ParsedLine(val timeMs: Long, val raw: String)
+
+data class LyricInfoPayload(
+    val song: Song,
+    val songId: String?,
+    val title: String?,
+    val artist: String?,
+    val album: String?
+)
 
 data class LyricInfoDiagnosis(
     val songName: String,
