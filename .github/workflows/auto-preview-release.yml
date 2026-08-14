@@ -80,7 +80,7 @@ jobs:
             echo "release_url=https://github.com/${GITHUB_REPOSITORY}/releases/tag/${PREVIEW_TAG}"
           } >> "$GITHUB_OUTPUT"
 
-      - name: 生成提交更新日志 Generate Commit Changelog
+      - name: 生成提交输入 Generate Commit Input
         env:
           PREVIOUS_STABLE_TAG: ${{ steps.metadata.outputs.previous_stable_tag }}
         shell: bash
@@ -89,18 +89,51 @@ jobs:
 
           if [[ -n "$PREVIOUS_STABLE_TAG" ]]; then
             git log --no-merges "$PREVIOUS_STABLE_TAG..HEAD" \
-              --pretty=format:'- %s (%h)' > preview-notes-zh.md
+              --pretty=format:'- %s (%h)' -- \
+              app build.gradle.kts settings.gradle.kts gradle.properties \
+              gradle gradlew gradlew.bat > preview-commit-input.md
           else
             git log --no-merges -n 20 HEAD \
-              --pretty=format:'- %s (%h)' > preview-notes-zh.md
+              --pretty=format:'- %s (%h)' -- \
+              app build.gradle.kts settings.gradle.kts gradle.properties \
+              gradle gradlew gradlew.bat > preview-commit-input.md
           fi
 
-          if [[ ! -s preview-notes-zh.md ]]; then
-            printf '%s\n' '- 本次没有检测到新的提交。' > preview-notes-zh.md
+          if [[ ! -s preview-commit-input.md ]]; then
+            printf '%s\n' '- 本次没有检测到新的提交。' > preview-commit-input.md
           fi
 
-          head -n 5 preview-notes-zh.md > preview-notes-limited.md
-          mv preview-notes-limited.md preview-notes-zh.md
+          head -n 20 preview-commit-input.md > preview-commit-input-limited.md
+          mv preview-commit-input-limited.md preview-commit-input.md
+
+      - name: AI 生成 Preview 更新日志草稿 Generate Preview Changelog Draft
+        id: generate_preview_notes
+        uses: actions/ai-inference@v1
+        with:
+          prompt-file: preview-commit-input.md
+          system-prompt-file: .github/prompts/generate-release-notes.prompt.txt
+          model: openai/gpt-4o
+          max-completion-tokens: 800
+          temperature: 0.2
+
+      - name: 保存 Preview 中文更新日志 Save Preview Chinese Changelog
+        env:
+          RESPONSE_FILE: ${{ steps.generate_preview_notes.outputs.response-file }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$RESPONSE_FILE" || ! -s "$RESPONSE_FILE" ]]; then
+            echo '::error::GitHub Models 没有返回 Preview 更新日志草稿'
+            exit 1
+          fi
+
+          cp "$RESPONSE_FILE" preview-notes-zh.md
+          sed -i -E 's/^##[[:space:]]+/### /' preview-notes-zh.md
+          if ! grep -q '[^[:space:]]' preview-notes-zh.md; then
+            echo '::error::Preview 中文更新日志为空'
+            exit 1
+          fi
 
       - name: 自动翻译更新日志 Translate Changelog
         id: translate

@@ -131,9 +131,11 @@ jobs:
         id: translate
         uses: actions/ai-inference@v1
         with:
-          prompt-file: .github/prompts/translate-release-notes.prompt.yml
-          file_input: |
-            release_notes: release-notes-zh.md
+          prompt-file: release-notes-zh.md
+          system-prompt-file: .github/prompts/translate-release-notes.prompt.txt
+          model: openai/gpt-4o
+          max-completion-tokens: 500
+          temperature: 0.2
 
       - name: 保存英文更新日志 Save English Release Notes
         env:
