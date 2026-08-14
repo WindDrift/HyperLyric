@@ -1,0 +1,247 @@
+name: Manual Stable Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: manual-stable-release
+  cancel-in-progress: false
+
+jobs:
+  build_and_release:
+    name: Build Draft Stable Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 拉取代码 Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: 安装 JDK Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: 安装 Android SDK Setup Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          api-level: 37
+          build-tools: '36.0.0'
+
+      - name: 配置 Gradle Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: wrapper
+          cache-read-only: true
+
+      - name: 授权脚本 Grant Permission
+        run: chmod +x ./gradlew
+
+      - name: 读取版本并生成 Tag Read Version and Build Tag
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "$GITHUB_REF_NAME" != "main" ]]; then
+            echo "::error::正式发布只能从 main 分支运行，当前分支为 $GITHUB_REF_NAME"
+            exit 1
+          fi
+
+          V_NAME="$(sed -n 's/^[[:space:]]*versionName[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n 1)"
+          V_CODE="$(sed -n 's/^[[:space:]]*versionCode[[:space:]]*=[[:space:]]*\([0-9][0-9]*\).*/\1/p' app/build.gradle.kts | head -n 1)"
+
+          if [[ -z "$V_NAME" || -z "$V_CODE" ]]; then
+            echo '::error::无法从 app/build.gradle.kts 读取 versionName 或 versionCode'
+            exit 1
+          fi
+
+          if [[ ! "$V_NAME" =~ ^[0-9A-Za-z][0-9A-Za-z._-]*$ ]]; then
+            echo "::error::versionName 含有不能用于 Tag 的字符: $V_NAME"
+            exit 1
+          fi
+
+          VERSION_TAG="${V_CODE}-${V_NAME}"
+
+          if EXISTING_TAG_COMMIT="$(git rev-parse -q --verify "refs/tags/${VERSION_TAG}^{commit}" 2>/dev/null)"; then
+            if [[ "$EXISTING_TAG_COMMIT" != "$GITHUB_SHA" ]]; then
+              echo "::error::tag $VERSION_TAG 已经指向其他 commit: $EXISTING_TAG_COMMIT"
+              exit 1
+            fi
+            echo "tag $VERSION_TAG 已经指向当前 commit，允许安全重试"
+          fi
+
+          {
+            echo "tag=$VERSION_TAG"
+            echo "name=$V_NAME"
+            echo "code=$V_CODE"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Release tag: $VERSION_TAG"
+          echo "App versionName: $V_NAME"
+          echo "App versionCode: $V_CODE"
+
+      - name: 检查签名与镜像发布令牌 Check Release Secrets
+        env:
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          STORE_PASS: ${{ secrets.KEY_STORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ALIAS }}
+          XPOSED_REPO_TOKEN: ${{ secrets.XPOSED_REPO_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for required in SIGNING_KEY STORE_PASS KEY_PASS KEY_ALIAS XPOSED_REPO_TOKEN; do
+            if [[ -z "${!required:-}" ]]; then
+              echo "::error::缺少 $required secret"
+              exit 1
+            fi
+          done
+
+      - name: 构建 Online 和 Offline APK Build
+        run: ./gradlew assembleOnlineRelease assembleOfflineRelease --build-cache
+
+      - name: 对齐、签名并校验 APK Sign and Verify APKs
+        env:
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          STORE_PASS: ${{ secrets.KEY_STORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ALIAS }}
+          VERSION_TAG: ${{ steps.version.outputs.tag }}
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+
+          BTDIR="$ANDROID_SDK_ROOT/build-tools/36.0.0"
+          ZIPALIGN="$BTDIR/zipalign"
+          APKSIGNER="$BTDIR/apksigner"
+          KEYSTORE_PATH="$RUNNER_TEMP/hyperlyric-release.jks"
+
+          : "${SIGNING_KEY:?SIGNING_KEY is required}"
+          : "${STORE_PASS:?KEY_STORE_PASSWORD is required}"
+          : "${KEY_PASS:?KEY_PASSWORD is required}"
+          : "${KEY_ALIAS:?ALIAS is required}"
+
+          printf '%s' "$SIGNING_KEY" | base64 --decode > "$KEYSTORE_PATH"
+
+          find_single_apk() {
+            local directory="$1"
+            local label="$2"
+            local files=()
+
+            if [[ ! -d "$directory" ]]; then
+              echo "::error::$label APK 目录不存在: $directory"
+              exit 1
+            fi
+
+            mapfile -t files < <(find "$directory" -maxdepth 1 -type f -name '*.apk' -print | sort)
+            if [[ "${#files[@]}" -ne 1 ]]; then
+              echo "::error::$label APK 数量不是 1，实际为 ${#files[@]}"
+              printf '%s\n' "${files[@]}"
+              exit 1
+            fi
+
+            printf '%s' "${files[0]}"
+          }
+
+          ONLINE_IN="$(find_single_apk app/build/outputs/apk/online/release online)"
+          OFFLINE_IN="$(find_single_apk app/build/outputs/apk/offline/release offline)"
+          ONLINE_ALIGNED="$RUNNER_TEMP/online-aligned.apk"
+          OFFLINE_ALIGNED="$RUNNER_TEMP/offline-aligned.apk"
+          ONLINE_OUT="$GITHUB_WORKSPACE/HyperLyric-online-${VERSION_TAG}.apk"
+          OFFLINE_OUT="$GITHUB_WORKSPACE/HyperLyric-offline-${VERSION_TAG}.apk"
+
+          "$ZIPALIGN" -v -p 4 "$ONLINE_IN" "$ONLINE_ALIGNED"
+          "$APKSIGNER" sign \
+            --ks "$KEYSTORE_PATH" \
+            --ks-pass env:STORE_PASS \
+            --ks-key-alias "$KEY_ALIAS" \
+            --key-pass env:KEY_PASS \
+            --out "$ONLINE_OUT" \
+            "$ONLINE_ALIGNED"
+
+          "$ZIPALIGN" -v -p 4 "$OFFLINE_IN" "$OFFLINE_ALIGNED"
+          "$APKSIGNER" sign \
+            --ks "$KEYSTORE_PATH" \
+            --ks-pass env:STORE_PASS \
+            --ks-key-alias "$KEY_ALIAS" \
+            --key-pass env:KEY_PASS \
+            --out "$OFFLINE_OUT" \
+            "$OFFLINE_ALIGNED"
+
+          "$APKSIGNER" verify --verbose "$ONLINE_OUT"
+          "$APKSIGNER" verify --verbose "$OFFLINE_OUT"
+
+          (
+            cd "$GITHUB_WORKSPACE"
+            sha256sum "$(basename "$ONLINE_OUT")" "$(basename "$OFFLINE_OUT")" > sha256sums.txt
+          )
+          {
+            echo "tag=$VERSION_TAG"
+            echo "commit=$GITHUB_SHA"
+            echo "versionName=$VERSION_NAME"
+            echo "versionCode=$VERSION_CODE"
+          } > release-metadata.txt
+
+      - name: 创建 Draft Release Create Draft Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: HyperLyric ${{ steps.version.outputs.tag }}
+          body: |
+            ## 更新内容
+
+            <!-- 请在正式发布前填写本次版本的更新内容。 -->
+
+            ## 安装包
+
+            - `HyperLyric-online-${{ steps.version.outputs.tag }}.apk`
+            - `HyperLyric-offline-${{ steps.version.outputs.tag }}.apk`
+
+            ## 校验
+
+            SHA-256 校验值见 `sha256sums.txt`。
+          draft: true
+          prerelease: false
+          generate_release_notes: false
+          files: |
+            HyperLyric-online-${{ steps.version.outputs.tag }}.apk
+            HyperLyric-offline-${{ steps.version.outputs.tag }}.apk
+            sha256sums.txt
+            release-metadata.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 同步 Xposed 仓库发布 Sync Xposed Repo Release
+        uses: softprops/action-gh-release@v3
+        with:
+          repository: Xposed-Modules-Repo/com.lidesheng.hyperlyric
+          token: ${{ secrets.XPOSED_REPO_TOKEN }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: HyperLyric ${{ steps.version.outputs.tag }}
+          body: |
+            HyperLyric ${{ steps.version.outputs.tag }}
+
+            请根据设备与功能需求选择 online 或 offline APK。
+          draft: true
+          prerelease: false
+          generate_release_notes: false
+          files: |
+            HyperLyric-online-${{ steps.version.outputs.tag }}.apk
+            HyperLyric-offline-${{ steps.version.outputs.tag }}.apk
+
+      - name: 清理临时签名文件 Cleanup Signing Files
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$RUNNER_TEMP/hyperlyric-release.jks"
+          rm -f "$RUNNER_TEMP/online-aligned.apk" "$RUNNER_TEMP/offline-aligned.apk"
