@@ -92,11 +92,10 @@ jobs:
           STORE_PASS: ${{ secrets.KEY_STORE_PASSWORD }}
           KEY_PASS: ${{ secrets.KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ALIAS }}
-          XPOSED_REPO_TOKEN: ${{ secrets.XPOSED_REPO_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
-          for required in SIGNING_KEY STORE_PASS KEY_PASS KEY_ALIAS XPOSED_REPO_TOKEN; do
+          for required in SIGNING_KEY STORE_PASS KEY_PASS KEY_ALIAS; do
             if [[ -z "${!required:-}" ]]; then
               echo "::error::缺少 $required secret"
               exit 1
@@ -184,60 +183,39 @@ jobs:
             cd "$GITHUB_WORKSPACE"
             sha256sum "$(basename "$ONLINE_OUT")" "$(basename "$OFFLINE_OUT")" > sha256sums.txt
           )
+
+      - name: 生成 Release 说明 Generate Release Notes
+        shell: bash
+        run: |
+          set -euo pipefail
+
           {
-            echo "tag=$VERSION_TAG"
-            echo "commit=$GITHUB_SHA"
-            echo "versionName=$VERSION_NAME"
-            echo "versionCode=$VERSION_CODE"
-          } > release-metadata.txt
+            echo '## 更新内容'
+            echo
+            echo '<!-- 请在正式发布前填写本次版本的更新内容。 -->'
+            echo
+            echo '## SHA-256 校验'
+            echo
+            echo '```text'
+            cat sha256sums.txt
+            echo '```'
+          } > release-body.md
 
       - name: 创建 Draft Release Create Draft Release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           target_commitish: ${{ github.sha }}
-          name: HyperLyric ${{ steps.version.outputs.tag }}
-          body: |
-            ## 更新内容
-
-            <!-- 请在正式发布前填写本次版本的更新内容。 -->
-
-            ## 安装包
-
-            - `HyperLyric-online-${{ steps.version.outputs.tag }}.apk`
-            - `HyperLyric-offline-${{ steps.version.outputs.tag }}.apk`
-
-            ## 校验
-
-            SHA-256 校验值见 `sha256sums.txt`。
+          name: ${{ steps.version.outputs.tag }}
+          body_path: release-body.md
           draft: true
           prerelease: false
           generate_release_notes: false
           files: |
             HyperLyric-online-${{ steps.version.outputs.tag }}.apk
             HyperLyric-offline-${{ steps.version.outputs.tag }}.apk
-            sha256sums.txt
-            release-metadata.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: 同步 Xposed 仓库发布 Sync Xposed Repo Release
-        uses: softprops/action-gh-release@v3
-        with:
-          repository: Xposed-Modules-Repo/com.lidesheng.hyperlyric
-          token: ${{ secrets.XPOSED_REPO_TOKEN }}
-          tag_name: ${{ steps.version.outputs.tag }}
-          name: HyperLyric ${{ steps.version.outputs.tag }}
-          body: |
-            HyperLyric ${{ steps.version.outputs.tag }}
-
-            请根据设备与功能需求选择 online 或 offline APK。
-          draft: true
-          prerelease: false
-          generate_release_notes: false
-          files: |
-            HyperLyric-online-${{ steps.version.outputs.tag }}.apk
-            HyperLyric-offline-${{ steps.version.outputs.tag }}.apk
 
       - name: 清理临时签名文件 Cleanup Signing Files
         if: always()

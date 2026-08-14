@@ -32,8 +32,10 @@ telegram_request() {
   fi
 }
 
-VERSION_CODE="${RELEASE_TAG%%-*}"
-VERSION_NAME="${RELEASE_TAG#*-}"
+if [[ -z "${VERSION_CODE:-}" || -z "${VERSION_NAME:-}" ]]; then
+  VERSION_CODE="${RELEASE_TAG%%-*}"
+  VERSION_NAME="${RELEASE_TAG#*-}"
+fi
 
 if [[ ! "$VERSION_CODE" =~ ^[0-9]+$ || -z "$VERSION_NAME" || "$VERSION_NAME" == "$RELEASE_TAG" ]]; then
   echo "::error::无法从 Release Tag 解析 Version Code 和 Version Name: $RELEASE_TAG"
@@ -42,8 +44,14 @@ fi
 
 RELEASE_NOTES_ZH="$(<"$RELEASE_NOTES_ZH_FILE")"
 RELEASE_NOTES_EN="$(<"$RELEASE_NOTES_EN_FILE")"
-CAPTION="$(printf 'Release: %s\nVersion Code: %s\nVersion Name: %s\n\n更新日志：\n%s\n\nChangelog:\n%s' \
-  "$RELEASE_URL" "$VERSION_CODE" "$VERSION_NAME" "$RELEASE_NOTES_ZH" "$RELEASE_NOTES_EN")"
+ANNOUNCEMENT_HEADER="${ANNOUNCEMENT_HEADER:-}"
+if [[ -n "$ANNOUNCEMENT_HEADER" ]]; then
+  CAPTION="$(printf '%s\n\nRelease: %s\nVersion Code: %s\nVersion Name: %s\n\n更新日志：\n%s\n\nChangelog:\n%s' \
+    "$ANNOUNCEMENT_HEADER" "$RELEASE_URL" "$VERSION_CODE" "$VERSION_NAME" "$RELEASE_NOTES_ZH" "$RELEASE_NOTES_EN")"
+else
+  CAPTION="$(printf 'Release: %s\nVersion Code: %s\nVersion Name: %s\n\n更新日志：\n%s\n\nChangelog:\n%s' \
+    "$RELEASE_URL" "$VERSION_CODE" "$VERSION_NAME" "$RELEASE_NOTES_ZH" "$RELEASE_NOTES_EN")"
+fi
 
 if (( ${#CAPTION} > 1024 )); then
   echo "::error::中英文更新日志过长，Telegram 媒体 Caption 超过 1024 个字符"
@@ -64,4 +72,4 @@ telegram_request sendMediaGroup \
   -F "online=@$ONLINE_APK" \
   -F "offline=@$OFFLINE_APK"
 
-echo "Telegram stable release announcement sent for $RELEASE_TAG"
+echo "Telegram release announcement sent for $RELEASE_TAG"

@@ -68,14 +68,46 @@ jobs:
             echo "offline=$OFFLINE_APK"
           } >> "$GITHUB_OUTPUT"
 
-      - name: 提取中文更新日志 Extract Chinese Release Notes
+      - name: 保存正式版 Release 说明 Save Published Release Notes
         env:
           RELEASE_BODY: ${{ github.event.release.body }}
         shell: bash
         run: |
           set -euo pipefail
-
           printf '%s' "$RELEASE_BODY" > release-body.md
+
+      - name: 检查 Xposed 仓库令牌 Check Xposed Repository Token
+        env:
+          XPOSED_REPO_TOKEN: ${{ secrets.XPOSED_REPO_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${XPOSED_REPO_TOKEN:-}" ]]; then
+            echo '::error::缺少 XPOSED_REPO_TOKEN secret'
+            exit 1
+          fi
+
+      - name: 同步正式版到 Xposed 仓库 Sync Stable Release to Xposed Repo
+        uses: softprops/action-gh-release@v3
+        with:
+          repository: Xposed-Modules-Repo/com.lidesheng.hyperlyric
+          token: ${{ secrets.XPOSED_REPO_TOKEN }}
+          tag_name: ${{ github.event.release.tag_name }}
+          name: ${{ github.event.release.tag_name }}
+          body_path: release-body.md
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+          fail_on_unmatched_files: true
+          files: |
+            release-assets/HyperLyric-online-*.apk
+            release-assets/HyperLyric-offline-*.apk
+
+      - name: 提取中文更新日志 Extract Chinese Release Notes
+        shell: bash
+        run: |
+          set -euo pipefail
+
           awk '
             /^##[[:space:]]+更新内容[[:space:]]*$/ { in_section=1; next }
             in_section && /^##[[:space:]]+/ { exit }
