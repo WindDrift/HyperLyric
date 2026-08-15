@@ -432,7 +432,11 @@ internal class NotificationMediaMultiCardRenderer(
         // that pass before correcting scrollX: the old scrollX would expose
         // the former page for one frame (A flashes over the selected B).
         val stride = pageWidthPx + pageGapPx
-        val anchorLeft = sidePaddingPx + anchorIndex * stride
+        val anchorLeft = if (isLayoutRtl()) {
+            sidePaddingPx + (cards.size - 1 - anchorIndex) * stride
+        } else {
+            sidePaddingPx + anchorIndex * stride
+        }
         val contentWidth = sidePaddingPx * 2 + cards.size * pageWidthPx +
             (cards.size - 1).coerceAtLeast(0) * pageGapPx
         val viewportWidth = scroller.width.takeIf { it > 0 }
@@ -463,6 +467,15 @@ internal class NotificationMediaMultiCardRenderer(
         return pageLocation(scrollView?.scrollX ?: 0)
             .roundToInt()
             .coerceIn(0, count - 1)
+    }
+
+    private fun isLayoutRtl(): Boolean {
+        return (
+            header?.layoutDirection
+                ?: pageContainer?.layoutDirection
+                ?: scrollView?.layoutDirection
+                ?: View.LAYOUT_DIRECTION_LTR
+            ) == View.LAYOUT_DIRECTION_RTL
     }
 
     /** Mirrors the original controller's UI-mode refresh to cloned pages. */
@@ -1034,12 +1047,16 @@ internal class NotificationMediaMultiCardRenderer(
         val location = pageLocation(scroller.scrollX)
         val lower = floor(location).toInt()
         val fraction = location - lower
+        // HorizontalScrollView keeps scrollX in physical coordinates. In an
+        // RTL carousel, moving to the next logical page decreases scrollX,
+        // so the finger velocity has the opposite page meaning from LTR.
+        val logicalVelocityX = if (isLayoutRtl()) -velocityX else velocityX
         val target = when {
-            velocityX < -MIN_FLING_VELOCITY -> {
+            logicalVelocityX < -MIN_FLING_VELOCITY -> {
                 if (fraction > 0.01f) ceil(location).toInt() else lower + 1
             }
 
-            velocityX > MIN_FLING_VELOCITY -> {
+            logicalVelocityX > MIN_FLING_VELOCITY -> {
                 if (fraction > 0.01f) floor(location).toInt() else lower - 1
             }
 
@@ -1059,30 +1076,66 @@ internal class NotificationMediaMultiCardRenderer(
 
     private fun pageLocation(scrollX: Int): Float {
         val pages = pageContainer ?: return 0f
+        val scroller = scrollView ?: return 0f
         val count = cards.size
         if (count <= 1) return 0f
 
         val positions = (0 until count).map { index ->
             pages.getChildAt(index)?.left ?: 0
         }
-        if (positions.size < 2 || positions.last() <= positions.first()) return 0f
+        if (positions.size < 2) return 0f
 
-        // The first page is intentionally inset by sidePadding, while the
-        // scroll position starts at zero. Convert scrollX back into the
-        // content coordinate used by the child positions.
-        val x = (scrollX + positions.first()).coerceIn(
-            positions.first(),
-            positions.last()
+        val rtl = isLayoutRtl()
+        if ((!rtl && positions.last() <= positions.first()) ||
+            (rtl && positions.first() <= positions.last())
+        ) {
+            return 0f
+        }
+
+        if (!rtl) {
+            // The first page is intentionally inset by sidePadding, while the
+            // scroll position starts at zero. Convert scrollX back into the
+            // content coordinate used by the child positions.
+            val x = (scrollX + positions.first()).coerceIn(
+                positions.first(),
+                positions.last()
+            )
+            for (index in 0 until positions.lastIndex) {
+                val start = positions[index]
+                val end = positions[index + 1]
+                if (end <= start) continue
+                if (x <= end) {
+                    return index + ((x - start).toFloat() / (end - start))
+                }
+            }
+            return positions.lastIndex.toFloat()
+        }
+
+        // In RTL, LinearLayout places page zero at the right and
+        // HorizontalScrollView starts at its maximum physical scrollX. Move
+        // from that right edge into the descending child coordinates.
+        val maxScroll = scrollRange(scroller)
+        val x = (positions.first() - (maxScroll - scrollX)).coerceIn(
+            positions.last(),
+            positions.first()
         )
         for (index in 0 until positions.lastIndex) {
             val start = positions[index]
             val end = positions[index + 1]
-            if (end <= start) continue
-            if (x <= end) {
-                return index + ((x - start).toFloat() / (end - start))
+            if (start <= end) continue
+            if (x >= end) {
+                return index + ((start - x).toFloat() / (start - end))
             }
         }
         return positions.lastIndex.toFloat()
+    }
+
+    private fun scrollRange(scroller: PageScrollView): Int {
+        val content = scroller.getChildAt(0) ?: return 0
+        return (
+            content.width -
+                (scroller.width - scroller.paddingLeft - scroller.paddingRight)
+            ).coerceAtLeast(0)
     }
 
     private fun scrollToPage(
@@ -1099,7 +1152,16 @@ internal class NotificationMediaMultiCardRenderer(
         val targetView = pages.getChildAt(target)
         val firstView = pages.getChildAt(0)
         val x = if (targetView != null && firstView != null) {
-            targetView.left - firstView.left
+            val distanceFromFirst = if (isLayoutRtl()) {
+                firstView.left - targetView.left
+            } else {
+                targetView.left - firstView.left
+            }
+            if (isLayoutRtl()) {
+                scrollRange(scroller) - distanceFromFirst
+            } else {
+                distanceFromFirst
+            }
         } else {
             0
         }
