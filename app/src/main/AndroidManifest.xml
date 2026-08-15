@@ -17,6 +17,7 @@
         android:name=".root.RootApplication"
         android:label="HyperLyric"
         android:description="@string/app_description"
+        android:supportsRtl="true"
         android:testOnly="false"
         android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar"
         android:icon="@mipmap/ic_launcher"

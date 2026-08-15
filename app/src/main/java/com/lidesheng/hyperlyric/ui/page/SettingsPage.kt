@@ -147,7 +147,8 @@ private fun LazyListScope.settingsSections(
         val languageOptions = listOf(
             stringResource(R.string.language_system),
             stringResource(R.string.language_simplified_chinese),
-            stringResource(R.string.language_english)
+            stringResource(R.string.language_english),
+            stringResource(R.string.language_arabic)
         )
 
         Card(
