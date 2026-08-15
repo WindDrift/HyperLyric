@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -21,7 +22,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
 import com.lidesheng.hyperlyric.R
@@ -307,31 +310,35 @@ fun NotificationCenterMediaCardPage() {
                     },
                     bottomContent = {
                         Column {
-                            MediaPreviewCard(
-                                showShadow = !hideNotificationCoverShadow,
-                                coverStyle = notificationCoverStyle,
-                                hideCoverSource = hideNotificationCoverSource,
-                                disableCoverFlip = disableNotificationCoverFlip,
-                                hideDeviceSwitch = hideNotificationDeviceSwitch,
-                                hideCustomActions = hideNotificationCustomActions,
-                                hideTime = hideNotificationTime,
-                                actionOrder = notificationActionOrder,
-                                actionAlignLeft = notificationActionAlignLeft,
-                                cardTheme = notificationCardTheme,
-                                backgroundStyle = notificationBackgroundStyle,
-                                backgroundBlur = notificationBackgroundBlur,
-                                softCoverTone = notificationSoftCoverTone,
-                                ambientFlowMode = notificationAmbientFlowMode,
-                                waveProgress =
-                                    notificationProgressStyle ==
-                                        RootConstants.NOTIFICATION_MEDIA_PROGRESS_STYLE_WAVE,
-                                verticalProgressThumb =
-                                    notificationThumbStyle ==
-                                        RootConstants.NOTIFICATION_MEDIA_THUMB_STYLE_VERTICAL,
-                                hideProgressThumb =
-                                    notificationThumbStyle ==
-                                        RootConstants.NOTIFICATION_MEDIA_THUMB_STYLE_HIDDEN
-                            )
+                            CompositionLocalProvider(
+                                LocalLayoutDirection provides LayoutDirection.Ltr
+                            ) {
+                                MediaPreviewCard(
+                                    showShadow = !hideNotificationCoverShadow,
+                                    coverStyle = notificationCoverStyle,
+                                    hideCoverSource = hideNotificationCoverSource,
+                                    disableCoverFlip = disableNotificationCoverFlip,
+                                    hideDeviceSwitch = hideNotificationDeviceSwitch,
+                                    hideCustomActions = hideNotificationCustomActions,
+                                    hideTime = hideNotificationTime,
+                                    actionOrder = notificationActionOrder,
+                                    actionAlignLeft = notificationActionAlignLeft,
+                                    cardTheme = notificationCardTheme,
+                                    backgroundStyle = notificationBackgroundStyle,
+                                    backgroundBlur = notificationBackgroundBlur,
+                                    softCoverTone = notificationSoftCoverTone,
+                                    ambientFlowMode = notificationAmbientFlowMode,
+                                    waveProgress =
+                                        notificationProgressStyle ==
+                                            RootConstants.NOTIFICATION_MEDIA_PROGRESS_STYLE_WAVE,
+                                    verticalProgressThumb =
+                                        notificationThumbStyle ==
+                                            RootConstants.NOTIFICATION_MEDIA_THUMB_STYLE_VERTICAL,
+                                    hideProgressThumb =
+                                        notificationThumbStyle ==
+                                            RootConstants.NOTIFICATION_MEDIA_THUMB_STYLE_HIDDEN
+                                )
+                            }
                             TabRow(
                                 tabs = tabs,
                                 selectedTabIndex = pagerState.currentPage,

@@ -584,4 +584,30 @@
     <string name="setup_completion_superlyric">Please enable the SuperLyric module in LSPosed, then restart your phone</string>
     <string name="setup_completion_lyricinfo">LyricInfo is recommended: enable it in LSPosed, select your music app, and restart the music app; skip LyricInfo when the app provides lyric metadata itself</string>
     <string name="no_lyric_data">No lyric data</string>
+
+    <!-- Media card layout debug -->
+    <string name="summary_media_card_layout_debug">Applies after restarting System UI</string>
+    <string name="summary_media_card_layout_debug_unsupported">Debug parameters are not available for the current layout style</string>
+    <string name="title_media_card_debug_action_bottom">Action button bottom margin</string>
+    <string name="title_media_card_debug_action_height">Action button slot height</string>
+    <string name="title_media_card_debug_action_outer_margin">Action button outer margin</string>
+    <string name="title_media_card_debug_action_scale">Action button scale</string>
+    <string name="title_media_card_debug_action_width">Action button slot width</string>
+    <string name="title_media_card_debug_artist_gap">Gap between title and artist</string>
+    <string name="title_media_card_debug_cover_size">Cover size</string>
+    <string name="title_media_card_debug_cover_start">Cover start margin</string>
+    <string name="title_media_card_debug_cover_top">Cover top margin</string>
+    <string name="title_media_card_debug_device_switch_scale">Device switch button scale</string>
+    <string name="title_media_card_debug_info_start_gap">Gap between media info and cover</string>
+    <string name="title_media_card_debug_music_wave_end">MusicWave end margin</string>
+    <string name="title_media_card_debug_music_wave_size">MusicWave size</string>
+    <string name="title_media_card_debug_music_wave_top">MusicWave top margin</string>
+    <string name="title_media_card_debug_progress_height">Progress bar container height</string>
+    <string name="title_media_card_debug_progress_time_gap">Gap between progress bar and time</string>
+    <string name="title_media_card_debug_progress_top_gap">Progress bar top gap</string>
+    <string name="title_media_card_debug_time_outer_margin">Time outer margin</string>
+    <string name="title_media_card_debug_title_top">Title top margin</string>
+    <string name="title_media_card_debug_value">Value</string>
+    <string name="title_media_card_layout_debug">Layout parameter debug</string>
+    <string name="title_media_card_layout_debug_ios">iOS style · Super Island expanded state</string>
 </resources>
