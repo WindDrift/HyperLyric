@@ -48,7 +48,10 @@ internal object IslandReconcileOptions {
 
             IslandReconcileReason.LYRIC_SELF_HEAL ->
                 IslandInjectionReconciler.ShowOptions(
-                    structure = IslandInjectionReconciler.StructureMode.ENSURE_IF_MISSING,
+                    // Streaming sources can update the line after the previous lifecycle hid
+                    // the existing wrapper. Tags still exist in that state, so self-heal must
+                    // restore visibility instead of treating structure presence as readiness.
+                    structure = IslandInjectionReconciler.StructureMode.RESTORE_OR_ENSURE,
                     content = IslandInjectionReconciler.ContentMode.NONE,
                     suppressAnimation = true,
                     reconfigureExisting = false

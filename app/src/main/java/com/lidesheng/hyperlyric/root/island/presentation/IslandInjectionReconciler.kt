@@ -4,6 +4,7 @@ import android.view.ViewGroup
 import com.lidesheng.hyperlyric.root.island.content.IslandLyricContentRefresher
 import com.lidesheng.hyperlyric.root.island.host.IslandHostFacade
 import com.lidesheng.hyperlyric.root.island.host.IslandViewRegistry
+import com.lidesheng.hyperlyric.root.island.sizing.IslandDynamicWidthCoordinator
 import com.lidesheng.hyperlyric.root.island.structure.IslandSlotStructureInjector
 
 /**
@@ -142,6 +143,11 @@ internal object IslandInjectionReconciler {
         }
         IslandViewRegistry.refreshInjectedViews(root)
         val injectedSlotsPresent = IslandSlotStructureInjector.hasInjectedLyricText(root)
+        if (target == Target.RealRoot && layoutMayHaveChanged) {
+            // Restoring an existing hidden wrapper changes when its lyric view can be measured.
+            // Content may be a signature no-op, so request width calculation independently of it.
+            IslandDynamicWidthCoordinator.requestRefresh(root)
+        }
         val relayoutRequested = target == Target.RealRoot && layoutMayHaveChanged
         if (relayoutRequested) {
             IslandHostFacade.triggerSystemRelayout(root)

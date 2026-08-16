@@ -34,6 +34,8 @@ class SuperLyricSource : LyricSource {
     @Volatile
     private var lastKnownPosition: Long = -1L
     private var positionPublisher: String? = null
+    @Volatile
+    private var playbackStarted = false
     private var lastMetadataKey: String? = null
     private var lastMetadataTitle: String? = null
     private var lastMetadataArtist: String? = null
@@ -56,6 +58,7 @@ class SuperLyricSource : LyricSource {
 
     override fun start(sink: LyricSink) {
         this.sink = sink
+        playbackStarted = false
 
         // 先检查 SuperLyric 系统服务是否可用
         val available = runCatching { SuperLyricHelper.isAvailable() }
@@ -79,11 +82,12 @@ class SuperLyricSource : LyricSource {
 
             override fun onStop(publisher: String, data: SuperLyricData) {
                 HookLogger.d(TAG, "收到停止事件, publisher=$publisher")
+                stopPositionPolling()
+                playbackStarted = false
                 @Suppress("UNNECESSARY_SAFE_CALL")
                 sink?.onPlaybackStateChanged(false)
                 @Suppress("UNNECESSARY_SAFE_CALL")
                 sink?.onStop()
-                stopPositionPolling()
             }
         }
         receiver = stub
@@ -109,6 +113,7 @@ class SuperLyricSource : LyricSource {
             }
         }
         receiver = null
+        playbackStarted = false
         sink?.onStop()
         sink = null
         HookLogger.d(TAG, "数据源已停止")
@@ -121,7 +126,6 @@ class SuperLyricSource : LyricSource {
         val hasContent = data.hasLyric() || data.hasTitle() || data.hasArtist() || data.hasAlbum()
         if (!hasContent) return
 
-        currentSink.onPlaybackStateChanged(true)
         if (data.hasTitle()) lastMetadataTitle = data.title
         if (data.hasArtist()) lastMetadataArtist = data.artist
         if (data.hasAlbum()) lastMetadataAlbum = data.album
@@ -142,6 +146,13 @@ class SuperLyricSource : LyricSource {
                     album = lastMetadataAlbum
                 )
             )
+        }
+        // Establish the new stream owner before asking the renderer to resume. A SuperLyric
+        // stream may deliver its first lyric line immediately after metadata; publishing the
+        // package first and playback before the line lets the self-heal path see a ready session.
+        if (!playbackStarted) {
+            playbackStarted = true
+            currentSink.onPlaybackStateChanged(true)
         }
         startPositionPolling(publisher)
 

@@ -18,9 +18,16 @@ object BaseIslandRenderer : IslandRenderer {
 
     private const val REFRESH_DEBOUNCE_MS = 32L
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val presentationStateLock = Any()
     private val refreshRunnable = Runnable { performRefreshActiveIsland() }
     private val metadataRefreshRunnable = Runnable { performUpdateMetadata() }
     private val textColorRefreshRunnable = Runnable { performUpdateTextColors() }
+
+    /**
+     * A full structure restore belongs to a source/presentation session boundary. Once the first
+     * valid line restores the host, later streaming lines update content and width only.
+     */
+    private var presentationRestorePending = true
 
     /**
      * Source lifecycle events are the authority for lyric rendering state.
@@ -177,7 +184,21 @@ object BaseIslandRenderer : IslandRenderer {
         val expectedPresentationRevision =
             IslandPresentationCoordinator.currentPresentationRevision()
 
-        IslandPresentationCoordinator.snapshotAttachedHosts(lyricPkg)
+        val activeViews = IslandPresentationCoordinator.snapshotAttachedHosts(lyricPkg)
+        val restorePresentation = synchronized(presentationStateLock) {
+            if (!presentationRestorePending ||
+                activeViews.none { token ->
+                    !IslandPresentationCoordinator.isHostFrozenForFakeTransition(token)
+                }
+            ) {
+                false
+            } else {
+                presentationRestorePending = false
+                true
+            }
+        }
+
+        activeViews
             .forEach { token ->
                 if (IslandPresentationCoordinator.isHostFrozenForFakeTransition(token)) {
                     return@forEach
@@ -190,12 +211,19 @@ object BaseIslandRenderer : IslandRenderer {
                     ) {
                         return@post
                     }
-                    val result = IslandPresentationCoordinator.reconcileRegisteredHost(
-                        token,
-                        IslandReconcileReason.LYRIC_SELF_HEAL,
-                        expectedPresentationRevision
-                    )
-                    if (!result.isTarget) return@post
+                    if (restorePresentation) {
+                        val result = IslandPresentationCoordinator.reconcileRegisteredHost(
+                            token,
+                            IslandReconcileReason.LYRIC_SELF_HEAL,
+                            expectedPresentationRevision
+                        )
+                        if (!result.isTarget) {
+                            synchronized(presentationStateLock) {
+                                presentationRestorePending = true
+                            }
+                            return@post
+                        }
+                    }
                     val currentPrefs = HookEntry.instance?.prefs ?: return@post
                     val currentConfig = IslandSlotRuntimeConfig.from(currentPrefs)
                     IslandContentUpdateCoordinator.updateLyricContentForView(
@@ -301,6 +329,9 @@ object BaseIslandRenderer : IslandRenderer {
         mainHandler.removeCallbacks(refreshRunnable)
         mainHandler.removeCallbacks(metadataRefreshRunnable)
         mainHandler.removeCallbacks(textColorRefreshRunnable)
+        synchronized(presentationStateLock) {
+            presentationRestorePending = true
+        }
         val wasPlaybackActive = IslandPresentationCoordinator.isPlaybackActive()
         if (wasPlaybackActive) {
             IslandPresentationCoordinator.updatePlaybackState(false)
