@@ -101,7 +101,7 @@ jobs:
             release-assets/HyperLyric-online-*.apk
             release-assets/HyperLyric-offline-*.apk
 
-      - name: 提取中英文更新日志 Extract Bilingual Release Notes
+      - name: 提取中文更新日志 Extract Chinese Release Notes
         shell: bash
         run: |
           set -euo pipefail
@@ -123,14 +123,9 @@ jobs:
           }
 
           extract_section '## 更新内容' release-notes-zh.md
-          extract_section '## Changelog' release-notes-en.md
 
           if ! grep -q '[^[:space:]]' release-notes-zh.md; then
             echo '::error::Release 的中文更新内容为空，请检查正式版正文'
-            exit 1
-          fi
-          if ! grep -q '[^[:space:]]' release-notes-en.md; then
-            echo '::error::Release 的英文 Changelog 为空，请检查正式版正文'
             exit 1
           fi
 
@@ -141,7 +136,6 @@ jobs:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
           RELEASE_URL: ${{ github.event.release.html_url }}
           RELEASE_NOTES_ZH_FILE: release-notes-zh.md
-          RELEASE_NOTES_EN_FILE: release-notes-en.md
           ONLINE_APK: ${{ steps.assets.outputs.online }}
           OFFLINE_APK: ${{ steps.assets.outputs.offline }}
         shell: bash
