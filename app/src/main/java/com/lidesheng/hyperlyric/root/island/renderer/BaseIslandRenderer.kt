@@ -19,6 +19,7 @@ object BaseIslandRenderer : IslandRenderer {
     private const val REFRESH_DEBOUNCE_MS = 32L
     private val mainHandler = Handler(Looper.getMainLooper())
     private val refreshRunnable = Runnable { performRefreshActiveIsland() }
+    private val metadataRefreshRunnable = Runnable { performUpdateMetadata() }
     private val textColorRefreshRunnable = Runnable { performUpdateTextColors() }
 
     /**
@@ -31,6 +32,7 @@ object BaseIslandRenderer : IslandRenderer {
     }
 
     override fun refreshActiveIsland() {
+        mainHandler.removeCallbacks(metadataRefreshRunnable)
         IslandPresentationCoordinator.invalidatePresentation()
         mainHandler.removeCallbacks(refreshRunnable)
         mainHandler.postDelayed(refreshRunnable, REFRESH_DEBOUNCE_MS)
@@ -93,6 +95,15 @@ object BaseIslandRenderer : IslandRenderer {
     }
 
     override fun updateMetadata() {
+        // MediaController callbacks can arrive while a previous source clear and the new
+        // playback state are still being committed. Read the live presentation state only after
+        // the callback has returned to SystemUI's main queue, and coalesce repeated metadata
+        // callbacks from players that publish several intermediate snapshots.
+        mainHandler.removeCallbacks(metadataRefreshRunnable)
+        mainHandler.post(metadataRefreshRunnable)
+    }
+
+    private fun performUpdateMetadata() {
         val prefs = HookEntry.instance?.prefs ?: return
         if (!prefs.getBoolean(
                 RootConstants.KEY_HOOK_ENABLE_SUPER_ISLAND,
@@ -288,6 +299,7 @@ object BaseIslandRenderer : IslandRenderer {
 
     override fun clearAllViews() {
         mainHandler.removeCallbacks(refreshRunnable)
+        mainHandler.removeCallbacks(metadataRefreshRunnable)
         mainHandler.removeCallbacks(textColorRefreshRunnable)
         val wasPlaybackActive = IslandPresentationCoordinator.isPlaybackActive()
         if (wasPlaybackActive) {
