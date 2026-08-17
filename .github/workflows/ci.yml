@@ -1,0 +1,63 @@
+name: CI
+
+# Fork 专用编译检查工作流：无需任何 Secrets
+# if 守卫确保即使该文件被误合入上游仓库也不会执行
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  build:
+    name: Compile Check (Debug)
+    if: github.repository == 'WindDrift/HyperLyric'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 拉取代码 Checkout
+        uses: actions/checkout@v7
+
+      - name: 安装 JDK Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: 安装 Android SDK Setup Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          api-level: 37
+          build-tools: '36.0.0'
+
+      - name: 配置 Gradle Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: wrapper
+          cache-read-only: false
+
+      - name: 授权脚本 Grant Permission
+        run: chmod +x ./gradlew
+
+      - name: 构建 Online 和 Offline Debug APK Build
+        env:
+          # miuix 依赖来自 GitHub Packages，公开包也需认证；Actions 自动令牌足够
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./gradlew assembleOnlineDebug assembleOfflineDebug --build-cache
+
+      - name: 上传 APK 产物 Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-apk-${{ github.run_number }}
+          path: |
+            app/build/outputs/apk/online/debug/*.apk
+            app/build/outputs/apk/offline/debug/*.apk
+          if-no-files-found: error
