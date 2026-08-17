@@ -59,10 +59,22 @@ object AmllTtmlClient {
     suspend fun fetchByPlatformId(field: AmllPlatformIdField, songId: String): SongItem? {
         val response = executeWithRetry("platform_${field.name}") {
             when (field) {
-                AmllPlatformIdField.NCM -> api.getLyric(ncmMusicId = songId)
-                AmllPlatformIdField.QQ -> api.getLyric(qqMusicId = songId)
-                AmllPlatformIdField.APPLE -> api.getLyric(appleMusicId = songId)
-                AmllPlatformIdField.SPOTIFY -> api.getLyric(spotifyId = songId)
+                AmllPlatformIdField.NCM -> api.getLyric(
+                    id = null, ncmMusicId = songId, qqMusicId = null,
+                    appleMusicId = null, spotifyId = null
+                )
+                AmllPlatformIdField.QQ -> api.getLyric(
+                    id = null, ncmMusicId = null, qqMusicId = songId,
+                    appleMusicId = null, spotifyId = null
+                )
+                AmllPlatformIdField.APPLE -> api.getLyric(
+                    id = null, ncmMusicId = null, qqMusicId = null,
+                    appleMusicId = songId, spotifyId = null
+                )
+                AmllPlatformIdField.SPOTIFY -> api.getLyric(
+                    id = null, ncmMusicId = null, qqMusicId = null,
+                    appleMusicId = null, spotifyId = songId
+                )
             }
         } ?: return null
         return extractWithLyrics(response.data)
@@ -74,7 +86,12 @@ object AmllTtmlClient {
      * @return 命中且 lyrics 非空时返回 [SongItem]；未命中/空 lyrics/失败返回 null
      */
     suspend fun fetchById(id: Long): SongItem? {
-        val response = executeWithRetry("id_$id") { api.getLyric(id = id) } ?: return null
+        val response = executeWithRetry("id_$id") {
+            api.getLyric(
+                id = id, ncmMusicId = null, qqMusicId = null,
+                appleMusicId = null, spotifyId = null
+            )
+        } ?: return null
         return extractWithLyrics(response.data)
     }
 
