@@ -298,7 +298,7 @@ class RootLyricSink(
         if (!canExact && !hasSearchParam) return false
 
         val fetchKey = if (canExact) {
-            "exact|${platform?.name}|$songId"
+            "exact|${platform.name}|$songId"
         } else {
             "search|${metadata?.title ?: song.name}|${metadata?.artist ?: song.artist}"
         }

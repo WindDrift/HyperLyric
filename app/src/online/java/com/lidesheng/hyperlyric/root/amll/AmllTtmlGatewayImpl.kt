@@ -97,7 +97,14 @@ class AmllTtmlGatewayImpl : AmllTtmlGateway.Impl {
                 )
             } catch (e: CancellationException) {
                 throw e
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                // 记录被吞掉的异常：网络/HTTP 异常已在 AmllTtmlClient 内捕获并记日志，
+                // 能到达这里的通常是响应反序列化等本地异常，静默返回 null 会让其伪装成"未命中"
+                HookLogger.d(
+                    TAG,
+                    "AMLL 请求异常: type=${e.javaClass.simpleName}, " +
+                            "msg=${e.message?.take(200)}, song=${song.name}"
+                )
                 null
             }
             if (version != LyriconDataBridge.versionCounter.get()) {
