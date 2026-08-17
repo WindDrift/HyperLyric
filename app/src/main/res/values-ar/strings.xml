@@ -342,7 +342,7 @@
   <string name="summary_syllable_relative">When lyrics lack word-level data, display the entire line as a word</string>
   <string name="title_syllable_highlight">Simulate Word-by-Word Lyrics</string>
   <string name="title_syllable_line_display">Simulate Line-by-Line Lyrics</string>
-  <string name="summary_syllable_line_display">Downgrade lyrics with word-level timing to a line timeline to reduce power use</string>
+  <string name="summary_syllable_line_display">Downgrade lyrics with word-level timing to a line timeline</string>
   <string name="format_percent">%1$d%%</string>
   <string name="format_ms">%1$dms</string>
   <string name="title_double_line_content">Two-Line Content</string>
@@ -357,7 +357,7 @@
   <string name="summary_next_lyric_line">Uses the second line. Translations will not be displayed when enabled.</string>
   <string name="title_auto_switch_translation">Auto Switch Translation</string>
   <string name="summary_auto_switch_translation">Show translation when available, otherwise next line</string>
-  <string name="title_word_motion">Word Lift Animation</string>
+  <string name="title_word_motion">Word-by-Word Lift Animation</string>
   <string name="title_word_motion_latin_by_character">Lift Latin Text by Letter</string>
   <string name="summary_word_motion_latin_by_character">When off, each word lifts as a whole</string>
   <string name="title_word_motion_cjk_lift">CJK Lift Coefficient</string>
@@ -389,6 +389,7 @@
   <string name="label_ai_trans_prompt">Custom Translation Prompt</string>
   <string name="summary_ai_trans_prompt_hint">Leave empty for default prompt</string>
   <string name="title_verbatim_lyric">Verbatim Lyrics</string>
+  <string name="title_lyric_effects">Lyric Effects</string>
   <string name="refresh_pull_down">Pull down to refresh</string>
   <string name="refresh_release">Release to refresh</string>
   <string name="refreshing">Refreshing…</string>

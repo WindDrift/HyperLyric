@@ -358,7 +358,7 @@
     <string name="summary_syllable_relative">当歌词缺少字词时间轴时，将整行作为一个进度单元</string>
     <string name="title_syllable_highlight">模拟逐字歌词</string>
     <string name="title_syllable_line_display">模拟逐行歌词</string>
-    <string name="summary_syllable_line_display">将带有字词时间轴的歌词降级为整行时间轴显示，以降低耗电</string>
+    <string name="summary_syllable_line_display">将带有字词时间轴的歌词降级为整行时间轴显示</string>
     <string name="format_percent">%1$d%%</string>
     <string name="format_ms">%1$dms</string>
     <string name="title_double_line_content">双行内容</string>
@@ -373,7 +373,7 @@
     <string name="summary_next_lyric_line">占用第二行，开启后不显示翻译</string>
     <string name="title_auto_switch_translation">自动切换翻译</string>
     <string name="summary_auto_switch_translation">有翻译的歌曲，显示歌词翻译</string>
-    <string name="title_word_motion">字词上浮动画</string>
+    <string name="title_word_motion">逐字字词上浮动画</string>
     <string name="title_word_motion_latin_by_character">拉丁文字逐字母上浮</string>
     <string name="summary_word_motion_latin_by_character">关闭时按整个单词上浮</string>
     <string name="title_word_motion_cjk_lift">中日韩上浮系数</string>
@@ -405,6 +405,7 @@
     <string name="label_ai_trans_prompt">自定义翻译风格提示词</string>
     <string name="summary_ai_trans_prompt_hint">留空使用默认提示词</string>
     <string name="title_verbatim_lyric">逐字歌词</string>
+    <string name="title_lyric_effects">歌词动效</string>
 
 
     <!-- ———————————————————————— LyricProviderPage ———————————————————————— -->

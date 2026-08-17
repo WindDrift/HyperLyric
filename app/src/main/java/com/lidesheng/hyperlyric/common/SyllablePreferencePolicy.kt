@@ -31,7 +31,7 @@ object SyllablePreferencePolicy {
     ): SyllablePreferenceState = if (lineDisplay) {
         SyllablePreferenceState(
             relativeProgress = false,
-            relativeHighlight = false,
+            relativeHighlight = relativeHighlight,
             lineDisplay = true
         )
     } else {

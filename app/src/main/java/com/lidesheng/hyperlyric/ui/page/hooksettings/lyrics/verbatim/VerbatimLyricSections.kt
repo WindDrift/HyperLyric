@@ -49,11 +49,6 @@ fun LazyListScope.verbatimLyricSections(
             ) {
                 Column {
                     SwitchPreference(
-                        title = stringResource(id = R.string.title_gradient_progress),
-                        checked = gradientStyle,
-                        onCheckedChange = onGradientStyleChange
-                    )
-                    SwitchPreference(
                         title = stringResource(id = R.string.title_syllable_line_display),
                         summary = stringResource(id = R.string.summary_syllable_line_display),
                         checked = lineDisplay,
@@ -67,11 +62,13 @@ fun LazyListScope.verbatimLyricSections(
                     )
                     SwitchPreference(
                         title = stringResource(id = R.string.title_syllable_highlight),
+                        enabled = syllableRelative,
                         checked = syllableHighlight,
                         onCheckedChange = onSyllableHighlightChange
                     )
                 }
             }
+            SmallTitle(text = stringResource(id = R.string.title_lyric_effects))
             Card(
                 modifier = Modifier
                     .padding(horizontal = 12.dp)
@@ -79,6 +76,11 @@ fun LazyListScope.verbatimLyricSections(
                     .fillMaxWidth()
             ) {
                 Column {
+                    SwitchPreference(
+                        title = stringResource(id = R.string.title_gradient_progress),
+                        checked = gradientStyle,
+                        onCheckedChange = onGradientStyleChange
+                    )
                     SwitchPreference(
                         title = stringResource(id = R.string.title_word_motion),
                         checked = wordMotionEnabled,

@@ -180,7 +180,7 @@ fun VerbatimLyricPage() {
             },
             syllableHighlight = syllableHighlight,
             onSyllableHighlightChange = {
-                updateSyllableSettings(relativeHighlight = it, lineDisplayValue = false)
+                updateSyllableSettings(relativeHighlight = it)
             },
             wordMotionEnabled = wordMotionEnabled,
             onWordMotionEnabledChange = {
