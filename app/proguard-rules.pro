@@ -25,3 +25,8 @@
 # --- SuperLyric API ---
 -keep class com.hchen.superlyricapi.* { *; }
 -dontwarn android.os.ServiceManager
+
+# --- Retrofit API 接口 ---
+# 方法泛型签名供动态代理反射解析；R8 剥离签名会使 Retrofit 无法识别 suspend 函数，
+# 报 "Unable to create call adapter for class java.lang.Object"（AMLL TTML 实测踩坑）
+-keep interface com.lidesheng.hyperlyric.online.amll.AmllTtmlApi { *; }
