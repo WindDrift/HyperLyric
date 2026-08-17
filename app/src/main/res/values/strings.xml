@@ -407,6 +407,15 @@
     <string name="title_verbatim_lyric">逐字歌词</string>
     <string name="title_lyric_effects">歌词动效</string>
 
+    <!-- ———————————————————————— AMLL TTML 增强层 ———————————————————————— -->
+    <string name="title_amll_ttml_enhancement">AMLL TTML 逐字歌词增强</string>
+    <string name="summary_amll_ttml_enhancement">从 AMLL TTML 词库获取更高质量的逐字歌词，未命中时保持当前歌词源</string>
+    <string name="title_amll_clear_cache">清除 AMLL 缓存</string>
+    <string name="summary_amll_clear_cache">删除已缓存的 AMLL TTML 歌词文件</string>
+    <string name="dialog_title_amll_clear_cache">清除 AMLL 缓存</string>
+    <string name="dialog_summary_amll_clear_cache">将删除全部已缓存的 AMLL TTML 歌词，下次播放需重新联网获取，是否继续？</string>
+    <string name="toast_amll_cache_cleared">已发起 AMLL 缓存清理</string>
+
 
     <!-- ———————————————————————— LyricProviderPage ———————————————————————— -->
     <string name="refresh_pull_down">下拉刷新</string>

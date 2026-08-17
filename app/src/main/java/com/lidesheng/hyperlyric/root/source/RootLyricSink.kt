@@ -13,9 +13,12 @@ import com.lidesheng.hyperlyric.lyric.model.Song
 import com.lidesheng.hyperlyric.lyric.model.interfaces.IRichLyricLine
 import com.lidesheng.hyperlyric.lyric.source.LyricSink
 import com.lidesheng.hyperlyric.root.LyriconDataBridge
+import com.lidesheng.hyperlyric.root.amll.AmllPlatformIdMapper
+import com.lidesheng.hyperlyric.root.amll.AmllTtmlGateway
 import com.lidesheng.hyperlyric.root.aitrans.AiTranslationGateway
 import com.lidesheng.hyperlyric.root.island.content.IslandSlotContentFacade
 import com.lidesheng.hyperlyric.root.island.effects.color.IslandMusicWaveColorHooker
+import com.lidesheng.hyperlyric.root.island.renderer.BaseIslandRenderer
 import com.lidesheng.hyperlyric.root.island.renderer.IslandRenderer
 import com.lidesheng.hyperlyric.root.media.CurrentMediaInfoResolver
 import com.lidesheng.hyperlyric.root.utils.CoverColorHelper
@@ -40,6 +43,8 @@ class RootLyricSink(
     private var lastDispatchedPlaybackSpeed = Float.NaN
     private var currentPlaybackSpeed = 1f
     private var activeMediaIdentity: MediaIdentity? = null
+    /** 当前歌曲的 AMLL 请求去重 key（同一首歌仅触发一次，切歌时重置） */
+    private var amllFetchKey: String? = null
     private val positionDispatchRunnable = Runnable {
         positionDispatchScheduled = false
         val latest = pendingPosition ?: return@Runnable
@@ -67,6 +72,8 @@ class RootLyricSink(
         lastDispatchedPosition = Long.MIN_VALUE
         lastDispatchedPlaybackSpeed = Float.NaN
         currentPlaybackSpeed = 1f
+        AmllTtmlGateway.cancelActiveRequests()
+        amllFetchKey = null
         AiTranslationGateway.cancelActiveRequests()
         activeMediaIdentity = null
         LyriconDataBridge.updateSong(
@@ -80,16 +87,11 @@ class RootLyricSink(
             endColorSession()
         }
         if (song != null && prefs != null) {
-            val aiEnabled = prefs.getBoolean(
-                RootConstants.KEY_HOOK_AI_TRANS_ENABLE,
-                RootConstants.DEFAULT_HOOK_AI_TRANS_ENABLE
-            )
-            if (aiEnabled) {
-                val forceOverride = prefs.getBoolean(
-                    RootConstants.KEY_HOOK_AI_TRANS_FORCE_OVERRIDE,
-                    RootConstants.DEFAULT_HOOK_AI_TRANS_FORCE_OVERRIDE
-                )
-                AiTranslationGateway.translateSong(song, prefs, forceOverride)
+            // AMLL 增强层：song.id 非空且包名可映射时立即触发精确匹配；
+            // 命中后跳过 AI 翻译，未命中/未触发时回落原 AI 翻译流程
+            val amllTriggered = tryAmllEnhancement(song, reason = "song_changed")
+            if (!amllTriggered) {
+                maybeAiTranslate(song)
             }
         }
     }
@@ -106,6 +108,8 @@ class RootLyricSink(
     }
 
     override fun onStop() {
+        AmllTtmlGateway.cancelActiveRequests()
+        amllFetchKey = null
         AiTranslationGateway.cancelActiveRequests()
         playbackActive = false
         cancelPendingPositionDispatch()
@@ -149,6 +153,11 @@ class RootLyricSink(
             .takeIf { it.isNotBlank() }
             ?: LyriconDataBridge.currentSong?.name
         updateColorSession(mediaInfo, reason = "metadata_changed")
+        // AMLL 补全触发：onSongChanged 时条件不足（songId 为空/包名未知/元数据未推送），
+        // metadata 推送后补全触发（精确或 search 模糊匹配），与 onSongChanged 触发互斥
+        LyriconDataBridge.currentSong?.let { currentSong ->
+            tryAmllEnhancement(currentSong, reason = "metadata_changed")
+        }
         renderer.updateMetadata()
     }
 
@@ -250,6 +259,105 @@ class RootLyricSink(
         return normalized.take(MAX_DEBUG_TEXT_LENGTH).let {
             if (normalized.length > MAX_DEBUG_TEXT_LENGTH) "$it…" else it
         }
+    }
+
+    /**
+     * AMLL 增强层刷新入口（开关从关闭切换为开启时由 HookEntry 调用）：
+     * 重置去重 key 后对当前歌曲立即触发一次 AMLL 请求。
+     */
+    fun refreshAmllEnhancement() {
+        val song = LyriconDataBridge.currentSong ?: return
+        amllFetchKey = null
+        tryAmllEnhancement(song, reason = "pref_changed")
+    }
+
+    /**
+     * 尝试触发 AMLL 增强请求。触发条件：
+     * - 精确匹配：songId 非空且包名可映射平台
+     * - 搜索回退：songId 缺失/包名未知，但 title 或 artist 可用
+     *
+     * 同一首歌仅触发一次（[amllFetchKey] 去重）；AMLL pending 期间取消 AI 翻译，
+     * 命中后跳过 AI 翻译，未命中/失败时在回调中回落原 AI 翻译流程。
+     *
+     * @return true 表示已触发 AMLL 请求（调用方应暂缓 AI 翻译等待回调）
+     */
+    private fun tryAmllEnhancement(song: Song, reason: String): Boolean {
+        val prefs = prefs ?: return false
+        val amllEnabled = prefs.getBoolean(
+            RootConstants.KEY_HOOK_AMLL_TTML_ENABLED,
+            RootConstants.DEFAULT_HOOK_AMLL_TTML_ENABLED
+        )
+        if (!amllEnabled) return false
+
+        val metadata = LyriconDataBridge.currentLyricMediaMetadata
+        val platform = AmllPlatformIdMapper.mapPackageNameToAmllField(metadata?.packageName)
+        val songId = metadata?.songId?.takeIf { it.isNotBlank() }
+            ?: song.id?.takeIf { it.isNotBlank() }
+        val canExact = !songId.isNullOrBlank() && platform != null
+        val hasSearchParam = !song.name.isNullOrBlank() || !song.artist.isNullOrBlank()
+        if (!canExact && !hasSearchParam) return false
+
+        val fetchKey = if (canExact) {
+            "exact|${platform?.name}|$songId"
+        } else {
+            "search|${metadata?.title ?: song.name}|${metadata?.artist ?: song.artist}"
+        }
+        if (amllFetchKey == fetchKey) return true
+        amllFetchKey = fetchKey
+
+        HookLogger.d(
+            TAG,
+            "AMLL 增强触发: reason=$reason, mode=${if (canExact) "exact" else "search"}, " +
+                    "song=\"${debugText(song.name.orEmpty())}\", platform=${platform?.name ?: "unknown"}"
+        )
+        val triggered = AmllTtmlGateway.fetchTtml(song, metadata, prefs) { amllSong ->
+            onAmllResult(song, amllSong)
+        }
+        if (!triggered) {
+            amllFetchKey = null
+            return false
+        }
+        // AMLL pending 期间取消 AI 翻译，避免其结果覆盖即将到来的 AMLL 歌词
+        AiTranslationGateway.cancelActiveRequests()
+        return true
+    }
+
+    /**
+     * AMLL 请求结果处理：命中时用 AMLL 歌词替换并刷新超级岛（跳过 AI 翻译）；
+     * 未命中/失败时保持原歌词并回落原 AI 翻译流程。
+     */
+    private fun onAmllResult(localSong: Song, amllSong: Song?) {
+        if (amllSong != null) {
+            HookLogger.d(
+                TAG,
+                "AMLL 命中，替换歌词: song=\"${debugText(localSong.name.orEmpty())}\", " +
+                        "lines=${amllSong.lyrics?.size ?: 0}"
+            )
+            LyriconDataBridge.updateSong(amllSong, currentPlaceholderFormat())
+            BaseIslandRenderer.refreshActiveIsland()
+        } else {
+            HookLogger.d(TAG, "AMLL 未命中，保持原歌词: song=\"${debugText(localSong.name.orEmpty())}\"")
+            maybeAiTranslate(localSong)
+        }
+    }
+
+    private fun currentPlaceholderFormat(): Int = prefs?.getInt(
+        RootConstants.KEY_HOOK_PLACEHOLDER_FORMAT,
+        RootConstants.DEFAULT_HOOK_PLACEHOLDER_FORMAT
+    ) ?: RootConstants.DEFAULT_HOOK_PLACEHOLDER_FORMAT
+
+    private fun maybeAiTranslate(song: Song) {
+        val prefs = prefs ?: return
+        val aiEnabled = prefs.getBoolean(
+            RootConstants.KEY_HOOK_AI_TRANS_ENABLE,
+            RootConstants.DEFAULT_HOOK_AI_TRANS_ENABLE
+        )
+        if (!aiEnabled) return
+        val forceOverride = prefs.getBoolean(
+            RootConstants.KEY_HOOK_AI_TRANS_FORCE_OVERRIDE,
+            RootConstants.DEFAULT_HOOK_AI_TRANS_FORCE_OVERRIDE
+        )
+        AiTranslationGateway.translateSong(song, prefs, forceOverride)
     }
 
     private fun updateColorSession(mediaInfo: MediaMetadataHelper.MediaInfo, reason: String) {

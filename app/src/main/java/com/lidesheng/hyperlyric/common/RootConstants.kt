@@ -233,6 +233,12 @@ object RootConstants {
     const val KEY_HOOK_AI_TRANS_TOP_P = "key_hook_ai_trans_top_p"
     const val KEY_HOOK_AI_TRANS_MAX_TOKENS = "key_hook_ai_trans_max_tokens"
 
+    // ================= AMLL TTML KEYS =================
+    const val KEY_HOOK_AMLL_TTML_ENABLED = "key_hook_amll_ttml_enabled"
+
+    /** AMLL 缓存清理信号（非设置项）：UI 进程写入时间戳，SystemUI 进程监听后执行清理 */
+    const val KEY_HOOK_AMLL_CLEAR_CACHE_REQUEST = "key_hook_amll_clear_cache_request"
+
     // ================= DEFAULTS =================
     const val DEFAULT_HOOK_LYRIC_MODE = 0
     const val DEFAULT_HOOK_LYRICON_PROVIDER_DELAY = 0
@@ -499,4 +505,5 @@ object RootConstants {
 - 等时对齐：音节/字数必须严丝合缝适配节拍，严禁在短拍堆砌文字。
 - 动态押韵：除 Rap/特定流行强求押韵外，优先保证情绪流转自然。严禁为押韵损毁隐喻或文化美感。
 - 解构再造：拆碎原文逻辑，以母语者直觉进行"意象创作"，使译文像原创作品般自然。"""
+    const val DEFAULT_HOOK_AMLL_TTML_ENABLED = false
 }

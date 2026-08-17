@@ -383,6 +383,15 @@
     <string name="title_verbatim_lyric">Verbatim Lyrics</string>
     <string name="title_lyric_effects">Lyric Effects</string>
 
+    <!-- ———————————————————————— AMLL TTML 增强层 ———————————————————————— -->
+    <string name="title_amll_ttml_enhancement">AMLL TTML Enhancement</string>
+    <string name="summary_amll_ttml_enhancement">Fetch higher-quality word-level lyrics from the AMLL TTML database; falls back to the current lyric source on miss</string>
+    <string name="title_amll_clear_cache">Clear AMLL Cache</string>
+    <string name="summary_amll_clear_cache">Delete cached AMLL TTML lyric files</string>
+    <string name="dialog_title_amll_clear_cache">Clear AMLL Cache</string>
+    <string name="dialog_summary_amll_clear_cache">All cached AMLL TTML lyrics will be deleted and re-fetched on next playback. Continue?</string>
+    <string name="toast_amll_cache_cleared">AMLL cache cleanup started</string>
+
     <!-- ———————————————————————— LyricProviderPage ———————————————————————— -->
     <string name="refresh_pull_down">Pull down to refresh</string>
     <string name="refresh_release">Release to refresh</string>

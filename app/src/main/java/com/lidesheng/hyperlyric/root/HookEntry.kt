@@ -7,6 +7,8 @@ import android.os.Looper
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.common.UIConstants
 import com.lidesheng.hyperlyric.lyric.source.SourceManager
+import com.lidesheng.hyperlyric.root.amll.AmllTtmlGateway
+import com.lidesheng.hyperlyric.root.amll.AmllTtmlGatewayImpl
 import com.lidesheng.hyperlyric.root.aitrans.AiTranslationGateway
 import com.lidesheng.hyperlyric.root.aitrans.AiTranslationGatewayImpl
 import com.lidesheng.hyperlyric.root.island.effects.album.IslandAlbumCoverStyleHooker
@@ -128,6 +130,7 @@ class HookEntry : XposedModule() {
     private var prefListener: android.content.SharedPreferences.OnSharedPreferenceChangeListener? =
         null
     private var runtimeApp: Application? = null
+    private var lyricSink: RootLyricSink? = null
 
     val prefs: android.content.SharedPreferences
         get() {
@@ -310,11 +313,14 @@ class HookEntry : XposedModule() {
 
             val renderer = BaseIslandRenderer
             val sink = RootLyricSink(renderer, app, prefs)
+            lyricSink = sink
 
             lyriconSource.initialize(app, prefs)
             superLyricSource.initialize(app)
             lyricInfoSource = LyricInfoSource(app)
 
+            AmllTtmlGatewayImpl()
+            AmllTtmlGateway.init(app)
             AiTranslationGatewayImpl()
             AiTranslationGateway.init(app)
 
@@ -410,6 +416,31 @@ class HookEntry : XposedModule() {
                             }
                         }
 
+                        RootConstants.KEY_HOOK_AMLL_TTML_ENABLED -> {
+                            val amllEnabled = prefs.getBoolean(
+                                key,
+                                RootConstants.DEFAULT_HOOK_AMLL_TTML_ENABLED
+                            )
+                            Handler(Looper.getMainLooper()).post {
+                                if (amllEnabled) {
+                                    // 开启时立即对当前歌曲触发 AMLL 请求
+                                    lyricSink?.refreshAmllEnhancement()
+                                } else {
+                                    // 关闭时取消进行中的请求
+                                    AmllTtmlGateway.cancelActiveRequests()
+                                }
+                                HookLogger.i(TAG, "AMLL 开关切换: enabled=$amllEnabled")
+                            }
+                        }
+
+                        RootConstants.KEY_HOOK_AMLL_CLEAR_CACHE_REQUEST -> {
+                            // UI 进程发起的缓存清理信号：在本进程（缓存所在进程）执行删除
+                            Handler(Looper.getMainLooper()).post {
+                                AmllTtmlGateway.clearCache()
+                                HookLogger.i(TAG, "AMLL 缓存清理完成")
+                            }
+                        }
+
                         RootConstants.KEY_HOOK_ISLAND_ALBUM_COVER_STYLE -> {
                             Handler(Looper.getMainLooper()).post {
                                 IslandSettingsRefreshCoordinator.request()
@@ -477,9 +508,11 @@ class HookEntry : XposedModule() {
         }
         prefListener = null
         runCatching { sourceManager?.stop() }
+        AmllTtmlGateway.cancelActiveRequests()
         AiTranslationGateway.cancelActiveRequests()
         sourceManager = null
         lyricInfoSource = null
+        lyricSink = null
         runtimeApp = null
     }
 

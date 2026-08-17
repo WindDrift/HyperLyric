@@ -1,16 +1,19 @@
 package com.lidesheng.hyperlyric.ui.page.hooksettings.lyrics.verbatim
 
+import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.lidesheng.hyperlyric.R
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.common.SyllablePreferencePolicy
 import com.lidesheng.hyperlyric.ui.component.FloatInputDialog
+import com.lidesheng.hyperlyric.ui.component.SimpleDialog
 import com.lidesheng.hyperlyric.ui.page.hooksettings.lyrics.common.XposedLyricSettingPage
 import com.lidesheng.hyperlyric.ui.page.hooksettings.lyrics.common.rememberHookConfigSaver
 import com.lidesheng.hyperlyric.ui.page.hooksettings.lyrics.common.rememberHookPrefs
@@ -20,6 +23,17 @@ fun VerbatimLyricPage() {
     val prefs = rememberHookPrefs()
     val saveConfig = rememberHookConfigSaver(prefs)
     val syllableSettings = remember(prefs) { SyllablePreferencePolicy.read(prefs) }
+    val context = LocalContext.current
+
+    var amllEnabled by remember {
+        mutableStateOf(
+            prefs.getBoolean(
+                RootConstants.KEY_HOOK_AMLL_TTML_ENABLED,
+                RootConstants.DEFAULT_HOOK_AMLL_TTML_ENABLED
+            )
+        )
+    }
+    var showAmllClearCacheDialog by remember { mutableStateOf(false) }
 
     var gradientStyle by remember {
         mutableStateOf(
@@ -110,6 +124,25 @@ fun VerbatimLyricPage() {
         saveConfig(RootConstants.KEY_HOOK_SYLLABLE_HIGHLIGHT, state.relativeHighlight)
     }
 
+    SimpleDialog(
+        show = showAmllClearCacheDialog,
+        title = stringResource(id = R.string.dialog_title_amll_clear_cache),
+        summary = stringResource(id = R.string.dialog_summary_amll_clear_cache),
+        onDismiss = { showAmllClearCacheDialog = false },
+        onConfirm = {
+            // AMLL 缓存位于 SystemUI 进程，通过 prefs 信号通知该进程执行删除
+            saveConfig(
+                RootConstants.KEY_HOOK_AMLL_CLEAR_CACHE_REQUEST,
+                (System.currentTimeMillis() / 1000).toInt()
+            )
+            Toast.makeText(
+                context,
+                context.getString(R.string.toast_amll_cache_cleared),
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    )
+
     FloatInputDialog(
         show = showWordMotionCjkLiftDialog,
         title = stringResource(id = R.string.title_word_motion_cjk_lift),
@@ -165,6 +198,12 @@ fun VerbatimLyricPage() {
 
     XposedLyricSettingPage(title = stringResource(id = R.string.title_verbatim_lyric)) {
         verbatimLyricSections(
+            amllEnabled = amllEnabled,
+            onAmllEnabledChange = {
+                amllEnabled = it
+                saveConfig(RootConstants.KEY_HOOK_AMLL_TTML_ENABLED, it)
+            },
+            onAmllClearCacheClick = { showAmllClearCacheDialog = true },
             gradientStyle = gradientStyle,
             onGradientStyleChange = {
                 gradientStyle = it

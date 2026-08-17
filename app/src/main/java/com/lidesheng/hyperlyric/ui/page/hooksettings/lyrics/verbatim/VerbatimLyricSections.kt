@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.lidesheng.hyperlyric.BuildConfig
 import com.lidesheng.hyperlyric.R
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.SmallTitle
@@ -36,11 +37,38 @@ fun LazyListScope.verbatimLyricSections(
     wordMotionLatinLift: Float,
     onWordMotionLatinLiftClick: () -> Unit,
     wordMotionLatinWave: Float,
-    onWordMotionLatinWaveClick: () -> Unit
+    onWordMotionLatinWaveClick: () -> Unit,
+    amllEnabled: Boolean = false,
+    onAmllEnabledChange: (Boolean) -> Unit = {},
+    onAmllClearCacheClick: () -> Unit = {}
 ) {
     item(key = "verbatim_lyric") {
         Column {
             SmallTitle(text = stringResource(id = R.string.title_verbatim_lyric))
+            if (BuildConfig.ONLINE_FEATURES_ENABLED) {
+                Card(
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 12.dp)
+                        .fillMaxWidth()
+                ) {
+                    Column {
+                        SwitchPreference(
+                            title = stringResource(id = R.string.title_amll_ttml_enhancement),
+                            summary = stringResource(id = R.string.summary_amll_ttml_enhancement),
+                            checked = amllEnabled,
+                            onCheckedChange = onAmllEnabledChange
+                        )
+                        AnimatedVisibility(visible = amllEnabled) {
+                            ArrowPreference(
+                                title = stringResource(id = R.string.title_amll_clear_cache),
+                                summary = stringResource(id = R.string.summary_amll_clear_cache),
+                                onClick = onAmllClearCacheClick
+                            )
+                        }
+                    }
+                }
+            }
             Card(
                 modifier = Modifier
                     .padding(horizontal = 12.dp)
