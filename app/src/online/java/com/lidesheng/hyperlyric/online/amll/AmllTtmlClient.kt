@@ -10,6 +10,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import retrofit2.HttpException
 import retrofit2.Retrofit
+import retrofit2.await
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
@@ -62,19 +63,19 @@ object AmllTtmlClient {
                 AmllPlatformIdField.NCM -> api.getLyric(
                     id = null, ncmMusicId = songId, qqMusicId = null,
                     appleMusicId = null, spotifyId = null
-                )
+                ).await()
                 AmllPlatformIdField.QQ -> api.getLyric(
                     id = null, ncmMusicId = null, qqMusicId = songId,
                     appleMusicId = null, spotifyId = null
-                )
+                ).await()
                 AmllPlatformIdField.APPLE -> api.getLyric(
                     id = null, ncmMusicId = null, qqMusicId = null,
                     appleMusicId = songId, spotifyId = null
-                )
+                ).await()
                 AmllPlatformIdField.SPOTIFY -> api.getLyric(
                     id = null, ncmMusicId = null, qqMusicId = null,
                     appleMusicId = null, spotifyId = songId
-                )
+                ).await()
             }
         } ?: return null
         return extractWithLyrics(response.data)
@@ -90,7 +91,7 @@ object AmllTtmlClient {
             api.getLyric(
                 id = id, ncmMusicId = null, qqMusicId = null,
                 appleMusicId = null, spotifyId = null
-            )
+            ).await()
         } ?: return null
         return extractWithLyrics(response.data)
     }
@@ -114,7 +115,7 @@ object AmllTtmlClient {
                 musicName = musicName,
                 artistName = artistName,
                 albumName = albumName
-            )
+            ).await()
         } ?: return null
         val item = response.data?.items?.firstOrNull()
         if (item == null) {
