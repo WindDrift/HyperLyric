@@ -22,6 +22,7 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.common.ServiceConstants
+import com.lidesheng.hyperlyric.common.SyllablePreferencePolicy
 import com.lidesheng.hyperlyric.common.UIConstants
 
 object BackupRestoreManager {
@@ -93,6 +94,10 @@ object BackupRestoreManager {
                     putStringSet(RootConstants.KEY_HOOK_AI_TRANS_SKIP_LANGUAGES, skipLanguages)
                 }
             }
+            val syllableSettings = SyllablePreferencePolicy.read(prefs)
+            val syllableEditor = prefs.edit()
+            SyllablePreferencePolicy.write(syllableEditor, syllableSettings)
+            syllableEditor.apply()
             true
         } catch (_: Exception) { false }
     }

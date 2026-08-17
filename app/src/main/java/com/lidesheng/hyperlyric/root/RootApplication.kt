@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import com.lidesheng.hyperlyric.common.AiTranslationLanguageSettings
 import com.lidesheng.hyperlyric.common.PrefsBridge
+import com.lidesheng.hyperlyric.common.SyllablePreferencePolicy
 import com.lidesheng.hyperlyric.common.UIConstants
 import com.lidesheng.hyperlyric.ui.utils.AppUtils
 import com.lidesheng.hyperlyric.ui.utils.LocaleUtils
@@ -21,6 +22,7 @@ class RootApplication : Application() {
         LogManager.init(this)
         PrefsBridge.init(this)
         AiTranslationLanguageSettings.migrateLegacyPreference(PrefsBridge.getPrefs())
+        SyllablePreferencePolicy.normalizeInPlace(PrefsBridge.getPrefs())
         appContext = this
 
         XposedServiceHelper.registerListener(object : XposedServiceHelper.OnServiceListener {
@@ -79,6 +81,7 @@ class RootApplication : Application() {
             } ?: return false
 
             val localPrefs = context.getSharedPreferences(UIConstants.PREF_NAME, MODE_PRIVATE)
+            SyllablePreferencePolicy.normalizeInPlace(localPrefs)
             return try {
                 val editor = remotePrefs.edit()
                 if (replaceRemote) editor.clear()

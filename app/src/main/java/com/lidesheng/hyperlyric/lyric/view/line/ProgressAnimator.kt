@@ -58,7 +58,43 @@ internal class ProgressAnimator {
         mode = Mode.LINEAR
     }
 
+    /** Animates a single continuous visual range without requiring word data. */
+    fun animateRange(
+        rangeStart: Float,
+        rangeEnd: Float,
+        durationMs: Long,
+        positionMs: Long,
+        playbackSpeed: Float,
+        forceAnchor: Boolean
+    ) = animateTimedRange(
+        rangeStart = rangeStart,
+        rangeEnd = rangeEnd,
+        durationMs = durationMs,
+        positionMs = positionMs,
+        playbackSpeed = playbackSpeed,
+        sustainStrength = 0f,
+        forceAnchor = forceAnchor
+    )
+
     fun animateWord(
+        rangeStart: Float,
+        rangeEnd: Float,
+        durationMs: Long,
+        positionMs: Long,
+        playbackSpeed: Float,
+        sustainStrength: Float,
+        forceAnchor: Boolean
+    ) = animateTimedRange(
+        rangeStart = rangeStart,
+        rangeEnd = rangeEnd,
+        durationMs = durationMs,
+        positionMs = positionMs,
+        playbackSpeed = playbackSpeed,
+        sustainStrength = sustainStrength,
+        forceAnchor = forceAnchor
+    )
+
+    private fun animateTimedRange(
         rangeStart: Float,
         rangeEnd: Float,
         durationMs: Long,

@@ -71,8 +71,8 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
         scrollRenderer.peerLineWidth = width
     }
 
-    val isPlainText: Boolean get() = _model.isPlainText && !_model.isCountdownLine()
-    val isWordSync: Boolean get() = !isPlainText
+    val isPlainText: Boolean get() = activeRenderer === scrollRenderer
+    val isWordSync: Boolean get() = activeRenderer !== scrollRenderer
     val isOverflow: Boolean get() = lineWidth > measuredWidth
     val isPlaying: Boolean get() = activeRenderer.isPlaying
     val isFinished: Boolean get() = activeRenderer.isFinished
@@ -92,6 +92,7 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
             field = value
             syncRenderer.centerIfPossible = value
             scrollRenderer.centerIfPossible = value
+            lineTimelineRenderer.centerIfPossible = value
             countdownRenderer.centerIfPossible = value
         }
 
@@ -106,6 +107,7 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
             field = value
             syncRenderer.rightIfPossible = value
             scrollRenderer.rightIfPossible = value
+            lineTimelineRenderer.rightIfPossible = value
             countdownRenderer.rightIfPossible = value
         }
 
@@ -141,6 +143,7 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
     private val lineState = LineState()
     private val scrollRenderer = ScrollTextRenderer()
     private val syncRenderer = WordSyncRenderer(this)
+    private val lineTimelineRenderer = LineTimelineRenderer()
     private val countdownRenderer = CountdownDotsRenderer()
     private val animator = Animator()
 
@@ -184,10 +187,11 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
         countdownRenderer.setTextSize(size)
         refreshSizes()
         syncRenderer.updateLayout(_model, lineState, measuredWidth, measuredHeight)
+        lineTimelineRenderer.updateLayout(_model, lineState, measuredWidth, measuredHeight)
         invalidate()
     }
 
-    fun setLyric(rawLine: LyricLine?) {
+    fun setLyric(rawLine: LyricLine?, useLineTimeline: Boolean = false) {
         val line = if (rawLine?.text.isNullOrBlank() && !rawLine.isCountdownLine()) null else rawLine
 
         reset()
@@ -197,6 +201,7 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
         _model = line?.normalize()?.createModel() ?: emptyLyricModel()
         activeRenderer = when {
             _model.isCountdownLine() -> countdownRenderer
+            useLineTimeline && _model.isPlainText -> lineTimelineRenderer
             _model.isPlainText -> scrollRenderer
             else -> syncRenderer
         }
@@ -211,13 +216,29 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
      * This is intentionally separate from [setLyric], which is expected to
      * start a new line from its initial delay.
      */
-    fun setLyricPreservingScroll(rawLine: LyricLine?) {
+    fun setLyricPreservingScroll(rawLine: LyricLine?, useLineTimeline: Boolean = false) {
         val line = if (rawLine?.text.isNullOrBlank() && !rawLine.isCountdownLine()) null else rawLine
         val previousModel = _model
         val model = line?.normalize()?.createModel() ?: emptyLyricModel()
+        val targetLineTimeline = useLineTimeline && model.isPlainText && !model.isCountdownLine()
+        val currentLineTimeline = activeRenderer === lineTimelineRenderer
 
-        if (activeRenderer !== scrollRenderer || !model.isPlainText) {
-            setLyric(rawLine)
+        if (targetLineTimeline != currentLineTimeline ||
+            (!targetLineTimeline && (!model.isPlainText || activeRenderer !== scrollRenderer))
+        ) {
+            setLyric(rawLine, useLineTimeline)
+            return
+        }
+
+        if (targetLineTimeline) {
+            _model = model
+            refreshSizes()
+            updateColorsIfReady()
+            lineTimelineRenderer.updateLayout(
+                _model, lineState, measuredWidth, measuredHeight
+            )
+            requestLayout()
+            invalidate()
             return
         }
 
@@ -302,7 +323,9 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
             if (playbackActive) startScrolling()
         } else {
             activeRenderer.seek(_model, lineState, posMs, measuredWidth, measuredHeight)
-            if (activeRenderer === countdownRenderer) invalidate()
+            if (activeRenderer === countdownRenderer || activeRenderer === lineTimelineRenderer) {
+                invalidate()
+            }
             if (playbackActive) {
                 animator.startIfNeeded()
             } else {
@@ -316,6 +339,7 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
         if (isStaticPreview) return
         if (isWordSync) {
             if (activeRenderer === syncRenderer && syncRenderer.isScrollOnly && !isOverflow) return
+            if (activeRenderer === lineTimelineRenderer && !isOverflow) return
             if (playbackActive) {
                 activeRenderer.update(
                     _model,
@@ -325,7 +349,9 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
                     measuredHeight,
                     playbackSpeed
                 )
-                if (activeRenderer === countdownRenderer) invalidate()
+                if (activeRenderer === countdownRenderer || activeRenderer === lineTimelineRenderer) {
+                    invalidate()
+                }
                 if (activeRenderer.isPlaying && !activeRenderer.isFinished) {
                     animator.startIfNeeded()
                 }
@@ -348,6 +374,10 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
         if (!active) {
             animator.stop()
             (activeRenderer as? WordSyncRenderer)?.let { renderer ->
+                renderer.freeze(_model, lineState, measuredWidth)
+                if (isShown) invalidate()
+            }
+            (activeRenderer as? LineTimelineRenderer)?.let { renderer ->
                 renderer.freeze(_model, lineState, measuredWidth)
                 if (isShown) invalidate()
             }
@@ -379,8 +409,11 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
     }
 
     fun relayout() {
-        if (activeRenderer === syncRenderer) {
-            syncRenderer.updateLayout(_model, lineState, measuredWidth, measuredHeight)
+        when (activeRenderer) {
+            syncRenderer -> syncRenderer.updateLayout(_model, lineState, measuredWidth, measuredHeight)
+            lineTimelineRenderer -> lineTimelineRenderer.updateLayout(
+                _model, lineState, measuredWidth, measuredHeight
+            )
         }
     }
 
@@ -401,6 +434,7 @@ open class LyricLineView(context: Context, attrs: AttributeSet? = null) :
         lineState.reset()
         scrollRenderer.reset(lineState)
         syncRenderer.reset(lineState)
+        lineTimelineRenderer.reset(lineState)
         countdownRenderer.reset(lineState)
         _model = emptyLyricModel()
         activeRenderer = scrollRenderer

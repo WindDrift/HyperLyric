@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import com.lidesheng.hyperlyric.R
 import com.lidesheng.hyperlyric.common.RootConstants
+import com.lidesheng.hyperlyric.common.SyllablePreferencePolicy
 import com.lidesheng.hyperlyric.ui.component.FloatInputDialog
 import com.lidesheng.hyperlyric.ui.page.hooksettings.lyrics.common.XposedLyricSettingPage
 import com.lidesheng.hyperlyric.ui.page.hooksettings.lyrics.common.rememberHookConfigSaver
@@ -18,6 +19,7 @@ import com.lidesheng.hyperlyric.ui.page.hooksettings.lyrics.common.rememberHookP
 fun VerbatimLyricPage() {
     val prefs = rememberHookPrefs()
     val saveConfig = rememberHookConfigSaver(prefs)
+    val syllableSettings = remember(prefs) { SyllablePreferencePolicy.read(prefs) }
 
     var gradientStyle by remember {
         mutableStateOf(
@@ -27,21 +29,14 @@ fun VerbatimLyricPage() {
             )
         )
     }
+    var lineDisplay by remember {
+        mutableStateOf(syllableSettings.lineDisplay)
+    }
     var syllableRelative by remember {
-        mutableStateOf(
-            prefs.getBoolean(
-                RootConstants.KEY_HOOK_SYLLABLE_RELATIVE,
-                RootConstants.DEFAULT_HOOK_SYLLABLE_RELATIVE
-            )
-        )
+        mutableStateOf(syllableSettings.relativeProgress)
     }
     var syllableHighlight by remember {
-        mutableStateOf(
-            prefs.getBoolean(
-                RootConstants.KEY_HOOK_SYLLABLE_HIGHLIGHT,
-                RootConstants.DEFAULT_HOOK_SYLLABLE_HIGHLIGHT
-            )
-        )
+        mutableStateOf(syllableSettings.relativeHighlight)
     }
     var wordMotionEnabled by remember {
         mutableStateOf(
@@ -96,6 +91,24 @@ fun VerbatimLyricPage() {
     var showWordMotionCjkWaveDialog by remember { mutableStateOf(false) }
     var showWordMotionLatinLiftDialog by remember { mutableStateOf(false) }
     var showWordMotionLatinWaveDialog by remember { mutableStateOf(false) }
+
+    fun updateSyllableSettings(
+        relativeProgress: Boolean = syllableRelative,
+        relativeHighlight: Boolean = syllableHighlight,
+        lineDisplayValue: Boolean = lineDisplay
+    ) {
+        val state = SyllablePreferencePolicy.normalize(
+            relativeProgress = relativeProgress,
+            relativeHighlight = relativeHighlight,
+            lineDisplay = lineDisplayValue
+        )
+        lineDisplay = state.lineDisplay
+        syllableRelative = state.relativeProgress
+        syllableHighlight = state.relativeHighlight
+        saveConfig(RootConstants.KEY_HOOK_SYLLABLE_LINE_DISPLAY, state.lineDisplay)
+        saveConfig(RootConstants.KEY_HOOK_SYLLABLE_RELATIVE, state.relativeProgress)
+        saveConfig(RootConstants.KEY_HOOK_SYLLABLE_HIGHLIGHT, state.relativeHighlight)
+    }
 
     FloatInputDialog(
         show = showWordMotionCjkLiftDialog,
@@ -157,15 +170,17 @@ fun VerbatimLyricPage() {
                 gradientStyle = it
                 saveConfig(RootConstants.KEY_HOOK_GRADIENT_PROGRESS, it)
             },
+            lineDisplay = lineDisplay,
+            onLineDisplayChange = {
+                updateSyllableSettings(lineDisplayValue = it)
+            },
             syllableRelative = syllableRelative,
             onSyllableRelativeChange = {
-                syllableRelative = it
-                saveConfig(RootConstants.KEY_HOOK_SYLLABLE_RELATIVE, it)
+                updateSyllableSettings(relativeProgress = it, lineDisplayValue = false)
             },
             syllableHighlight = syllableHighlight,
             onSyllableHighlightChange = {
-                syllableHighlight = it
-                saveConfig(RootConstants.KEY_HOOK_SYLLABLE_HIGHLIGHT, it)
+                updateSyllableSettings(relativeHighlight = it, lineDisplayValue = false)
             },
             wordMotionEnabled = wordMotionEnabled,
             onWordMotionEnabledChange = {

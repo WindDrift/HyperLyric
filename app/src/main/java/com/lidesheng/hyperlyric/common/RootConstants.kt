@@ -187,6 +187,7 @@ object RootConstants {
     // ================= SYLLABLE KEYS =================
     const val KEY_HOOK_SYLLABLE_RELATIVE = "key_hook_syllable_relative"
     const val KEY_HOOK_SYLLABLE_HIGHLIGHT = "key_hook_syllable_highlight"
+    const val KEY_HOOK_SYLLABLE_LINE_DISPLAY = "key_hook_syllable_line_display"
 
     // ================= TRANSLATION KEYS =================
     const val KEY_HOOK_DISABLE_TRANSLATION = "key_hook_disable_translation"
@@ -442,6 +443,7 @@ object RootConstants {
 
     const val DEFAULT_HOOK_SYLLABLE_RELATIVE = true
     const val DEFAULT_HOOK_SYLLABLE_HIGHLIGHT = false
+    const val DEFAULT_HOOK_SYLLABLE_LINE_DISPLAY = false
 
     const val DEFAULT_HOOK_DISABLE_TRANSLATION = false
     const val DEFAULT_HOOK_TRANSLATION_ONLY = false

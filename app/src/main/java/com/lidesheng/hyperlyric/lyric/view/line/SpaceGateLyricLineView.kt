@@ -100,8 +100,8 @@ open class SpaceGateLyricLineView(context: Context, attrs: AttributeSet? = null)
         localWidth.coerceAtLeast(0f) +
             if (isRightSplitGradientSide) 0f else splitGradientPeerWidth()
 
-    val isPlainText: Boolean get() = _model.isPlainText && !_model.isCountdownLine()
-    val isWordSync: Boolean get() = !isPlainText
+    val isPlainText: Boolean get() = activeRenderer === scrollRenderer
+    val isWordSync: Boolean get() = activeRenderer !== scrollRenderer
     val isOverflow: Boolean get() = lineWidth > getSpaceGateVirtualWidth()
     val isPlaying: Boolean get() = activeRenderer.isPlaying
     val isFinished: Boolean get() = activeRenderer.isFinished
@@ -123,6 +123,7 @@ open class SpaceGateLyricLineView(context: Context, attrs: AttributeSet? = null)
             field = value
             syncRenderer.centerIfPossible = value
             scrollRenderer.centerIfPossible = value
+            lineTimelineRenderer.centerIfPossible = value
             countdownRenderer.centerIfPossible = value
         }
 
@@ -137,6 +138,7 @@ open class SpaceGateLyricLineView(context: Context, attrs: AttributeSet? = null)
             field = value
             syncRenderer.rightIfPossible = value
             scrollRenderer.rightIfPossible = value
+            lineTimelineRenderer.rightIfPossible = value
             countdownRenderer.rightIfPossible = value
         }
 
@@ -172,6 +174,7 @@ open class SpaceGateLyricLineView(context: Context, attrs: AttributeSet? = null)
     internal val lineState = LineState()
     internal val scrollRenderer = SpaceGateScrollTextRenderer()
     internal val syncRenderer = SpaceGateWordSyncRenderer(this)
+    internal val lineTimelineRenderer = LineTimelineRenderer()
     private val countdownRenderer = CountdownDotsRenderer()
     private val animator = Animator()
 
@@ -211,10 +214,13 @@ open class SpaceGateLyricLineView(context: Context, attrs: AttributeSet? = null)
         countdownRenderer.setTextSize(size)
         refreshSizes()
         syncRenderer.updateLayout(_model, lineState, getSpaceGateVirtualWidth(), measuredHeight)
+        lineTimelineRenderer.updateLayout(
+            _model, lineState, getSpaceGateVirtualWidth(), measuredHeight
+        )
         invalidate()
     }
 
-    fun setLyric(rawLine: LyricLine?) {
+    fun setLyric(rawLine: LyricLine?, useLineTimeline: Boolean = false) {
         val line = if (rawLine?.text.isNullOrBlank() && !rawLine.isCountdownLine()) null else rawLine
 
         reset()
@@ -224,6 +230,7 @@ open class SpaceGateLyricLineView(context: Context, attrs: AttributeSet? = null)
         _model = line?.normalize()?.createModel() ?: emptyLyricModel()
         activeRenderer = when {
             _model.isCountdownLine() -> countdownRenderer
+            useLineTimeline && _model.isPlainText -> lineTimelineRenderer
             _model.isPlainText -> scrollRenderer
             else -> syncRenderer
         }
@@ -238,13 +245,30 @@ open class SpaceGateLyricLineView(context: Context, attrs: AttributeSet? = null)
      * This is intentionally separate from [setLyric], which is expected to
      * start a new line from its initial delay.
      */
-    fun setLyricPreservingScroll(rawLine: LyricLine?) {
+    fun setLyricPreservingScroll(rawLine: LyricLine?, useLineTimeline: Boolean = false) {
         val line = if (rawLine?.text.isNullOrBlank() && !rawLine.isCountdownLine()) null else rawLine
         val previousModel = _model
         val model = line?.normalize()?.createModel() ?: emptyLyricModel()
+        val targetLineTimeline = useLineTimeline && model.isPlainText && !model.isCountdownLine()
+        val currentLineTimeline = activeRenderer === lineTimelineRenderer
 
-        if (activeRenderer !== scrollRenderer || !model.isPlainText) {
-            setLyric(rawLine)
+        if (targetLineTimeline != currentLineTimeline ||
+            (!targetLineTimeline && (!model.isPlainText || activeRenderer !== scrollRenderer))
+        ) {
+            setLyric(rawLine, useLineTimeline)
+            return
+        }
+
+        if (targetLineTimeline) {
+            _model = model
+            refreshSizes()
+            updateColorsIfReady()
+            lineTimelineRenderer.updateLayout(
+                _model, lineState, getSpaceGateVirtualWidth(), measuredHeight
+            )
+            requestLayout()
+            invalidate()
+            siblingView?.invalidate()
             return
         }
 
@@ -337,7 +361,7 @@ open class SpaceGateLyricLineView(context: Context, attrs: AttributeSet? = null)
                 getSpaceGateVirtualWidth(),
                 measuredHeight
             )
-            if (activeRenderer === countdownRenderer) {
+            if (activeRenderer === countdownRenderer || activeRenderer === lineTimelineRenderer) {
                 invalidate()
                 siblingView?.invalidate()
             }
@@ -356,6 +380,7 @@ open class SpaceGateLyricLineView(context: Context, attrs: AttributeSet? = null)
         if (!isRightSide && spaceGateEnabled) return // Slave view delegates animation to Master
         if (isWordSync) {
             if (activeRenderer === syncRenderer && syncRenderer.isScrollOnly && !isOverflow) return
+            if (activeRenderer === lineTimelineRenderer && !isOverflow) return
             if (playbackActive) {
                 activeRenderer.update(
                     _model,
@@ -365,7 +390,7 @@ open class SpaceGateLyricLineView(context: Context, attrs: AttributeSet? = null)
                     measuredHeight,
                     playbackSpeed
                 )
-                if (activeRenderer === countdownRenderer) {
+                if (activeRenderer === countdownRenderer || activeRenderer === lineTimelineRenderer) {
                     invalidate()
                     siblingView?.invalidate()
                 }
@@ -402,6 +427,11 @@ open class SpaceGateLyricLineView(context: Context, attrs: AttributeSet? = null)
                 if (isShown) invalidate()
                 siblingView?.takeIf { it.isShown }?.invalidate()
             }
+            (activeRenderer as? LineTimelineRenderer)?.let { renderer ->
+                renderer.freeze(_model, lineState, getSpaceGateVirtualWidth())
+                if (isShown) invalidate()
+                siblingView?.takeIf { it.isShown }?.invalidate()
+            }
             (activeRenderer as? CountdownDotsRenderer)?.let { renderer ->
                 renderer.freeze()
                 if (isShown) invalidate()
@@ -432,8 +462,14 @@ open class SpaceGateLyricLineView(context: Context, attrs: AttributeSet? = null)
     }
 
     fun relayout() {
-        if (activeRenderer === syncRenderer) {
-            syncRenderer.updateLayout(
+        when (activeRenderer) {
+            syncRenderer -> syncRenderer.updateLayout(
+                _model,
+                lineState,
+                getSpaceGateVirtualWidth(),
+                measuredHeight
+            )
+            lineTimelineRenderer -> lineTimelineRenderer.updateLayout(
                 _model,
                 lineState,
                 getSpaceGateVirtualWidth(),
@@ -459,6 +495,7 @@ open class SpaceGateLyricLineView(context: Context, attrs: AttributeSet? = null)
         lineState.reset()
         scrollRenderer.reset(lineState)
         syncRenderer.reset(lineState)
+        lineTimelineRenderer.reset(lineState)
         countdownRenderer.reset(lineState)
         _model = emptyLyricModel()
         activeRenderer = scrollRenderer
@@ -510,6 +547,8 @@ open class SpaceGateLyricLineView(context: Context, attrs: AttributeSet? = null)
             if (myRenderer is SpaceGateWordSyncRenderer && masterRenderer is SpaceGateWordSyncRenderer) {
                 myRenderer.syncFrom(masterRenderer)
             } else if (myRenderer is SpaceGateScrollTextRenderer && masterRenderer is SpaceGateScrollTextRenderer) {
+                myRenderer.syncFrom(masterRenderer)
+            } else if (myRenderer is LineTimelineRenderer && masterRenderer is LineTimelineRenderer) {
                 myRenderer.syncFrom(masterRenderer)
             } else if (myRenderer is CountdownDotsRenderer && masterRenderer is CountdownDotsRenderer) {
                 myRenderer.syncFrom(masterRenderer)

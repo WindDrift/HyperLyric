@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.util.TypedValue
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.common.LyricTextColorStylePolicy
+import com.lidesheng.hyperlyric.common.SyllablePreferencePolicy
 import com.lidesheng.hyperlyric.lyric.view.Highlight
 import com.lidesheng.hyperlyric.lyric.view.LyricViewStyle
 import com.lidesheng.hyperlyric.lyric.view.Marquee
@@ -31,6 +32,7 @@ object LyricStyleHelper {
         artworkRequest: CoverColorHelper.ArtworkRequest? = null,
         textColorOverride: Int? = null
     ): LyricViewStyle {
+        val syllableSettings = SyllablePreferencePolicy.read(prefs)
         val fontSize =
             prefs.getInt(RootConstants.KEY_HOOK_TEXT_SIZE, RootConstants.DEFAULT_HOOK_TEXT_SIZE)
         val font = FontHelper.loadFont(prefs)
@@ -186,14 +188,8 @@ object LyricStyleHelper {
                 size = primarySizePx,
                 typeface = font.typeface,
                 fontVariationSettings = font.variationSettings,
-                relativeProgress = prefs.getBoolean(
-                    RootConstants.KEY_HOOK_SYLLABLE_RELATIVE,
-                    RootConstants.DEFAULT_HOOK_SYLLABLE_RELATIVE
-                ),
-                relativeHighlight = prefs.getBoolean(
-                    RootConstants.KEY_HOOK_SYLLABLE_HIGHLIGHT,
-                    RootConstants.DEFAULT_HOOK_SYLLABLE_HIGHLIGHT
-                ),
+                relativeProgress = syllableSettings.relativeProgress,
+                relativeHighlight = syllableSettings.relativeHighlight,
             ),
             secondary = TextLook(
                 color = if (showSecondary) primaryColors else intArrayOf(Color.TRANSPARENT),
@@ -216,6 +212,7 @@ object LyricStyleHelper {
                 RootConstants.KEY_HOOK_GRADIENT_PROGRESS,
                 RootConstants.DEFAULT_HOOK_GRADIENT_PROGRESS
             ),
+            lineDisplay = syllableSettings.lineDisplay,
             fadingEdge = prefs.getInt(
                 RootConstants.KEY_HOOK_FADING_EDGE_LENGTH,
                 RootConstants.DEFAULT_HOOK_FADING_EDGE_LENGTH

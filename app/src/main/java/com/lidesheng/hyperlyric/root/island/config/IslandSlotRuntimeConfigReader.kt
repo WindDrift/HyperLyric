@@ -5,6 +5,7 @@ import com.lidesheng.hyperlyric.common.LyricTextColorStylePolicy
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.common.SuperIslandContentStylePolicy
 import com.lidesheng.hyperlyric.common.SuperIslandWidthPolicy
+import com.lidesheng.hyperlyric.common.SyllablePreferencePolicy
 import com.lidesheng.hyperlyric.root.island.sizing.IslandSlotGeometryConfig
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 
@@ -16,6 +17,7 @@ import com.lidesheng.hyperlyric.root.utils.HookLogger
  */
 internal object IslandSlotRuntimeConfigReader {
     fun read(prefs: SharedPreferences): IslandSlotRuntimeConfig {
+        val syllableSettings = SyllablePreferencePolicy.read(prefs)
         val activeMode = prefs.getInt(
             RootConstants.KEY_HOOK_LYRIC_MODE,
             RootConstants.DEFAULT_HOOK_LYRIC_MODE
@@ -214,14 +216,9 @@ internal object IslandSlotRuntimeConfigReader {
                 RootConstants.KEY_HOOK_MARQUEE_METADATA_INFINITE,
                 RootConstants.DEFAULT_HOOK_MARQUEE_METADATA_INFINITE
             ),
-            syllableRelative = prefs.getBoolean(
-                RootConstants.KEY_HOOK_SYLLABLE_RELATIVE,
-                RootConstants.DEFAULT_HOOK_SYLLABLE_RELATIVE
-            ),
-            syllableHighlight = prefs.getBoolean(
-                RootConstants.KEY_HOOK_SYLLABLE_HIGHLIGHT,
-                RootConstants.DEFAULT_HOOK_SYLLABLE_HIGHLIGHT
-            ),
+            syllableRelative = syllableSettings.relativeProgress,
+            syllableHighlight = syllableSettings.relativeHighlight,
+            syllableLineDisplay = syllableSettings.lineDisplay,
             disableTranslation = prefs.getBoolean(
                 RootConstants.KEY_HOOK_DISABLE_TRANSLATION,
                 RootConstants.DEFAULT_HOOK_DISABLE_TRANSLATION
@@ -288,6 +285,7 @@ internal object IslandSlotRuntimeConfigReader {
             "marquee=${config.lyricMarqueeEnabled}:${config.lyricMarqueeSpeed}",
             "metadataMarquee=${config.metadataMarqueeEnabled}:${config.metadataMarqueeSpeed}",
             "translation=${config.disableTranslation}/${config.translationOnly}/${config.swapTranslation}",
+            "syllable=${config.syllableLineDisplay}/${config.syllableRelative}/${config.syllableHighlight}",
             "next=${config.nextLyricLine}/${config.autoSwitchTranslation}",
             "color=${config.textColorStyle}",
             "font=${config.customFontPath.isNotBlank()}/${config.narrowLatinFont}",

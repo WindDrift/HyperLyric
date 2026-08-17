@@ -39,6 +39,7 @@ class RichLyricLineView(
         displayTranslation, displayRoma,
         enableRelativeProgress, enableRelativeProgressHighlight
     )
+    private var displayLineByLine = false
 
     private var animationTransition = false
     private var pendingLine: IRichLyricLine? = null
@@ -209,9 +210,11 @@ class RichLyricLineView(
     }
 
     fun setStyle(style: LyricViewStyle) {
+        displayLineByLine = style.lineDisplay
         assembler.updateFlags(
             displayTranslation, displayRoma,
-            style.primary.relativeProgress, style.primary.relativeHighlight
+            style.primary.relativeProgress, style.primary.relativeHighlight,
+            displayLineByLine
         )
         enableRelativeProgress = style.primary.relativeProgress
         enableRelativeProgressHighlight = style.primary.relativeHighlight
@@ -309,6 +312,11 @@ class RichLyricLineView(
             dispatchMainLineApplied()
             return
         }
+        assembler.updateFlags(
+            displayTranslation, displayRoma,
+            enableRelativeProgress, enableRelativeProgressHighlight,
+            displayLineByLine
+        )
         val mainResult = assembler.buildMain(line)
         val secResult = assembler.buildSecondary(line)
 
@@ -364,9 +372,9 @@ class RichLyricLineView(
 
         main.isSustainProgressEnabled = mainResult.sustainAwareProgress
         if (preserveMarquee) {
-            main.setLyricPreservingScroll(mainResult.line)
+            main.setLyricPreservingScroll(mainResult.line, mainResult.isLineTimeline)
         } else {
-            main.setLyric(mainResult.line)
+            main.setLyric(mainResult.line, mainResult.isLineTimeline)
         }
         main.isScrollOnly = mainResult.isScrollOnly
         currentMainText = mainResult.line.text
@@ -377,9 +385,9 @@ class RichLyricLineView(
         secondary.isStaticPreview = secResult.isNextLinePreview
         secondary.isSustainProgressEnabled = secResult.sustainAwareProgress
         if (preserveMarquee) {
-            secondary.setLyricPreservingScroll(secResult.line)
+            secondary.setLyricPreservingScroll(secResult.line, secResult.isLineTimeline)
         } else {
-            secondary.setLyric(secResult.line)
+            secondary.setLyric(secResult.line, secResult.isLineTimeline)
         }
         secondary.isScrollOnly = if (secResult.isNextLinePreview) false else secResult.isScrollOnly
 

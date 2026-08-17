@@ -105,6 +105,7 @@ class HookEntry : XposedModule() {
             RootConstants.KEY_HOOK_MARQUEE_METADATA_INFINITE,
             RootConstants.KEY_HOOK_SYLLABLE_RELATIVE,
             RootConstants.KEY_HOOK_SYLLABLE_HIGHLIGHT,
+            RootConstants.KEY_HOOK_SYLLABLE_LINE_DISPLAY,
             RootConstants.KEY_HOOK_DISABLE_TRANSLATION,
             RootConstants.KEY_HOOK_TRANSLATION_ONLY,
             RootConstants.KEY_HOOK_SWAP_TRANSLATION,

@@ -340,7 +340,9 @@
   <string name="title_stop_at_end">Stop at End</string>
   <string name="title_syllable_relative">Relative Progress Lyrics</string>
   <string name="summary_syllable_relative">When lyrics lack word-level data, display the entire line as a word</string>
-  <string name="title_syllable_highlight">Show Highlight for Relative Progress Lyrics</string>
+  <string name="title_syllable_highlight">Simulate Word-by-Word Lyrics</string>
+  <string name="title_syllable_line_display">Simulate Line-by-Line Lyrics</string>
+  <string name="summary_syllable_line_display">Downgrade lyrics with word-level timing to a line timeline to reduce power use</string>
   <string name="format_percent">%1$d%%</string>
   <string name="format_ms">%1$dms</string>
   <string name="title_double_line_content">Two-Line Content</string>

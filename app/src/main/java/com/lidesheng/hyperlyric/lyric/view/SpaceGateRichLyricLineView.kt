@@ -39,6 +39,7 @@ class SpaceGateRichLyricLineView(
         displayTranslation, displayRoma,
         enableRelativeProgress, enableRelativeProgressHighlight
     )
+    private var displayLineByLine = false
 
     private var animationTransition = false
     private var pendingLine: IRichLyricLine? = null
@@ -221,9 +222,11 @@ class SpaceGateRichLyricLineView(
         style: LyricViewStyle,
         isLeftSplitSide: Boolean = false
     ) {
+        displayLineByLine = style.lineDisplay
         assembler.updateFlags(
             displayTranslation, displayRoma,
-            style.primary.relativeProgress, style.primary.relativeHighlight
+            style.primary.relativeProgress, style.primary.relativeHighlight,
+            displayLineByLine
         )
         enableRelativeProgress = style.primary.relativeProgress
         enableRelativeProgressHighlight = style.primary.relativeHighlight
@@ -330,7 +333,11 @@ class SpaceGateRichLyricLineView(
             return
         }
 
-        assembler.updateFlags(displayTranslation, displayRoma, enableRelativeProgress, enableRelativeProgressHighlight)
+        assembler.updateFlags(
+            displayTranslation, displayRoma,
+            enableRelativeProgress, enableRelativeProgressHighlight,
+            displayLineByLine
+        )
         val mainResult = assembler.buildMain(line)
         val secResult = assembler.buildSecondary(line)
 
@@ -386,9 +393,9 @@ class SpaceGateRichLyricLineView(
 
         main.isSustainProgressEnabled = mainResult.sustainAwareProgress
         if (preserveMarquee) {
-            main.setLyricPreservingScroll(mainResult.line)
+            main.setLyricPreservingScroll(mainResult.line, mainResult.isLineTimeline)
         } else {
-            main.setLyric(mainResult.line)
+            main.setLyric(mainResult.line, mainResult.isLineTimeline)
         }
         main.isScrollOnly = mainResult.isScrollOnly
         currentMainText = mainResult.line.text
@@ -399,9 +406,9 @@ class SpaceGateRichLyricLineView(
         secondary.isStaticPreview = secResult.isNextLinePreview
         secondary.isSustainProgressEnabled = secResult.sustainAwareProgress
         if (preserveMarquee) {
-            secondary.setLyricPreservingScroll(secResult.line)
+            secondary.setLyricPreservingScroll(secResult.line, secResult.isLineTimeline)
         } else {
-            secondary.setLyric(secResult.line)
+            secondary.setLyric(secResult.line, secResult.isLineTimeline)
         }
         secondary.isScrollOnly = if (secResult.isNextLinePreview) false else secResult.isScrollOnly
 

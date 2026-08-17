@@ -19,6 +19,8 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 fun LazyListScope.verbatimLyricSections(
     gradientStyle: Boolean,
     onGradientStyleChange: (Boolean) -> Unit,
+    lineDisplay: Boolean,
+    onLineDisplayChange: (Boolean) -> Unit,
     syllableRelative: Boolean,
     onSyllableRelativeChange: (Boolean) -> Unit,
     syllableHighlight: Boolean,
@@ -50,6 +52,12 @@ fun LazyListScope.verbatimLyricSections(
                         title = stringResource(id = R.string.title_gradient_progress),
                         checked = gradientStyle,
                         onCheckedChange = onGradientStyleChange
+                    )
+                    SwitchPreference(
+                        title = stringResource(id = R.string.title_syllable_line_display),
+                        summary = stringResource(id = R.string.summary_syllable_line_display),
+                        checked = lineDisplay,
+                        onCheckedChange = onLineDisplayChange
                     )
                     SwitchPreference(
                         title = stringResource(id = R.string.title_syllable_relative),
