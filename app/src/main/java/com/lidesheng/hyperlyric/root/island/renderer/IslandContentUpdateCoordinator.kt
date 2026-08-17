@@ -462,11 +462,6 @@ internal object IslandContentUpdateCoordinator {
             }
             return
         }
-        CoverColorHelper.ensureArtworkColors(
-            packageName = packageName,
-            title = mediaInfo.title,
-            artist = mediaInfo.artist,
-            bitmap = albumArt
-        )
+        CoverColorHelper.ensureArtworkColors(mediaInfo)
     }
 }

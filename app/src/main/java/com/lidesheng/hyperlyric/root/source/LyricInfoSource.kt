@@ -10,7 +10,6 @@ import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
 import com.lidesheng.hyperlyric.lyric.model.LyricMediaMetadata
 import com.lidesheng.hyperlyric.lyric.source.LyricSink
 import com.lidesheng.hyperlyric.lyric.source.LyricSource
-import com.lidesheng.hyperlyric.root.LyriconDataBridge
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,7 +38,6 @@ class LyricInfoSource(private val context: Context) : LyricSource {
     private var hasLyrics: Boolean = false
     private var activePkg: String? = null
     private var activeController: MediaController? = null
-    private var lastMetadataKey: String? = null
 
     private var positionJob: Job? = null
     private val positionJob_supervisor = SupervisorJob()
@@ -86,7 +84,6 @@ class LyricInfoSource(private val context: Context) : LyricSource {
         lastLyricHash = 0
         activePkg = null
         activeController = null
-        lastMetadataKey = null
         stopPositionPolling()
     }
 
@@ -163,7 +160,8 @@ class LyricInfoSource(private val context: Context) : LyricSource {
         val currentHash = lyricInfoRaw?.hashCode() ?: 0
 
         if (!lyricInfoRaw.isNullOrBlank() && currentHash != 0) {
-            if (currentHash == lastLyricHash && pkg == activePkg) {
+            val sameSession = controller.sessionToken == activeController?.sessionToken
+            if (currentHash == lastLyricHash && pkg == activePkg && sameSession) {
                 if (!isCurrent) {
                     activeController = controller
                     handlePlaybackState(controller, playbackState)
@@ -185,22 +183,15 @@ class LyricInfoSource(private val context: Context) : LyricSource {
                     songId = payload.songId,
                     title = payload.title,
                     artist = payload.artist,
-                    album = payload.album
+                    album = payload.album,
+                    sessionToken = controller.sessionToken,
+                    mediaId = metadata.getString(MediaMetadata.METADATA_KEY_MEDIA_ID)
                 )
-                val metadataKey = listOf(
-                    pkg,
-                    payload.songId,
-                    payload.title,
-                    payload.artist,
-                    payload.album
-                ).joinToString("\u001F")
                 lastLyricHash = currentHash
                 hasLyrics = true
                 activePkg = pkg
                 activeController = controller
-                LyriconDataBridge.updateLyricPackage(pkg)
                 sink?.onSongChanged(song)
-                lastMetadataKey = metadataKey
                 sink?.onMetadata(mediaMetadata)
                 handlePlaybackState(controller, playbackState)
                 HookLogger.d(
@@ -228,7 +219,6 @@ class LyricInfoSource(private val context: Context) : LyricSource {
         ) {
             // A playing track without LyricInfo must not keep the previous track's injected view.
             sink?.onStop()
-            LyriconDataBridge.clearState()
             clearLyrics()
             HookLogger.d(TAG, "歌词已清除: package=$pkg, reason=missing_lyric_info")
         }

@@ -19,6 +19,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicLong
 
 class SuperLyricSource : LyricSource {
 
@@ -33,7 +34,10 @@ class SuperLyricSource : LyricSource {
 
     @Volatile
     private var lastKnownPosition: Long = -1L
+    @Volatile
+    private var activePublisher: String? = null
     private var positionPublisher: String? = null
+    private val streamGeneration = AtomicLong(0L)
     @Volatile
     private var playbackStarted = false
     private var lastMetadataKey: String? = null
@@ -58,6 +62,8 @@ class SuperLyricSource : LyricSource {
 
     override fun start(sink: LyricSink) {
         this.sink = sink
+        stopPositionPolling()
+        activePublisher = null
         playbackStarted = false
 
         // 先检查 SuperLyric 系统服务是否可用
@@ -81,8 +87,16 @@ class SuperLyricSource : LyricSource {
             }
 
             override fun onStop(publisher: String, data: SuperLyricData) {
+                if (activePublisher != publisher) {
+                    HookLogger.d(
+                        TAG,
+                        "忽略过期停止事件: publisher=$publisher, active=${activePublisher ?: "<none>"}"
+                    )
+                    return
+                }
                 HookLogger.d(TAG, "收到停止事件, publisher=$publisher")
                 stopPositionPolling()
+                activePublisher = null
                 playbackStarted = false
                 @Suppress("UNNECESSARY_SAFE_CALL")
                 sink?.onPlaybackStateChanged(false)
@@ -113,6 +127,7 @@ class SuperLyricSource : LyricSource {
             }
         }
         receiver = null
+        activePublisher = null
         playbackStarted = false
         sink?.onStop()
         sink = null
@@ -125,6 +140,18 @@ class SuperLyricSource : LyricSource {
         // 无实际数据（如拖动进度条时的 BUFFERING 状态），忽略
         val hasContent = data.hasLyric() || data.hasTitle() || data.hasArtist() || data.hasAlbum()
         if (!hasContent) return
+
+        if (activePublisher != publisher) {
+            val previousPublisher = activePublisher
+            activePublisher = publisher
+            stopPositionPolling()
+            playbackStarted = false
+            if (previousPublisher != null) {
+                // SuperLyric does not expose a stable track id. A publisher change is the
+                // source-level boundary that can safely discard the previous stream.
+                currentSink.onStop()
+            }
+        }
 
         if (data.hasTitle()) lastMetadataTitle = data.title
         if (data.hasArtist()) lastMetadataArtist = data.artist
@@ -270,10 +297,14 @@ class SuperLyricSource : LyricSource {
         if (positionPublisher == publisher && positionJob?.isActive == true) return
         positionJob?.cancel()
         positionPublisher = publisher
+        val generation = streamGeneration.incrementAndGet()
         val context = app ?: return
         positionJob = positionScope.launch {
-            while (isActive) {
+            while (isActive && activePublisher == publisher &&
+                streamGeneration.get() == generation
+            ) {
                 val progress = MediaMetadataHelper.getPlaybackProgress(context, publisher)
+                if (activePublisher != publisher || streamGeneration.get() != generation) break
                 if (progress.position >= 0) {
                     lastKnownPosition = progress.position
                     sink?.onPositionChanged(progress.position, progress.playbackSpeed)
@@ -284,6 +315,7 @@ class SuperLyricSource : LyricSource {
     }
 
     private fun stopPositionPolling() {
+        streamGeneration.incrementAndGet()
         positionJob?.cancel()
         positionJob = null
         positionPublisher = null

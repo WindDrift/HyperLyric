@@ -3,6 +3,7 @@ package com.lidesheng.hyperlyric.root.media
 import android.content.Context
 import com.lidesheng.hyperlyric.common.HyperLogger
 import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
+import com.lidesheng.hyperlyric.lyric.model.LyricMediaMetadata
 import com.lidesheng.hyperlyric.root.LyriconDataBridge
 
 /**
@@ -16,19 +17,30 @@ internal object CurrentMediaInfoResolver {
     fun getMediaInfo(
         context: Context,
         packageName: String,
-        logger: HyperLogger? = null
+        logger: HyperLogger? = null,
+        sourceMetadata: LyricMediaMetadata? = null
     ): MediaMetadataHelper.MediaInfo {
-        val sessionInfo = MediaMetadataHelper.getMediaInfo(context, packageName, logger)
-        val sourceInfo = LyriconDataBridge.currentLyricMediaMetadata
+        val normalizedPackageName = packageName.trim()
+        val sourceInfo = (sourceMetadata ?: LyriconDataBridge.currentLyricMediaMetadata)
             ?.normalized()
-            ?.takeIf { it.packageName == packageName }
+            ?.takeIf {
+                it.packageName.isNullOrEmpty() || it.packageName == normalizedPackageName
+            }
+        val sessionInfo = MediaMetadataHelper.getMediaInfo(
+            context = context,
+            packageName = normalizedPackageName,
+            logger = logger,
+            preferredSessionToken = sourceInfo?.sessionToken
+        )
 
         if (sourceInfo == null) return normalize(sessionInfo)
 
         return sessionInfo.copy(
             title = sourceInfo.title ?: normalizeText(sessionInfo.title),
             artist = sourceInfo.artist ?: normalizeText(sessionInfo.artist),
-            album = sourceInfo.album ?: normalizeText(sessionInfo.album)
+            album = sourceInfo.album ?: normalizeText(sessionInfo.album),
+            identity = sourceInfo.toIdentity(normalizedPackageName)
+                .fillMissingFrom(sessionInfo.identity)
         )
     }
 
@@ -36,7 +48,8 @@ internal object CurrentMediaInfoResolver {
         info.copy(
             title = normalizeText(info.title),
             artist = normalizeText(info.artist),
-            album = normalizeText(info.album)
+            album = normalizeText(info.album),
+            identity = info.identity.normalized()
         )
 
     private fun normalizeText(value: String): String = value

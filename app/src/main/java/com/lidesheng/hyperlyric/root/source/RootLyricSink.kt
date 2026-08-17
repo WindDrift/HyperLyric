@@ -1,10 +1,13 @@
 package com.lidesheng.hyperlyric.root.source
 
+import android.content.Context
 import android.content.SharedPreferences
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import com.lidesheng.hyperlyric.common.RootConstants
+import com.lidesheng.hyperlyric.common.media.MediaIdentity
+import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
 import com.lidesheng.hyperlyric.lyric.model.LyricMediaMetadata
 import com.lidesheng.hyperlyric.lyric.model.Song
 import com.lidesheng.hyperlyric.lyric.model.interfaces.IRichLyricLine
@@ -14,12 +17,14 @@ import com.lidesheng.hyperlyric.root.aitrans.AiTranslationGateway
 import com.lidesheng.hyperlyric.root.island.content.IslandSlotContentFacade
 import com.lidesheng.hyperlyric.root.island.effects.color.IslandMusicWaveColorHooker
 import com.lidesheng.hyperlyric.root.island.renderer.IslandRenderer
+import com.lidesheng.hyperlyric.root.media.CurrentMediaInfoResolver
 import com.lidesheng.hyperlyric.root.utils.CoverColorHelper
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import kotlin.math.abs
 
 class RootLyricSink(
     private val renderer: IslandRenderer,
+    private val context: Context,
     private val prefs: SharedPreferences? = null
 ) : LyricSink {
 
@@ -34,9 +39,7 @@ class RootLyricSink(
     private var lastDispatchedPosition = Long.MIN_VALUE
     private var lastDispatchedPlaybackSpeed = Float.NaN
     private var currentPlaybackSpeed = 1f
-    private var lastMetadataTitle = ""
-    private var lastMetadataArtist = ""
-    private var lastMetadataAlbum = ""
+    private var activeMediaIdentity: MediaIdentity? = null
     private val positionDispatchRunnable = Runnable {
         positionDispatchScheduled = false
         val latest = pendingPosition ?: return@Runnable
@@ -56,7 +59,7 @@ class RootLyricSink(
 
     private data class PositionSample(val position: Long, val playbackSpeed: Float)
 
-    override fun onSongChanged(song: Any?) {
+    override fun onSongChanged(song: Song?) {
         cancelPendingPositionDispatch()
         lastReceivedPosition = Long.MIN_VALUE
         lastReceivedPositionTimeMs = 0L
@@ -65,33 +68,18 @@ class RootLyricSink(
         lastDispatchedPlaybackSpeed = Float.NaN
         currentPlaybackSpeed = 1f
         AiTranslationGateway.cancelActiveRequests()
-        val localSong = song as? Song
+        activeMediaIdentity = null
         LyriconDataBridge.updateSong(
-            song = localSong,
+            song = song,
             placeholderFormat = prefs?.getInt(
                 RootConstants.KEY_HOOK_PLACEHOLDER_FORMAT,
                 RootConstants.DEFAULT_HOOK_PLACEHOLDER_FORMAT
             ) ?: RootConstants.DEFAULT_HOOK_PLACEHOLDER_FORMAT
         )
-        if (localSong != null) {
-            lastMetadataTitle = localSong.name.orEmpty()
-            lastMetadataArtist = localSong.artist.orEmpty()
-            lastMetadataAlbum = ""
-            updateColorSession(
-                title = localSong.name.orEmpty(),
-                artist = localSong.artist.orEmpty(),
-                album = lastMetadataAlbum,
-                songId = localSong.id,
-                reason = "song_changed"
-            )
-        } else {
-            lastMetadataTitle = ""
-            lastMetadataArtist = ""
-            lastMetadataAlbum = ""
+        if (song == null) {
             endColorSession()
         }
-
-        if (localSong != null && prefs != null) {
+        if (song != null && prefs != null) {
             val aiEnabled = prefs.getBoolean(
                 RootConstants.KEY_HOOK_AI_TRANS_ENABLE,
                 RootConstants.DEFAULT_HOOK_AI_TRANS_ENABLE
@@ -101,17 +89,14 @@ class RootLyricSink(
                     RootConstants.KEY_HOOK_AI_TRANS_FORCE_OVERRIDE,
                     RootConstants.DEFAULT_HOOK_AI_TRANS_FORCE_OVERRIDE
                 )
-                AiTranslationGateway.translateSong(localSong, prefs, forceOverride)
+                AiTranslationGateway.translateSong(song, prefs, forceOverride)
             }
         }
     }
 
-    override fun onLyricLine(line: Any?) {
-        if (line is IRichLyricLine) {
-
-            LyriconDataBridge.updateLyricLine(line)
-            renderer.updateLyricLine()
-        }
+    override fun onLyricLine(line: IRichLyricLine) {
+        LyriconDataBridge.updateLyricLine(line)
+        renderer.updateLyricLine()
     }
 
     override fun onPlainText(text: String?) {
@@ -130,9 +115,7 @@ class RootLyricSink(
         lastDispatchedPosition = Long.MIN_VALUE
         lastDispatchedPlaybackSpeed = Float.NaN
         currentPlaybackSpeed = 1f
-        lastMetadataTitle = ""
-        lastMetadataArtist = ""
-        lastMetadataAlbum = ""
+        activeMediaIdentity = null
         endColorSession()
         renderer.clearAllViews()
         LyriconDataBridge.clearState()
@@ -141,25 +124,31 @@ class RootLyricSink(
     override fun onMetadata(metadata: LyricMediaMetadata?) {
         val normalized = metadata?.normalized()
         LyriconDataBridge.updateMediaMetadata(normalized)
-        lastMetadataTitle = normalized?.title.orEmpty()
-        lastMetadataArtist = normalized?.artist.orEmpty()
-        lastMetadataAlbum = normalized?.album.orEmpty()
         normalized?.packageName?.let(LyriconDataBridge::updateLyricPackage)
-        val song = LyriconDataBridge.currentSong
-        LyriconDataBridge.currentSongName = normalized?.title ?: song?.name
         if (normalized == null) {
+            endColorSession()
             renderer.updateMetadata()
             return
         }
-        updateColorSession(
-            title = song?.name?.takeIf { it.isNotBlank() }
-                ?: lastMetadataTitle,
-            artist = song?.artist?.takeIf { it.isNotBlank() }
-                ?: lastMetadataArtist,
-            album = lastMetadataAlbum,
-            songId = song?.id,
-            reason = "metadata_changed"
+        val packageName = normalized.packageName
+            ?: LyriconDataBridge.currentLyricPackageName
+            ?: ""
+        val mediaInfo = CurrentMediaInfoResolver.getMediaInfo(
+            context = context,
+            packageName = packageName,
+            logger = HookLogger,
+            sourceMetadata = normalized
         )
+        val mediaChanged = activeMediaIdentity?.isCompatibleWith(mediaInfo.identity) == false
+        if (mediaChanged && LyriconDataBridge.currentSong == null) {
+            LyriconDataBridge.resetLyricContentForMediaChange()
+            renderer.updateLyricLine()
+        }
+        activeMediaIdentity = mediaInfo.identity
+        LyriconDataBridge.currentSongName = mediaInfo.title
+            .takeIf { it.isNotBlank() }
+            ?: LyriconDataBridge.currentSong?.name
+        updateColorSession(mediaInfo, reason = "metadata_changed")
         renderer.updateMetadata()
     }
 
@@ -263,30 +252,21 @@ class RootLyricSink(
         }
     }
 
-    private fun updateColorSession(
-        title: String,
-        artist: String,
-        album: String,
-        songId: String?,
-        reason: String
-    ) {
-        val packageName = LyriconDataBridge.currentLyricPackageName.orEmpty()
+    private fun updateColorSession(mediaInfo: MediaMetadataHelper.MediaInfo, reason: String) {
+        val packageName = mediaInfo.identity.packageName
         val previousRevision = CoverColorHelper.currentSession()?.revision
         val current = CoverColorHelper.activateSession(
-            packageName = packageName,
-            title = title,
-            artist = artist,
-            album = album,
-            songId = songId
+            mediaInfo = mediaInfo
         ) ?: run {
+            endColorSession()
             HookLogger.dState(
                 stateId = "RootLyricSink.colorSession.invalid",
                 tag = TAG,
-                state = "$packageName|$title|$artist|$songId"
+                state = "$packageName|${mediaInfo.title}|${mediaInfo.artist}|${mediaInfo.identity}"
             ) {
                 "颜色会话未更新: reason=$reason, package=${packageName.ifEmpty { "<empty>" }}, " +
-                        "title=\"${debugText(title)}\", artist=\"${debugText(artist)}\", " +
-                        "songIdPresent=${!songId.isNullOrBlank()}"
+                        "title=\"${debugText(mediaInfo.title)}\", " +
+                        "artist=\"${debugText(mediaInfo.artist)}\", identity=${mediaInfo.identity}"
             }
             return
         }
@@ -298,9 +278,10 @@ class RootLyricSink(
             "颜色会话已同步: reason=$reason, revision=${current.revision}, " +
                     "revisionChanged=${previousRevision != current.revision}, " +
                     "package=${packageName.ifEmpty { "<empty>" }}, " +
-                    "title=\"${debugText(title)}\", artist=\"${debugText(artist)}\", " +
-                    "album=\"${debugText(album)}\", songIdPresent=${!songId.isNullOrBlank()}, " +
-                    "mediaKeyHash=${current.mediaKey.hashCode()}"
+                    "title=\"${debugText(mediaInfo.title)}\", " +
+                    "artist=\"${debugText(mediaInfo.artist)}\", " +
+                    "album=\"${debugText(mediaInfo.album)}\", " +
+                    "identity=${mediaInfo.identity}, mediaKeyHash=${current.mediaKey.hashCode()}"
         }
         if (previousRevision != current.revision) {
             IslandSlotContentFacade.invalidate()

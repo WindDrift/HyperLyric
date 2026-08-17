@@ -1,5 +1,8 @@
 package com.lidesheng.hyperlyric.lyric.model
 
+import android.media.session.MediaSession
+import com.lidesheng.hyperlyric.common.media.MediaIdentity
+
 /**
  * A source-independent snapshot of the media information that accompanies lyrics.
  *
@@ -12,7 +15,11 @@ data class LyricMediaMetadata(
     val songId: String? = null,
     val title: String? = null,
     val artist: String? = null,
-    val album: String? = null
+    val album: String? = null,
+    /** Exact MediaSession identity when the source already owns a controller. */
+    val sessionToken: MediaSession.Token? = null,
+    /** Player-defined identity of the current media item, when available. */
+    val mediaId: String? = null
 ) {
 
     /** Normalize source-defined text without applying player-specific parsing heuristics. */
@@ -21,8 +28,17 @@ data class LyricMediaMetadata(
         songId = songId.normalizeMediaText(),
         title = title.normalizeMediaText(),
         artist = artist.normalizeMediaText(),
-        album = album.normalizeMediaText()
+        album = album.normalizeMediaText(),
+        mediaId = mediaId.normalizeMediaText()
     )
+
+    fun toIdentity(defaultPackageName: String = packageName.orEmpty()): MediaIdentity =
+        MediaIdentity(
+            packageName = packageName ?: defaultPackageName,
+            sessionToken = sessionToken,
+            songId = songId,
+            mediaId = mediaId
+        ).normalized()
 }
 
 private val mediaTextWhitespace = Regex("\\s+")

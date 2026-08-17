@@ -276,14 +276,9 @@ internal object IslandProgressGlowController {
                     "进度光效颜色回退: reason=no_matching_color_session, package=$packageName"
                 }
             }
-        val artworkRequest = mediaInfo?.albumArt?.let { bitmap ->
-            CoverColorHelper.ensureArtworkColors(
-                packageName = packageName,
-                title = mediaInfo.title,
-                artist = mediaInfo.artist,
-                bitmap = bitmap
-            )
-        }
+        val artworkRequest = mediaInfo
+            ?.takeIf { it.albumArt != null }
+            ?.let { CoverColorHelper.ensureArtworkColors(it) }
         val matchingArtworkRequest = artworkRequest?.takeIf {
             it.colorSession.revision == colorSession.revision
         }

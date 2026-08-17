@@ -6,14 +6,13 @@ import com.lidesheng.hyperlyric.lyric.model.Song
 import com.lidesheng.hyperlyric.lyric.model.LyricMediaMetadata
 import com.lidesheng.hyperlyric.lyric.model.extensions.TimingNavigator
 import com.lidesheng.hyperlyric.lyric.model.interfaces.IRichLyricLine
-import com.lidesheng.hyperlyric.lyric.source.StateResetter
 import com.lidesheng.hyperlyric.lyric.view.InterludeTracker
 import com.lidesheng.hyperlyric.lyric.view.SongPreprocessor
 import com.lidesheng.hyperlyric.lyric.view.TimedLine
 import com.lidesheng.hyperlyric.lyric.view.TitleSlot
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 
-object LyriconDataBridge : StateResetter {
+object LyriconDataBridge {
 
     private const val TAG = "LyriconDataBridge"
 
@@ -42,9 +41,6 @@ object LyriconDataBridge : StateResetter {
     var currentPosition: Long = 0L
 
     @Volatile
-    var activePackageName: String? = null
-
-    @Volatile
     var currentLyricPackageName: String? = null
 
     /** 是否处于纯文本模式（椒盐音乐等通过 onSendText 推送） */
@@ -65,7 +61,6 @@ object LyriconDataBridge : StateResetter {
     private var placeholderFormat = RootConstants.DEFAULT_HOOK_PLACEHOLDER_FORMAT
 
     fun updateLyricPackage(packageName: String?) {
-        activePackageName = packageName
         currentLyricPackageName = packageName
     }
 
@@ -98,6 +93,17 @@ object LyriconDataBridge : StateResetter {
 
     fun updateMediaMetadata(metadata: LyricMediaMetadata?) {
         currentLyricMediaMetadata = metadata?.normalized()
+    }
+
+    /** Clear only streaming lyric content after the resolved media identity changes. */
+    fun resetLyricContentForMediaChange() {
+        isTextMode = false
+        fullSongLyricsAvailable = null
+        currentLyric = null
+        currentLyricLine = null
+        currentNextLyricLine = null
+        currentPosition = 0L
+        versionCounter.incrementAndGet()
     }
 
     fun applyTranslation(translatedSong: Song) {
@@ -168,7 +174,7 @@ object LyriconDataBridge : StateResetter {
         currentLyric = line.text
     }
 
-    override fun clearState() {
+    fun clearState() {
         currentSong = null
         currentSongName = null
         currentLyricMediaMetadata = null
@@ -176,7 +182,6 @@ object LyriconDataBridge : StateResetter {
         currentLyricLine = null
         currentNextLyricLine = null
         currentPosition = 0L
-        activePackageName = null
         currentLyricPackageName = null
         isTextMode = false
         fullSongLyricsAvailable = null

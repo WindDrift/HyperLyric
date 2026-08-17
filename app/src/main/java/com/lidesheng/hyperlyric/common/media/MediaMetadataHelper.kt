@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.media.MediaMetadata
 import android.media.session.MediaController
+import android.media.session.MediaSession
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.os.Handler
@@ -31,13 +32,15 @@ object MediaMetadataHelper {
         activeControllers = controllers.orEmpty()
     }
 
+    /** A media snapshot assembled from one controller. */
     data class MediaInfo(
         val title: String = "",
         val artist: String = "",
         val album: String = "",
         val albumArt: Bitmap? = null,
         val artworkSource: String = "none",
-        val duration: Long = -1L
+        val duration: Long = -1L,
+        val identity: MediaIdentity = MediaIdentity()
     )
 
     data class PlaybackProgress(
@@ -57,11 +60,16 @@ object MediaMetadataHelper {
     /**
      * 获取指定包名的当前媒体信息
      */
-    fun getMediaInfo(context: Context, packageName: String, logger: HyperLogger? = null): MediaInfo {
+    fun getMediaInfo(
+        context: Context,
+        packageName: String,
+        logger: HyperLogger? = null,
+        preferredSessionToken: MediaSession.Token? = null
+    ): MediaInfo {
         if (packageName.isEmpty()) return MediaInfo()
 
         return try {
-            val controller = findController(context, packageName)
+            val controller = findController(context, packageName, preferredSessionToken)
             if (controller == null) {
                 debug(
                     logger,
@@ -70,7 +78,7 @@ object MediaMetadataHelper {
                 ) {
                     "媒体信息未读取: package=$packageName, reason=no_matching_controller"
                 }
-                return MediaInfo()
+                return MediaInfo(identity = MediaIdentity(packageName = packageName))
             }
             val metadata = controller.metadata
             if (metadata == null) {
@@ -81,9 +89,20 @@ object MediaMetadataHelper {
                 ) {
                     "媒体信息未读取: package=$packageName, reason=controller_metadata_null"
                 }
-                return MediaInfo()
+                return MediaInfo(
+                    identity = MediaIdentity(
+                        packageName = packageName,
+                        sessionToken = controller.sessionToken
+                    )
+                )
             }
-            val mediaInfo = metadata.toMediaInfo()
+            val mediaInfo = metadata.toMediaInfo().copy(
+                identity = MediaIdentity(
+                    packageName = packageName,
+                    sessionToken = controller.sessionToken,
+                    mediaId = metadata.getString(MediaMetadata.METADATA_KEY_MEDIA_ID)
+                )
+            )
             debug(
                 logger,
                 packageName,
@@ -99,7 +118,7 @@ object MediaMetadataHelper {
             mediaInfo
         } catch (e: Exception) {
             logger?.e("MediaMetadataHelper", "获取媒体信息失败 ($packageName)", e)
-            MediaInfo()
+            MediaInfo(identity = MediaIdentity(packageName = packageName))
         }
     }
 
@@ -118,7 +137,8 @@ object MediaMetadataHelper {
     fun getPlaybackProgress(context: Context, packageName: String): PlaybackProgress {
         if (packageName.isEmpty()) return PlaybackProgress()
         return try {
-            val controller = findController(context, packageName) ?: return PlaybackProgress()
+            val controller = findController(context, packageName)
+                ?: return PlaybackProgress()
             val state = controller.playbackState
             val duration = controller.metadata?.extractDuration() ?: -1L
             PlaybackProgress(
@@ -158,17 +178,27 @@ object MediaMetadataHelper {
         return (basePosition + elapsed * state.playbackSpeed).toLong().coerceAtLeast(0L)
     }
 
-    private fun findController(context: Context, packageName: String): MediaController? {
+    private fun findController(
+        context: Context,
+        packageName: String,
+        preferredSessionToken: MediaSession.Token? = null
+    ): MediaController? {
         ensureSessionSnapshot(context)
-        selectController(activeControllers, packageName)?.let { return it }
+        selectController(activeControllers, packageName, preferredSessionToken)?.let { return it }
         refreshSessionSnapshot()
-        return selectController(activeControllers, packageName)
+        return selectController(activeControllers, packageName, preferredSessionToken)
     }
 
     private fun selectController(
         controllers: List<MediaController>,
-        packageName: String
+        packageName: String,
+        preferredSessionToken: MediaSession.Token? = null
     ): MediaController? {
+        if (preferredSessionToken != null) {
+            return controllers.firstOrNull {
+                it.packageName == packageName && it.sessionToken == preferredSessionToken
+            }
+        }
         var latestController: MediaController? = null
         var latestUpdateTime = Long.MIN_VALUE
         controllers.forEach { controller ->

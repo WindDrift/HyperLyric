@@ -43,16 +43,11 @@ internal object IslandSlotStyleAssembler {
         val lyricPackage = LyriconDataBridge.currentLyricPackageName.orEmpty()
         val colorSession = CoverColorHelper.currentSession(lyricPackage)
         val albumBitmap = mediaInfo.albumArt
-        val artworkRequest = albumBitmap
-            ?.takeIf { config.extractCoverTextColor }
-            ?.let {
-                CoverColorHelper.ensureArtworkColors(
-                    packageName = lyricPackage,
-                    title = mediaInfo.title,
-                    artist = mediaInfo.artist,
-                    bitmap = it
-                )
-            }
+        val artworkRequest = if (config.extractCoverTextColor && albumBitmap != null) {
+            CoverColorHelper.ensureArtworkColors(mediaInfo)
+        } else {
+            null
+        }
         val statusBarTextColor = if (config.followStatusBarTextColor) {
             StatusBarTextColorHooker.currentTextColor()
         } else {

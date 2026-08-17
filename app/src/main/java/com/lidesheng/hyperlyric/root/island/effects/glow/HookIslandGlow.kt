@@ -165,14 +165,9 @@ object HookIslandGlow {
                 }
                 return@runCatching null
             }
-            val artworkRequest = mediaInfo.albumArt?.let {
-                CoverColorHelper.ensureArtworkColors(
-                    packageName = pkgName,
-                    title = mediaInfo.title,
-                    artist = mediaInfo.artist,
-                    bitmap = it
-                )
-            }
+            val artworkRequest = mediaInfo
+                .takeIf { it.albumArt != null }
+                ?.let { CoverColorHelper.ensureArtworkColors(it) }
             val useGradient = LyricTextColorStylePolicy.usesCoverGradient(
                 LyricTextColorStylePolicy.read(sharedPrefs)
             )

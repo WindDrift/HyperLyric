@@ -143,7 +143,6 @@ class LyriconSource : LyricSource {
             activeProviderDelayMs = providerInfo?.providerPackageName
                 ?.let(::readProviderDelay)
                 ?: RootConstants.DEFAULT_HOOK_LYRICON_PROVIDER_DELAY
-            LyriconDataBridge.updateLyricPackage(providerInfo?.playerPackageName)
         }
 
 

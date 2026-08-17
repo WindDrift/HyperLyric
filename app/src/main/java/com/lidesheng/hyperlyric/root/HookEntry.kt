@@ -307,7 +307,7 @@ class HookEntry : XposedModule() {
             runtimeApp = app
 
             val renderer = BaseIslandRenderer
-            val sink = RootLyricSink(renderer, prefs)
+            val sink = RootLyricSink(renderer, app, prefs)
 
             lyriconSource.initialize(app, prefs)
             superLyricSource.initialize(app)
@@ -322,7 +322,6 @@ class HookEntry : XposedModule() {
                 sink = sink,
                 prefKey = RootConstants.KEY_HOOK_LYRIC_SOURCE,
                 defaultSourceId = RootConstants.DEFAULT_HOOK_LYRIC_SOURCE,
-                stateResetter = LyriconDataBridge,
                 logger = HookLogger
             )
             activeMode = prefs.getInt(
