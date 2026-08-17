@@ -382,7 +382,6 @@ fun SuperIslandSettingsPage() {
                 TopAppBar(
                     color = barColor,
                     title = stringResource(id = R.string.title_super_island),
-                    subtitle = stringResource(id = R.string.subtitle_super_island),
                     scrollBehavior = topAppBarScrollBehavior,
                     navigationIcon = {
                         IconButton(onClick = { navigator.pop() }) {

@@ -17,7 +17,9 @@ import com.lidesheng.hyperlyric.root.island.effects.glow.IslandProgressGlowContr
 import com.lidesheng.hyperlyric.root.island.hooks.IslandModuleRestoreHooker
 import com.lidesheng.hyperlyric.root.island.hooks.RealIslandHooker
 import com.lidesheng.hyperlyric.root.island.hooks.SystemUIHookRegistry
+import com.lidesheng.hyperlyric.root.island.presentation.IslandNativeRefreshCoordinator
 import com.lidesheng.hyperlyric.root.island.renderer.BaseIslandRenderer
+import com.lidesheng.hyperlyric.root.island.renderer.IslandSettingsRefreshCoordinator
 import com.lidesheng.hyperlyric.root.mediacard.MediaCardConfigurationRefreshHooker
 import com.lidesheng.hyperlyric.root.mediacard.MediaCardElementBehaviorHooker
 import com.lidesheng.hyperlyric.root.mediacard.MediaCardRuntimeConfig
@@ -375,7 +377,7 @@ class HookEntry : XposedModule() {
                             }
                             Handler(Looper.getMainLooper()).post {
                                 activeMode = newMode
-                                BaseIslandRenderer.refreshActiveIsland()
+                                IslandSettingsRefreshCoordinator.request()
                                 HookLogger.i(TAG, "歌词模式切换完成: mode=$newMode")
                             }
                         }
@@ -410,15 +412,13 @@ class HookEntry : XposedModule() {
 
                         RootConstants.KEY_HOOK_ISLAND_ALBUM_COVER_STYLE -> {
                             Handler(Looper.getMainLooper()).post {
-                                IslandAlbumCoverStyleHooker.refresh()
-                                BaseIslandRenderer.refreshActiveIsland()
+                                IslandSettingsRefreshCoordinator.request()
                             }
                         }
 
                         RootConstants.KEY_HOOK_ISLAND_MUSIC_WAVE_STYLE -> {
                             Handler(Looper.getMainLooper()).post {
-                                IslandMusicWaveColorHooker.refresh()
-                                BaseIslandRenderer.refreshActiveIsland()
+                                IslandSettingsRefreshCoordinator.request()
                             }
                         }
 
@@ -430,7 +430,7 @@ class HookEntry : XposedModule() {
 
                         in SUPER_ISLAND_RUNTIME_REFRESH_KEYS -> {
                             Handler(Looper.getMainLooper()).post {
-                                BaseIslandRenderer.refreshActiveIsland()
+                                IslandSettingsRefreshCoordinator.request()
                             }
                         }
                     }
@@ -453,24 +453,21 @@ class HookEntry : XposedModule() {
     private fun updateSystemUiEnhancements(enabled: Boolean) {
         if (enabled) {
             sourceManager?.start()
+            IslandSettingsRefreshCoordinator.request()
         } else {
             sourceManager?.stop()
             AiTranslationGateway.cancelActiveRequests()
             LyriconDataBridge.clearState()
             BaseIslandRenderer.clearAllViews()
             IslandProgressGlowController.clearAll()
-        }
-
-        IslandAlbumCoverStyleHooker.refresh()
-        IslandMusicWaveColorHooker.refresh()
-
-        if (enabled) {
-            BaseIslandRenderer.refreshActiveIsland()
+            IslandAlbumCoverStyleHooker.refresh()
+            IslandMusicWaveColorHooker.refresh()
         }
         HookLogger.i(TAG, "更新系统界面增强状态: enabled=$enabled")
     }
 
     private fun cleanupRuntime(preserveMediaHooks: Boolean = false) {
+        IslandNativeRefreshCoordinator.clear()
         if (!preserveMediaHooks) {
             IslandAlbumCoverStyleHooker.cleanup()
             IslandMusicWaveColorHooker.cleanup()

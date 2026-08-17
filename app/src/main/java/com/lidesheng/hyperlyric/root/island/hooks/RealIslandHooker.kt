@@ -4,6 +4,7 @@ import android.view.ViewGroup
 import com.lidesheng.hyperlyric.root.island.host.IslandProbeUtils
 import com.lidesheng.hyperlyric.root.island.host.IslandTextHookerSupport
 import com.lidesheng.hyperlyric.root.island.host.IslandTextHookerSupport.TAG
+import com.lidesheng.hyperlyric.root.island.presentation.IslandNativeRefreshCoordinator
 import com.lidesheng.hyperlyric.root.island.presentation.IslandPresentationCoordinator
 import com.lidesheng.hyperlyric.root.island.presentation.IslandRenderPolicy
 import com.lidesheng.hyperlyric.root.utils.HookLogger
@@ -67,6 +68,7 @@ internal object RealIslandHooker {
                     root = contentView,
                     owner = resolvedOwner
                 )
+                IslandNativeRefreshCoordinator.onSystemUpdateComplete(contentView)
             }.onFailure { e ->
                 HookLogger.e(TAG, "注入歌词视图失败", e)
             }
