@@ -88,8 +88,6 @@ internal object IslandExpandedMediaForegroundStyler {
                 originalHeadGlowAlpha = access.getSeekBarHeadGlowAlpha(seekBar)
             )
         }
-        state.suppressHeadGlow = true
-
         access.getTitleText(holder).setTextColor(colors.primaryText)
         access.getArtistText(holder).setTextColor(colors.secondaryText)
         access.getElapsedTime(holder).setTextColor(colors.durationText)
@@ -109,7 +107,7 @@ internal object IslandExpandedMediaForegroundStyler {
             seekBar,
             BlendModeColorFilter(colors.seekBarForeground, BlendMode.SRC_IN)
         )
-        access.setSeekBarHeadGlowAlpha(seekBar, 0f)
+        access.setSeekBarHeadGlowAlpha(seekBar, state.originalHeadGlowAlpha)
     }
 
     fun applyCustomForeground(
@@ -124,8 +122,6 @@ internal object IslandExpandedMediaForegroundStyler {
                 originalHeadGlowAlpha = access.getSeekBarHeadGlowAlpha(seekBar)
             )
         }
-        state.suppressHeadGlow = false
-
         access.getTitleText(holder).setTextColor(colors.textPrimary)
         access.getArtistText(holder).setTextColor(colors.textSecondary)
         access.getElapsedTime(holder).setTextColor(colors.textSecondary)
@@ -168,12 +164,8 @@ internal object IslandExpandedMediaForegroundStyler {
 
     fun isTracked(seekBar: View): Boolean = islandSeekBars.contains(seekBar)
 
-    fun shouldSuppressHeadGlow(seekBar: View): Boolean =
-        seekBarThemeStates[seekBar]?.suppressHeadGlow == true
-
     private data class SeekBarThemeState(
         val originalColorFilter: ColorFilter?,
-        val originalHeadGlowAlpha: Float,
-        var suppressHeadGlow: Boolean = false
+        val originalHeadGlowAlpha: Float
     )
 }

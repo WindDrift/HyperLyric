@@ -393,10 +393,7 @@ object IslandExpandedMediaAmbientFlowHooker {
             val listener = chain.thisObject ?: return result
             val seekBar = api.getHeadAlphaListenerSeekBar(listener)
             if (!IslandExpandedMediaForegroundStyler.isTracked(seekBar)) return result
-            if (
-                shouldSuppressHeadGlowByPreference() ||
-                IslandExpandedMediaForegroundStyler.shouldSuppressHeadGlow(seekBar)
-            ) {
+            if (shouldSuppressHeadGlowByPreference()) {
                 api.setSeekBarHeadGlowAlpha(seekBar, 0f)
             }
             return result
