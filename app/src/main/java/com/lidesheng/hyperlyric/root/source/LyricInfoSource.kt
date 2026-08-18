@@ -3,9 +3,11 @@ package com.lidesheng.hyperlyric.root.source
 import android.content.Context
 import android.media.MediaMetadata
 import android.media.session.MediaController
-import android.media.session.MediaSessionManager
+import android.media.session.MediaSession
 import android.media.session.PlaybackState
+import android.media.session.MediaSessionManager
 import com.lidesheng.hyperlyric.common.lyric.LyricInfoParser
+import com.lidesheng.hyperlyric.common.lyric.LyricInfoPayload
 import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
 import com.lidesheng.hyperlyric.lyric.model.LyricMediaMetadata
 import com.lidesheng.hyperlyric.lyric.source.LyricSink
@@ -34,10 +36,37 @@ class LyricInfoSource(private val context: Context) : LyricSource {
         java.util.concurrent.ConcurrentHashMap<MediaController, MediaController.Callback>()
     private var sink: LyricSink? = null
 
-    private var lastLyricHash: Int = 0
+    private var lastLyricPayload: String? = null
     private var hasLyrics: Boolean = false
     private var activePkg: String? = null
     private var activeController: MediaController? = null
+    private var activeTrack: TrackIdentity? = null
+    private var lastPayloadSessionToken: MediaSession.Token? = null
+
+    private data class TrackIdentity(
+        val mediaId: String?,
+        val title: String?,
+        val artist: String?,
+        val album: String?
+    ) {
+        fun isDefinitelyDifferent(other: TrackIdentity): Boolean {
+            if (mediaId != null && other.mediaId != null && mediaId != other.mediaId) {
+                return true
+            }
+            if (title != null && other.title != null && !sameText(title, other.title)) {
+                return true
+            }
+            if (artist != null && other.artist != null && !sameText(artist, other.artist)) {
+                return true
+            }
+            return false
+        }
+
+        private companion object {
+            fun sameText(first: String, second: String): Boolean =
+                first.equals(second, ignoreCase = true)
+        }
+    }
 
     private var positionJob: Job? = null
     private val positionJob_supervisor = SupervisorJob()
@@ -81,9 +110,45 @@ class LyricInfoSource(private val context: Context) : LyricSource {
 
     private fun clearLyrics() {
         hasLyrics = false
-        lastLyricHash = 0
+        lastLyricPayload = null
         activePkg = null
         activeController = null
+        activeTrack = null
+        lastPayloadSessionToken = null
+        stopPositionPolling()
+    }
+
+    /**
+     * Make a playing controller the owner before waiting for its first valid lyricInfo payload.
+     * This prevents the previous controller's full-song state from surviving a session switch.
+     */
+    private fun activateController(controller: MediaController, packageName: String) {
+        val sessionChanged = activeController?.sessionToken != controller.sessionToken
+        if (sessionChanged && (hasLyrics || activeController != null)) {
+            sink?.onStop()
+        }
+        hasLyrics = false
+        lastLyricPayload = null
+        activePkg = packageName
+        activeController = controller
+        activeTrack = null
+        lastPayloadSessionToken = null
+        stopPositionPolling()
+    }
+
+    /** Clear the old song while retaining ownership of the new session/track. */
+    private fun resetForTrack(
+        controller: MediaController,
+        packageName: String,
+        track: TrackIdentity
+    ) {
+        if (hasLyrics) sink?.onStop()
+        hasLyrics = false
+        lastLyricPayload = null
+        activePkg = packageName
+        activeController = controller
+        activeTrack = track
+        lastPayloadSessionToken = null
         stopPositionPolling()
     }
 
@@ -107,7 +172,7 @@ class LyricInfoSource(private val context: Context) : LyricSource {
             if (!trackedControllers.containsKey(ctrl)) {
                 val cb = object : MediaController.Callback() {
                     override fun onMetadataChanged(metadata: MediaMetadata?) =
-                        onMetadataUpdate(ctrl)
+                        onMetadataUpdate(ctrl, metadataSnapshot = metadata)
 
                     override fun onPlaybackStateChanged(state: PlaybackState?) {
                         if (state?.state == PlaybackState.STATE_PLAYING) {
@@ -141,9 +206,10 @@ class LyricInfoSource(private val context: Context) : LyricSource {
      */
     private fun onMetadataUpdate(
         controller: MediaController,
-        playbackStateOverride: PlaybackState? = null
+        playbackStateOverride: PlaybackState? = null,
+        metadataSnapshot: MediaMetadata? = controller.metadata
     ) {
-        val metadata = controller.metadata ?: return
+        val metadata = metadataSnapshot ?: return
         val pkg = controller.packageName ?: return
         val isCurrent = isCurrentController(controller)
         val playbackState = playbackStateOverride ?: controller.playbackState
@@ -152,16 +218,47 @@ class LyricInfoSource(private val context: Context) : LyricSource {
         // metadata must not replace the session that is currently feeding the island.
         if (!isCurrent && playbackState?.state != PlaybackState.STATE_PLAYING) return
 
+        if (!isCurrent && playbackState?.state == PlaybackState.STATE_PLAYING) {
+            activateController(controller, pkg)
+        }
+
+        val metadataTrack = readTrackIdentity(metadata)
+        val previousTrack = activeTrack
+        if (previousTrack == null) {
+            activeTrack = metadataTrack
+        } else if (metadataTrack.isDefinitelyDifferent(previousTrack)) {
+            resetForTrack(controller, pkg, metadataTrack)
+        } else if (activeController?.sessionToken == controller.sessionToken) {
+            activeTrack = mergeTrackIdentity(previousTrack, metadataTrack)
+        }
+
         val lyricInfoRaw = try {
             metadata.getString("lyricInfo")
         } catch (_: Exception) {
             null
         }
-        val currentHash = lyricInfoRaw?.hashCode() ?: 0
 
-        if (!lyricInfoRaw.isNullOrBlank() && currentHash != 0) {
+        if (!lyricInfoRaw.isNullOrBlank()) {
+            val payload = LyricInfoParser.parsePayload(lyricInfoRaw)
             val sameSession = controller.sessionToken == activeController?.sessionToken
-            if (currentHash == lastLyricHash && pkg == activePkg && sameSession) {
+            if (!isPayloadForMetadata(payload, metadataTrack)) {
+                HookLogger.dState(
+                    stateId = "LyricInfoSource.stalePayload",
+                    tag = TAG,
+                    state = "$pkg|${metadataTrack.title}|${metadataTrack.artist}|" +
+                            "${payload?.title}|${payload?.artist}"
+                ) {
+                    "忽略旧歌词 JSON: package=$pkg, " +
+                            "metadata=${metadataTrack.title.orEmpty()} / " +
+                            "${metadataTrack.artist.orEmpty()}, " +
+                            "payload=${payload?.title.orEmpty()} / ${payload?.artist.orEmpty()}"
+                }
+                return
+            }
+
+            if (lyricInfoRaw == lastLyricPayload && pkg == activePkg && sameSession &&
+                controller.sessionToken == lastPayloadSessionToken
+            ) {
                 if (!isCurrent) {
                     activeController = controller
                     handlePlaybackState(controller, playbackState)
@@ -174,7 +271,6 @@ class LyricInfoSource(private val context: Context) : LyricSource {
             if (HookLogger.isDebugEnabled) {
                 logDiagnosis(lyricInfoRaw)
             }
-            val payload = LyricInfoParser.parsePayload(lyricInfoRaw)
             val song = payload?.song
             if (payload != null && song?.lyrics?.isNullOrEmpty() == false) {
                 val mediaMetadata = LyricMediaMetadata(
@@ -187,10 +283,20 @@ class LyricInfoSource(private val context: Context) : LyricSource {
                     sessionToken = controller.sessionToken,
                     mediaId = metadata.getString(MediaMetadata.METADATA_KEY_MEDIA_ID)
                 )
-                lastLyricHash = currentHash
+                lastLyricPayload = lyricInfoRaw
                 hasLyrics = true
                 activePkg = pkg
                 activeController = controller
+                activeTrack = mergeTrackIdentity(
+                    metadataTrack,
+                    TrackIdentity(
+                        mediaId = null,
+                        title = payload.title,
+                        artist = payload.artist,
+                        album = payload.album
+                    )
+                )
+                lastPayloadSessionToken = controller.sessionToken
                 sink?.onSongChanged(song)
                 sink?.onMetadata(mediaMetadata)
                 handlePlaybackState(controller, playbackState)
@@ -199,30 +305,69 @@ class LyricInfoSource(private val context: Context) : LyricSource {
                     "歌词已就绪: song=${song.name.orEmpty()}, " +
                             "lines=${song.lyrics!!.size}"
                 )
-            } else if (
-                hasLyrics &&
-                pkg == activePkg &&
-                isCurrentController(controller) &&
-                playbackState?.state == PlaybackState.STATE_PLAYING
-            ) {
-                // A non-empty lyricInfo payload can still contain an empty or invalid lyric body.
-                // Do not keep the previous song's full-song state in that case.
-                sink?.onStop()
-                clearLyrics()
-                HookLogger.d(TAG, "歌词已清除: package=$pkg, reason=empty_or_invalid_lyric_info")
             }
-        } else if (
-            hasLyrics &&
-            pkg == activePkg &&
-            isCurrent &&
-            playbackState?.state == PlaybackState.STATE_PLAYING
-        ) {
-            // A playing track without LyricInfo must not keep the previous track's injected view.
-            sink?.onStop()
-            clearLyrics()
-            HookLogger.d(TAG, "歌词已清除: package=$pkg, reason=missing_lyric_info")
         }
     }
+
+    private fun readTrackIdentity(metadata: MediaMetadata): TrackIdentity {
+        fun read(vararg keys: String): String? = keys.asSequence()
+            .mapNotNull { key -> runCatching { metadata.getString(key) }.getOrNull() }
+            .mapNotNull(::normalizeText)
+            .firstOrNull()
+
+        return TrackIdentity(
+            mediaId = read(MediaMetadata.METADATA_KEY_MEDIA_ID),
+            title = read(
+                MediaMetadata.METADATA_KEY_TITLE,
+                MediaMetadata.METADATA_KEY_DISPLAY_TITLE
+            ),
+            artist = read(
+                MediaMetadata.METADATA_KEY_ARTIST,
+                MediaMetadata.METADATA_KEY_ALBUM_ARTIST,
+                MediaMetadata.METADATA_KEY_AUTHOR,
+                MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE
+            ),
+            album = read(
+                MediaMetadata.METADATA_KEY_ALBUM,
+                MediaMetadata.METADATA_KEY_DISPLAY_DESCRIPTION
+            )
+        )
+    }
+
+    private fun mergeTrackIdentity(
+        preferred: TrackIdentity,
+        fallback: TrackIdentity
+    ): TrackIdentity = TrackIdentity(
+        mediaId = preferred.mediaId ?: fallback.mediaId,
+        title = preferred.title ?: fallback.title,
+        artist = preferred.artist ?: fallback.artist,
+        album = preferred.album ?: fallback.album
+    )
+
+    private fun isPayloadForMetadata(
+        payload: LyricInfoPayload?,
+        metadata: TrackIdentity
+    ): Boolean {
+        if (payload == null) return true
+        val payloadTitle = normalizeText(payload.title)
+        val payloadArtist = normalizeText(payload.artist)
+        if (metadata.title != null && payloadTitle != null &&
+            !metadata.title.equals(payloadTitle, ignoreCase = true)
+        ) {
+            return false
+        }
+        if (metadata.artist != null && payloadArtist != null &&
+            !metadata.artist.equals(payloadArtist, ignoreCase = true)
+        ) {
+            return false
+        }
+        return true
+    }
+
+    private fun normalizeText(value: String?): String? = value
+        ?.replace(Regex("\\s+"), " ")
+        ?.trim()
+        ?.takeIf { it.isNotEmpty() }
 
     private fun isCurrentController(controller: MediaController): Boolean =
         controller.sessionToken == activeController?.sessionToken
