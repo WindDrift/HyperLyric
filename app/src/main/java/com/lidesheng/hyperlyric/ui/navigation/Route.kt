@@ -18,6 +18,9 @@ sealed interface Route : NavKey {
     data object HookSettings : Route
 
     @Serializable
+    data object LyricSource : Route
+
+    @Serializable
     data object DynamicIslandNotification : Route
 
     @Serializable

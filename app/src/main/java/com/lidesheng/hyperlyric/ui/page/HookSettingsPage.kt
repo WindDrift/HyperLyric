@@ -1,6 +1,7 @@
 package com.lidesheng.hyperlyric.ui.page
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -17,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -81,6 +83,25 @@ fun HookSettingsPage() {
                 RootConstants.DEFAULT_HOOK_LYRIC_SOURCE
             ) ?: "lyricon"
         )
+    }
+    DisposableEffect(prefs) {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
+            if (key == RootConstants.KEY_HOOK_LYRIC_SOURCE) {
+                lyricSource = sharedPreferences.getString(
+                    RootConstants.KEY_HOOK_LYRIC_SOURCE,
+                    RootConstants.DEFAULT_HOOK_LYRIC_SOURCE
+                ) ?: RootConstants.DEFAULT_HOOK_LYRIC_SOURCE
+            }
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose {
+            prefs.unregisterOnSharedPreferenceChangeListener(listener)
+        }
+    }
+    val lyricSourceLabel = when (lyricSource) {
+        "superlyric" -> stringResource(R.string.lyric_source_superlyric)
+        "lyricinfo" -> stringResource(R.string.lyric_source_lyricinfo)
+        else -> stringResource(R.string.lyric_source_lyricon)
     }
     var hookEnabled by remember {
         mutableStateOf(
@@ -173,7 +194,7 @@ fun HookSettingsPage() {
                         }
                     },
                     lyricSource = lyricSource,
-                    onLyricSourceChange = { lyricSource = it },
+                    lyricSourceLabel = lyricSourceLabel,
                 )
             }
         }
@@ -184,7 +205,7 @@ private fun LazyListScope.hookSettingsSections(
     hookEnabled: Boolean,
     onHookEnabledChange: (Boolean) -> Unit,
     lyricSource: String,
-    onLyricSourceChange: (String) -> Unit
+    lyricSourceLabel: String
 ) {
     item(key = "hook_enable") {
         Card(
@@ -216,12 +237,7 @@ private fun LazyListScope.hookSettingsSections(
             stringResource(R.string.lyric_mode_verbatim),
             stringResource(R.string.lyric_mode_separated)
         )
-        val sourceOptions = listOf(
-            stringResource(R.string.lyric_source_lyricon),
-            stringResource(R.string.lyric_source_superlyric),
-            stringResource(R.string.lyric_source_lyricinfo)
-        )
-        val sourceIds = listOf("lyricon", "superlyric", "lyricinfo")
+        val navigator = LocalNavigator.current
         Card(
             modifier = Modifier
                 .padding(horizontal = 12.dp)
@@ -239,17 +255,17 @@ private fun LazyListScope.hookSettingsSections(
                     PrefsBridge.putInt(RootConstants.KEY_HOOK_LYRIC_MODE, index)
                 }
             )
-            OverlayDropdownPreference(
+            ArrowPreference(
                 title = stringResource(R.string.title_lyric_source),
-                items = sourceOptions,
-                selectedIndex = sourceIds.indexOf(lyricSource).coerceAtLeast(0),
                 enabled = hookEnabled,
-                onSelectedIndexChange = { index ->
-                    val newSource = sourceIds[index]
-                    onLyricSourceChange(newSource)
-                    prefs.edit { putString(RootConstants.KEY_HOOK_LYRIC_SOURCE, newSource) }
-                    PrefsBridge.putString(RootConstants.KEY_HOOK_LYRIC_SOURCE, newSource)
-                }
+                endActions = {
+                    Text(
+                        text = lyricSourceLabel,
+                        fontSize = MiuixTheme.textStyles.body2.fontSize,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantActions
+                    )
+                },
+                onClick = { navigator.navigate(Route.LyricSource) }
             )
         }
     }
