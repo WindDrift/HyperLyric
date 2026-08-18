@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright 2026 Proify, Tomakino
  * Licensed under the Apache License, Version 2.0
  * http://www.apache.org/licenses/LICENSE-2.0
@@ -152,7 +152,8 @@ internal class LyricLineAssembler(
         val alwaysShow = hasContent && (
                 isPlain || line.metadata?.getBoolean("translation") == true
                         || line.metadata?.getBoolean("roma") == true
-                        || line.words?.firstOrNull()?.begin?.let { (it - source.begin) < 500 } == true
+                        // 有词时间轴的副行（如 AMLL 背景人声）常显暗态，词到点后逐字点亮
+                        || !line.words.isNullOrEmpty()
                 )
 
         return SecondaryResult(
