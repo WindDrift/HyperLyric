@@ -60,6 +60,7 @@ import com.lidesheng.hyperlyric.utils.LyricModule
 import com.lidesheng.hyperlyric.utils.ModuleCategory
 import com.lidesheng.hyperlyric.utils.ModuleTag
 import com.lidesheng.hyperlyric.utils.ProviderUiState
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
 import top.yukonga.miuix.kmp.basic.Card
@@ -93,6 +94,8 @@ private val LYRIC_DELAY_KEY_POINTS = listOf(
     5000f
 )
 
+private const val PROVIDER_ENTRY_TRANSITION_DELAY_MS = 500L
+
 @Composable
 internal fun LyricProviderSection(
     innerPadding: PaddingValues,
@@ -102,21 +105,28 @@ internal fun LyricProviderSection(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val initiallyResumed = remember(lifecycleOwner) {
+        lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+    }
     var contentReady by remember(lifecycleOwner) {
-        mutableStateOf(
-            lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
-        )
+        mutableStateOf(initiallyResumed)
     }
     var initialLoadCompleted by remember(lifecycleOwner) { mutableStateOf(false) }
 
-    // 只在歌词源 section 真正进入 RESUMED 后加载；非 Lyricon 时该 section 不会被组合。
     LaunchedEffect(lifecycleOwner) {
-        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            contentReady = true
+        launch {
             if (!initialLoadCompleted && !LyricProviderManager.uiState.value.hasLoaded) {
                 LyricProviderManager.loadProviders(context.applicationContext)
             }
             initialLoadCompleted = true
+        }
+
+        if (!initiallyResumed) {
+            delay(PROVIDER_ENTRY_TRANSITION_DELAY_MS)
+        }
+
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            contentReady = true
         }
     }
 
@@ -145,6 +155,7 @@ internal fun LyricProviderSection(
     }
 
     val showInitialLoading = !contentReady ||
+            (!initialLoadCompleted && !providerUiState.hasLoaded) ||
             (providerUiState.isInitialLoading && !providerUiState.hasLoaded)
     if (showInitialLoading) {
         Column(
