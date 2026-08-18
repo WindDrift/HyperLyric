@@ -188,7 +188,7 @@
     <string name="option_island_media_ambient_flow_disabled">Disabled</string>
     <string name="title_lyrics">Media Info</string>
     <string name="title_lyric_anim">Lyric Animation</string>
-    <string name="title_lyric_provider">Lyric Provider (Lyricon)</string>
+    <string name="title_lyric_provider">Lyric Provider</string>
     <string name="title_lyric_delay">Lyric time offset</string>
     <string name="summary_lyric_delay">Positive values show lyrics later, negative values earlier</string>
     <string name="title_lyric_whitelist">Lyric Whitelist</string>
@@ -388,8 +388,8 @@
     <string name="refresh_release">Release to refresh</string>
     <string name="refreshing">Refreshing…</string>
     <string name="refresh_success">Refresh successful</string>
-    <string name="title_no_provider">No lyric providers found</string>
-    <string name="summary_no_provider">Click the top right icon to visit LyricProvider repo, download and enable plugins</string>
+    <string name="title_no_provider">No Lyricon Lyric Providers Found</string>
+    <string name="summary_no_provider">Please visit the LyricProvider repo to download and enable plugins, or grant the app permission to access the app list</string>
     <string name="category_others">Others</string>
     <string name="unknown_author">Unknown Author</string>
     <string name="format_version_author">%1$s, Author %2$s</string>
@@ -398,8 +398,10 @@
     <string name="module_tag_bluetooth">车载蓝牙歌词</string>
     <string name="title_superlyric_api_apps">API Support List</string>
     <string name="title_superlyric_hook_apps">Hook Support List</string>
-    <string name="title_no_superlyric_apps">No Installed SuperLyric-Supported Apps</string>
-    <string name="summary_no_superlyric_apps">Install a supported music app and try again</string>
+    <string name="title_no_superlyric_apps">No SuperLyric Supported Apps Found</string>
+    <string name="summary_no_superlyric_apps">Please install a supported music app, or grant the app permission to access the app list</string>
+    <string name="title_superlyric_not_installed">SuperLyric Not Installed</string>
+    <string name="summary_superlyric_not_installed">Please install and enable the SuperLyric module to use this lyric source</string>
     <string name="format_version_code">%1$s, %2$s</string>
     <string name="superlyric_usage_api">Usage: Native API support</string>
     <string name="superlyric_usage_aplayer">Usage: Enable “Status bar lyrics”</string>

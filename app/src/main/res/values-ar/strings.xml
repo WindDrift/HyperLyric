@@ -202,7 +202,7 @@
   <string name="option_island_media_ambient_flow_disabled">معطّل</string>
   <string name="title_lyrics">معلومات الوسائط</string>
   <string name="title_lyric_anim">حركة الكلمات</string>
-  <string name="title_lyric_provider">مزوّد الكلمات (Lyricon)</string>
+  <string name="title_lyric_provider">مزوّد الكلمات</string>
   <string name="title_lyric_delay">إزاحة توقيت الكلمات</string>
   <string name="summary_lyric_delay">القيم الموجبة تعرض الكلمات متأخرة، والسالبة تعرضها مبكرة</string>
   <string name="title_lyric_whitelist">قائمة السماح للكلمات</string>
@@ -394,8 +394,8 @@
   <string name="refresh_release">سيب عشان يحدّث</string>
   <string name="refreshing">جارٍ التحديث…</string>
   <string name="refresh_success">تم التحديث بنجاح</string>
-  <string name="title_no_provider">لا يوجد مزوّدو كلمات</string>
-  <string name="summary_no_provider">اضغط على الأيقونة فوق يمين عشان تزور مستودع LyricProvider، وحمّل وفعّل الإضافات</string>
+  <string name="title_no_provider">لم يتم العثور على مزوّد كلمات Lyricon</string>
+  <string name="summary_no_provider">يرجى زيارة مستودع LyricProvider لتحميل وتفعيل الإضافات، أو منح التطبيق إذن الوصول إلى قائمة التطبيقات</string>
   <string name="category_others">أخرى</string>
   <string name="unknown_author">مؤلف غير معروف</string>
   <string name="format_version_author">%1$s، المؤلف %2$s</string>
@@ -404,8 +404,10 @@
   <string name="module_tag_bluetooth">كلمات البلوتوث في السيارة</string>
   <string name="title_superlyric_api_apps">قائمة دعم API</string>
   <string name="title_superlyric_hook_apps">قائمة دعم Hook</string>
-  <string name="title_no_superlyric_apps">لم يتم العثور على تطبيقات مدعومة من SuperLyric</string>
-  <string name="summary_no_superlyric_apps">ثبّت تطبيق موسيقى مدعومًا ثم حاول مرة أخرى</string>
+  <string name="title_no_superlyric_apps">لم يتم العثور على تطبيقات SuperLyric المدعومة</string>
+  <string name="summary_no_superlyric_apps">يرجى تثبيت تطبيق موسيقى مدعومًا، أو منح التطبيق إذن الوصول إلى قائمة التطبيقات</string>
+  <string name="title_superlyric_not_installed">SuperLyric غير مثبت</string>
+  <string name="summary_superlyric_not_installed">يرجى تثبيت وتفعيل وحدة SuperLyric لاستخدام مصدر الكلمات هذا</string>
   <string name="format_version_code">%1$s، %2$s</string>
   <string name="superlyric_usage_api">طريقة الاستخدام: دعم API أصلي</string>
   <string name="superlyric_usage_aplayer">طريقة الاستخدام: فعّل ميزة كلمات شريط الحالة</string>

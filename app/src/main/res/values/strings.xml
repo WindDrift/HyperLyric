@@ -212,7 +212,7 @@
     <string name="option_island_media_ambient_flow_disabled">禁用</string>
     <string name="title_lyrics">音乐信息</string>
     <string name="title_lyric_anim">歌词切换动画</string>
-    <string name="title_lyric_provider">歌词提供者 (Lyricon)</string>
+    <string name="title_lyric_provider">歌词提供器</string>
     <string name="title_lyric_delay">歌词时间偏移</string>
     <string name="summary_lyric_delay">正数延后显示，负数提前显示</string>
     <string name="title_lyric_whitelist">歌词白名单</string>
@@ -413,8 +413,8 @@
     <string name="refresh_release">松开刷新</string>
     <string name="refreshing">正在刷新...</string>
     <string name="refresh_success">刷新成功</string>
-    <string name="title_no_provider">暂未发现lyricon歌词提供器</string>
-    <string name="summary_no_provider">请给予本应用获取应用列表权限或点击右上角图标前往 LyricProvider 仓库下载安装并启用插件</string>
+    <string name="title_no_provider">未发现 Lyricon 歌词提供器</string>
+    <string name="summary_no_provider">请前往 LyricProvider 仓库下载安装并启用插件，或给予本应用获取应用列表权限</string>
     <string name="category_others">其他</string>
     <string name="unknown_author">未知作者</string>
     <string name="format_version_author">%1$s, 作者 %2$s</string>
@@ -423,8 +423,10 @@
     <string name="module_tag_bluetooth">车载蓝牙歌词</string>
     <string name="title_superlyric_api_apps">API 支持列表</string>
     <string name="title_superlyric_hook_apps">Hook 支持列表</string>
-    <string name="title_no_superlyric_apps">未发现已安装的 SuperLyric 支持应用</string>
-    <string name="summary_no_superlyric_apps">请安装受支持的音乐应用后重试</string>
+    <string name="title_no_superlyric_apps">未发现 SuperLyric 支持的应用</string>
+    <string name="summary_no_superlyric_apps">请安装受支持的音乐应用，或给予本应用获取应用列表权限</string>
+    <string name="title_superlyric_not_installed">未安装 SuperLyric</string>
+    <string name="summary_superlyric_not_installed">请安装并启用 SuperLyric 模块以使用该歌词源</string>
     <string name="format_version_code">%1$s，%2$s</string>
     <string name="superlyric_usage_api">使用方法：API 原生支持</string>
     <string name="superlyric_usage_aplayer">使用方法：开启“状态栏歌词”功能即可</string>

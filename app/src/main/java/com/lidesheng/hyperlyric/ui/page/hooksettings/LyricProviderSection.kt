@@ -226,6 +226,9 @@ private fun LazyListScope.providerSections(
             }
         }
     } else {
+        item(key = "provider_title", contentType = "section_title") {
+            SmallTitle(text = stringResource(id = R.string.title_lyric_provider))
+        }
         groupedModules.forEach { category ->
             if (category.name.isNotBlank()) {
                 item(

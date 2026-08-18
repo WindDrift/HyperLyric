@@ -1,5 +1,6 @@
 package com.lidesheng.hyperlyric.ui.page.hooksettings
 
+import android.content.pm.PackageManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -51,6 +52,16 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 private val APP_ICON_SIZE = 40.dp
 private val APP_ICON_SHAPE = RoundedCornerShape(8.dp)
 private val APP_CARD_BOTTOM_PADDING = 12.dp
+private const val SUPERLYRIC_PACKAGE_NAME = "com.hchen.superlyric"
+
+private fun isSuperLyricInstalled(context: android.content.Context): Boolean {
+    return try {
+        context.packageManager.getPackageInfo(SUPERLYRIC_PACKAGE_NAME, 0)
+        true
+    } catch (e: PackageManager.NameNotFoundException) {
+        false
+    }
+}
 
 @Composable
 internal fun SuperLyricAppSection(
@@ -133,6 +144,7 @@ internal fun SuperLyricAppSection(
                 val contentPadding = remember(top, bottom) {
                     PaddingValues(top = top, start = 0.dp, end = 0.dp, bottom = bottom)
                 }
+                val isInstalled = remember { isSuperLyricInstalled(context) }
                 LazyColumn(
                     state = lazyListState,
                     modifier = Modifier.pageScrollModifiers(
@@ -145,7 +157,21 @@ internal fun SuperLyricAppSection(
                     item(key = "lyric_source_prompt", contentType = "source_prompt") {
                         promptContent()
                     }
-                    if (uiState.apiApps.isEmpty() && uiState.hookApps.isEmpty()) {
+                    if (!isInstalled) {
+                        item(key = "superlyric_not_installed", contentType = "not_installed") {
+                            Card(
+                                modifier = Modifier
+                                    .padding(horizontal = 12.dp)
+                                    .padding(bottom = APP_CARD_BOTTOM_PADDING)
+                                    .fillMaxWidth()
+                            ) {
+                                ProComponent(
+                                    title = stringResource(R.string.title_superlyric_not_installed),
+                                    summary = stringResource(R.string.summary_superlyric_not_installed)
+                                )
+                            }
+                        }
+                    } else if (uiState.apiApps.isEmpty() && uiState.hookApps.isEmpty()) {
                         item(key = "superlyric_empty", contentType = "empty_state") {
                             Card(
                                 modifier = Modifier
