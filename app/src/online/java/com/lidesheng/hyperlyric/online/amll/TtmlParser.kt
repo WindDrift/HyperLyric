@@ -437,9 +437,13 @@ object TtmlParser {
     /**
      * 在行间插入倒计时行（复用倒计时圆点渲染）。
      *
-     * 当下一行开始距当前行结束超过 [INTERLUDE_MIN_GAP_MS] 时，在当前行结束后
-     * [INTERLUDE_COUNTDOWN_DELAY_MS] 插入一个倒计时行，提示间奏剩余时长；
-     * 倒计时行结束于下一行开始前 1ms（与前奏占位倒计时一致，避免行区间重叠）。
+     * 当下一行开始距当前行有效结束（主行 end 与副行最后词 end 的较大值）超过
+     * [INTERLUDE_MIN_GAP_MS] 时，在有效结束后 [INTERLUDE_COUNTDOWN_DELAY_MS] 插入
+     * 一个倒计时行，提示间奏剩余时长；倒计时行结束于下一行开始前 1ms
+     * （与前奏占位倒计时一致，避免行区间重叠）。
+     *
+     * 有效结束含副行时间轴的原因：AMLL TTML 的 x-bg（和声回声）时间轴可以晚于
+     * 所在 `<p>` 的行级 end，倒计时需等待背景人声逐字表演完成后再开始。
      *
      * 必须在 [Song.normalize] 之后调用：倒计时行无文本，会被 normalize 的
      * 有效性规则过滤（调用方见 AmllTtmlGatewayImpl.buildSong）。
@@ -451,9 +455,10 @@ object TtmlParser {
         for (line in lines) {
             val previous = prev
             if (previous != null) {
-                val countdownBegin = previous.end + INTERLUDE_COUNTDOWN_DELAY_MS
+                val effectiveEnd = effectiveEndOf(previous)
+                val countdownBegin = effectiveEnd + INTERLUDE_COUNTDOWN_DELAY_MS
                 val countdownEnd = line.begin - 1
-                if (line.begin - previous.end > INTERLUDE_MIN_GAP_MS && countdownEnd > countdownBegin) {
+                if (line.begin - effectiveEnd > INTERLUDE_MIN_GAP_MS && countdownEnd > countdownBegin) {
                     result.add(interludeCountdownLine(countdownBegin, countdownEnd))
                     inserted++
                 }
@@ -465,6 +470,12 @@ object TtmlParser {
             HookLogger.d(TAG, "间奏倒计时插入: count=$inserted, lines=${lines.size}->${result.size}")
         }
         return result
+    }
+
+    /** 行的有效结束时间：主行 end 与副行（背景人声）最后词 end 的较大值 */
+    private fun effectiveEndOf(line: RichLyricLine): Long {
+        val bgLastEnd = line.secondaryWords?.maxOfOrNull { it.end } ?: Long.MIN_VALUE
+        return maxOf(line.end, bgLastEnd)
     }
 
     private fun interludeCountdownLine(begin: Long, end: Long) =
