@@ -3,25 +3,53 @@ name: Announce Stable Release to Telegram
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 正式版 Tag（例如 1937-7.1）
+        required: true
 
 permissions:
   contents: read
 
 concurrency:
-  group: announce-stable-release-${{ github.event.release.tag_name }}
+  group: announce-stable-release
   cancel-in-progress: false
 
 jobs:
   announce:
     name: Send Stable APKs to Telegram
-    if: ${{ !github.event.release.prerelease }}
+    if: github.event_name == 'workflow_dispatch' || !github.event.release.prerelease
     runs-on: ubuntu-latest
 
     steps:
+      - name: 解析 Release Tag Resolve Release Tag
+        id: release
+        env:
+          EVENT_TAG: ${{ github.event.release.tag_name }}
+          EVENT_URL: ${{ github.event.release.html_url }}
+          INPUT_TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TAG="${EVENT_TAG:-$INPUT_TAG}"
+          if [[ -z "$TAG" ]]; then
+            echo '::error::无法确定 Release Tag'
+            exit 1
+          fi
+
+          URL="${EVENT_URL:-https://github.com/${GITHUB_REPOSITORY}/releases/tag/${TAG}}"
+
+          {
+            echo "tag=$TAG"
+            echo "url=$URL"
+          } >> "$GITHUB_OUTPUT"
+
       - name: 拉取发布版本文件 Checkout Release Files
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ steps.release.outputs.tag }}
           sparse-checkout: |
             .github/scripts
           sparse-checkout-cone-mode: false
@@ -30,7 +58,7 @@ jobs:
         id: assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
         shell: bash
         run: |
           set -euo pipefail
@@ -69,7 +97,7 @@ jobs:
       - name: 保存正式版 Release 说明 Save Published Release Notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
         shell: bash
         run: |
           set -euo pipefail
@@ -94,8 +122,8 @@ jobs:
         with:
           repository: Xposed-Modules-Repo/com.lidesheng.hyperlyric
           token: ${{ secrets.XPOSED_REPO_TOKEN }}
-          tag_name: ${{ github.event.release.tag_name }}
-          name: ${{ github.event.release.tag_name }}
+          tag_name: ${{ steps.release.outputs.tag }}
+          name: ${{ steps.release.outputs.tag }}
           body_path: release-body.md
           draft: false
           prerelease: false
@@ -118,8 +146,8 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-          RELEASE_URL: ${{ github.event.release.html_url }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_URL: ${{ steps.release.outputs.url }}
           RELEASE_NOTES_ZH_FILE: release-notes-zh.md
           ONLINE_APK: ${{ steps.assets.outputs.online }}
           OFFLINE_APK: ${{ steps.assets.outputs.offline }}
