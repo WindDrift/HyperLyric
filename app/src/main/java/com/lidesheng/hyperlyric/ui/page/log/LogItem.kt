@@ -52,7 +52,8 @@ fun LogItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp),
+            .padding(horizontal = 12.dp)
+            .padding(bottom = 12.dp),
         insideMargin = PaddingValues(12.dp),
         showIndication = true,
         onClick = { expanded = !expanded },

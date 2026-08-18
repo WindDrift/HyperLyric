@@ -157,7 +157,8 @@ fun PoetryPage() {
                     items(filteredQuotes, key = { it }) { quote ->
                         Card(
                             modifier = Modifier
-                                .padding(horizontal = 12.dp, vertical = 4.dp)
+                                .padding(horizontal = 12.dp)
+                                .padding(bottom = 12.dp)
                                 .fillMaxWidth()
                         ) {
                             Text(
@@ -194,7 +195,8 @@ fun PoetryPage() {
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 4.dp)
+                                .padding(horizontal = 12.dp)
+                                .padding(bottom = 12.dp)
                         ) {
                             Text(
                                 text = quote,

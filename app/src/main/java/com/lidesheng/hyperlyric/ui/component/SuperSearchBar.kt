@@ -233,7 +233,7 @@ fun SearchBar(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp)
-            .padding(bottom = 8.dp)
+            .padding(bottom = 12.dp)
             .focusRequester(focusRequester),
         onSearch = {},
         expanded = searchStatus.shouldExpand(),
@@ -274,7 +274,7 @@ fun SearchBarFake(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp)
-            .padding(bottom = 8.dp),
+            .padding(bottom = 12.dp),
         onSearch = { },
         enabled = false,
         expanded = false,
