@@ -102,15 +102,22 @@ fun LyricSourcePage() {
             }
         }
     ) { innerPadding ->
-        if (lyricSource == "lyricon") {
-            LyricProviderSection(
+        when (lyricSource) {
+            "lyricon" -> LyricProviderSection(
                 innerPadding = innerPadding,
                 topAppBarScrollBehavior = topAppBarScrollBehavior,
                 backdrop = backdrop,
                 promptContent = { LyricSourcePromptCard(lyricSource) }
             )
-        } else {
-            LyricSourcePromptContent(
+
+            "superlyric" -> SuperLyricAppSection(
+                innerPadding = innerPadding,
+                topAppBarScrollBehavior = topAppBarScrollBehavior,
+                backdrop = backdrop,
+                promptContent = { LyricSourcePromptCard(lyricSource) }
+            )
+
+            else -> LyricSourcePromptContent(
                 lyricSource = lyricSource,
                 innerPadding = innerPadding,
                 topAppBarScrollBehavior = topAppBarScrollBehavior,

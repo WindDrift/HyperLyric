@@ -45,10 +45,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.repeatOnLifecycle
 import com.lidesheng.hyperlyric.R
 import com.lidesheng.hyperlyric.common.PrefsBridge
 import com.lidesheng.hyperlyric.common.RootConstants
@@ -60,7 +57,6 @@ import com.lidesheng.hyperlyric.utils.LyricModule
 import com.lidesheng.hyperlyric.utils.ModuleCategory
 import com.lidesheng.hyperlyric.utils.ModuleTag
 import com.lidesheng.hyperlyric.utils.ProviderUiState
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
 import top.yukonga.miuix.kmp.basic.Card
@@ -94,8 +90,6 @@ private val LYRIC_DELAY_KEY_POINTS = listOf(
     5000f
 )
 
-private const val PROVIDER_ENTRY_TRANSITION_DELAY_MS = 500L
-
 @Composable
 internal fun LyricProviderSection(
     innerPadding: PaddingValues,
@@ -104,29 +98,15 @@ internal fun LyricProviderSection(
     promptContent: @Composable () -> Unit
 ) {
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
-    val initiallyResumed = remember(lifecycleOwner) {
-        lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
-    }
-    var contentReady by remember(lifecycleOwner) {
-        mutableStateOf(initiallyResumed)
-    }
-    var initialLoadCompleted by remember(lifecycleOwner) { mutableStateOf(false) }
+    val contentReady = rememberEntryTransitionContentReady()
+    var initialLoadCompleted by remember { mutableStateOf(false) }
 
-    LaunchedEffect(lifecycleOwner) {
+    LaunchedEffect(Unit) {
         launch {
             if (!initialLoadCompleted && !LyricProviderManager.uiState.value.hasLoaded) {
                 LyricProviderManager.loadProviders(context.applicationContext)
             }
             initialLoadCompleted = true
-        }
-
-        if (!initiallyResumed) {
-            delay(PROVIDER_ENTRY_TRANSITION_DELAY_MS)
-        }
-
-        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            contentReady = true
         }
     }
 
