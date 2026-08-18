@@ -68,12 +68,12 @@ fun SuperIslandSettingsPage() {
         } ?: defaultValue
     }
 
-    var lyricMode by remember {
-        mutableIntStateOf(
+    var splitLyric by remember {
+        mutableStateOf(
             prefs.getInt(
                 RootConstants.KEY_HOOK_LYRIC_MODE,
                 RootConstants.DEFAULT_HOOK_LYRIC_MODE
-            ).coerceIn(0, 1)
+            ).coerceIn(0, 1) == 1
         )
     }
     var islandContentLeft by remember {
@@ -606,6 +606,23 @@ fun SuperIslandSettingsPage() {
                     }
                 }
                 item(key = "content_title") { SmallTitle(text = stringResource(id = R.string.title_content)) }
+                item(key = "split_lyric") {
+                    Card(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = 12.dp)
+                            .fillMaxWidth()
+                    ) {
+                        SwitchPreference(
+                            title = stringResource(id = R.string.title_split_lyric),
+                            checked = splitLyric,
+                            onCheckedChange = {
+                                splitLyric = it
+                                saveConfig(RootConstants.KEY_HOOK_LYRIC_MODE, if (it) 1 else 0)
+                            }
+                        )
+                    }
+                }
                 item(key = "content") {
                     Card(
                         modifier = Modifier
@@ -624,7 +641,7 @@ fun SuperIslandSettingsPage() {
                                     saveAudioCoverStyle(audioCoverStyleValues[index])
                                 }
                             )
-                            if (lyricMode == 0) {
+                            if (!splitLyric) {
                                 OverlayDropdownPreference(
                                     title = stringResource(id = R.string.title_super_island_left),
                                     items = contentOptions,

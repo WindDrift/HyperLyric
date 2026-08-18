@@ -472,6 +472,7 @@
   <string name="title_super_island_width_mode">وضع عرض HyperIsland</string>
   <string name="option_super_island_width_fixed">عرض ثابت</string>
   <string name="option_super_island_width_dynamic">عرض ديناميكي</string>
+  <string name="title_split_lyric">كلمات منفصلة</string>
   <string name="title_dynamic_width_basis">أساس العرض الديناميكي</string>
   <string name="option_dynamic_width_basis_all">مدمج</string>
   <string name="option_dynamic_width_basis_lyric_only">الكلمات فقط</string>

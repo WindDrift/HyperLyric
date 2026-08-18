@@ -468,6 +468,7 @@
     <string name="title_super_island_width_mode">Super Island Width Mode</string>
     <string name="option_super_island_width_fixed">Fixed width</string>
     <string name="option_super_island_width_dynamic">Dynamic width</string>
+    <string name="title_split_lyric">Split lyrics</string>
     <string name="title_dynamic_width_basis">Dynamic width basis</string>
     <string name="option_dynamic_width_basis_all">Combined</string>
     <string name="option_dynamic_width_basis_lyric_only">Lyrics only</string>

@@ -91,6 +91,12 @@ fun HookSettingsPage() {
         "lyricinfo" -> stringResource(R.string.lyric_source_lyricinfo)
         else -> stringResource(R.string.lyric_source_lyricon)
     }
+    val widthModeLabel = if (prefs.getInt(
+            RootConstants.KEY_HOOK_ISLAND_WIDTH_MODE,
+            RootConstants.DEFAULT_HOOK_ISLAND_WIDTH_MODE
+        ) == RootConstants.ISLAND_WIDTH_MODE_DYNAMIC
+    ) stringResource(R.string.option_super_island_width_dynamic)
+    else stringResource(R.string.option_super_island_width_fixed)
     var hookEnabled by remember {
         mutableStateOf(
             prefs.getBoolean(
@@ -182,6 +188,7 @@ fun HookSettingsPage() {
                         }
                     },
                     lyricSourceLabel = lyricSourceLabel,
+                    widthModeLabel = widthModeLabel,
                 )
             }
         }
@@ -191,7 +198,8 @@ fun HookSettingsPage() {
 private fun LazyListScope.hookSettingsSections(
     hookEnabled: Boolean,
     onHookEnabledChange: (Boolean) -> Unit,
-    lyricSourceLabel: String
+    lyricSourceLabel: String,
+    widthModeLabel: String
 ) {
     item(key = "hook_enable") {
         Card(
@@ -204,42 +212,6 @@ private fun LazyListScope.hookSettingsSections(
                 title = stringResource(R.string.title_enable),
                 checked = hookEnabled,
                 onCheckedChange = onHookEnabledChange,
-            )
-        }
-    }
-    item(key = "lyric_mode") {
-        val context = LocalContext.current
-        val prefs =
-            remember { context.getSharedPreferences(UIConstants.PREF_NAME, Context.MODE_PRIVATE) }
-        var lyricMode by remember {
-            mutableIntStateOf(
-                prefs.getInt(
-                    RootConstants.KEY_HOOK_LYRIC_MODE,
-                    RootConstants.DEFAULT_HOOK_LYRIC_MODE
-                )
-            )
-        }
-        val lyricModeOptions = listOf(
-            stringResource(R.string.lyric_mode_verbatim),
-            stringResource(R.string.lyric_mode_separated)
-        )
-        val navigator = LocalNavigator.current
-        Card(
-            modifier = Modifier
-                .padding(horizontal = 12.dp)
-                .padding(bottom = 12.dp)
-                .fillMaxWidth()
-        ) {
-            OverlayDropdownPreference(
-                title = stringResource(R.string.title_lyric_mode),
-                items = lyricModeOptions,
-                selectedIndex = lyricMode,
-                enabled = hookEnabled,
-                onSelectedIndexChange = { index ->
-                    lyricMode = index
-                    prefs.edit { putInt(RootConstants.KEY_HOOK_LYRIC_MODE, index) }
-                    PrefsBridge.putInt(RootConstants.KEY_HOOK_LYRIC_MODE, index)
-                }
             )
         }
     }
@@ -269,6 +241,13 @@ private fun LazyListScope.hookSettingsSections(
                 ArrowPreference(
                     title = stringResource(R.string.title_super_island),
                     enabled = hookEnabled,
+                    endActions = {
+                        Text(
+                            text = widthModeLabel,
+                            fontSize = MiuixTheme.textStyles.body2.fontSize,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantActions
+                        )
+                    },
                     onClick = { navigator.navigate(Route.SuperIslandSettings) })
                 ArrowPreference(
                     title = stringResource(R.string.title_content_layout),
