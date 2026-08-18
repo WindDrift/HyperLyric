@@ -97,10 +97,11 @@ object AmllTtmlClient {
     }
 
     /**
-     * 按歌名/歌手/专辑模糊搜索，返回最佳匹配条目（AMLL 已按相关性降序排序，取 items[0]）。
-     * 空字段不传，由 AMLL 服务端按 AND 交集匹配。
+     * 按歌名/歌手/专辑模糊搜索，返回最佳匹配条目。空字段不传，由 AMLL 服务端按 AND 交集匹配。
+     * 服务端排序不保证语义一致（翻唱/Live/串烧可能排在原版之前），而命中结果会被永久缓存，
+     * 因此客户端对返回条目做 title/artist 校验，仅接受可交叉验证的条目。
      *
-     * @return 搜索结果非空时返回 items[0]（不含 lyrics）；无结果/失败返回 null
+     * @return 首个通过客户端校验的条目（不含 lyrics）；无结果/校验失败返回 null
      */
     suspend fun searchByMetadata(title: String?, artist: String?, album: String?): SongItem? {
         val musicName = title?.takeIf { it.isNotBlank() }
@@ -117,13 +118,52 @@ object AmllTtmlClient {
                 albumName = albumName
             ).await()
         } ?: return null
-        val item = response.data?.items?.firstOrNull()
+        val items = response.data?.items.orEmpty()
+        val item = items.firstOrNull { isPlausibleMatch(it, musicName, artistName) }
         if (item == null) {
-            HookLogger.d(TAG, "AMLL 搜索未命中: reason=empty_items")
+            HookLogger.d(
+                TAG,
+                "AMLL 搜索未命中: reason=${if (items.isEmpty()) "empty_items" else "no_plausible_match"}, " +
+                        "total=${items.size}, first=${items.firstOrNull()?.musicNames?.joinToString("/") ?: "-"}"
+            )
             return null
         }
         return item
     }
+
+    /**
+     * 客户端搜索结果校验：请求携带的 title/artist 须与条目交叉匹配（忽略大小写与多余空白），
+     * 提供了哪个参数就校验哪个；条目缺失对应字段时该校验不通过。
+     * - title：任一 musicNames 与 title 互为包含
+     * - artist：按常见分隔符拆分后，任一 token 对互为包含
+     */
+    private fun isPlausibleMatch(item: SongItem, title: String?, artist: String?): Boolean {
+        if (title != null) {
+            val names = item.musicNames.orEmpty()
+            if (names.isEmpty() || names.none { fuzzyContains(it, title) }) return false
+        }
+        if (artist != null) {
+            val requestTokens = splitArtistTokens(artist)
+            val candidateTokens = item.artistNames.orEmpty().flatMap { splitArtistTokens(it) }
+            if (requestTokens.isEmpty() || candidateTokens.isEmpty() ||
+                requestTokens.none { request -> candidateTokens.any { fuzzyContains(it, request) } }
+            ) return false
+        }
+        return true
+    }
+
+    /** 归一化（小写 + 压缩空白）后的双向包含匹配：任一方包含另一方即视为匹配 */
+    private fun fuzzyContains(a: String, b: String): Boolean {
+        val na = a.trim().lowercase().replace(Regex("\\s+"), " ")
+        val nb = b.trim().lowercase().replace(Regex("\\s+"), " ")
+        if (na.isEmpty() || nb.isEmpty()) return false
+        return na.contains(nb) || nb.contains(na)
+    }
+
+    /** 按常见艺人分隔符拆分（/ 、 ， , & ; ；），去除空 token */
+    private fun splitArtistTokens(value: String): List<String> =
+        value.split('/', '、', ',', '，', '&', ';', '；')
+            .mapNotNull { it.trim().takeIf { token -> token.isNotEmpty() } }
 
     /**
      * 提取携带非空 lyrics 的条目；status=200 但 lyrics 为空字符串/null 视为未命中。

@@ -172,6 +172,7 @@ class AmllTtmlGatewayImpl : AmllTtmlGateway.Impl {
     /**
      * 解析 TTML 并构造 [Song]：name/artist 保留主歌词源的值，仅 lyrics 使用 AMLL 结果。
      * 间奏倒计时行在 normalize 之后插入（倒计时行无文本，先插会被有效性规则过滤）。
+     * normalize 过滤后无有效行时返回 null（视为未命中，回落原歌词）。
      */
     private fun buildSong(localSong: Song, ttml: String, fromCache: Boolean): Song? {
         val lines = TtmlParser.parse(ttml)
@@ -179,16 +180,22 @@ class AmllTtmlGatewayImpl : AmllTtmlGateway.Impl {
             HookLogger.d(TAG, "AMLL 解析失败: fromCache=$fromCache")
             return null
         }
-        return Song(
+        val normalized = Song(
             id = localSong.id,
             name = localSong.name,
             artist = localSong.artist,
             duration = localSong.duration,
             metadata = localSong.metadata,
             lyrics = lines
-        ).normalize().let { normalized ->
-            normalized.copy(lyrics = TtmlParser.insertInterludeCountdowns(normalized.lyrics.orEmpty()))
+        ).normalize()
+        val validLines = normalized.lyrics
+        if (validLines.isNullOrEmpty()) {
+            // normalize 过滤后无可渲染行（时间轴全部无效等）：视为未命中回落原歌词，
+            // 避免空歌词替换掉原本可用的平台歌词
+            HookLogger.d(TAG, "AMLL 解析结果无有效行: fromCache=$fromCache, parsedLines=${lines.size}")
+            return null
         }
+        return normalized.copy(lyrics = TtmlParser.insertInterludeCountdowns(validLines))
     }
 
     override fun cancelActiveRequests() {

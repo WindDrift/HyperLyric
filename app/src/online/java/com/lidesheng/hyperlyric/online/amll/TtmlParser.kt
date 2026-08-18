@@ -22,7 +22,8 @@ import java.util.Locale
  * - `ttm:role="x-bg"` 背景人声 → secondary/secondaryWords（优先级高于翻译/罗马音）；
  *   内部嵌套的无 role 逐字 span 递归解析为 secondaryWords（供副行逐字表演），
  *   嵌套的翻译/罗马音丢弃；内部无逐字 span 但外层自带时间轴时回退为整段词；
- *   词文本去除首尾括号（显示层不需要和声括号标注）
+ *   词文本去除首尾括号（显示层不需要和声括号标注）；
+ *   仅含 x-bg 的行（间奏和声）提升为主行文本，避免被 Song.normalize 整行丢弃
  * - 行间间隔超阈值时插入倒计时行（复用倒计时圆点提示间奏，见 [insertInterludeCountdowns]）
  * - `ttm:role="x-translation"` 翻译 → 按 xml:lang 从候选中挑选一条写入 translation
  *   （优先级：完全匹配 > 简繁脚本等价 > 主语言前缀 > 无语言标记 > 第一个；行内无 x-bg 时）
@@ -412,11 +413,25 @@ object TtmlParser {
         }
         if (mainText.isBlank() && !hasBg) return null
 
-        // 同一行既有 x-bg 又有翻译/罗马音时，优先填充 secondary（背景人声），跳过翻译与罗马音
-        val pickedTranslation = if (hasBg) null else pickTranslation(paragraph.translations, preferredLang)
-
         val begin = paragraph.begin.coerceAtLeast(0L)
         val end = if (paragraph.end >= paragraph.begin && paragraph.end >= 0) paragraph.end else begin
+        val metadata = paragraph.agent?.let { LyricMetadata(mapOf(METADATA_KEY_AGENT to it)) }
+
+        if (mainText.isBlank()) {
+            // 纯背景人声行（间奏和声等，主文本为空、仅有 x-bg）：背景人声是该行唯一内容，
+            // 提升为主行文本与逐字时间轴；text 为 null 的行会被 Song.normalize 的
+            // 有效性规则（要求 text 非空）整行丢弃
+            return RichLyricLine(
+                begin = begin,
+                end = end,
+                text = bgText.trim(),
+                words = paragraph.bgWords.takeIf { it.isNotEmpty() },
+                metadata = metadata
+            )
+        }
+
+        // 同一行既有 x-bg 又有翻译/罗马音时，优先填充 secondary（背景人声），跳过翻译与罗马音
+        val pickedTranslation = if (hasBg) null else pickTranslation(paragraph.translations, preferredLang)
 
         return RichLyricLine(
             begin = begin,
@@ -428,7 +443,7 @@ object TtmlParser {
             translation = pickedTranslation?.text?.toString()?.trim()?.takeIf { it.isNotBlank() },
             translationWords = pickedTranslation?.words?.takeIf { it.isNotEmpty() },
             roma = if (hasBg) null else paragraph.romaText?.trim()?.takeIf { it.isNotBlank() },
-            metadata = paragraph.agent?.let { LyricMetadata(mapOf(METADATA_KEY_AGENT to it)) }
+            metadata = metadata
         )
     }
 
