@@ -105,33 +105,14 @@ jobs:
             release-assets/HyperLyric-online-*.apk
             release-assets/HyperLyric-offline-*.apk
 
-      - name: 提取中文更新日志 Extract Chinese Release Notes
+      - name: 清理 Release 正文 Clean Release Body
         shell: bash
         run: |
           set -euo pipefail
-
-          extract_section() {
-            local heading="$1"
-            local output="$2"
-
-            awk -v heading="$heading" '
-              $0 ~ "^[[:space:]]*" heading "[[:space:][:punct:]]*$" { in_section=1; next }
-              in_section && /^##[[:space:]]+/ { exit }
-              in_section { print }
-            ' release-body.md > "$output"
-
-            sed -i \
-              -e '/^[[:space:]]*<!--.*-->[[:space:]]*$/d' \
-              -e '/^[[:space:]]*<!--[[:space:]]*$/,/^[[:space:]]*-->[[:space:]]*$/d' \
-              "$output"
-          }
-
-          extract_section '## 更新内容' release-notes-zh.md
-
-          if ! grep -q '[^[:space:]]' release-notes-zh.md; then
-            echo '::error::Release 的中文更新内容为空，请检查正式版正文'
-            exit 1
-          fi
+          sed \
+            -e '/^[[:space:]]*<!--.*-->[[:space:]]*$/d' \
+            -e '/^[[:space:]]*<!--[[:space:]]*$/,/^[[:space:]]*-->[[:space:]]*$/d' \
+            release-body.md > release-notes-zh.md
 
       - name: 发送到 Telegram Send to Telegram
         env:
