@@ -173,6 +173,17 @@ fun SuperIslandSettingsPage() {
         ).coerceIn(initialMin, islandWidthMax)
         mutableStateOf(initialMin.toFloat()..initialMax.toFloat())
     }
+    var dynamicWidthBasis by remember {
+        mutableIntStateOf(
+            prefs.getInt(
+                RootConstants.KEY_HOOK_ISLAND_DYNAMIC_WIDTH_BASIS,
+                RootConstants.DEFAULT_HOOK_ISLAND_DYNAMIC_WIDTH_BASIS
+            ).coerceIn(
+                RootConstants.ISLAND_DYNAMIC_WIDTH_BASIS_ALL,
+                RootConstants.ISLAND_DYNAMIC_WIDTH_BASIS_LYRIC_ONLY
+            )
+        )
+    }
     var afterPauseBehavior by remember {
         mutableIntStateOf(
             prefs.getInt(
@@ -306,6 +317,12 @@ fun SuperIslandSettingsPage() {
         listOf(
             R.string.option_super_island_width_fixed,
             R.string.option_super_island_width_dynamic
+        )
+    }.map { stringResource(id = it) }
+    val dynamicWidthBasisOptions = remember {
+        listOf(
+            R.string.option_dynamic_width_basis_all,
+            R.string.option_dynamic_width_basis_lyric_only
         )
     }.map { stringResource(id = it) }
 
@@ -469,6 +486,22 @@ fun SuperIslandSettingsPage() {
                                     saveConfig(RootConstants.KEY_HOOK_ISLAND_WIDTH_MODE, it)
                                 }
                             )
+                            AnimatedVisibility(
+                                visible = islandWidthMode == RootConstants.ISLAND_WIDTH_MODE_DYNAMIC
+                            ) {
+                                OverlayDropdownPreference(
+                                    title = stringResource(id = R.string.title_dynamic_width_basis),
+                                    items = dynamicWidthBasisOptions,
+                                    selectedIndex = dynamicWidthBasis,
+                                    onSelectedIndexChange = {
+                                        dynamicWidthBasis = it
+                                        saveConfig(
+                                            RootConstants.KEY_HOOK_ISLAND_DYNAMIC_WIDTH_BASIS,
+                                            it
+                                        )
+                                    }
+                                )
+                            }
                             ArrowPreference(
                                 title = stringResource(id = R.string.title_super_island_width),
                                 endActions = {

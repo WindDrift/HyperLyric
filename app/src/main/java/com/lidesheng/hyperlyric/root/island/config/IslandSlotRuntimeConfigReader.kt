@@ -68,6 +68,13 @@ internal object IslandSlotRuntimeConfigReader {
         } else {
             fixedIslandWidth
         }
+        val dynamicWidthBasis = prefs.getInt(
+            RootConstants.KEY_HOOK_ISLAND_DYNAMIC_WIDTH_BASIS,
+            RootConstants.DEFAULT_HOOK_ISLAND_DYNAMIC_WIDTH_BASIS
+        ).coerceIn(
+            RootConstants.ISLAND_DYNAMIC_WIDTH_BASIS_ALL,
+            RootConstants.ISLAND_DYNAMIC_WIDTH_BASIS_LYRIC_ONLY
+        )
         val config = IslandSlotRuntimeConfig(
             activeMode = activeMode,
             leftMode = if (activeMode == 1) {
@@ -121,6 +128,7 @@ internal object IslandSlotRuntimeConfigReader {
                 ),
                 rightMaxWidthDp = effectiveMaxWidth
             ),
+            dynamicWidthBasis = dynamicWidthBasis,
             pauseBehavior = prefs.getInt(
                 RootConstants.KEY_HOOK_ISLAND_BEHAVIOR_AFTER_PAUSE,
                 RootConstants.DEFAULT_HOOK_ISLAND_BEHAVIOR_AFTER_PAUSE

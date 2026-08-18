@@ -493,6 +493,9 @@
     <string name="title_super_island_width_mode">超级岛长度模式</string>
     <string name="option_super_island_width_fixed">固定长度</string>
     <string name="option_super_island_width_dynamic">动态长度</string>
+    <string name="title_dynamic_width_basis">动态长度判断基准</string>
+    <string name="option_dynamic_width_basis_all">综合判断</string>
+    <string name="option_dynamic_width_basis_lyric_only">仅歌词</string>
     <string name="title_super_island_width">超级岛长度</string>
     <string name="summary_super_island_width">最大长度取决于系统限制，达到一定阈值后将不会继续增长，这是预期行为，正常现象</string>
     <string name="label_content_width_range">范围：%1$d ~ %2$d</string>

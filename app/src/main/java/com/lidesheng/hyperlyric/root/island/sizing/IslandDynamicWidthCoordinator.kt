@@ -124,20 +124,24 @@ internal object IslandDynamicWidthCoordinator {
     ): Boolean {
         if (!config.geometry.isDynamicWidth) return false
 
+        val lyricOnly = config.dynamicWidthBasis ==
+                RootConstants.ISLAND_DYNAMIC_WIDTH_BASIS_LYRIC_ONLY
         val slotBaseWidthDp = listOf(
             dynamicSlotBaseWidthDp(
                 rootView,
                 IslandProbeUtils.LEFT_PARENT_NAME,
                 IslandProbeUtils.LEFT_TEST_VIEW_TAG,
                 config,
-                contentWidthOverrides[IslandProbeUtils.LEFT_TEST_VIEW_TAG]
+                contentWidthOverrides[IslandProbeUtils.LEFT_TEST_VIEW_TAG],
+                lyricOnly
             ),
             dynamicSlotBaseWidthDp(
                 rootView,
                 IslandProbeUtils.RIGHT_PARENT_NAME,
                 IslandProbeUtils.RIGHT_TEST_VIEW_TAG,
                 config,
-                contentWidthOverrides[IslandProbeUtils.RIGHT_TEST_VIEW_TAG]
+                contentWidthOverrides[IslandProbeUtils.RIGHT_TEST_VIEW_TAG],
+                lyricOnly
             )
         ).filterNotNull().maxOrNull() ?: return false
         val baseWidthDp = slotBaseWidthDp.coerceIn(
@@ -172,9 +176,14 @@ internal object IslandDynamicWidthCoordinator {
         parentName: String,
         viewTag: String,
         config: IslandSlotRuntimeConfig,
-        contentWidthOverridePx: Float? = null
+        contentWidthOverridePx: Float? = null,
+        lyricOnly: Boolean = false
     ): Float? {
-        val contentWidthPx = when (config.modeForTag(viewTag)) {
+        val contentMode = config.modeForTag(viewTag)
+        if (lyricOnly && contentMode == RootConstants.ISLAND_CONTENT_MODE_CUSTOM_MUSIC_INFO) {
+            return null
+        }
+        val contentWidthPx = when (contentMode) {
             RootConstants.ISLAND_CONTENT_MODE_LYRIC -> {
                 val lyricView = rootView.findViewWithTag<View>(viewTag) ?: return null
                 when (lyricView) {

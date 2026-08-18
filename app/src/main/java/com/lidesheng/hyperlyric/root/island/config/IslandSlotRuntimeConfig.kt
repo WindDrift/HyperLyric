@@ -10,6 +10,7 @@ internal data class IslandSlotRuntimeConfig(
     val leftMode: Int,
     val rightMode: Int,
     val geometry: IslandSlotGeometryConfig,
+    val dynamicWidthBasis: Int,
     val pauseBehavior: Int,
     val textSizeSp: Int,
     val textSizeRatio: Float,
