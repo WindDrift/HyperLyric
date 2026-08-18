@@ -4,6 +4,8 @@ import android.util.Xml
 import com.lidesheng.hyperlyric.lyric.model.LyricMetadata
 import com.lidesheng.hyperlyric.lyric.model.LyricWord
 import com.lidesheng.hyperlyric.lyric.model.RichLyricLine
+import com.lidesheng.hyperlyric.lyric.model.lyricMetadataOf
+import com.lidesheng.hyperlyric.lyric.view.METADATA_COUNTDOWN_LINE
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import org.xmlpull.v1.XmlPullParser
 import java.io.StringReader
@@ -19,7 +21,9 @@ import java.util.Locale
  * - `ttm:agent` 对唱标记 → metadata["amll:agent"]（渲染层不区分，仅元数据保留）
  * - `ttm:role="x-bg"` 背景人声 → secondary/secondaryWords（优先级高于翻译/罗马音）；
  *   内部嵌套的无 role 逐字 span 递归解析为 secondaryWords（供副行逐字表演），
- *   嵌套的翻译/罗马音丢弃；内部无逐字 span 但外层自带时间轴时回退为整段词
+ *   嵌套的翻译/罗马音丢弃；内部无逐字 span 但外层自带时间轴时回退为整段词；
+ *   词文本去除首尾括号（显示层不需要和声括号标注）
+ * - 行间间隔超阈值时插入倒计时行（复用倒计时圆点提示间奏，见 [insertInterludeCountdowns]）
  * - `ttm:role="x-translation"` 翻译 → 按 xml:lang 从候选中挑选一条写入 translation
  *   （优先级：完全匹配 > 简繁脚本等价 > 主语言前缀 > 无语言标记 > 第一个；行内无 x-bg 时）
  * - `ttm:role="x-roman"` 罗马音 → roma（行内无 x-bg 时）
@@ -39,6 +43,12 @@ object TtmlParser {
     private const val ROLE_ROMAN = "x-roman"
 
     const val METADATA_KEY_AGENT = "amll:agent"
+
+    /** 间奏提示的最小行间隔：下一行开始距当前行结束超过该值时插入倒计时行 */
+    private const val INTERLUDE_MIN_GAP_MS = 4_000L
+
+    /** 间奏倒计时的显示延迟：当前行结束后等待该时长再开始显示 */
+    private const val INTERLUDE_COUNTDOWN_DELAY_MS = 1_000L
 
     /** 候选翻译：同一行的多个翻译 span 按 xml:lang 归集（相邻同语言的拼接） */
     private class TranslationCandidate(val lang: String?) {
@@ -130,7 +140,7 @@ object TtmlParser {
                 HookLogger.d(TAG, "TTML 解析未命中: reason=no_paragraph")
                 return null
             }
-            val lines = buildLines(paragraphs, preferredLang)
+            val lines = insertInterludeCountdowns(buildLines(paragraphs, preferredLang))
             if (lines.isEmpty()) {
                 HookLogger.d(TAG, "TTML 解析未命中: reason=no_valid_line")
                 return null
@@ -282,10 +292,14 @@ object TtmlParser {
                         if (paragraph.bgWords.size == startWordCount &&
                             paragraph.bgExtraText.length > startExtraLength && outerBegin >= 0
                         ) {
-                            // 扁平兜底：新增的无时间文本用外层整体时间轴并成一个词
-                            val text = paragraph.bgExtraText.substring(startExtraLength)
+                            // 扁平兜底：新增的无时间文本用外层整体时间轴并成一个词（同样去括号）
+                            val text = stripBgParentheses(
+                                paragraph.bgExtraText.substring(startExtraLength).trim()
+                            )
                             paragraph.bgExtraText.setLength(startExtraLength)
-                            paragraph.bgWords.add(buildWord(outerBegin, outerEnd, text))
+                            if (text.isNotEmpty()) {
+                                paragraph.bgWords.add(buildWord(outerBegin, outerEnd, text))
+                            }
                         }
                         return
                     }
@@ -310,13 +324,24 @@ object TtmlParser {
         val end = parseTimeAttr(parser, "end")
         val text = readTextUntilEnd(parser, TAG_SPAN)
         if (begin >= 0) {
-            paragraph.bgWords.add(buildWord(begin, end, paragraph.consumeBgPendingSpace(text)))
+            addBgWord(paragraph, begin, end, paragraph.consumeBgPendingSpace(text))
         } else if (text.isNotBlank()) {
             paragraph.appendBgExtra(text.trim())
         } else if (text.isNotEmpty()) {
             paragraph.bgPendingSpace = true
         }
     }
+
+    /** 收集一个背景人声词：去除首尾括号（如 "(Fast"/"lane)" → "Fast"/"lane"），去后为空则丢弃 */
+    private fun addBgWord(paragraph: ParsedParagraph, begin: Long, end: Long, text: String) {
+        val stripped = stripBgParentheses(text)
+        if (stripped.isNotEmpty()) {
+            paragraph.bgWords.add(buildWord(begin, end, stripped))
+        }
+    }
+
+    /** 去除背景人声文本的首尾括号（Apple Music 风格 bg 用括号标注和声，显示层不需要） */
+    private fun stripBgParentheses(text: String): String = text.trimStart('(').trimEnd(')')
 
     /** 跳过当前元素的全部内容（调用时位于 START_TAG，返回时位于其匹配的 END_TAG） */
     private fun skipCurrentElement(parser: XmlPullParser) {
@@ -406,6 +431,39 @@ object TtmlParser {
             metadata = paragraph.agent?.let { LyricMetadata(mapOf(METADATA_KEY_AGENT to it)) }
         )
     }
+
+    // ==================== 间奏倒计时插入 ====================
+
+    /**
+     * 在行间插入倒计时行（复用倒计时圆点渲染）。
+     *
+     * 当下一行开始距当前行结束超过 [INTERLUDE_MIN_GAP_MS] 时，在当前行结束后
+     * [INTERLUDE_COUNTDOWN_DELAY_MS] 插入一个倒计时行，提示间奏剩余时长；
+     * 倒计时行结束于下一行开始前 1ms（与前奏占位倒计时一致，避免行区间重叠）。
+     * 仅对 AMLL TTML 解析结果生效（其他在线源不经过本解析器）。
+     */
+    private fun insertInterludeCountdowns(lines: List<RichLyricLine>): List<RichLyricLine> {
+        val result = mutableListOf<RichLyricLine>()
+        var prev: RichLyricLine? = null
+        for (line in lines) {
+            val previous = prev
+            if (previous != null) {
+                val countdownBegin = previous.end + INTERLUDE_COUNTDOWN_DELAY_MS
+                val countdownEnd = line.begin - 1
+                if (line.begin - previous.end > INTERLUDE_MIN_GAP_MS && countdownEnd > countdownBegin) {
+                    result.add(interludeCountdownLine(countdownBegin, countdownEnd))
+                }
+            }
+            result.add(line)
+            prev = line
+        }
+        return result
+    }
+
+    private fun interludeCountdownLine(begin: Long, end: Long) =
+        RichLyricLine(begin = begin, end = end, duration = end - begin).apply {
+            metadata = lyricMetadataOf(METADATA_COUNTDOWN_LINE to "true")
+        }
 
     // ==================== 翻译语言挑选 ====================
 
@@ -541,12 +599,13 @@ object TtmlParser {
         val wordTimingCount = lines.count { !it.words.isNullOrEmpty() }
         val bgCount = lines.count { !it.secondary.isNullOrBlank() }
         val bgWordTimingCount = lines.count { !it.secondaryWords.isNullOrEmpty() }
+        val interludeCount = lines.count { it.metadata?.getBoolean(METADATA_COUNTDOWN_LINE, false) == true }
         val agentCount = lines.count { it.metadata?.contains(METADATA_KEY_AGENT) == true }
         val translationCount = lines.count { !it.translation.isNullOrBlank() }
         HookLogger.d(
             TAG,
             "TTML 解析完成: lines=${lines.size}, wordTiming=$wordTimingCount, " +
-                    "bg=$bgCount, bgWordTiming=$bgWordTimingCount, " +
+                    "bg=$bgCount, bgWordTiming=$bgWordTimingCount, interlude=$interludeCount, " +
                     "agent=$agentCount, translation=$translationCount"
         )
     }
