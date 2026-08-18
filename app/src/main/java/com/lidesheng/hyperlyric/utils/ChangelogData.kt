@@ -10,6 +10,14 @@ object ChangelogData {
     fun getChangelog(): List<ChangelogItem> {
         return listOf(
             ChangelogItem(
+                version = "7.2-1937",
+                title = "修复了一些错误",
+                summary = "- 新增超级岛动态长度判断基准选项\n" +  
+                        "- 优化歌词源页面内容显示\n" +
+                        "- 修复 Lyricinfo 歌词源判断出错的问题\n" +
+                        "- 歌词模式改为分离歌词开关并移至超级岛设置页"
+            ),
+            ChangelogItem(
                 version = "7.1-1937",
                 title = "修复了一些错误，优化了一些体验",
                 summary = "- 新增逐字歌词模拟成逐行歌词显示\n" +  
