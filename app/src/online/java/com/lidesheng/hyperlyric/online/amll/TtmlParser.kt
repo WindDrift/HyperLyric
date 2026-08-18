@@ -15,6 +15,7 @@ import java.util.Locale
  * 解析 W3C TTML + Apple Music SMPTE 风格 span 时间轴，输出 [RichLyricLine] 列表。
  * 支持：
  * - `<p>` 行级 begin/end 与 `<span>` 逐字 begin/end
+ * - span 之间的空白文本节点保留为单词分隔符（英文歌词），含换行的格式化空白忽略
  * - `ttm:agent` 对唱标记 → metadata["amll:agent"]（渲染层不区分，仅元数据保留）
  * - `ttm:role="x-bg"` 背景人声 → secondary/secondaryWords（优先级高于翻译/罗马音）
  * - `ttm:role="x-translation"` 翻译 → translation/translationWords（行内无 x-bg 时）
@@ -48,6 +49,28 @@ object TtmlParser {
         val translationWords = mutableListOf<LyricWord>()
         val translationText = StringBuilder()
         var romaText: String? = null
+
+        /**
+         * span 之间的空白分隔符（AMLL 英文歌词的单词间空格是独立的空白文本节点），
+         * 由下一个主歌词内容消费；含换行的空白视为 XML 格式化噪声，不会置位
+         */
+        var pendingSpace = false
+
+        /** 是否已有主歌词内容（分隔符仅在已有内容之后生效，行首空白忽略） */
+        fun hasMainContent(): Boolean = mainWords.isNotEmpty() || mainExtraText.isNotEmpty()
+
+        /** 消费待拼接空格：已有内容且新文本非空白开头时补一个空格 */
+        fun consumePendingSpace(text: String): String {
+            if (!pendingSpace) return text
+            pendingSpace = false
+            if (!hasMainContent() || text.isEmpty() || text[0].isWhitespace()) return text
+            return " $text"
+        }
+
+        /** 收集无时间轴的主歌词文本 */
+        fun appendMainExtra(text: String) {
+            mainExtraText.append(consumePendingSpace(text))
+        }
     }
 
     /**
@@ -113,9 +136,13 @@ object TtmlParser {
 
                 XmlPullParser.TEXT -> {
                     val text = parser.text.orEmpty()
-                    // 仅收集非纯空白文本（无 span 的 `<p>` 直接文本；span 间格式化空白忽略）
                     if (text.isNotBlank()) {
-                        paragraph.mainExtraText.append(text.trim())
+                        // 非纯空白文本：无 span 的 `<p>` 直接文本，消费待拼接空格后收集
+                        paragraph.appendMainExtra(text.trim())
+                    } else if (text.isNotEmpty() && !text.contains('\n') && !text.contains('\r')) {
+                        // span 之间的同行空白（AMLL 英文歌词的单词分隔空格）：记为待拼接分隔符；
+                        // 含换行的空白视为 XML 格式化噪声忽略（避免 CJK 逐字歌词被错误加空格）
+                        paragraph.pendingSpace = true
                     }
                 }
 
@@ -163,9 +190,14 @@ object TtmlParser {
 
             else -> {
                 if (begin >= 0) {
-                    paragraph.mainWords.add(buildWord(begin, end, text))
+                    paragraph.mainWords.add(
+                        buildWord(begin, end, paragraph.consumePendingSpace(text))
+                    )
                 } else if (text.isNotBlank()) {
-                    paragraph.mainExtraText.append(text.trim())
+                    paragraph.appendMainExtra(text.trim())
+                } else if (text.isNotEmpty()) {
+                    // 无时间轴的纯空白 span：同样视为单词分隔符
+                    paragraph.pendingSpace = true
                 }
             }
         }

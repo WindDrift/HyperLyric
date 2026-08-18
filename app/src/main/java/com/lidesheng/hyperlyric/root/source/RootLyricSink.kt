@@ -154,9 +154,12 @@ class RootLyricSink(
             ?: LyriconDataBridge.currentSong?.name
         updateColorSession(mediaInfo, reason = "metadata_changed")
         // AMLL 补全触发：onSongChanged 时条件不足（songId 为空/包名未知/元数据未推送），
-        // metadata 推送后补全触发（精确或 search 模糊匹配），与 onSongChanged 触发互斥
-        LyriconDataBridge.currentSong?.let { currentSong ->
-            tryAmllEnhancement(currentSong, reason = "metadata_changed")
+        // metadata 推送后补全触发（精确或 search 模糊匹配），与 onSongChanged 触发互斥。
+        // 平台未提供整曲歌词时（如网易云"不支持滚动歌词"的歌曲，currentSong 恒为 null），
+        // 用元数据合成轻量 Song 触发 AMLL 搜索，命中后由 AMLL 歌词接管渲染
+        val amllCandidate = LyriconDataBridge.currentSong ?: normalized?.toAmllFallbackSong()
+        if (amllCandidate != null) {
+            tryAmllEnhancement(amllCandidate, reason = "metadata_changed")
         }
         renderer.updateMetadata()
     }
@@ -269,6 +272,16 @@ class RootLyricSink(
         val song = LyriconDataBridge.currentSong ?: return
         amllFetchKey = null
         tryAmllEnhancement(song, reason = "pref_changed")
+    }
+
+    /**
+     * 平台无整曲歌词时（流式逐行源 / 平台"不支持滚动歌词"的歌曲），用元数据合成
+     * 触发 AMLL 搜索的轻量 Song（不含歌词；未命中时 AI 翻译会因无歌词自动跳过）。
+     * 标题/歌手/歌曲ID 均缺失时返回 null，不触发。
+     */
+    private fun LyricMediaMetadata.toAmllFallbackSong(): Song? {
+        if (title.isNullOrBlank() && artist.isNullOrBlank() && songId.isNullOrBlank()) return null
+        return Song(id = songId, name = title, artist = artist)
     }
 
     /**
