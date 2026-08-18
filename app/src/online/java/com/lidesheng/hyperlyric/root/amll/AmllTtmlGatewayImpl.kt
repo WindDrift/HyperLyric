@@ -171,6 +171,7 @@ class AmllTtmlGatewayImpl : AmllTtmlGateway.Impl {
 
     /**
      * 解析 TTML 并构造 [Song]：name/artist 保留主歌词源的值，仅 lyrics 使用 AMLL 结果。
+     * 间奏倒计时行在 normalize 之后插入（倒计时行无文本，先插会被有效性规则过滤）。
      */
     private fun buildSong(localSong: Song, ttml: String, fromCache: Boolean): Song? {
         val lines = TtmlParser.parse(ttml)
@@ -185,7 +186,9 @@ class AmllTtmlGatewayImpl : AmllTtmlGateway.Impl {
             duration = localSong.duration,
             metadata = localSong.metadata,
             lyrics = lines
-        ).normalize()
+        ).normalize().let { normalized ->
+            normalized.copy(lyrics = TtmlParser.insertInterludeCountdowns(normalized.lyrics.orEmpty()))
+        }
     }
 
     override fun cancelActiveRequests() {

@@ -140,7 +140,7 @@ object TtmlParser {
                 HookLogger.d(TAG, "TTML 解析未命中: reason=no_paragraph")
                 return null
             }
-            val lines = insertInterludeCountdowns(buildLines(paragraphs, preferredLang))
+            val lines = buildLines(paragraphs, preferredLang)
             if (lines.isEmpty()) {
                 HookLogger.d(TAG, "TTML 解析未命中: reason=no_valid_line")
                 return null
@@ -440,10 +440,13 @@ object TtmlParser {
      * 当下一行开始距当前行结束超过 [INTERLUDE_MIN_GAP_MS] 时，在当前行结束后
      * [INTERLUDE_COUNTDOWN_DELAY_MS] 插入一个倒计时行，提示间奏剩余时长；
      * 倒计时行结束于下一行开始前 1ms（与前奏占位倒计时一致，避免行区间重叠）。
-     * 仅对 AMLL TTML 解析结果生效（其他在线源不经过本解析器）。
+     *
+     * 必须在 [Song.normalize] 之后调用：倒计时行无文本，会被 normalize 的
+     * 有效性规则过滤（调用方见 AmllTtmlGatewayImpl.buildSong）。
      */
-    private fun insertInterludeCountdowns(lines: List<RichLyricLine>): List<RichLyricLine> {
+    fun insertInterludeCountdowns(lines: List<RichLyricLine>): List<RichLyricLine> {
         val result = mutableListOf<RichLyricLine>()
+        var inserted = 0
         var prev: RichLyricLine? = null
         for (line in lines) {
             val previous = prev
@@ -452,10 +455,14 @@ object TtmlParser {
                 val countdownEnd = line.begin - 1
                 if (line.begin - previous.end > INTERLUDE_MIN_GAP_MS && countdownEnd > countdownBegin) {
                     result.add(interludeCountdownLine(countdownBegin, countdownEnd))
+                    inserted++
                 }
             }
             result.add(line)
             prev = line
+        }
+        if (inserted > 0) {
+            HookLogger.d(TAG, "间奏倒计时插入: count=$inserted, lines=${lines.size}->${result.size}")
         }
         return result
     }
@@ -599,13 +606,12 @@ object TtmlParser {
         val wordTimingCount = lines.count { !it.words.isNullOrEmpty() }
         val bgCount = lines.count { !it.secondary.isNullOrBlank() }
         val bgWordTimingCount = lines.count { !it.secondaryWords.isNullOrEmpty() }
-        val interludeCount = lines.count { it.metadata?.getBoolean(METADATA_COUNTDOWN_LINE, false) == true }
         val agentCount = lines.count { it.metadata?.contains(METADATA_KEY_AGENT) == true }
         val translationCount = lines.count { !it.translation.isNullOrBlank() }
         HookLogger.d(
             TAG,
             "TTML 解析完成: lines=${lines.size}, wordTiming=$wordTimingCount, " +
-                    "bg=$bgCount, bgWordTiming=$bgWordTimingCount, interlude=$interludeCount, " +
+                    "bg=$bgCount, bgWordTiming=$bgWordTimingCount, " +
                     "agent=$agentCount, translation=$translationCount"
         )
     }
