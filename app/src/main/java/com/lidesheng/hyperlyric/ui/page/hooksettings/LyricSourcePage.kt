@@ -2,25 +2,36 @@ package com.lidesheng.hyperlyric.ui.page.hooksettings
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.lidesheng.hyperlyric.R
 import com.lidesheng.hyperlyric.common.RootConstants
-import com.lidesheng.hyperlyric.ui.page.hooksettings.lyrics.common.XposedLyricSettingPage
 import com.lidesheng.hyperlyric.ui.page.hooksettings.lyrics.common.rememberHookConfigSaver
 import com.lidesheng.hyperlyric.ui.page.hooksettings.lyrics.common.rememberHookPrefs
+import com.lidesheng.hyperlyric.ui.navigation.LocalNavigator
+import com.lidesheng.hyperlyric.ui.utils.BlurredBar
+import com.lidesheng.hyperlyric.ui.utils.rememberBlurBackdrop
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun LyricSourcePage() {
+    val navigator = LocalNavigator.current
     val prefs = rememberHookPrefs()
     val saveConfig = rememberHookConfigSaver(prefs)
     var lyricSource by remember {
@@ -42,41 +53,68 @@ fun LyricSourcePage() {
         RootConstants.DEFAULT_HOOK_ENABLE_SUPER_ISLAND
     )
 
-    XposedLyricSettingPage(title = stringResource(R.string.title_lyric_source)) {
-        lyricSourcePageSections(
-            lyricSource = lyricSource,
-            sourceOptions = sourceOptions,
-            sourceIds = sourceIds,
-            enabled = hookEnabled,
-            onLyricSourceChange = { newSource ->
-                lyricSource = newSource
-                saveConfig(RootConstants.KEY_HOOK_LYRIC_SOURCE, newSource)
-            }
-        )
-    }
-}
+    val backdrop = rememberBlurBackdrop()
+    val blurActive = backdrop != null
+    val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
+    val topAppBarScrollBehavior = MiuixScrollBehavior()
+    val selectedSourceIndex = sourceIds.indexOf(lyricSource).coerceAtLeast(0)
 
-private fun LazyListScope.lyricSourcePageSections(
-    lyricSource: String,
-    sourceOptions: List<String>,
-    sourceIds: List<String>,
-    enabled: Boolean,
-    onLyricSourceChange: (String) -> Unit
-) {
-    item(key = "lyric_source") {
-        Card(
-            modifier = Modifier
-                .padding(horizontal = 12.dp)
-                .fillMaxWidth()
-        ) {
-            OverlayDropdownPreference(
-                title = stringResource(R.string.title_lyric_source),
-                items = sourceOptions,
-                selectedIndex = sourceIds.indexOf(lyricSource).coerceAtLeast(0),
-                enabled = enabled,
-                onSelectedIndexChange = { index ->
-                    onLyricSourceChange(sourceIds[index])
-                }
+    Scaffold(
+        topBar = {
+            BlurredBar(backdrop, blurActive) {
+                TopAppBar(
+                    color = barColor,
+                    title = stringResource(R.string.title_lyric_source),
+                    scrollBehavior = topAppBarScrollBehavior,
+                    navigationIcon = {
+                        IconButton(onClick = { navigator.pop() }) {
+                            Icon(
+                                imageVector = MiuixIcons.Back,
+                                contentDescription = stringResource(R.string.back)
+                            )
+                        }
+                    },
+                    bottomContent = {
+                        Card(
+                            modifier = Modifier
+                                .padding(horizontal = 12.dp)
+                                .padding(bottom = 12.dp)
+                                .fillMaxWidth()
+                        ) {
+                            OverlayDropdownPreference(
+                                title = stringResource(R.string.title_lyric_source),
+                                items = sourceOptions,
+                                selectedIndex = selectedSourceIndex,
+                                enabled = hookEnabled,
+                                onSelectedIndexChange = { index ->
+                                    sourceIds.getOrNull(index)?.let { newSource ->
+                                        lyricSource = newSource
+                                        saveConfig(
+                                            RootConstants.KEY_HOOK_LYRIC_SOURCE,
+                                            newSource
+                                        )
+                                    }
+                                }
+                            )
+                        }
+                    }
+                )
+            }
+        }
+    ) { innerPadding ->
+        if (lyricSource == "lyricon") {
+            LyricProviderSection(
+                innerPadding = innerPadding,
+                topAppBarScrollBehavior = topAppBarScrollBehavior,
+                backdrop = backdrop,
+                promptContent = { LyricSourcePromptCard(lyricSource) }
+            )
+        } else {
+            LyricSourcePromptContent(
+                lyricSource = lyricSource,
+                innerPadding = innerPadding,
+                topAppBarScrollBehavior = topAppBarScrollBehavior,
+                backdrop = backdrop
             )
         }
     }

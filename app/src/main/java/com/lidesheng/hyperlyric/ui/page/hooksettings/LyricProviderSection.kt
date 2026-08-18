@@ -1,7 +1,6 @@
 package com.lidesheng.hyperlyric.ui.page.hooksettings
 
 
-import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -42,12 +41,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -57,10 +54,7 @@ import com.lidesheng.hyperlyric.common.PrefsBridge
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.ui.component.ProComponent
 import com.lidesheng.hyperlyric.ui.component.TagComponent
-import com.lidesheng.hyperlyric.ui.navigation.LocalNavigator
-import com.lidesheng.hyperlyric.ui.utils.BlurredBar
 import com.lidesheng.hyperlyric.ui.utils.pageScrollModifiers
-import com.lidesheng.hyperlyric.ui.utils.rememberBlurBackdrop
 import com.lidesheng.hyperlyric.utils.LyricProviderManager
 import com.lidesheng.hyperlyric.utils.LyricModule
 import com.lidesheng.hyperlyric.utils.ModuleCategory
@@ -70,21 +64,16 @@ import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
-import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.PullToRefresh
-import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.ScrollBehavior
 import top.yukonga.miuix.kmp.basic.Slider
 import top.yukonga.miuix.kmp.basic.SliderDefaults
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberPullToRefreshState
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.layerBackdrop
-import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.roundToInt
 
@@ -105,11 +94,14 @@ private val LYRIC_DELAY_KEY_POINTS = listOf(
 )
 
 @Composable
-fun LyricProviderPage() {
+internal fun LyricProviderSection(
+    innerPadding: PaddingValues,
+    topAppBarScrollBehavior: ScrollBehavior,
+    backdrop: LayerBackdrop?,
+    promptContent: @Composable () -> Unit
+) {
     val context = LocalContext.current
-    val navigator = LocalNavigator.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val providerReleaseHome = stringResource(R.string.provider_release_home)
     var contentReady by remember(lifecycleOwner) {
         mutableStateOf(
             lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
@@ -117,22 +109,17 @@ fun LyricProviderPage() {
     }
     var initialLoadCompleted by remember(lifecycleOwner) { mutableStateOf(false) }
 
-    // NavDisplay 在转场完成前将目标页保持在 STARTED，进入 RESUMED 后再组合重型内容并扫描。
+    // 只在歌词源 section 真正进入 RESUMED 后加载；非 Lyricon 时该 section 不会被组合。
     LaunchedEffect(lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             contentReady = true
-            if (!initialLoadCompleted) {
+            if (!initialLoadCompleted && !LyricProviderManager.uiState.value.hasLoaded) {
                 LyricProviderManager.loadProviders(context.applicationContext)
-                initialLoadCompleted = true
             }
+            initialLoadCompleted = true
         }
     }
 
-    val availableBackdrop = rememberBlurBackdrop()
-    val backdrop = availableBackdrop.takeIf { contentReady }
-    val blurActive = backdrop != null
-    val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
-    val topAppBarScrollBehavior = MiuixScrollBehavior()
     val coroutineScope = rememberCoroutineScope()
     val providerUiState by LyricProviderManager.uiState.collectAsStateWithLifecycle()
     val pullToRefreshState = rememberPullToRefreshState()
@@ -157,95 +144,67 @@ fun LyricProviderPage() {
         listOf(refreshPullDown, refreshRelease, refreshing, refreshSuccess)
     }
 
-    Scaffold(
-        topBar = {
-            BlurredBar(backdrop, blurActive) {
-                TopAppBar(
-                    color = barColor,
-                    title = stringResource(id = R.string.title_lyric_provider),
-                    scrollBehavior = topAppBarScrollBehavior,
-                    navigationIcon = {
-                        IconButton(onClick = { navigator.pop() }) {
-                            Icon(
-                                imageVector = MiuixIcons.Back,
-                                contentDescription = stringResource(id = R.string.back)
-                            )
-                        }
-                    },
-                    actions = {
-                        IconButton(onClick = {
-                            try {
-                                context.startActivity(
-                                    Intent(
-                                        Intent.ACTION_VIEW,
-                                        providerReleaseHome.toUri()
-                                    )
-                                )
-                            } catch (_: Exception) {
-                            }
-                        }) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_github),
-                                contentDescription = stringResource(id = R.string.github),
-                                tint = MiuixTheme.colorScheme.onBackground,
-                                modifier = Modifier.size(26.dp)
-                            )
-                        }
-                    }
-                )
-            }
-        }
-    ) { innerPadding ->
-        if (!contentReady) {
+    val showInitialLoading = !contentReady ||
+            (providerUiState.isInitialLoading && !providerUiState.hasLoaded)
+    if (showInitialLoading) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
+            promptContent()
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
+                    .fillMaxWidth()
+                    .weight(1f),
                 contentAlignment = Alignment.Center
             ) {
                 InfiniteProgressIndicator()
             }
-        } else {
-            Box(modifier = if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier) {
-                PullToRefresh(
-                    isRefreshing = providerUiState.isRefreshing,
-                    onRefresh = {
-                        if (!providerUiState.isInitialLoading && !providerUiState.isRefreshing) {
-                            coroutineScope.launch {
-                                LyricProviderManager.loadProviders(
-                                    context = context.applicationContext,
-                                    forceRefresh = true
-                                )
-                            }
+        }
+    } else {
+        Box(modifier = if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier) {
+            PullToRefresh(
+                isRefreshing = providerUiState.isRefreshing,
+                onRefresh = {
+                    if (!providerUiState.isInitialLoading && !providerUiState.isRefreshing) {
+                        coroutineScope.launch {
+                            LyricProviderManager.loadProviders(
+                                context = context.applicationContext,
+                                forceRefresh = true
+                            )
                         }
-                    },
-                    pullToRefreshState = pullToRefreshState,
-                    topAppBarScrollBehavior = topAppBarScrollBehavior,
-                    contentPadding = PaddingValues(top = innerPadding.calculateTopPadding()),
-                    refreshTexts = refreshTexts,
-                    modifier = Modifier.fillMaxSize()
+                    }
+                },
+                pullToRefreshState = pullToRefreshState,
+                topAppBarScrollBehavior = topAppBarScrollBehavior,
+                contentPadding = PaddingValues(top = innerPadding.calculateTopPadding()),
+                refreshTexts = refreshTexts,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                val lazyListState = rememberLazyListState()
+                val top = innerPadding.calculateTopPadding()
+                val bottom = innerPadding.calculateBottomPadding()
+                val contentPadding = remember(top, bottom) {
+                    PaddingValues(top = top, start = 0.dp, end = 0.dp, bottom = bottom)
+                }
+                LazyColumn(
+                    state = lazyListState,
+                    modifier = Modifier.pageScrollModifiers(
+                        enableScrollEndHaptic = true,
+                        showTopAppBar = false,
+                        topAppBarScrollBehavior = topAppBarScrollBehavior
+                    ),
+                    contentPadding = contentPadding,
                 ) {
-                    val lazyListState = rememberLazyListState()
-                    val top = innerPadding.calculateTopPadding()
-                    val bottom = innerPadding.calculateBottomPadding()
-                    val contentPadding = remember(top, bottom) {
-                        PaddingValues(top = top, start = 0.dp, end = 0.dp, bottom = bottom)
+                    item(key = "lyric_source_prompt", contentType = "source_prompt") {
+                        promptContent()
                     }
-                    LazyColumn(
-                        state = lazyListState,
-                        modifier = Modifier.pageScrollModifiers(
-                            enableScrollEndHaptic = true,
-                            showTopAppBar = false,
-                            topAppBarScrollBehavior = topAppBarScrollBehavior
-                        ),
-                        contentPadding = contentPadding,
-                    ) {
-                        providerSections(
-                            uiState = providerUiState,
-                            groupedModules = groupedModules,
-                            expandedStates = expandedStates
-                        )
-                    }
+                    providerSections(
+                        uiState = providerUiState,
+                        groupedModules = groupedModules,
+                        expandedStates = expandedStates
+                    )
                 }
             }
         }

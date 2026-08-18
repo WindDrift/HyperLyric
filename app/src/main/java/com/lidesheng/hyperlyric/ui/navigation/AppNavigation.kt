@@ -15,7 +15,6 @@ import com.lidesheng.hyperlyric.ui.page.PoetryPage
 import com.lidesheng.hyperlyric.ui.page.SettingsPage
 import com.lidesheng.hyperlyric.ui.page.SetupPage
 import com.lidesheng.hyperlyric.ui.page.hooksettings.LyricAnimationPage
-import com.lidesheng.hyperlyric.ui.page.hooksettings.LyricProviderPage
 import com.lidesheng.hyperlyric.ui.page.hooksettings.LyricSettingsPage
 import com.lidesheng.hyperlyric.ui.page.hooksettings.LyricSourcePage
 import com.lidesheng.hyperlyric.ui.page.hooksettings.SuperIslandSettingsPage
@@ -52,7 +51,6 @@ fun AppNavigation(startRoute: Route) {
             entry<Route.Settings> { SettingsPage() }
             entry<Route.HookSettings> { HookSettingsPage() }
             entry<Route.LyricSource> { LyricSourcePage() }
-            entry<Route.LyricProvider> { LyricProviderPage() }
             entry<Route.LyricAnimation> { LyricAnimationPage() }
             entry<Route.LyricSettings> { LyricSettingsPage() }
             entry<Route.LyricDisplay> { LyricDisplayPage() }
