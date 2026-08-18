@@ -528,6 +528,17 @@ fun SuperIslandSettingsPage() {
                                     }
                                 }
                             )
+                        }
+                    }
+                }
+                item(key = "padding_content") {
+                    Card(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = 12.dp)
+                            .fillMaxWidth()
+                    ) {
+                        Column {
                             ArrowPreference(
                                 title = stringResource(id = R.string.title_left_padding),
                                 endActions = {

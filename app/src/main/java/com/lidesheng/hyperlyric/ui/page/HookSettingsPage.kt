@@ -241,18 +241,6 @@ private fun LazyListScope.hookSettingsSections(
                     PrefsBridge.putInt(RootConstants.KEY_HOOK_LYRIC_MODE, index)
                 }
             )
-            ArrowPreference(
-                title = stringResource(R.string.title_lyric_source),
-                enabled = hookEnabled,
-                endActions = {
-                    Text(
-                        text = lyricSourceLabel,
-                        fontSize = MiuixTheme.textStyles.body2.fontSize,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantActions
-                    )
-                },
-                onClick = { navigator.navigate(Route.LyricSource) }
-            )
         }
     }
     item(key = "custom_config_title") {
@@ -266,6 +254,18 @@ private fun LazyListScope.hookSettingsSections(
                 .fillMaxWidth()
         ) {
             Column {
+                ArrowPreference(
+                    title = stringResource(R.string.title_lyric_source),
+                    enabled = hookEnabled,
+                    endActions = {
+                        Text(
+                            text = lyricSourceLabel,
+                            fontSize = MiuixTheme.textStyles.body2.fontSize,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantActions
+                        )
+                    },
+                    onClick = { navigator.navigate(Route.LyricSource) }
+                )
                 ArrowPreference(
                     title = stringResource(R.string.title_super_island),
                     enabled = hookEnabled,
