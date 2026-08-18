@@ -68,11 +68,15 @@ jobs:
 
       - name: 保存正式版 Release 说明 Save Published Release Notes
         env:
-          RELEASE_BODY: ${{ github.event.release.body }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         shell: bash
         run: |
           set -euo pipefail
-          printf '%s' "$RELEASE_BODY" > release-body.md
+          gh release view "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json body \
+            --jq '.body' > release-body.md
 
       - name: 检查 Xposed 仓库令牌 Check Xposed Repository Token
         env:
@@ -111,7 +115,7 @@ jobs:
             local output="$2"
 
             awk -v heading="$heading" '
-              $0 ~ "^[[:space:]]*" heading "[[:space:]]*$" { in_section=1; next }
+              $0 ~ "^[[:space:]]*" heading "[[:space:][:punct:]]*$" { in_section=1; next }
               in_section && /^##[[:space:]]+/ { exit }
               in_section { print }
             ' release-body.md > "$output"
