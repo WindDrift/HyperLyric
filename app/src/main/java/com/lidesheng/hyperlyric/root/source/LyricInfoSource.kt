@@ -45,26 +45,19 @@ class LyricInfoSource(private val context: Context) : LyricSource {
 
     private data class TrackIdentity(
         val mediaId: String?,
-        val title: String?,
-        val artist: String?,
         val album: String?
     ) {
         fun isDefinitelyDifferent(other: TrackIdentity): Boolean {
             if (mediaId != null && other.mediaId != null && mediaId != other.mediaId) {
                 return true
             }
-            if (title != null && other.title != null && !sameText(title, other.title)) {
-                return true
-            }
-            if (artist != null && other.artist != null && !sameText(artist, other.artist)) {
+            if (mediaId == null && other.mediaId == null &&
+                album != null && other.album != null &&
+                !album.equals(other.album, ignoreCase = true)
+            ) {
                 return true
             }
             return false
-        }
-
-        private companion object {
-            fun sameText(first: String, second: String): Boolean =
-                first.equals(second, ignoreCase = true)
         }
     }
 
@@ -192,13 +185,6 @@ class LyricInfoSource(private val context: Context) : LyricSource {
             }
         }
 
-        // Existing controllers do not receive a registration-time metadata callback here.
-        // If the selected session disappeared while another session is already playing,
-        // explicitly give that session a chance to take over.
-        if (activeToken != null && controllers.none { it.sessionToken == activeToken }) {
-            controllers.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
-                ?.let { onMetadataUpdate(it) }
-        }
     }
 
     /**
@@ -241,21 +227,6 @@ class LyricInfoSource(private val context: Context) : LyricSource {
         if (!lyricInfoRaw.isNullOrBlank()) {
             val payload = LyricInfoParser.parsePayload(lyricInfoRaw)
             val sameSession = controller.sessionToken == activeController?.sessionToken
-            if (!isPayloadForMetadata(payload, metadataTrack)) {
-                HookLogger.dState(
-                    stateId = "LyricInfoSource.stalePayload",
-                    tag = TAG,
-                    state = "$pkg|${metadataTrack.title}|${metadataTrack.artist}|" +
-                            "${payload?.title}|${payload?.artist}"
-                ) {
-                    "忽略旧歌词 JSON: package=$pkg, " +
-                            "metadata=${metadataTrack.title.orEmpty()} / " +
-                            "${metadataTrack.artist.orEmpty()}, " +
-                            "payload=${payload?.title.orEmpty()} / ${payload?.artist.orEmpty()}"
-                }
-                return
-            }
-
             if (lyricInfoRaw == lastLyricPayload && pkg == activePkg && sameSession &&
                 controller.sessionToken == lastPayloadSessionToken
             ) {
@@ -289,12 +260,7 @@ class LyricInfoSource(private val context: Context) : LyricSource {
                 activeController = controller
                 activeTrack = mergeTrackIdentity(
                     metadataTrack,
-                    TrackIdentity(
-                        mediaId = null,
-                        title = payload.title,
-                        artist = payload.artist,
-                        album = payload.album
-                    )
+                    TrackIdentity(mediaId = null, album = payload.album)
                 )
                 lastPayloadSessionToken = controller.sessionToken
                 sink?.onSongChanged(song)
@@ -317,16 +283,6 @@ class LyricInfoSource(private val context: Context) : LyricSource {
 
         return TrackIdentity(
             mediaId = read(MediaMetadata.METADATA_KEY_MEDIA_ID),
-            title = read(
-                MediaMetadata.METADATA_KEY_TITLE,
-                MediaMetadata.METADATA_KEY_DISPLAY_TITLE
-            ),
-            artist = read(
-                MediaMetadata.METADATA_KEY_ARTIST,
-                MediaMetadata.METADATA_KEY_ALBUM_ARTIST,
-                MediaMetadata.METADATA_KEY_AUTHOR,
-                MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE
-            ),
             album = read(
                 MediaMetadata.METADATA_KEY_ALBUM,
                 MediaMetadata.METADATA_KEY_DISPLAY_DESCRIPTION
@@ -339,30 +295,8 @@ class LyricInfoSource(private val context: Context) : LyricSource {
         fallback: TrackIdentity
     ): TrackIdentity = TrackIdentity(
         mediaId = preferred.mediaId ?: fallback.mediaId,
-        title = preferred.title ?: fallback.title,
-        artist = preferred.artist ?: fallback.artist,
         album = preferred.album ?: fallback.album
     )
-
-    private fun isPayloadForMetadata(
-        payload: LyricInfoPayload?,
-        metadata: TrackIdentity
-    ): Boolean {
-        if (payload == null) return true
-        val payloadTitle = normalizeText(payload.title)
-        val payloadArtist = normalizeText(payload.artist)
-        if (metadata.title != null && payloadTitle != null &&
-            !metadata.title.equals(payloadTitle, ignoreCase = true)
-        ) {
-            return false
-        }
-        if (metadata.artist != null && payloadArtist != null &&
-            !metadata.artist.equals(payloadArtist, ignoreCase = true)
-        ) {
-            return false
-        }
-        return true
-    }
 
     private fun normalizeText(value: String?): String? = value
         ?.replace(Regex("\\s+"), " ")
