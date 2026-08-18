@@ -301,7 +301,7 @@ fun LogPage() {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 12.dp)
-                                .padding(bottom = 8.dp),
+                                .padding(bottom = 12.dp),
                             colors = TabRowDefaults.tabRowColors(backgroundColor = Color.Transparent)
                         )
                     }
