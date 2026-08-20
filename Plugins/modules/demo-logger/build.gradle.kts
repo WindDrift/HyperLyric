@@ -17,22 +17,50 @@ android {
     }
 
     buildTypes {
-        release {
+        debug {
             isMinifyEnabled = false
+        }
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 }
 
 dependencies {
+    // The host already contains the API and resolves it through the parent ClassLoader.
     compileOnly(project(":plugins:api"))
-    implementation("org.jetbrains.kotlin:kotlin-stdlib:${libs.versions.kotlin.get()}")
+    // HyperLyric itself is Kotlin-based, so do not embed a second Kotlin runtime in the ZIP.
+    compileOnly("org.jetbrains.kotlin:kotlin-stdlib:${libs.versions.kotlin.get()}")
+
+    // Add plugin-owned runtime libraries with implementation(...). They are packaged into the ZIP.
 }
 
 val debugApk = layout.buildDirectory.file("outputs/apk/debug/${project.name}-debug.apk")
+val releaseApk = layout.buildDirectory.file(
+    "outputs/apk/release/${project.name}-release-unsigned.apk"
+)
 
 val packagePlugin by tasks.registering(Zip::class) {
-    dependsOn("assembleDebug")
+    dependsOn("assembleRelease")
     archiveFileName.set("hyperlyric-demo-plugin.zip")
+    destinationDirectory.set(layout.buildDirectory.dir("outputs/plugin"))
+
+    from(zipTree(releaseApk)) {
+        include("classes*.dex")
+    }
+    from("src/main/plugin") {
+        include("manifest.json")
+    }
+}
+
+val packageDebugPlugin by tasks.registering(Zip::class) {
+    dependsOn("assembleDebug")
+    archiveFileName.set("hyperlyric-demo-plugin-debug.zip")
     destinationDirectory.set(layout.buildDirectory.dir("outputs/plugin"))
 
     from(zipTree(debugApk)) {

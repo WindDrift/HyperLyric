@@ -22,8 +22,8 @@
 # --- HyperLyric Plugin API ---
 # Dynamically loaded plugin DEX files resolve this package through the host
 # classloader, so its public names and method descriptors are part of the ABI.
--keep public interface com.lidesheng.hyperlyric.plugin.api.** { *; }
--keep public class com.lidesheng.hyperlyric.plugin.api.** { *; }
+-keep,allowoptimization interface com.lidesheng.hyperlyric.plugin.api.** { *; }
+-keep,allowoptimization class com.lidesheng.hyperlyric.plugin.api.** { *; }
 
 # --- Shizuku User Service ---
 -keep class com.lidesheng.hyperlyric.service.utils.shizuku.PrivilegedServiceImpl { *; }

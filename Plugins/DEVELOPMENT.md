@@ -33,9 +33,18 @@ Plugins/
 
 ```kotlin
 dependencies {
+    // API 由 HyperLyric 宿主提供，不能打进插件 ZIP。
     compileOnly(project(":plugins:api"))
+
+    // HyperLyric 宿主已经提供 Kotlin 运行库，也不要重复打包。
+    compileOnly("org.jetbrains.kotlin:kotlin-stdlib:<host-version>")
+
+    // 只有插件自己的运行时依赖才使用 implementation。
+    implementation("com.example:plugin-only-library:<version>")
 }
 ```
+
+`compileOnly` 是插件与宿主共享能力的关键：API、Kotlin 运行库等宿主已有内容只参与编译，不能进入插件 ZIP；插件自己的网络库、解析库等才使用 `implementation`，由插件自行携带。
 
 插件入口必须提供无参数构造函数，并实现 `HyperLyricPlugin`：
 
@@ -89,15 +98,31 @@ my-plugin.zip
 └─ assets/            # 可选资源
 ```
 
-当前 Demo 的打包任务会从 Debug APK 提取全部 `classes*.dex`，再与 `manifest.json` 合并：
+正式插件的打包任务应从启用 R8 的 Release APK 提取全部 `classes*.dex`，再与 `manifest.json` 合并：
 
 ```powershell
 .\gradlew.bat :plugins:demo-logger:packagePlugin --max-workers=2
 ```
 
-输出目录为 `Plugins/modules/demo-logger/build/outputs/plugin/`。新插件应提供同名的 `packagePlugin` 任务。
+输出目录为 `Plugins/modules/demo-logger/build/outputs/plugin/`。本地调试可使用不混淆的 Debug ZIP：
 
-## 5. 生命周期与歌词处理
+```powershell
+.\gradlew.bat :plugins:demo-logger:packageDebugPlugin --max-workers=2
+```
+
+新插件应提供同名的 `packagePlugin` 任务；正式 ZIP 只能从 Release 变体生成。
+
+## 5. R8 与运行时协议
+
+插件入口类名来自 `manifest.json`，由 Runtime 反射加载；生命周期和歌词处理方法则通过 `plugin-api` 的接口调用。因此插件的混淆规则必须至少保留：
+
+- 实现 `HyperLyricPlugin` 的入口类原名和无参数构造函数；
+- `onLoad`、`onEnable`、`onConfigChanged`、`onUnload` 生命周期方法；
+- `HyperLyricExtension.id` 与 `LyricProcessorExtension.process` 通信方法。
+
+Demo 插件的 `proguard-rules.pro` 已提供这组最小规则。规则保留协议名称但允许 R8 优化，插件内部未暴露给宿主的实现类仍可正常混淆。
+
+## 6. 生命周期与歌词处理
 
 宿主在 SystemUI 启动时加载已启用插件，并依次调用：
 
@@ -126,7 +151,7 @@ private class MyLyricProcessor : LyricProcessorExtension {
 
 处理函数接收不可变快照，在后台线程运行。没有结果时返回 `null`；不要等待插件完成后才显示原始歌词，也不要修改歌曲 ID、标题、艺术家、时长和已有行时间轴。插件可以补充翻译、罗马音、词级时间信息等歌词增强数据。
 
-## 6. 配置 Schema 与 UI 映射
+## 7. 配置 Schema 与 UI 映射
 
 插件只提供语义化设置描述，不依赖 MIUIX 或 Compose 类名。配置放在 `plugin.<pluginId>` 命名空间中，修改后会实时同步到 SystemUI Runtime。
 
@@ -159,7 +184,7 @@ private class MyLyricProcessor : LyricProcessorExtension {
 
 插件不能写 `SwitchPreference`、`ArrowPreference` 等 MIUIX 名称，也不能自行提供设置页面。宿主未来可以替换 UI 实现而不改变插件协议。插件禁用时，配置页面中的设置项会由宿主统一置为不可用。
 
-## 7. 配置、存储与日志
+## 8. 配置、存储与日志
 
 通过 `PluginContext` 获取能力：
 
@@ -179,7 +204,7 @@ context.logger.error("event=requestFailed", exception)
 
 Runtime 会使用插件 `id` 作为日志来源名，并通过 HyperLyric 的宿主日志入口输出到 LSPosed 日志。消息建议使用 `lifecycle=...` 或 `event=...` 开头，后面使用 `key=value` 字段；不要重复添加插件 ID 或 `[Plugin]` 前缀。
 
-## 8. 验证流程
+## 9. 验证流程
 
 以 Demo 插件为例：
 
