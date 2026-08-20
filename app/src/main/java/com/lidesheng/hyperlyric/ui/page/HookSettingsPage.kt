@@ -275,6 +275,9 @@ private fun LazyListScope.hookSettingsSections(
                     title = stringResource(R.string.title_lyric_anim),
                     enabled = hookEnabled,
                     onClick = { navigator.navigate(Route.LyricAnimation) })
+                ArrowPreference(
+                    title = stringResource(R.string.title_plugins),
+                    onClick = { navigator.navigate(Route.Plugins) })
             }
         }
     }
