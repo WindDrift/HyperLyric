@@ -322,18 +322,23 @@ object BackupRestoreManager {
 }
 
 class BackupRestoreHelper(
+    context: Context,
     private val backupLauncher: androidx.activity.result.ActivityResultLauncher<String>,
     private val fullBackupLauncher: androidx.activity.result.ActivityResultLauncher<String>,
     private val restoreLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>
 ) {
+    private val pluginRepository = PluginRepository(context.applicationContext)
+
+    val hasInstalledPlugins: Boolean
+        get() = pluginRepository.listInstalled().isNotEmpty()
+
     fun launchBackup() {
         val dateTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmm"))
-        backupLauncher.launch("hyperlyric_backup_$dateTime.json")
-    }
-
-    fun launchFullBackup() {
-        val dateTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmm"))
-        fullBackupLauncher.launch("hyperlyric_full_backup_$dateTime.zip")
+        if (hasInstalledPlugins) {
+            fullBackupLauncher.launch("hyperlyric_full_backup_$dateTime.zip")
+        } else {
+            backupLauncher.launch("hyperlyric_backup_$dateTime.json")
+        }
     }
 
     fun launchRestore() {
@@ -438,6 +443,6 @@ fun rememberBackupRestoreHelper(snackbarHostState: SnackbarHostState): BackupRes
     )
 
     return remember(backupLauncher, fullBackupLauncher, restoreLauncher) {
-        BackupRestoreHelper(backupLauncher, fullBackupLauncher, restoreLauncher)
+        BackupRestoreHelper(context, backupLauncher, fullBackupLauncher, restoreLauncher)
     }
 }
