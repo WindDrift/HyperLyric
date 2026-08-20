@@ -4,6 +4,7 @@ import android.view.ViewGroup
 import com.lidesheng.hyperlyric.root.HookEntry
 import com.lidesheng.hyperlyric.root.LyriconDataBridge
 import com.lidesheng.hyperlyric.root.island.config.IslandSlotRuntimeConfig
+import com.lidesheng.hyperlyric.root.island.hooks.IslandWidthLimitHooker
 import com.lidesheng.hyperlyric.root.island.presentation.IslandNativeRefreshCoordinator
 import com.lidesheng.hyperlyric.root.island.presentation.IslandPresentationCoordinator
 
@@ -24,6 +25,7 @@ internal object IslandSettingsRefreshCoordinator {
             ?.takeIf { it.isNotEmpty() }
             ?: return
         val prefs = HookEntry.instance?.prefs ?: return
+        IslandWidthLimitHooker.refresh(root)
         IslandContentUpdateCoordinator.updateContentForView(
             view = root,
             packageName = packageName,

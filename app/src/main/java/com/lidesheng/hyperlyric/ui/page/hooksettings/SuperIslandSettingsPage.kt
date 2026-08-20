@@ -103,10 +103,21 @@ fun SuperIslandSettingsPage() {
             SuperIslandContentStylePolicy.readMusicWaveStyle(prefs)
         )
     }
+    var disableWidthLimit by remember {
+        mutableStateOf(
+            prefs.getBoolean(
+                RootConstants.KEY_HOOK_ISLAND_DISABLE_WIDTH_LIMIT,
+                RootConstants.DEFAULT_HOOK_ISLAND_DISABLE_WIDTH_LIMIT
+            )
+        )
+    }
     val audioCover = SuperIslandContentStylePolicy.isAlbumCoverVisible(audioCoverStyle)
     val audioRhythm = SuperIslandContentStylePolicy.isMusicWaveVisible(audioRhythmStyle)
     val islandWidthMin = SuperIslandWidthPolicy.minIslandWidth(audioCover, audioRhythm)
-    val islandWidthMax = SuperIslandWidthPolicy.maxIslandWidth(audioRhythm)
+    val islandWidthMax = SuperIslandWidthPolicy.maxIslandWidth(
+        showRhythm = audioRhythm,
+        disableWidthLimit = disableWidthLimit
+    )
     var leftPaddingLeft by remember {
         mutableIntStateOf(
             prefs.getInt(
@@ -147,7 +158,8 @@ fun SuperIslandSettingsPage() {
                     RootConstants.DEFAULT_HOOK_ISLAND_RIGHT_CONTENT_MAX_WIDTH
                 ),
                 showAlbum = audioCover,
-                showRhythm = audioRhythm
+                showRhythm = audioRhythm,
+                disableWidthLimit = disableWidthLimit
             )
         )
     }
@@ -251,7 +263,7 @@ fun SuperIslandSettingsPage() {
         showRhythm: Boolean = audioRhythm
     ) {
         val minBound = SuperIslandWidthPolicy.minIslandWidth(showAlbum, showRhythm)
-        val maxBound = SuperIslandWidthPolicy.maxIslandWidth(showRhythm)
+        val maxBound = SuperIslandWidthPolicy.maxIslandWidth(showRhythm, disableWidthLimit)
         val minValue = value.start.roundToInt().coerceIn(minBound, maxBound)
         val maxValue = value.endInclusive.roundToInt().coerceIn(minValue, maxBound)
         dynamicWidthRange = minValue.toFloat()..maxValue.toFloat()
@@ -261,7 +273,7 @@ fun SuperIslandSettingsPage() {
 
     fun clampDynamicWidthRangeIfNeeded(showAlbum: Boolean, showRhythm: Boolean) {
         val minBound = SuperIslandWidthPolicy.minIslandWidth(showAlbum, showRhythm)
-        val maxBound = SuperIslandWidthPolicy.maxIslandWidth(showRhythm)
+        val maxBound = SuperIslandWidthPolicy.maxIslandWidth(showRhythm, disableWidthLimit)
         val minValue = dynamicWidthRange.start.roundToInt().coerceIn(minBound, maxBound)
         val maxValue = dynamicWidthRange.endInclusive.roundToInt().coerceIn(minValue, maxBound)
         val normalized = minValue.toFloat()..maxValue.toFloat()
@@ -278,7 +290,8 @@ fun SuperIslandSettingsPage() {
         islandWidth = SuperIslandWidthPolicy.normalizeIslandWidth(
             islandWidth = value,
             showAlbum = showAlbum,
-            showRhythm = showRhythm
+            showRhythm = showRhythm,
+            disableWidthLimit = disableWidthLimit
         )
         saveConfig(RootConstants.KEY_HOOK_ISLAND_RIGHT_CONTENT_MAX_WIDTH, islandWidth)
     }
@@ -287,7 +300,8 @@ fun SuperIslandSettingsPage() {
         val normalizedWidth = SuperIslandWidthPolicy.normalizeIslandWidth(
             islandWidth = islandWidth,
             showAlbum = showAlbum,
-            showRhythm = showRhythm
+            showRhythm = showRhythm,
+            disableWidthLimit = disableWidthLimit
         )
         if (normalizedWidth != islandWidth) {
             commitIslandWidth(normalizedWidth, showAlbum, showRhythm)
@@ -478,7 +492,6 @@ fun SuperIslandSettingsPage() {
                         Column {
                             OverlayDropdownPreference(
                                 title = stringResource(id = R.string.title_super_island_width_mode),
-                                summary = stringResource(id = R.string.summary_super_island_width),
                                 items = islandWidthModeOptions,
                                 selectedIndex = islandWidthMode,
                                 onSelectedIndexChange = {
@@ -562,6 +575,28 @@ fun SuperIslandSettingsPage() {
                                 }
                             )
                         }
+                    }
+                }
+                item(key = "disable_width_limit") {
+                    Card(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = 12.dp)
+                            .fillMaxWidth()
+                    ) {
+                        SwitchPreference(
+                            title = stringResource(id = R.string.title_super_island_disable_width_limit),
+                            checked = disableWidthLimit,
+                            onCheckedChange = { enabled ->
+                                disableWidthLimit = enabled
+                                clampIslandWidthIfNeeded(audioCover, audioRhythm)
+                                clampDynamicWidthRangeIfNeeded(audioCover, audioRhythm)
+                                saveConfig(
+                                    RootConstants.KEY_HOOK_ISLAND_DISABLE_WIDTH_LIMIT,
+                                    enabled
+                                )
+                            }
+                        )
                     }
                 }
                 item(key = "padding_content") {

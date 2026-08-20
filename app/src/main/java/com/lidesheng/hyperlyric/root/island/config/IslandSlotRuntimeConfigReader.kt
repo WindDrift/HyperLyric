@@ -28,15 +28,23 @@ internal object IslandSlotRuntimeConfigReader {
         val showRhythm = SuperIslandContentStylePolicy.isMusicWaveVisible(
             SuperIslandContentStylePolicy.readMusicWaveStyle(prefs)
         )
+        val disableWidthLimit = prefs.getBoolean(
+            RootConstants.KEY_HOOK_ISLAND_DISABLE_WIDTH_LIMIT,
+            RootConstants.DEFAULT_HOOK_ISLAND_DISABLE_WIDTH_LIMIT
+        )
         val minIslandWidth = SuperIslandWidthPolicy.minIslandWidth(showAlbum, showRhythm)
-        val maxIslandWidth = SuperIslandWidthPolicy.maxIslandWidth(showRhythm)
+        val maxIslandWidth = SuperIslandWidthPolicy.maxIslandWidth(
+            showRhythm = showRhythm,
+            disableWidthLimit = disableWidthLimit
+        )
         val fixedIslandWidth = SuperIslandWidthPolicy.normalizeIslandWidth(
             islandWidth = prefs.getInt(
                 RootConstants.KEY_HOOK_ISLAND_RIGHT_CONTENT_MAX_WIDTH,
                 RootConstants.DEFAULT_HOOK_ISLAND_RIGHT_CONTENT_MAX_WIDTH
             ),
             showAlbum = showAlbum,
-            showRhythm = showRhythm
+            showRhythm = showRhythm,
+            disableWidthLimit = disableWidthLimit
         )
         val widthMode = prefs.getInt(
             RootConstants.KEY_HOOK_ISLAND_WIDTH_MODE,
@@ -118,13 +126,15 @@ internal object IslandSlotRuntimeConfigReader {
                 leftMinWidthDp = SuperIslandWidthPolicy.leftContentWidth(
                     islandWidth = effectiveMinWidth,
                     showAlbum = showAlbum,
-                    showRhythm = showRhythm
+                    showRhythm = showRhythm,
+                    disableWidthLimit = disableWidthLimit
                 ),
                 rightMinWidthDp = effectiveMinWidth,
                 leftMaxWidthDp = SuperIslandWidthPolicy.leftContentWidth(
                     islandWidth = effectiveMaxWidth,
                     showAlbum = showAlbum,
-                    showRhythm = showRhythm
+                    showRhythm = showRhythm,
+                    disableWidthLimit = disableWidthLimit
                 ),
                 rightMaxWidthDp = effectiveMaxWidth
             ),

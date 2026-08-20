@@ -462,7 +462,7 @@
   <string name="option_dynamic_width_basis_all">مدمج</string>
   <string name="option_dynamic_width_basis_lyric_only">الكلمات فقط</string>
   <string name="title_super_island_width">عرض HyperIsland</string>
-  <string name="summary_super_island_width">أقصى عرض بيعتمد على حدود النظام. مش هيكمل يزيد بعد ما يوصل لعتبة معيّنة، وده سلوك متوقّع</string>
+  <string name="title_super_island_disable_width_limit">إزالة الحد الأقصى لطول HyperIsland</string>
   <string name="label_content_width_range">النطاق: %1$d ~ %2$d</string>
   <string name="title_left_padding">حشو المحتوى الأيسر</string>
   <string name="title_right_padding">حشو المحتوى الأيمن</string>

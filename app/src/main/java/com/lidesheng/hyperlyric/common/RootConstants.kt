@@ -28,6 +28,7 @@ object RootConstants {
     const val KEY_HOOK_ISLAND_DYNAMIC_MIN_WIDTH = "key_hook_island_dynamic_min_width"
     const val KEY_HOOK_ISLAND_DYNAMIC_MAX_WIDTH = "key_hook_island_dynamic_max_width"
     const val KEY_HOOK_ISLAND_DYNAMIC_WIDTH_BASIS = "key_hook_island_dynamic_width_basis"
+    const val KEY_HOOK_ISLAND_DISABLE_WIDTH_LIMIT = "key_hook_island_disable_width_limit"
     const val KEY_HOOK_ISLAND_BEHAVIOR_AFTER_PAUSE = "key_hook_island_behavior_after_pause"
     const val KEY_HOOK_NOTIFICATION_MEDIA_AMBIENT_FLOW_MODE =
         "key_hook_notification_media_ambient_flow_mode"
@@ -254,6 +255,7 @@ object RootConstants {
     const val ISLAND_DYNAMIC_WIDTH_BASIS_ALL = 0
     const val ISLAND_DYNAMIC_WIDTH_BASIS_LYRIC_ONLY = 1
     const val DEFAULT_HOOK_ISLAND_DYNAMIC_WIDTH_BASIS = ISLAND_DYNAMIC_WIDTH_BASIS_ALL
+    const val DEFAULT_HOOK_ISLAND_DISABLE_WIDTH_LIMIT = false
     const val DEFAULT_HOOK_ISLAND_BEHAVIOR_AFTER_PAUSE = 0
     const val NOTIFICATION_MEDIA_AMBIENT_FLOW_MODE_DISABLED = 0
     const val NOTIFICATION_MEDIA_AMBIENT_FLOW_MODE_DYNAMIC = 1
