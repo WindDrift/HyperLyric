@@ -1,8 +1,10 @@
 package com.lidesheng.hyperlyric.plugin.core
 
 import com.lidesheng.hyperlyric.plugin.api.PluginSettingOption
+import com.lidesheng.hyperlyric.plugin.api.PluginSettingInputType
 import com.lidesheng.hyperlyric.plugin.api.PluginSettingSpec
 import com.lidesheng.hyperlyric.plugin.api.PluginSettingType
+import com.lidesheng.hyperlyric.plugin.api.PluginSettingValuePresentation
 import com.lidesheng.hyperlyric.plugin.api.PluginSettingsSchema
 import org.json.JSONArray
 import org.json.JSONObject
@@ -10,11 +12,14 @@ import org.json.JSONObject
 data class PluginManifest(
     val id: String,
     val name: String,
-    val summary: String,
+    val summary: String = "",
     val version: String,
     val apiVersion: Int,
     val entry: String,
     val author: String? = null,
+    val nameByLocale: Map<String, String> = emptyMap(),
+    val summaryByLocale: Map<String, String> = emptyMap(),
+    val activationSettingKey: String? = null,
     val settings: PluginSettingsSchema = PluginSettingsSchema(),
 )
 
@@ -26,17 +31,27 @@ object PluginManifestCodec {
         val json = JSONObject(jsonText)
         val id = json.requiredString("id")
         val name = json.requiredString("name")
-        val summary = json.requiredString("summary")
+        val summary = json.optionalString("summary").orEmpty()
         val author = json.optionalString("author")?.takeIf { it.isNotBlank() }
         val version = json.requiredString("version")
         val apiVersion = json.optInt("apiVersion", -1)
         val entry = json.requiredString("entry")
+        val activationSettingKey = json.optionalString("activationSettingKey")
 
         require(idPattern.matches(id)) { "Invalid plugin id" }
         require(name.isNotBlank()) { "Plugin name is blank" }
         require(version.isNotBlank()) { "Plugin version is blank" }
         require(apiVersion > 0) { "Invalid plugin apiVersion" }
         require(entryPattern.matches(entry)) { "Invalid plugin entry" }
+
+        val settings = decodeSettings(json.optJSONArray("settings"))
+        activationSettingKey?.let { key ->
+            val setting = settings.firstOrNull { it.key == key }
+                ?: throw IllegalArgumentException("Activation setting does not exist: $key")
+            require(setting.type == PluginSettingType.SWITCH) {
+                "Activation setting must be a switch: $key"
+            }
+        }
 
         return PluginManifest(
             id = id,
@@ -46,7 +61,10 @@ object PluginManifestCodec {
             apiVersion = apiVersion,
             entry = entry,
             author = author,
-            settings = PluginSettingsSchema(decodeSettings(json.optJSONArray("settings")))
+            nameByLocale = decodeLocalizedMap(json.optJSONObject("nameLocales")),
+            summaryByLocale = decodeLocalizedMap(json.optJSONObject("summaryLocales")),
+            activationSettingKey = activationSettingKey,
+            settings = PluginSettingsSchema(settings)
         )
     }
 
@@ -54,9 +72,12 @@ object PluginManifestCodec {
         val json = JSONObject()
             .put("id", manifest.id)
             .put("name", manifest.name)
-            .put("summary", manifest.summary)
             .also { json ->
+                manifest.summary.takeIf { it.isNotBlank() }?.let { json.put("summary", it) }
                 manifest.author?.takeIf { it.isNotBlank() }?.let { json.put("author", it) }
+                putLocalizedMap(json, "nameLocales", manifest.nameByLocale)
+                putLocalizedMap(json, "summaryLocales", manifest.summaryByLocale)
+                manifest.activationSettingKey?.let { json.put("activationSettingKey", it) }
             }
             .put("version", manifest.version)
             .put("apiVersion", manifest.apiVersion)
@@ -69,13 +90,46 @@ object PluginManifestCodec {
                 .put("key", setting.key)
                 .put("title", setting.title)
             setting.summary?.let { settingJson.put("summary", it) }
+            putLocalizedMap(settingJson, "titleLocales", setting.titleByLocale)
+            putLocalizedMap(settingJson, "summaryLocales", setting.summaryByLocale)
+            setting.dialogSummary?.let { settingJson.put("dialogSummary", it) }
+            putLocalizedMap(settingJson, "dialogSummaryLocales", setting.dialogSummaryByLocale)
+            setting.emptyValueSummary?.let { settingJson.put("emptyValueSummary", it) }
+            putLocalizedMap(
+                settingJson,
+                "emptyValueSummaryLocales",
+                setting.emptyValueSummaryByLocale
+            )
+            if (setting.valuePresentation != PluginSettingValuePresentation.DEFAULT) {
+                settingJson.put("valuePresentation", setting.valuePresentation.wireName)
+            }
+            if (setting.previewLineCount != 2) {
+                settingJson.put("previewLineCount", setting.previewLineCount)
+            }
+            if (setting.inputType != PluginSettingInputType.DEFAULT) {
+                settingJson.put("inputType", setting.inputType.wireName)
+            }
+            if (setting.conflictsWith.isNotEmpty()) {
+                settingJson.put("conflictsWith", JSONArray(setting.conflictsWith))
+            }
             setting.defaultValue?.let { settingJson.put("default", encodeDefault(setting.type, it)) }
             if (setting.options.isNotEmpty()) {
                 settingJson.put(
                     "options",
                     JSONArray().apply {
                         setting.options.forEach { option ->
-                            put(JSONObject().put("value", option.value).put("label", option.label))
+                            put(
+                                JSONObject()
+                                    .put("value", option.value)
+                                    .put("label", option.label)
+                                    .also { optionJson ->
+                                        putLocalizedMap(
+                                            optionJson,
+                                            "labelLocales",
+                                            option.labelByLocale
+                                        )
+                                    }
+                            )
                         }
                     }
                 )
@@ -120,7 +174,28 @@ object PluginManifestCodec {
                         options = options,
                         min = item.optNullableFloat("min"),
                         max = item.optNullableFloat("max"),
-                        step = item.optNullableFloat("step")
+                        step = item.optNullableFloat("step"),
+                        titleByLocale = decodeLocalizedMap(item.optJSONObject("titleLocales")),
+                        summaryByLocale = decodeLocalizedMap(item.optJSONObject("summaryLocales")),
+                        dialogSummary = item.optionalString("dialogSummary"),
+                        dialogSummaryByLocale = decodeLocalizedMap(
+                            item.optJSONObject("dialogSummaryLocales")
+                        ),
+                        emptyValueSummary = item.optionalString("emptyValueSummary"),
+                        emptyValueSummaryByLocale = decodeLocalizedMap(
+                            item.optJSONObject("emptyValueSummaryLocales")
+                        ),
+                        valuePresentation = PluginSettingValuePresentation.fromWire(
+                            item.optString(
+                                "valuePresentation",
+                                PluginSettingValuePresentation.DEFAULT.wireName
+                            )
+                        ) ?: throw IllegalArgumentException("Unsupported setting value presentation"),
+                        previewLineCount = item.optInt("previewLineCount", 2).coerceAtLeast(1),
+                        inputType = PluginSettingInputType.fromWire(
+                            item.optString("inputType", PluginSettingInputType.DEFAULT.wireName)
+                        ) ?: throw IllegalArgumentException("Unsupported setting input type"),
+                        conflictsWith = decodeStringArray(item.optJSONArray("conflictsWith"))
                     )
                 )
             }
@@ -136,7 +211,8 @@ object PluginManifestCodec {
                     add(
                         PluginSettingOption(
                             value = item.requiredString("value"),
-                            label = item.requiredString("label")
+                            label = item.requiredString("label"),
+                            labelByLocale = decodeLocalizedMap(item.optJSONObject("labelLocales"))
                         )
                     )
                 } else if (item != null && item !== JSONObject.NULL) {
@@ -152,6 +228,40 @@ object PluginManifestCodec {
         PluginSettingType.NUMBER -> value.toLongOrNull() ?: value
         PluginSettingType.SLIDER -> value.toFloatOrNull() ?: value
         else -> value
+    }
+
+    private fun decodeStringArray(array: JSONArray?): List<String> {
+        if (array == null) return emptyList()
+        return buildList(array.length()) {
+            for (index in 0 until array.length()) {
+                array.optString(index).takeIf { it.isNotBlank() }?.let(::add)
+            }
+        }
+    }
+
+    private fun decodeLocalizedMap(json: JSONObject?): Map<String, String> {
+        if (json == null) return emptyMap()
+        return buildMap(json.length()) {
+            val keys = json.keys()
+            while (keys.hasNext()) {
+                val key = keys.next()
+                val value = json.optString(key).takeIf { it.isNotBlank() } ?: continue
+                put(key, value)
+            }
+        }
+    }
+
+    private fun putLocalizedMap(
+        json: JSONObject,
+        key: String,
+        values: Map<String, String>
+    ) {
+        if (values.isEmpty()) return
+        json.put(key, JSONObject().apply {
+            values.forEach { (locale, value) ->
+                if (locale.isNotBlank() && value.isNotBlank()) put(locale, value)
+            }
+        })
     }
 
     private fun JSONObject.requiredString(key: String): String =

@@ -7,8 +7,6 @@ import android.os.Looper
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.common.UIConstants
 import com.lidesheng.hyperlyric.lyric.source.SourceManager
-import com.lidesheng.hyperlyric.root.aitrans.AiTranslationGateway
-import com.lidesheng.hyperlyric.root.aitrans.AiTranslationGatewayImpl
 import com.lidesheng.hyperlyric.root.island.effects.album.IslandAlbumCoverStyleHooker
 import com.lidesheng.hyperlyric.root.island.effects.color.IslandMusicWaveColorHooker
 import com.lidesheng.hyperlyric.root.island.effects.color.StatusBarTextColorHooker
@@ -322,9 +320,6 @@ class HookEntry : XposedModule() {
             superLyricSource.initialize(app)
             lyricInfoSource = LyricInfoSource(app)
 
-            AiTranslationGatewayImpl()
-            AiTranslationGateway.init(app)
-
             sourceManager = SourceManager(
                 sources = listOf(lyriconSource, superLyricSource, lyricInfoSource!!),
                 prefs = prefs,
@@ -463,7 +458,6 @@ class HookEntry : XposedModule() {
             IslandSettingsRefreshCoordinator.request()
         } else {
             sourceManager?.stop()
-            AiTranslationGateway.cancelActiveRequests()
             LyriconDataBridge.clearState()
             BaseIslandRenderer.clearAllViews()
             IslandProgressGlowController.clearAll()
@@ -486,7 +480,6 @@ class HookEntry : XposedModule() {
         runCatching { pluginRuntime?.close() }
         pluginRuntime = null
         runCatching { sourceManager?.stop() }
-        AiTranslationGateway.cancelActiveRequests()
         sourceManager = null
         lyricInfoSource = null
         runtimeApp = null

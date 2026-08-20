@@ -13,7 +13,6 @@ import com.lidesheng.hyperlyric.lyric.model.Song
 import com.lidesheng.hyperlyric.lyric.model.interfaces.IRichLyricLine
 import com.lidesheng.hyperlyric.lyric.source.LyricSink
 import com.lidesheng.hyperlyric.root.LyriconDataBridge
-import com.lidesheng.hyperlyric.root.aitrans.AiTranslationGateway
 import com.lidesheng.hyperlyric.root.island.content.IslandSlotContentFacade
 import com.lidesheng.hyperlyric.root.island.effects.color.IslandMusicWaveColorHooker
 import com.lidesheng.hyperlyric.root.island.renderer.IslandRenderer
@@ -70,7 +69,6 @@ class RootLyricSink(
         lastDispatchedPosition = Long.MIN_VALUE
         lastDispatchedPlaybackSpeed = Float.NaN
         currentPlaybackSpeed = 1f
-        AiTranslationGateway.cancelActiveRequests()
         activeMediaIdentity = null
         LyriconDataBridge.updateSong(
             song = song,
@@ -97,19 +95,6 @@ class RootLyricSink(
         if (song == null) {
             endColorSession()
         }
-        if (song != null && prefs != null) {
-            val aiEnabled = prefs.getBoolean(
-                RootConstants.KEY_HOOK_AI_TRANS_ENABLE,
-                RootConstants.DEFAULT_HOOK_AI_TRANS_ENABLE
-            )
-            if (aiEnabled) {
-                val forceOverride = prefs.getBoolean(
-                    RootConstants.KEY_HOOK_AI_TRANS_FORCE_OVERRIDE,
-                    RootConstants.DEFAULT_HOOK_AI_TRANS_FORCE_OVERRIDE
-                )
-                AiTranslationGateway.translateSong(song, prefs, forceOverride)
-            }
-        }
     }
 
     override fun onLyricLine(line: IRichLyricLine) {
@@ -124,7 +109,6 @@ class RootLyricSink(
     }
 
     override fun onStop() {
-        AiTranslationGateway.cancelActiveRequests()
         pluginRuntime?.cancelActiveProcessing()
         playbackActive = false
         cancelPendingPositionDispatch()

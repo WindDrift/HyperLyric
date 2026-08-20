@@ -54,9 +54,6 @@ object LyriconDataBridge {
     @Volatile
     private var fullSongLyricsAvailable: Boolean? = null
 
-    /** AI 翻译完成后的回调，由 LyriconSource 设置 */
-    var onAiTranslationComplete: (() -> Unit)? = null
-
     @Volatile
     private var placeholderFormat = RootConstants.DEFAULT_HOOK_PLACEHOLDER_FORMAT
 
@@ -104,11 +101,6 @@ object LyriconDataBridge {
         currentNextLyricLine = null
         currentPosition = 0L
         versionCounter.incrementAndGet()
-    }
-
-    fun applyTranslation(translatedSong: Song) {
-        currentSong = translatedSong
-        rebuildTimeline(translatedSong, selectCurrentPosition = true)
     }
 
     /**

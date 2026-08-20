@@ -1,6 +1,5 @@
 package com.lidesheng.hyperlyric.ui.page.hooksettings.lyrics.translation
 
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -8,14 +7,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardType
-import com.lidesheng.hyperlyric.BuildConfig
 import com.lidesheng.hyperlyric.R
-import com.lidesheng.hyperlyric.common.AiTranslationLanguageSettings
 import com.lidesheng.hyperlyric.common.RootConstants
-import com.lidesheng.hyperlyric.ui.component.MultiSelectDialog
-import com.lidesheng.hyperlyric.ui.component.MultiSelectDialogOption
-import com.lidesheng.hyperlyric.ui.component.TextInputDialog
 import com.lidesheng.hyperlyric.ui.page.hooksettings.lyrics.common.XposedLyricSettingPage
 import com.lidesheng.hyperlyric.ui.page.hooksettings.lyrics.common.rememberHookConfigSaver
 import com.lidesheng.hyperlyric.ui.page.hooksettings.lyrics.common.rememberHookPrefs
@@ -81,176 +74,6 @@ fun LyricTranslationPage() {
             )
         )
     }
-    var aiTransEnabled by remember {
-        mutableStateOf(
-            prefs.getBoolean(
-                RootConstants.KEY_HOOK_AI_TRANS_ENABLE,
-                RootConstants.DEFAULT_HOOK_AI_TRANS_ENABLE
-            )
-        )
-    }
-    var skipLanguages by remember {
-        mutableStateOf(
-            AiTranslationLanguageSettings.getSkipLanguages(prefs)
-        )
-    }
-    var skipExistingTranslation by remember {
-        mutableStateOf(
-            prefs.getBoolean(
-                RootConstants.KEY_HOOK_AI_TRANS_SKIP_EXISTING_TRANSLATION,
-                RootConstants.DEFAULT_HOOK_AI_TRANS_SKIP_EXISTING_TRANSLATION
-            )
-        )
-    }
-    var forceAiTranslation by remember {
-        mutableStateOf(
-            prefs.getBoolean(
-                RootConstants.KEY_HOOK_AI_TRANS_FORCE_OVERRIDE,
-                RootConstants.DEFAULT_HOOK_AI_TRANS_FORCE_OVERRIDE
-            )
-        )
-    }
-    var apiKey by remember {
-        mutableStateOf(
-            prefs.getString(
-                RootConstants.KEY_HOOK_AI_TRANS_API_KEY,
-                ""
-            ) ?: ""
-        )
-    }
-    var model by remember {
-        mutableStateOf(
-            prefs.getString(
-                RootConstants.KEY_HOOK_AI_TRANS_MODEL,
-                RootConstants.DEFAULT_HOOK_AI_TRANS_MODEL
-            ) ?: RootConstants.DEFAULT_HOOK_AI_TRANS_MODEL
-        )
-    }
-    var baseUrl by remember {
-        mutableStateOf(
-            prefs.getString(
-                RootConstants.KEY_HOOK_AI_TRANS_BASE_URL,
-                RootConstants.DEFAULT_HOOK_AI_TRANS_BASE_URL
-            ) ?: RootConstants.DEFAULT_HOOK_AI_TRANS_BASE_URL
-        )
-    }
-    var targetLang by remember {
-        mutableStateOf(
-            prefs.getString(
-                RootConstants.KEY_HOOK_AI_TRANS_TARGET_LANG,
-                RootConstants.DEFAULT_HOOK_AI_TRANS_TARGET_LANG
-            ) ?: RootConstants.DEFAULT_HOOK_AI_TRANS_TARGET_LANG
-        )
-    }
-    var prompt by remember {
-        mutableStateOf(
-            prefs.getString(
-                RootConstants.KEY_HOOK_AI_TRANS_PROMPT,
-                RootConstants.DEFAULT_HOOK_AI_TRANS_PROMPT
-            ) ?: RootConstants.DEFAULT_HOOK_AI_TRANS_PROMPT
-        )
-    }
-
-    var showApiKeyDialog by remember { mutableStateOf(false) }
-    var showModelDialog by remember { mutableStateOf(false) }
-    var showBaseUrlDialog by remember { mutableStateOf(false) }
-    var showTargetLangDialog by remember { mutableStateOf(false) }
-    var showPromptDialog by remember { mutableStateOf(false) }
-    var showSkipLanguagesDialog by remember { mutableStateOf(false) }
-
-    val skipLanguageOptions = listOf(
-        MultiSelectDialogOption(
-            AiTranslationLanguageSettings.LANGUAGE_CHINESE,
-            stringResource(R.string.label_ai_trans_language_chinese)
-        ),
-        MultiSelectDialogOption(
-            AiTranslationLanguageSettings.LANGUAGE_ENGLISH,
-            stringResource(R.string.label_ai_trans_language_english)
-        ),
-        MultiSelectDialogOption(
-            AiTranslationLanguageSettings.LANGUAGE_JAPANESE,
-            stringResource(R.string.label_ai_trans_language_japanese)
-        ),
-        MultiSelectDialogOption(
-            AiTranslationLanguageSettings.LANGUAGE_KOREAN,
-            stringResource(R.string.label_ai_trans_language_korean)
-        ),
-        MultiSelectDialogOption(
-            AiTranslationLanguageSettings.LANGUAGE_SPANISH,
-            stringResource(R.string.label_ai_trans_language_spanish)
-        )
-    )
-    val skipLanguagesSummary = skipLanguageOptions
-        .filter { it.key in skipLanguages }
-        .joinToString(", ") { it.title }
-        .ifEmpty { stringResource(R.string.summary_ai_trans_skip_languages_disabled) }
-
-    if (BuildConfig.ONLINE_FEATURES_ENABLED) {
-        MultiSelectDialog(
-            show = showSkipLanguagesDialog,
-            title = stringResource(R.string.title_ai_trans_skip_languages),
-            summary = stringResource(R.string.summary_ai_trans_skip_languages),
-            options = skipLanguageOptions,
-            selectedKeys = skipLanguages,
-            onDismiss = { showSkipLanguagesDialog = false },
-            onConfirm = {
-                skipLanguages = it
-                saveConfig(RootConstants.KEY_HOOK_AI_TRANS_SKIP_LANGUAGES, it)
-            }
-        )
-        TextInputDialog(
-            show = showApiKeyDialog,
-            title = stringResource(id = R.string.label_ai_trans_api_key),
-            initialValue = apiKey,
-            onDismiss = { showApiKeyDialog = false },
-            onConfirm = {
-                apiKey = it
-                saveConfig(RootConstants.KEY_HOOK_AI_TRANS_API_KEY, it)
-            }
-        )
-        TextInputDialog(
-            show = showModelDialog,
-            title = stringResource(id = R.string.label_ai_trans_model),
-            initialValue = model,
-            onDismiss = { showModelDialog = false },
-            onConfirm = {
-                model = it
-                saveConfig(RootConstants.KEY_HOOK_AI_TRANS_MODEL, it)
-            }
-        )
-        TextInputDialog(
-            show = showBaseUrlDialog,
-            title = stringResource(id = R.string.label_ai_trans_base_url),
-            initialValue = baseUrl,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-            onDismiss = { showBaseUrlDialog = false },
-            onConfirm = {
-                baseUrl = it
-                saveConfig(RootConstants.KEY_HOOK_AI_TRANS_BASE_URL, it)
-            }
-        )
-        TextInputDialog(
-            show = showTargetLangDialog,
-            title = stringResource(id = R.string.label_ai_trans_target_lang),
-            initialValue = targetLang,
-            onDismiss = { showTargetLangDialog = false },
-            onConfirm = {
-                targetLang = it
-                saveConfig(RootConstants.KEY_HOOK_AI_TRANS_TARGET_LANG, it)
-            }
-        )
-        TextInputDialog(
-            show = showPromptDialog,
-            title = stringResource(R.string.title_custom_prompt),
-            initialValue = prompt,
-            onDismiss = { showPromptDialog = false },
-            onConfirm = {
-                prompt = it
-                saveConfig(RootConstants.KEY_HOOK_AI_TRANS_PROMPT, it)
-            }
-        )
-    }
-
     XposedLyricSettingPage(title = stringResource(id = R.string.title_double_line_content)) {
         translationSections(
             lyricSource = lyricSource,
@@ -288,42 +111,6 @@ fun LyricTranslationPage() {
                 autoSwitchTranslation = it
                 saveConfig(RootConstants.KEY_HOOK_AUTO_SWITCH_TRANSLATION, it)
             },
-            aiTransEnabled = aiTransEnabled,
-            onAiTransEnabledChange = {
-                aiTransEnabled = it
-                saveConfig(RootConstants.KEY_HOOK_AI_TRANS_ENABLE, it)
-            },
-            skipLanguagesSummary = skipLanguagesSummary,
-            skipLanguagesDialogVisible = showSkipLanguagesDialog,
-            onSkipLanguagesClick = { showSkipLanguagesDialog = true },
-            skipExistingTranslation = skipExistingTranslation,
-            onSkipExistingTranslationChange = {
-                skipExistingTranslation = it
-                saveConfig(RootConstants.KEY_HOOK_AI_TRANS_SKIP_EXISTING_TRANSLATION, it)
-                if (it && forceAiTranslation) {
-                    forceAiTranslation = false
-                    saveConfig(RootConstants.KEY_HOOK_AI_TRANS_FORCE_OVERRIDE, false)
-                }
-            },
-            forceAiTranslation = forceAiTranslation,
-            onForceAiTranslationChange = {
-                forceAiTranslation = it
-                saveConfig(RootConstants.KEY_HOOK_AI_TRANS_FORCE_OVERRIDE, it)
-                if (it && skipExistingTranslation) {
-                    skipExistingTranslation = false
-                    saveConfig(RootConstants.KEY_HOOK_AI_TRANS_SKIP_EXISTING_TRANSLATION, false)
-                }
-            },
-            targetLang = targetLang,
-            onTargetLangClick = { showTargetLangDialog = true },
-            apiKey = apiKey,
-            onApiKeyClick = { showApiKeyDialog = true },
-            model = model,
-            onModelClick = { showModelDialog = true },
-            baseUrl = baseUrl,
-            onBaseUrlClick = { showBaseUrlDialog = true },
-            prompt = prompt,
-            onPromptClick = { showPromptDialog = true }
         )
     }
 }

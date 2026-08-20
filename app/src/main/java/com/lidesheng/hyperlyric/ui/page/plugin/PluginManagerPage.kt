@@ -38,7 +38,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.lidesheng.hyperlyric.R
 import com.lidesheng.hyperlyric.plugin.api.PluginSettingSpec
+import com.lidesheng.hyperlyric.plugin.api.PluginSettingInputType
 import com.lidesheng.hyperlyric.plugin.api.PluginSettingType
+import com.lidesheng.hyperlyric.plugin.api.PluginSettingValuePresentation
 import com.lidesheng.hyperlyric.plugin.app.InstalledPlugin
 import com.lidesheng.hyperlyric.plugin.app.PluginRepository
 import com.lidesheng.hyperlyric.plugin.core.PluginConstants
@@ -251,6 +253,7 @@ private fun LazyListScope.pluginItems(
 
     installed.forEach { plugin ->
         item(key = "plugin_${plugin.manifest.id}") {
+            val context = LocalContext.current
             Card(
                 modifier = Modifier
                     .padding(horizontal = 12.dp)
@@ -258,8 +261,8 @@ private fun LazyListScope.pluginItems(
                     .fillMaxWidth()
             ) {
                 ArrowPreference(
-                    title = plugin.manifest.name,
-                    summary = plugin.manifest.summary,
+                    title = plugin.manifest.localizedName(context),
+                    summary = plugin.manifest.localizedSummary(context),
                     endActions = {
                         Text(
                             text = stringResource(
@@ -348,7 +351,20 @@ private fun PluginSettingsPageContent(
     val navigator = LocalNavigator.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
-    var enabled by remember(plugin.manifest.id) { mutableStateOf(plugin.enabled) }
+    val activationSetting = remember(plugin.manifest.id) {
+        plugin.manifest.activationSettingKey?.let { key ->
+            plugin.manifest.settings.settings.firstOrNull { it.key == key }
+        }
+    }
+    val activationEnabled = remember(plugin.manifest.id) {
+        activationSetting?.let { setting ->
+            repository.configPreferences(plugin.manifest.id).getBoolean(
+                setting.key,
+                setting.defaultValue?.toBoolean() ?: false
+            )
+        } ?: plugin.enabled
+    }
+    var enabled by remember(plugin.manifest.id) { mutableStateOf(plugin.enabled && activationEnabled) }
     var showUninstallDialog by remember { mutableStateOf(false) }
 
     fun showError(error: Throwable) {
@@ -381,7 +397,7 @@ private fun PluginSettingsPageContent(
             onDismissRequest = { showUninstallDialog = false }
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                Text(text = plugin.manifest.name)
+                Text(text = plugin.manifest.localizedName(context))
                 Text(
                     text = stringResource(R.string.dialog_uninstall_plugin_summary),
                     modifier = Modifier.padding(top = 8.dp)
@@ -429,7 +445,7 @@ private fun PluginSettingsPageContent(
             BlurredBar(backdrop, blurActive) {
                 TopAppBar(
                     color = barColor,
-                    title = plugin.manifest.name,
+                    title = plugin.manifest.localizedName(context),
                     subtitle = plugin.manifest.version,
                     scrollBehavior = topAppBarScrollBehavior,
                     navigationIcon = {
@@ -511,7 +527,10 @@ private fun PluginSettingsPageContent(
                             .padding(bottom = 12.dp)
                             .fillMaxWidth()
                     ) {
-                        if (plugin.manifest.settings.settings.isEmpty()) {
+                        if (plugin.manifest.settings.settings.none {
+                                it.key != activationSetting?.key
+                            }
+                        ) {
                             Text(
                                 text = stringResource(R.string.summary_plugin_no_settings),
                                 modifier = Modifier.padding(16.dp)
@@ -520,7 +539,8 @@ private fun PluginSettingsPageContent(
                             PluginSettingsContent(
                                 manifest = plugin.manifest,
                                 repository = repository,
-                                pluginEnabled = enabled
+                                pluginEnabled = enabled,
+                                hiddenSettingKey = activationSetting?.key
                             )
                         }
                     }
@@ -542,12 +562,15 @@ private fun PluginSettingsContent(
     manifest: com.lidesheng.hyperlyric.plugin.core.PluginManifest,
     repository: PluginRepository,
     pluginEnabled: Boolean,
+    hiddenSettingKey: String? = null,
 ) {
+    val context = LocalContext.current
     val preferences = remember(manifest.id) { repository.configPreferences(manifest.id) }
     var revision by remember(manifest.id) { mutableIntStateOf(0) }
     var editing by remember(manifest.id) { mutableStateOf<PluginSettingSpec?>(null) }
     var editingMulti by remember(manifest.id) { mutableStateOf<PluginSettingSpec?>(null) }
     val _revision = revision
+    val settings = manifest.settings.settings.filter { it.key != hiddenSettingKey }
 
     DisposableEffect(preferences) {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> revision++ }
@@ -562,31 +585,42 @@ private fun PluginSettingsContent(
         }
     }
 
-    manifest.settings.settings.forEach { setting ->
+    fun saveSwitch(setting: PluginSettingSpec, checked: Boolean) {
+        repository.setSettingValue(manifest, setting, checked.toString())
+        if (checked && setting.conflictsWith.isNotEmpty()) {
+            settings
+                .filter { it.key in setting.conflictsWith && it.type == PluginSettingType.SWITCH }
+                .forEach { conflicting ->
+                    repository.setSettingValue(manifest, conflicting, false.toString())
+                }
+        }
+        revision++
+    }
+
+    @Composable
+    fun renderSetting(setting: PluginSettingSpec) {
+        val title = setting.localizedTitle(context)
         when (setting.type) {
             PluginSettingType.SWITCH -> {
                 SwitchPreference(
-                    title = setting.title,
-                    summary = setting.summary,
+                    title = title,
+                    summary = setting.localizedSummary(context),
                     checked = preferences.getBoolean(
                         setting.key,
                         setting.defaultValue?.toBoolean() ?: false
                     ),
                     enabled = pluginEnabled,
-                    onCheckedChange = {
-                        repository.setSettingValue(manifest, setting, it.toString())
-                        revision++
-                    }
+                    onCheckedChange = { saveSwitch(setting, it) }
                 )
             }
 
             PluginSettingType.SELECT -> {
-                val labels = setting.options.map { it.label }
+                val labels = setting.options.map { it.localizedLabel(context) }
                 val current = preferences.getString(setting.key, setting.defaultValue)
                 val selected = setting.options.indexOfFirst { it.value == current }.coerceAtLeast(0)
                 WindowDropdownPreference(
-                    title = setting.title,
-                    summary = setting.summary,
+                    title = title,
+                    summary = setting.localizedSummary(context),
                     items = labels,
                     selectedIndex = selected,
                     enabled = pluginEnabled,
@@ -604,12 +638,15 @@ private fun PluginSettingsContent(
                     setting.key,
                     setting.defaultValue.orEmpty().split(',').filter(String::isNotBlank).toSet()
                 ).orEmpty()
+                val selectedSummary = setting.options
+                    .filter { it.value in selected }
+                    .joinToString(", ") { it.localizedLabel(context) }
+                    .ifBlank { setting.localizedEmptyValueSummary(context).orEmpty() }
                 ArrowPreference(
-                    title = setting.title,
-                    summary = setting.summary ?: setting.options
-                        .filter { it.value in selected }
-                        .joinToString(", ") { it.label },
+                    title = title,
+                    summary = setting.localizedSummary(context) ?: selectedSummary,
                     enabled = pluginEnabled,
+                    holdDownState = editingMulti?.key == setting.key,
                     onClick = { editingMulti = setting }
                 )
             }
@@ -620,8 +657,7 @@ private fun PluginSettingsContent(
                 val value = preferences.getFloat(
                     setting.key,
                     setting.defaultValue?.toFloatOrNull() ?: min
-                )
-                    .coerceIn(min, upperBound)
+                ).coerceIn(min, upperBound)
                 val step = setting.step?.takeIf { it > 0f }
                 val steps = step?.let { max(0, ((upperBound - min) / it).roundToInt() - 1) } ?: 0
                 SliderPreference(
@@ -630,8 +666,8 @@ private fun PluginSettingsContent(
                         repository.setSettingValue(manifest, setting, it.toString())
                         revision++
                     },
-                    title = setting.title,
-                    summary = setting.summary,
+                    title = title,
+                    summary = setting.localizedSummary(context),
                     enabled = pluginEnabled,
                     valueText = value.toString(),
                     valueRange = min..upperBound,
@@ -643,12 +679,34 @@ private fun PluginSettingsContent(
             PluginSettingType.PASSWORD,
             PluginSettingType.NUMBER -> {
                 val current = readSettingValue(preferences, setting)
+                val presentation = setting.valuePresentation
+                val valueText = displaySettingValue(context, setting, current)
+                val summary = when (presentation) {
+                    PluginSettingValuePresentation.END_ACTION -> setting.localizedSummary(context)
+                    PluginSettingValuePresentation.SUMMARY -> valueText
+                    PluginSettingValuePresentation.SUMMARY_PREVIEW -> previewSettingValue(
+                        current,
+                        setting.previewLineCount
+                    )
+
+                    PluginSettingValuePresentation.DEFAULT -> setting.localizedSummary(context)
+                        ?: valueText
+                }
                 ArrowPreference(
-                    title = setting.title,
-                    summary = setting.summary ?: if (setting.type == PluginSettingType.PASSWORD && current.isNotEmpty()) {
-                        "***************"
-                    } else {
-                        current
+                    title = title,
+                    summary = summary,
+                    endActions = {
+                        if (presentation == PluginSettingValuePresentation.END_ACTION) {
+                            Text(
+                                text = valueText,
+                                fontSize = MiuixTheme.textStyles.body2.fontSize,
+                                color = if (pluginEnabled) {
+                                    MiuixTheme.colorScheme.onSurfaceVariantActions
+                                } else {
+                                    MiuixTheme.colorScheme.disabledOnSecondaryVariant
+                                }
+                            )
+                        }
                     },
                     enabled = pluginEnabled,
                     onClick = { editing = setting }
@@ -657,8 +715,8 @@ private fun PluginSettingsContent(
 
             PluginSettingType.ACTION -> {
                 ArrowPreference(
-                    title = setting.title,
-                    summary = setting.summary,
+                    title = title,
+                    summary = setting.localizedSummary(context),
                     enabled = false,
                     onClick = {}
                 )
@@ -666,16 +724,24 @@ private fun PluginSettingsContent(
         }
     }
 
+    settings.forEach { renderSetting(it) }
+
     val editingSetting = editing
     if (pluginEnabled && editingSetting != null) {
         TextInputDialog(
             show = true,
-            title = editingSetting.title,
+            title = editingSetting.localizedTitle(context),
             initialValue = readSettingValue(preferences, editingSetting),
-            keyboardOptions = if (editingSetting.type == PluginSettingType.NUMBER) {
-                KeyboardOptions(keyboardType = KeyboardType.Number)
-            } else {
-                KeyboardOptions.Default
+            keyboardOptions = when (editingSetting.inputType) {
+                PluginSettingInputType.URI -> KeyboardOptions(keyboardType = KeyboardType.Uri)
+                PluginSettingInputType.NUMBER -> KeyboardOptions(keyboardType = KeyboardType.Number)
+                PluginSettingInputType.DEFAULT -> if (
+                    editingSetting.type == PluginSettingType.NUMBER
+                ) {
+                    KeyboardOptions(keyboardType = KeyboardType.Number)
+                } else {
+                    KeyboardOptions.Default
+                }
             },
             onDismiss = { editing = null },
             onConfirm = { value ->
@@ -694,9 +760,11 @@ private fun PluginSettingsContent(
         ).orEmpty()
         MultiSelectDialog(
             show = true,
-            title = multiSetting.title,
-            summary = multiSetting.summary.orEmpty(),
-            options = multiSetting.options.map { MultiSelectDialogOption(it.value, it.label) },
+            title = multiSetting.localizedTitle(context),
+            summary = multiSetting.localizedDialogSummary(context).orEmpty(),
+            options = multiSetting.options.map {
+                MultiSelectDialogOption(it.value, it.localizedLabel(context))
+            },
             selectedKeys = selected,
             onDismiss = { editingMulti = null },
             onConfirm = { values ->
@@ -709,7 +777,7 @@ private fun PluginSettingsContent(
 }
 
 private fun readSettingValue(
-    preferences: android.content.SharedPreferences,
+    preferences: SharedPreferences,
     setting: PluginSettingSpec
 ): String = when (setting.type) {
     PluginSettingType.NUMBER -> preferences.getLong(
@@ -718,4 +786,99 @@ private fun readSettingValue(
     ).toString()
 
     else -> preferences.getString(setting.key, setting.defaultValue).orEmpty()
+}
+
+private fun displaySettingValue(
+    context: Context,
+    setting: PluginSettingSpec,
+    current: String
+): String {
+    if (setting.type == PluginSettingType.PASSWORD && current.isNotEmpty()) {
+        return "***************"
+    }
+    if (current.isNotEmpty()) return current
+    return setting.localizedEmptyValueSummary(context).orEmpty()
+}
+
+private fun previewSettingValue(value: String, lineCount: Int): String {
+    val lines = value.lines()
+    return if (lines.size > lineCount + 1) {
+        lines.take(lineCount).joinToString("\n") + "..."
+    } else {
+        value
+    }
+}
+
+private fun com.lidesheng.hyperlyric.plugin.core.PluginManifest.localizedName(
+    context: Context
+): String = resolveLocalizedText(
+    context = context,
+    fallback = name,
+    values = nameByLocale
+)
+
+private fun com.lidesheng.hyperlyric.plugin.core.PluginManifest.localizedSummary(
+    context: Context
+): String? = resolveOptionalLocalizedText(
+    context = context,
+    fallback = summary.takeIf { it.isNotBlank() },
+    values = summaryByLocale
+)
+
+private fun PluginSettingSpec.localizedTitle(context: Context): String = resolveLocalizedText(
+    context = context,
+    fallback = title,
+    values = titleByLocale
+)
+
+private fun PluginSettingSpec.localizedSummary(context: Context): String? =
+    resolveOptionalLocalizedText(
+        context = context,
+        fallback = summary,
+        values = summaryByLocale
+    )
+
+private fun PluginSettingSpec.localizedDialogSummary(context: Context): String? =
+    resolveOptionalLocalizedText(
+        context = context,
+        fallback = dialogSummary,
+        values = dialogSummaryByLocale
+    )
+
+private fun PluginSettingSpec.localizedEmptyValueSummary(context: Context): String? =
+    resolveOptionalLocalizedText(
+        context = context,
+        fallback = emptyValueSummary,
+        values = emptyValueSummaryByLocale
+    )
+
+private fun com.lidesheng.hyperlyric.plugin.api.PluginSettingOption.localizedLabel(
+    context: Context
+): String = resolveLocalizedText(
+    context = context,
+    fallback = label,
+    values = labelByLocale
+)
+
+private fun resolveOptionalLocalizedText(
+    context: Context,
+    fallback: String?,
+    values: Map<String, String>
+): String? {
+    if (fallback == null && values.isEmpty()) return null
+    return resolveLocalizedText(context, fallback.orEmpty(), values)
+}
+
+private fun resolveLocalizedText(
+    context: Context,
+    fallback: String,
+    values: Map<String, String>
+): String {
+    val locales = context.resources.configuration.locales
+    for (index in 0 until locales.size()) {
+        val locale = locales[index]
+        values[locale.toLanguageTag()]?.let { return it }
+        values[locale.language]?.let { return it }
+    }
+    return fallback
 }

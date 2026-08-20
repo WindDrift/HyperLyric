@@ -217,22 +217,6 @@ object RootConstants {
     const val KEY_HOOK_WORD_MOTION_LATIN_LIFT = "key_hook_word_motion_latin_lift"
     const val KEY_HOOK_WORD_MOTION_LATIN_WAVE = "key_hook_word_motion_latin_wave"
 
-    // ================= AI TRANSLATION KEYS =================
-    const val KEY_HOOK_AI_TRANS_ENABLE = "key_hook_ai_trans_enable"
-    const val KEY_HOOK_AI_TRANS_AUTO_IGNORE_CHINESE = "key_hook_ai_trans_auto_ignore_chinese"
-    const val KEY_HOOK_AI_TRANS_SKIP_LANGUAGES = "key_hook_ai_trans_skip_languages"
-    const val KEY_HOOK_AI_TRANS_SKIP_EXISTING_TRANSLATION = "key_hook_ai_trans_skip_existing_translation"
-    const val KEY_HOOK_AI_TRANS_FORCE_OVERRIDE = "key_hook_ai_trans_force_override"
-    const val KEY_HOOK_AI_TRANS_PROVIDER = "key_hook_ai_trans_provider"
-    const val KEY_HOOK_AI_TRANS_API_KEY = "key_hook_ai_trans_api_key"
-    const val KEY_HOOK_AI_TRANS_MODEL = "key_hook_ai_trans_model"
-    const val KEY_HOOK_AI_TRANS_BASE_URL = "key_hook_ai_trans_base_url"
-    const val KEY_HOOK_AI_TRANS_TARGET_LANG = "key_hook_ai_trans_target_lang"
-    const val KEY_HOOK_AI_TRANS_PROMPT = "key_hook_ai_trans_prompt"
-    const val KEY_HOOK_AI_TRANS_TEMPERATURE = "key_hook_ai_trans_temperature"
-    const val KEY_HOOK_AI_TRANS_TOP_P = "key_hook_ai_trans_top_p"
-    const val KEY_HOOK_AI_TRANS_MAX_TOKENS = "key_hook_ai_trans_max_tokens"
-
     // ================= DEFAULTS =================
     const val DEFAULT_HOOK_LYRIC_MODE = 0
     const val DEFAULT_HOOK_LYRICON_PROVIDER_DELAY = 0
@@ -476,27 +460,4 @@ object RootConstants {
     const val DEFAULT_HOOK_WORD_MOTION_LATIN_BY_CHARACTER = false
     const val DEFAULT_HOOK_WORD_MOTION_LATIN_LIFT = 0.08f
     const val DEFAULT_HOOK_WORD_MOTION_LATIN_WAVE = 2.0f
-    const val DEFAULT_HOOK_AI_TRANS_ENABLE = false
-    const val DEFAULT_HOOK_AI_TRANS_AUTO_IGNORE_CHINESE = false
-    val DEFAULT_HOOK_AI_TRANS_SKIP_LANGUAGES: Set<String> = emptySet()
-    const val DEFAULT_HOOK_AI_TRANS_SKIP_EXISTING_TRANSLATION = false
-    const val DEFAULT_HOOK_AI_TRANS_FORCE_OVERRIDE = false
-    const val DEFAULT_HOOK_AI_TRANS_TARGET_LANG = "中文"
-    const val DEFAULT_HOOK_AI_TRANS_MODEL = "mimo-v2-flash"
-    const val DEFAULT_HOOK_AI_TRANS_BASE_URL = "https://api.xiaomimimo.com/v1/"
-    const val DEFAULT_HOOK_AI_TRANS_PROMPT = """你是一个歌词翻译专家，遵循"信雅达"原则进行创作。
-
-## 核心：信雅达 (Cultural Transcreation)
-- 信/灵魂对位：深度理解原文背景与世界观。严禁句式套用，必须打破语序，以目标语言的意向逻辑重塑内核，确保"神不散"。
-- 雅/审美重构：捕获隐喻，拒绝平铺直叙。根据曲风炼字，民谣讲究留白意境，摇滚追求文化冲击。
-- 达/呼吸转译：彻底消除翻译腔。译文须契合旋律起伏与呼吸断句，确保副歌具备跨文化的传播记忆点。
-
-## 深度适配要求
-- 隐喻重映射：将原文的文化隐喻转化为目标受众能理解的对等词。允许逻辑倒置，用画面感取代生硬解释。
-- 背景融入：保留特定的世界观语域。译文需符合原曲设定的时空感、社会身份或情感底色。
-
-## 节奏与技术
-- 等时对齐：音节/字数必须严丝合缝适配节拍，严禁在短拍堆砌文字。
-- 动态押韵：除 Rap/特定流行强求押韵外，优先保证情绪流转自然。严禁为押韵损毁隐喻或文化美感。
-- 解构再造：拆碎原文逻辑，以母语者直觉进行"意象创作"，使译文像原创作品般自然。"""
 }

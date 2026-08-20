@@ -2,7 +2,6 @@ package com.lidesheng.hyperlyric.root.plugin
 
 import com.lidesheng.hyperlyric.lyric.model.LyricMetadata
 import com.lidesheng.hyperlyric.lyric.model.LyricWord
-import com.lidesheng.hyperlyric.lyric.model.RichLyricLine
 import com.lidesheng.hyperlyric.lyric.model.Song
 import com.lidesheng.hyperlyric.plugin.api.PluginLyricLine
 import com.lidesheng.hyperlyric.plugin.api.PluginMetadata
@@ -21,8 +20,9 @@ object PluginSongMapper {
     )
 
     /**
-     * Only lyric enhancements are accepted in V1. Song identity and line timing remain
-     * Core-owned, while word timing may be supplied by a processor.
+     * V1 accepts translation text only. Song identity, metadata, source text, source words,
+     * secondary text and line timing remain Core-owned. Translation word timing is accepted
+     * only when it is fully contained by a reliable source line timeline.
      */
     fun toInternalSong(base: Song, enhanced: PluginSong): Song? {
         if (base.id != enhanced.id ||
@@ -34,30 +34,29 @@ object PluginSongMapper {
         }
         val baseLyrics = base.lyrics
         val enhancedLyrics = enhanced.lyrics
-        if (baseLyrics != null && enhancedLyrics == null) return null
-        if (!baseLyrics.isNullOrEmpty() && enhancedLyrics.isNullOrEmpty()) return null
-        if (baseLyrics != null && enhancedLyrics != null &&
-            (baseLyrics.size != enhancedLyrics.size || baseLyrics.zip(enhancedLyrics).any {
-                (baseLine, enhancedLine) ->
+        if (baseLyrics == null) return if (enhancedLyrics == null) base else null
+        if (enhancedLyrics == null || enhancedLyrics.size != baseLyrics.size) return null
+        if (baseLyrics.zip(enhancedLyrics).any { (baseLine, enhancedLine) ->
                 baseLine.begin != enhancedLine.begin ||
                     baseLine.end != enhancedLine.end ||
                     baseLine.duration != enhancedLine.duration ||
                     baseLine.isAlignedRight != enhancedLine.isAlignedRight
-            })
-        ) {
-            return null
-        }
+            }
+        ) return null
 
-        val candidate = Song(
-            id = enhanced.id,
-            name = enhanced.name,
-            artist = enhanced.artist,
-            duration = enhanced.duration,
-            metadata = enhanced.metadata?.let(::toInternalMetadata),
-            lyrics = enhancedLyrics?.map(::toInternalLine)
-        )
-        return candidate.normalize()
-            .takeIf { baseLyrics.isNullOrEmpty() || !it.lyrics.isNullOrEmpty() }
+        val candidateLyrics = baseLyrics.zip(enhancedLyrics).map { (baseLine, enhancedLine) ->
+            val translationChanged = baseLine.translation != enhancedLine.translation
+            baseLine.copy(
+                translation = enhancedLine.translation,
+                translationWords = when {
+                    !translationChanged -> baseLine.translationWords
+                    else -> enhancedLine.translationWords
+                        ?.takeIf { hasReliableTimeline(enhancedLine, it) }
+                        ?.map(::toInternalWord)
+                }
+            )
+        }
+        return base.copy(lyrics = candidateLyrics)
     }
 
     private fun toPluginMetadata(metadata: LyricMetadata): PluginMetadata =
@@ -82,20 +81,21 @@ object PluginSongMapper {
             roma = line.roma
         )
 
-    private fun toInternalLine(line: PluginLyricLine): RichLyricLine = RichLyricLine(
-        begin = line.begin,
-        end = line.end,
-        duration = line.duration,
-        isAlignedRight = line.isAlignedRight,
-        metadata = line.metadata?.let(::toInternalMetadata),
-        text = line.text,
-        words = line.words?.map(::toInternalWord),
-        secondary = line.secondary,
-        secondaryWords = line.secondaryWords?.map(::toInternalWord),
-        translation = line.translation,
-        translationWords = line.translationWords?.map(::toInternalWord),
-        roma = line.roma
-    )
+    private fun hasReliableTimeline(
+        line: PluginLyricLine,
+        words: List<PluginWord>,
+    ): Boolean {
+        if (line.end <= line.begin || line.duration <= 0L || words.isEmpty()) return false
+        var previousEnd = line.begin
+        return words.all { word ->
+            val valid = word.begin >= line.begin &&
+                word.end > word.begin &&
+                word.end <= line.end &&
+                word.begin >= previousEnd
+            if (valid) previousEnd = word.end
+            valid
+        }
+    }
 
     private fun toPluginWord(word: LyricWord): PluginWord = PluginWord(
         begin = word.begin,

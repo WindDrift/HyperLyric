@@ -60,6 +60,9 @@ public interface PluginLogger {
     public fun info(message: String)
     public fun warn(message: String, throwable: Throwable? = null)
     public fun error(message: String, throwable: Throwable? = null)
+
+    /** Creates a logger that keeps the host log format but uses a stable component tag. */
+    public fun withTag(tag: String): PluginLogger = this
 }
 
 /** Namespaced key/value storage owned by the host runtime. */
@@ -124,9 +127,35 @@ public enum class PluginSettingType(public val wireName: String) {
     }
 }
 
+/** Semantic placement for a setting's current value in the host settings row. */
+public enum class PluginSettingValuePresentation(public val wireName: String) {
+    DEFAULT("default"),
+    END_ACTION("endAction"),
+    SUMMARY("summary"),
+    SUMMARY_PREVIEW("summaryPreview");
+
+    public companion object {
+        public fun fromWire(value: String): PluginSettingValuePresentation? =
+            entries.firstOrNull { it.wireName == value }
+    }
+}
+
+/** Keyboard intent for text settings; the host maps this to its native input component. */
+public enum class PluginSettingInputType(public val wireName: String) {
+    DEFAULT("default"),
+    URI("uri"),
+    NUMBER("number");
+
+    public companion object {
+        public fun fromWire(value: String): PluginSettingInputType? =
+            entries.firstOrNull { it.wireName == value }
+    }
+}
+
 public data class PluginSettingOption(
     val value: String,
     val label: String,
+    val labelByLocale: Map<String, String> = emptyMap(),
 )
 
 public data class PluginSettingSpec(
@@ -139,6 +168,17 @@ public data class PluginSettingSpec(
     val min: Float? = null,
     val max: Float? = null,
     val step: Float? = null,
+    val titleByLocale: Map<String, String> = emptyMap(),
+    val summaryByLocale: Map<String, String> = emptyMap(),
+    val dialogSummary: String? = null,
+    val dialogSummaryByLocale: Map<String, String> = emptyMap(),
+    val emptyValueSummary: String? = null,
+    val emptyValueSummaryByLocale: Map<String, String> = emptyMap(),
+    val valuePresentation: PluginSettingValuePresentation =
+        PluginSettingValuePresentation.DEFAULT,
+    val previewLineCount: Int = 2,
+    val inputType: PluginSettingInputType = PluginSettingInputType.DEFAULT,
+    val conflictsWith: List<String> = emptyList(),
 )
 
 public data class PluginSettingsSchema(

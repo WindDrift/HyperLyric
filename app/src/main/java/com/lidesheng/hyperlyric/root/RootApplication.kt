@@ -2,7 +2,6 @@ package com.lidesheng.hyperlyric.root
 
 import android.app.Application
 import android.content.Context
-import com.lidesheng.hyperlyric.common.AiTranslationLanguageSettings
 import com.lidesheng.hyperlyric.common.PrefsBridge
 import com.lidesheng.hyperlyric.common.SyllablePreferencePolicy
 import com.lidesheng.hyperlyric.common.UIConstants
@@ -22,7 +21,6 @@ class RootApplication : Application() {
         AppUtils.initPredictiveBackGesture(this)
         LogManager.init(this)
         PrefsBridge.init(this)
-        AiTranslationLanguageSettings.migrateLegacyPreference(PrefsBridge.getPrefs())
         SyllablePreferencePolicy.normalizeInPlace(PrefsBridge.getPrefs())
         appContext = this
 

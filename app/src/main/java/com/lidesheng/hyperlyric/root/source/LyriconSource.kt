@@ -80,10 +80,6 @@ class LyriconSource : LyricSource {
     fun initialize(app: Application, prefs: android.content.SharedPreferences?) {
         this.app = app
         this.prefs = prefs
-
-        LyriconDataBridge.onAiTranslationComplete = {
-            BaseIslandRenderer.refreshActiveIsland()
-        }
     }
 
     fun onPreferenceChanged(key: String?) {

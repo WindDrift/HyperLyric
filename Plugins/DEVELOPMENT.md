@@ -60,7 +60,7 @@ class MyPlugin : HyperLyricPlugin {
 
 ## 3. Manifest
 
-`src/main/plugin/manifest.json` 至少包含：
+`src/main/plugin/manifest.json` 至少包含以下必填字段；`summary` 是可选的，省略后插件管理页只显示插件名称，不显示空的说明行：
 
 ```json
 {
@@ -80,7 +80,7 @@ class MyPlugin : HyperLyricPlugin {
 | --- | --- |
 | `id` | 稳定唯一 ID，用于安装识别、配置命名空间、启用状态和插件存储；发布后不要修改 |
 | `name` | 插件展示名称 |
-| `summary` | 插件展示说明 |
+| `summary` | 插件展示说明，可选；省略时不显示插件说明 |
 | `author` | 作者或开发者信息，可选；当前版本只保存和传递，不在 UI 展示 |
 | `version` | 插件版本，由插件作者维护 |
 | `apiVersion` | 所需 Plugin API 版本；高于宿主版本的插件不会加载 |
@@ -155,7 +155,7 @@ private class MyLyricProcessor : LyricProcessorExtension {
 
 处理函数接收不可变快照，在后台线程运行。没有结果时返回 `null`；不要等待插件完成后才显示原始歌词，也不要修改歌曲 ID、标题、艺术家、时长和已有行时间轴。插件可以补充翻译、罗马音、词级时间信息等歌词增强数据。
 
-每个歌词 Processor 最多运行 15 秒；网络请求、模型调用和缓存读取必须在插件内部自行设置更短的超时，并正确处理取消或异常。
+每个歌词 Processor 最多运行 40 秒；网络请求、模型调用和缓存读取必须在插件内部自行设置更短的超时，并正确处理取消或异常。内置 AI 翻译 Processor 的内部等待窗口为 35 秒。
 
 ### 6.1 `PluginSong` 快照约束
 
@@ -210,9 +210,34 @@ Processor 应使用 `copy(...)` 返回新快照，不修改歌曲身份和已有
 | `slider` | `SliderPreference` | 数值滑块，可指定 `min`、`max`、`step` |
 | `action` | `ArrowPreference` | V1 仅保留协议，当前宿主不执行操作 |
 
+Manifest 可以用顶层 `activationSettingKey` 指定一个 `switch` 设置，让宿主配置页的通用“启用”开关同时同步插件注册表和该配置值；该设置不会再作为第二个重复的 Schema 行渲染。未声明时，通用“启用”开关只控制插件注册表。
+
+设置 Schema 还可以声明宿主应如何呈现值，而不是绑定某个 MIUIX 类名：
+
+| 字段 | 作用 |
+| --- | --- |
+| `titleLocales`、`summaryLocales` | 按语言覆盖 Title/Summary；没有匹配项时回退到 `title`/`summary` |
+| `dialogSummary`、`dialogSummaryLocales` | 多选设置弹窗的说明文本 |
+| `emptyValueSummary`、`emptyValueSummaryLocales` | 没有值时显示的摘要或 End Action 文本 |
+| `valuePresentation: endAction` | 将当前值放入 `ArrowPreference.endActions`，保留箭头位置和 Miuix 行布局 |
+| `valuePresentation: summary` | 将当前值放入行摘要 |
+| `valuePresentation: summaryPreview`、`previewLineCount` | 按指定行数预览长文本，并使用旧页面的省略号规则 |
+| `conflictsWith` | 当前布尔项打开时，宿主自动关闭列出的互斥项 |
+| `inputType: uri` / `number` | 指定文本弹窗的键盘语义 |
+
+这些字段仍然是语义契约，插件不需要导入 Compose 或 MIUIX。宿主负责将它们映射到当前的 Miuix 组件；因此插件可以复刻已有页面的标题、摘要、动态值、密码遮罩和 `endActions`，而不会把 UI 实现放入插件 DEX。
+
 插件不能写 `SwitchPreference`、`ArrowPreference` 等 MIUIX 名称，也不能自行提供设置页面。宿主未来可以替换 UI 实现而不改变插件协议。插件禁用时，配置页面中的设置项会由宿主统一置为不可用。
 
-安装、卸载、启用、禁用和代码升级需要重启 SystemUI 才生效；配置值通过 Remote Preferences 实时同步，不触发代码热加载。当前 `PluginStorage` 是每个插件独立的 SharedPreferences Key/Value 命名空间，只提供字符串读写和清空，不等同于 ZIP 内的文件系统或缓存目录。
+安装、卸载和代码升级需要重启 SystemUI 才生效。通用“启用”开关同时更新启动加载注册表和插件声明的 activation setting：已经加载的插件会立即进入临时禁用/启用状态，重启后注册表决定是否加载；没有 activation setting 的插件，其启用状态仍以重启时加载为准。其他配置值通过 Remote Preferences 实时同步，不触发代码热加载。当前 `PluginStorage` 是每个插件独立的 SharedPreferences Key/Value 命名空间，只提供字符串读写和清空，不等同于 ZIP 内的文件系统或缓存目录。
+
+AI 翻译插件使用 `PluginStorage` 保存带版本的 JSON 索引和整首歌翻译条目，不访问宿主 SQLite、`Context` 或内部模型。网络请求和 JSON 解析使用 Android 平台 API，避免把宿主已有运行库重复打进插件 ZIP；插件失败、超时或缓存损坏时统一返回原始歌词。
+
+AI 翻译现在只有插件管理路径：歌词翻译页面不再渲染 AI 卡片，配置只来自 `hyperlyric.ai.translation` 的 Manifest Settings Schema；插件页的通用“启用”开关同时控制插件注册表和 AI 的 `enabled` 配置，AI 设置项始终平铺在独立 Card 中，不再折叠。Core 只执行插件 Processor。旧 Gateway、online AI 实现、SQLite 缓存和旧 UI 不再参与运行。
+
+卸载插件会清理本地配置、远程配置和插件存储；重新安装后从 Manifest 默认值重新建立配置并同步到 SystemUI，避免 UI 偏好与运行时远程偏好分叉。
+
+插件通过带组件 tag 的 `PluginLogger` 保留原 AI 翻译的日志格式，例如 `AiTranslationGateway`、`AITranslator`、`AITranslationScheduler`、`AITranslationCache`、`OpenAiTranslationClient`、`AITranslationResponseParser` 和 `AITranslationApplicator`；插件生命周期本身不额外输出旧链路没有的翻译日志。
 
 ## 8. 配置、存储与日志
 

@@ -5,6 +5,9 @@ import com.lidesheng.hyperlyric.plugin.api.HYPERLYRIC_PLUGIN_API_VERSION
 object PluginConstants {
     const val API_VERSION = HYPERLYRIC_PLUGIN_API_VERSION
 
+    /** Stable host-side routing identifiers for the first built-in HyperLyric plugin. */
+    const val AI_TRANSLATION_PLUGIN_ID = "hyperlyric.ai.translation"
+
     const val REMOTE_REGISTRY_PREFS = "hyperlyric.plugin.registry"
     const val REMOTE_ENABLED_IDS_KEY = "enabled_ids"
 
@@ -21,7 +24,8 @@ object PluginConstants {
     const val MAX_PLUGIN_DEX_FILES = 16
     const val MAX_PLUGIN_MANIFEST_BYTES = 512 * 1024
 
-    const val MAX_PROCESSOR_TIMEOUT_MS = 15_000L
+    /** Absolute host-side safety gate for one plugin Processor invocation. */
+    const val MAX_PROCESSOR_TIMEOUT_MS = 40_000L
 
     fun configGroup(pluginId: String): String = "plugin.$pluginId"
 

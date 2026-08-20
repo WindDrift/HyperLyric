@@ -1,6 +1,5 @@
 package com.lidesheng.hyperlyric.ui.page.hooksettings.lyrics.translation
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -8,14 +7,10 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.lidesheng.hyperlyric.BuildConfig
 import com.lidesheng.hyperlyric.R
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 fun LazyListScope.translationSections(
     lyricSource: String,
@@ -29,26 +24,7 @@ fun LazyListScope.translationSections(
     nextLyricLine: Boolean,
     onNextLyricLineChange: (Boolean) -> Unit,
     autoSwitchTranslation: Boolean,
-    onAutoSwitchTranslationChange: (Boolean) -> Unit,
-    aiTransEnabled: Boolean,
-    onAiTransEnabledChange: (Boolean) -> Unit,
-    skipLanguagesSummary: String,
-    skipLanguagesDialogVisible: Boolean,
-    onSkipLanguagesClick: () -> Unit,
-    skipExistingTranslation: Boolean,
-    onSkipExistingTranslationChange: (Boolean) -> Unit,
-    forceAiTranslation: Boolean,
-    onForceAiTranslationChange: (Boolean) -> Unit,
-    targetLang: String,
-    onTargetLangClick: () -> Unit,
-    apiKey: String,
-    onApiKeyClick: () -> Unit,
-    model: String,
-    onModelClick: () -> Unit,
-    baseUrl: String,
-    onBaseUrlClick: () -> Unit,
-    prompt: String,
-    onPromptClick: () -> Unit
+    onAutoSwitchTranslationChange: (Boolean) -> Unit
 ) {
     val supportsNextLyricLine =
         (lyricSource == "lyricon" || lyricSource == "lyricinfo") && lyricMode == 0
@@ -89,136 +65,31 @@ fun LazyListScope.translationSections(
         SmallTitle(text = stringResource(id = R.string.title_translation))
     }
     item(key = "translation_content") {
-        val translationActionColor = if (translationControlsEnabled) {
-            MiuixTheme.colorScheme.onSurfaceVariantActions
-        } else {
-            MiuixTheme.colorScheme.disabledOnSecondaryVariant
-        }
-
-        Column {
-            Card(
-                modifier = Modifier
-                    .padding(horizontal = 12.dp)
-                    .padding(bottom = 12.dp)
-                    .fillMaxWidth()
-            ) {
-                Column {
-                    SwitchPreference(
-                        title = stringResource(id = R.string.title_disable_translation),
-                        checked = disableTranslation,
-                        onCheckedChange = onDisableTranslationChange,
-                        enabled = translationControlsEnabled
-                    )
-                    SwitchPreference(
-                        title = stringResource(id = R.string.title_translation_only),
-                        checked = translationOnly,
-                        onCheckedChange = onTranslationOnlyChange,
-                        enabled = translationControlsEnabled
-                    )
-                    SwitchPreference(
-                        title = stringResource(id = R.string.title_swap_translation),
-                        checked = swapTranslation,
-                        onCheckedChange = onSwapTranslationChange,
-                        enabled = translationControlsEnabled
-                    )
-                }
-            }
-            if (BuildConfig.ONLINE_FEATURES_ENABLED && (lyricSource == "lyricon" || lyricSource == "lyricinfo")) {
-                Card(
-                    modifier = Modifier
-                        .padding(horizontal = 12.dp)
-                        .padding(bottom = 12.dp)
-                        .fillMaxWidth()
-                ) {
-                    Column {
-                        SwitchPreference(
-                            title = stringResource(id = R.string.title_ai_translation),
-                            checked = aiTransEnabled,
-                            onCheckedChange = onAiTransEnabledChange,
-                            enabled = translationControlsEnabled
-                        )
-                        AnimatedVisibility(visible = aiTransEnabled) {
-                            Column {
-                                ArrowPreference(
-                                    title = stringResource(id = R.string.title_ai_trans_skip_languages),
-                                    summary = skipLanguagesSummary,
-                                    onClick = onSkipLanguagesClick,
-                                    holdDownState = skipLanguagesDialogVisible,
-                                    enabled = translationControlsEnabled
-                                )
-                                SwitchPreference(
-                                    title = stringResource(id = R.string.title_ai_trans_skip_existing),
-                                    checked = skipExistingTranslation,
-                                    onCheckedChange = onSkipExistingTranslationChange,
-                                    enabled = translationControlsEnabled
-                                )
-                                SwitchPreference(
-                                    title = stringResource(id = R.string.title_ai_trans_force_override),
-                                    summary = stringResource(id = R.string.summary_ai_trans_force_override),
-                                    checked = forceAiTranslation,
-                                    onCheckedChange = onForceAiTranslationChange,
-                                    enabled = translationControlsEnabled
-                                )
-                                Column {
-                                    ArrowPreference(
-                                        title = stringResource(id = R.string.label_ai_trans_target_lang),
-                                        endActions = {
-                                            Text(
-                                                targetLang,
-                                                fontSize = MiuixTheme.textStyles.body2.fontSize,
-                                                color = translationActionColor
-                                            )
-                                        },
-                                        onClick = onTargetLangClick,
-                                        enabled = translationControlsEnabled
-                                    )
-                                    ArrowPreference(
-                                        title = stringResource(id = R.string.label_ai_trans_api_key),
-                                        endActions = {
-                                            Text(
-                                                if (apiKey.isNotEmpty()) "***************" else stringResource(
-                                                    id = R.string.summary_not_configured
-                                                ),
-                                                fontSize = MiuixTheme.textStyles.body2.fontSize,
-                                                color = translationActionColor
-                                            )
-                                        },
-                                        onClick = onApiKeyClick,
-                                        enabled = translationControlsEnabled
-                                    )
-                                    ArrowPreference(
-                                        title = stringResource(id = R.string.label_ai_trans_model),
-                                        endActions = {
-                                            Text(
-                                                model,
-                                                fontSize = MiuixTheme.textStyles.body2.fontSize,
-                                                color = translationActionColor
-                                            )
-                                        },
-                                        onClick = onModelClick,
-                                        enabled = translationControlsEnabled
-                                    )
-                                    ArrowPreference(
-                                        title = stringResource(id = R.string.label_ai_trans_base_url),
-                                        summary = baseUrl,
-                                        onClick = onBaseUrlClick,
-                                        enabled = translationControlsEnabled
-                                    )
-                                    ArrowPreference(
-                                        title = stringResource(R.string.title_custom_prompt),
-                                        summary = if (prompt.lines().size > 3) {
-                                            prompt.lines().take(2).joinToString("\n") + "..."
-                                        } else {
-                                            prompt
-                                        },
-                                        onClick = onPromptClick,
-                                        enabled = translationControlsEnabled
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+        Card(
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp)
+                .fillMaxWidth()
+        ) {
+            Column {
+                SwitchPreference(
+                    title = stringResource(id = R.string.title_disable_translation),
+                    checked = disableTranslation,
+                    onCheckedChange = onDisableTranslationChange,
+                    enabled = translationControlsEnabled
+                )
+                SwitchPreference(
+                    title = stringResource(id = R.string.title_translation_only),
+                    checked = translationOnly,
+                    onCheckedChange = onTranslationOnlyChange,
+                    enabled = translationControlsEnabled
+                )
+                SwitchPreference(
+                    title = stringResource(id = R.string.title_swap_translation),
+                    checked = swapTranslation,
+                    onCheckedChange = onSwapTranslationChange,
+                    enabled = translationControlsEnabled
+                )
             }
         }
     }

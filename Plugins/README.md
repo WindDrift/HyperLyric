@@ -9,8 +9,10 @@ Plugins/
 ├─ api/
 │  └─ 宿主与插件共享的公共 Plugin API，Gradle 模块 :plugins:api
 └─ modules/
-   └─ demo-logger/
-      └─ Demo 插件，Gradle 模块 :plugins:demo-logger
+   ├─ demo-logger/
+   │  └─ Demo 插件，Gradle 模块 :plugins:demo-logger
+   └─ ai-translation/
+      └─ AI 翻译插件，Gradle 模块 :plugins:ai-translation
 ```
 
 `api/` 不是独立发布的 SDK，也不是可安装插件。它是 HyperLyric 仓库内部的稳定编译契约；插件通过 `compileOnly(project(":plugins:api"))` 使用，运行时由宿主提供同一份 API。
@@ -38,5 +40,6 @@ README 只记录插件目录和当前插件；面向插件作者的构建、Mani
 | 插件 | ID | 说明 |
 | --- | --- | --- |
 | Demo 歌词插件 | `hyperlyric.demo.logger` | 记录歌曲信息并添加内存标记，用于验证 ZIP、DEX、Runtime 和歌词处理链路 |
+| OpenAI 歌词翻译 | `hyperlyric.ai.translation` | 在插件管理页复刻原 AI 翻译配置与 Miuix 设置语义，作为异步歌词 Processor 提供缓存、队列和切歌隔离 |
 
 插件的 `author` 字段已经纳入 Manifest 契约，但当前 HyperLyric UI 暂不展示该字段。

@@ -12,7 +12,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.core.content.edit
 import com.lidesheng.hyperlyric.R
-import com.lidesheng.hyperlyric.common.AiTranslationLanguageSettings
 import com.lidesheng.hyperlyric.root.RootApplication
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -20,7 +19,6 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.common.ServiceConstants
 import com.lidesheng.hyperlyric.common.SyllablePreferencePolicy
 import com.lidesheng.hyperlyric.common.UIConstants
@@ -30,7 +28,7 @@ object BackupRestoreManager {
         val prefs = context.getSharedPreferences(UIConstants.PREF_NAME, Context.MODE_PRIVATE)
         val config = JSONObject()
         prefs.all.forEach { (key, value) ->
-            if (key == RootConstants.KEY_HOOK_AI_TRANS_API_KEY) return@forEach
+            if (isSensitivePreferenceKey(key)) return@forEach
             when (value) {
                 is Boolean -> config.put(key, value)
                 is Int -> config.put(key, value)
@@ -62,10 +60,9 @@ object BackupRestoreManager {
                     val key = keys.next()
                     val value = config.get(key)
                     if (key == "key_send_normal_notification" || key == "key_send_focus_notification" || key == "key_persistent_foreground"
-                        || key == RootConstants.KEY_HOOK_AI_TRANS_API_KEY) continue
+                        || isSensitivePreferenceKey(key)) continue
                     if (
-                        key == ServiceConstants.KEY_NOTIFICATION_WHITELIST ||
-                        key == RootConstants.KEY_HOOK_AI_TRANS_SKIP_LANGUAGES
+                        key == ServiceConstants.KEY_NOTIFICATION_WHITELIST
                     ) {
                         val raw = value.toString()
                         val set = if (raw.isBlank()) emptySet() else raw.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
@@ -80,19 +77,6 @@ object BackupRestoreManager {
                         is String -> putString(key, value)
                     }
                 }
-                if (
-                    !config.has(RootConstants.KEY_HOOK_AI_TRANS_SKIP_LANGUAGES) &&
-                    config.has(RootConstants.KEY_HOOK_AI_TRANS_AUTO_IGNORE_CHINESE)
-                ) {
-                    val skipLanguages = if (
-                        config.optBoolean(RootConstants.KEY_HOOK_AI_TRANS_AUTO_IGNORE_CHINESE)
-                    ) {
-                        setOf(AiTranslationLanguageSettings.LANGUAGE_CHINESE)
-                    } else {
-                        emptySet()
-                    }
-                    putStringSet(RootConstants.KEY_HOOK_AI_TRANS_SKIP_LANGUAGES, skipLanguages)
-                }
             }
             val syllableSettings = SyllablePreferencePolicy.read(prefs)
             val syllableEditor = prefs.edit()
@@ -101,6 +85,9 @@ object BackupRestoreManager {
             true
         } catch (_: Exception) { false }
     }
+
+    private fun isSensitivePreferenceKey(key: String): Boolean =
+        key.endsWith("_api_key", ignoreCase = true)
 }
 
 class BackupRestoreHelper(

@@ -384,26 +384,6 @@
     <string name="label_word_motion_wave_range">范围：0 ~ 8</string>
     <string name="title_custom_font">字体</string>
     <string name="summary_default_font">默认</string>
-    <string name="summary_not_configured">未配置</string>
-    <string name="title_ai_translation">OpenAI 翻译</string>
-    <string name="title_ai_trans_basic">基础设置</string>
-    <string name="title_ai_trans_skip_languages">自动跳过语言</string>
-    <string name="summary_ai_trans_skip_languages">勾选后，识别为这些语言的歌词将不会请求 AI 翻译</string>
-    <string name="summary_ai_trans_skip_languages_disabled">未选择（关闭）</string>
-    <string name="label_ai_trans_language_chinese">中文</string>
-    <string name="label_ai_trans_language_english">English</string>
-    <string name="label_ai_trans_language_japanese">日本語</string>
-    <string name="label_ai_trans_language_korean">한국어</string>
-    <string name="label_ai_trans_language_spanish">Español</string>
-    <string name="title_ai_trans_skip_existing">自动跳过已有翻译歌曲</string>
-    <string name="title_ai_trans_force_override">强制 AI 翻译</string>
-    <string name="summary_ai_trans_force_override">使用 AI 译文覆盖歌词源提供的已有翻译</string>
-    <string name="label_ai_trans_api_key">API Key</string>
-    <string name="label_ai_trans_model">模型名称</string>
-    <string name="label_ai_trans_base_url">OpenAI API 地址</string>
-    <string name="label_ai_trans_target_lang">目标语言</string>
-    <string name="label_ai_trans_prompt">自定义翻译风格提示词</string>
-    <string name="summary_ai_trans_prompt_hint">留空使用默认提示词</string>
     <string name="title_verbatim_lyric">逐字歌词</string>
     <string name="title_lyric_effects">歌词动效</string>
 
@@ -562,7 +542,7 @@
     <string name="summary_help_prerequisites">① 在 LSPosed 中启用 HyperLyric，并在应用内启用“小米超级岛歌词”开关\n② 选择歌词源，安装并启用对应依赖\n③ 在 LSPosed 中勾选需要使用的音乐软件\n④ 按歌词源要求重启系统界面、手机或音乐软件</string>
     <string name="title_help_lyric_sources">歌词源</string>
     <string name="summary_help_source_lyricon">HyperLyric 6.0 及之后的版本需要同时安装 Lyricon Central 和对应音乐软件的 LyricProvider。启用相关模块后，重启系统界面和音乐软件。如果没有歌词，先检查歌词提供器与音乐软件版本是否兼容，再确认是否完成重启。</string>
-    <string name="summary_help_source_superlyric">只需要安装并启用 SuperLyric。首次注入后重启手机。SuperLyric 不支持“显示下一句歌词”和“AI 翻译”。如果没有歌词，先检查它是否向音乐软件传出了歌词，以及版本是否兼容。</string>
+    <string name="summary_help_source_superlyric">只需要安装并启用 SuperLyric。首次注入后重启手机。SuperLyric 不支持“显示下一句歌词”。如果没有歌词，先检查它是否向音乐软件传出了歌词，以及版本是否兼容。</string>
     <string name="summary_help_source_lyricinfo">建议安装 LyricInfo 模块，将歌词写入系统 MediaSession 元数据；如果音乐软件自身能够输出歌词元数据，则可以不安装。</string>
     <string name="tag_download_lyricon">下载 Lyricon Central</string>
     <string name="tag_download_providers">下载 LyricProvider</string>
@@ -581,7 +561,6 @@
     <!-- Lyric Settings Page -->
     <string name="tab_basic">基础功能</string>
     <string name="tab_advanced">高级功能</string>
-    <string name="title_custom_prompt">自定义提示词</string>
 
     <!-- Main Page & General Content Descriptions -->
     <string name="content_description_avatar">头像</string>

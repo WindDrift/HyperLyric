@@ -86,8 +86,11 @@ class PluginRepository(private val context: Context) {
     }
 
     fun setEnabled(pluginId: String, enabled: Boolean) {
-        require(listInstalled().any { it.manifest.id == pluginId }) { "插件未安装: $pluginId" }
+        val installed = listInstalled().firstOrNull { it.manifest.id == pluginId }
+            ?: throw IllegalArgumentException("插件未安装: $pluginId")
         val service = requireService()
+        // The registry is the boot-time load gate. The activation setting is a live gate for a
+        // plugin that is already loaded, so disabling it takes effect without waiting for reboot.
         val ids = registry.getStringSet(
             PluginConstants.REMOTE_ENABLED_IDS_KEY,
             emptySet()
@@ -98,6 +101,14 @@ class PluginRepository(private val context: Context) {
             .putStringSet(PluginConstants.REMOTE_ENABLED_IDS_KEY, ids)
             .apply()
         registry.edit().putStringSet(PluginConstants.REMOTE_ENABLED_IDS_KEY, ids).apply()
+
+        installed.manifest.activationSettingKey?.let { key ->
+            configPreferences(pluginId).edit().putBoolean(key, enabled).apply()
+            service.getRemotePreferences(PluginConstants.configGroup(pluginId))
+                .edit()
+                .putBoolean(key, enabled)
+                .apply()
+        }
     }
 
     fun uninstall(pluginId: String) {
@@ -106,8 +117,20 @@ class PluginRepository(private val context: Context) {
         val service = requireService()
         service.deleteRemoteFile(installed.fileName)
         runCatching {
+            service.getRemotePreferences(PluginConstants.configGroup(pluginId))
+                .edit()
+                .clear()
+                .apply()
             service.deleteRemotePreferences(PluginConstants.configGroup(pluginId))
         }
+        runCatching {
+            service.getRemotePreferences(PluginConstants.storagePreferences(pluginId))
+                .edit()
+                .clear()
+                .apply()
+            service.deleteRemotePreferences(PluginConstants.storagePreferences(pluginId))
+        }
+        configPreferences(pluginId).edit().clear().commit()
 
         val ids = registry.getStringSet(PluginConstants.LOCAL_INSTALLED_IDS_KEY, emptySet())
             .orEmpty().toMutableSet().apply { remove(pluginId) }

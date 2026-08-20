@@ -360,26 +360,6 @@
     <string name="label_word_motion_wave_range">Range: 0 ~ 8</string>
     <string name="title_custom_font">Font</string>
     <string name="summary_default_font">Default</string>
-    <string name="summary_not_configured">Not configured</string>
-    <string name="title_ai_translation">OpenAI Translation</string>
-    <string name="title_ai_trans_basic">Basic Settings</string>
-    <string name="title_ai_trans_skip_languages">Automatically Skip Languages</string>
-    <string name="summary_ai_trans_skip_languages">Lyrics detected as selected languages will not be sent for AI translation</string>
-    <string name="summary_ai_trans_skip_languages_disabled">None (off)</string>
-    <string name="label_ai_trans_language_chinese">中文</string>
-    <string name="label_ai_trans_language_english">English</string>
-    <string name="label_ai_trans_language_japanese">日本語</string>
-    <string name="label_ai_trans_language_korean">한국어</string>
-    <string name="label_ai_trans_language_spanish">Español</string>
-    <string name="title_ai_trans_skip_existing">Auto Skip Songs with Translation</string>
-    <string name="title_ai_trans_force_override">Force AI Translation</string>
-    <string name="summary_ai_trans_force_override">Replace existing translations from the lyric source with AI translations</string>
-    <string name="label_ai_trans_api_key">API Key</string>
-    <string name="label_ai_trans_model">Model Name</string>
-    <string name="label_ai_trans_base_url">API Base URL</string>
-    <string name="label_ai_trans_target_lang">Target Language</string>
-    <string name="label_ai_trans_prompt">Custom Translation Prompt</string>
-    <string name="summary_ai_trans_prompt_hint">Leave empty for default prompt</string>
     <string name="title_verbatim_lyric">Verbatim Lyrics</string>
     <string name="title_lyric_effects">Lyric Effects</string>
 
@@ -537,7 +517,7 @@
     <string name="summary_help_prerequisites">① Enable HyperLyric in LSPosed, then turn on \"Xiaomi HyperIsland Lyrics\" in the app\n② Select a lyric source and install and enable its required dependencies\n③ Select the music app in LSPosed\n④ Restart SystemUI, the phone, or the music app as required by the source</string>
     <string name="title_help_lyric_sources">Lyric Sources</string>
     <string name="summary_help_source_lyricon">HyperLyric 6.0 and later requires Lyricon Central and the LyricProvider for your music app. Enable the related modules, then restart SystemUI and the music app. If lyrics are missing, first check source and music-app version compatibility, then check that the required restart was completed.</string>
-    <string name="summary_help_source_superlyric">Install and enable SuperLyric only. Restart the phone after first injection. SuperLyric does not support \"Show Next Lyric Line\" or \"AI Translation\". If lyrics are missing, first check that it sent lyrics to the music app and that the versions are compatible.</string>
+    <string name="summary_help_source_superlyric">Install and enable SuperLyric only. Restart the phone after first injection. SuperLyric does not support \"Show Next Lyric Line\". If lyrics are missing, first check that it sent lyrics to the music app and that the versions are compatible.</string>
     <string name="summary_help_source_lyricinfo">LyricInfo is recommended because mainstream music apps usually do not output lyric metadata. It writes lyrics into system MediaSession metadata; skip it only when the music app provides that metadata itself.</string>
     <string name="tag_download_lyricon">Download Lyricon Central</string>
     <string name="tag_download_providers">Download LyricProvider</string>
@@ -556,7 +536,6 @@
     <!-- Lyric Settings Page -->
     <string name="tab_basic">Basic</string>
     <string name="tab_advanced">Advanced</string>
-    <string name="title_custom_prompt">Custom Prompt</string>
 
     <!-- Main Page & General Content Descriptions -->
     <string name="content_description_avatar">Avatar</string>

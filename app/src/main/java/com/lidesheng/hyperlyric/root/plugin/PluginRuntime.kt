@@ -46,22 +46,24 @@ class PluginRuntime(
     companion object {
         private const val TAG = "PluginRuntime"
 
-        private val creatingPluginLoaderDepth = ThreadLocal.withInitial { 0 }
+        private val creatingPluginLoaderDepth = ThreadLocal.withInitial<Int> { 0 }
 
         /** Prevent the existing SystemUI plugin hook from treating our API loader as a host one. */
         @JvmStatic
-        fun isCreatingPluginClassLoader(): Boolean = creatingPluginLoaderDepth.get() > 0
+        fun isCreatingPluginClassLoader(): Boolean = currentPluginLoaderDepth() > 0
 
         private inline fun <T> withPluginClassLoaderCreation(block: () -> T): T {
-            creatingPluginLoaderDepth.set(creatingPluginLoaderDepth.get() + 1)
+            creatingPluginLoaderDepth.set(currentPluginLoaderDepth() + 1)
             return try {
                 block()
             } finally {
                 creatingPluginLoaderDepth.set(
-                    (creatingPluginLoaderDepth.get() - 1).coerceAtLeast(0)
+                    (currentPluginLoaderDepth() - 1).coerceAtLeast(0)
                 )
             }
         }
+
+        private fun currentPluginLoaderDepth(): Int = creatingPluginLoaderDepth.get() ?: 0
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -237,7 +239,11 @@ class PluginRuntime(
             future.get(PluginConstants.MAX_PROCESSOR_TIMEOUT_MS, TimeUnit.MILLISECONDS)
         } catch (_: TimeoutException) {
             future.cancel(true)
-            HookLogger.w(TAG, "插件处理超时: extension=${processor.id}")
+            HookLogger.w(
+                TAG,
+                "插件处理超时: extension=${processor.id}, " +
+                        "timeoutMs=${PluginConstants.MAX_PROCESSOR_TIMEOUT_MS}"
+            )
             null
         } catch (_: InterruptedException) {
             future.cancel(true)
@@ -349,6 +355,28 @@ private class RuntimePluginLogger(private val pluginId: String) : PluginLogger {
     override fun error(message: String, throwable: Throwable?) {
         if (throwable == null) HookLogger.e(tag(), message) else HookLogger.e(tag(), message, throwable)
     }
+
+    override fun withTag(tag: String): PluginLogger = TaggedRuntimePluginLogger(tag)
+}
+
+private class TaggedRuntimePluginLogger(
+    private val componentTag: String,
+) : PluginLogger {
+    override fun debug(message: String) = HookLogger.d(componentTag, message)
+
+    override fun info(message: String) = HookLogger.i(componentTag, message)
+
+    override fun warn(message: String, throwable: Throwable?) {
+        if (throwable == null) HookLogger.w(componentTag, message)
+        else HookLogger.w(componentTag, message, throwable)
+    }
+
+    override fun error(message: String, throwable: Throwable?) {
+        if (throwable == null) HookLogger.e(componentTag, message)
+        else HookLogger.e(componentTag, message, throwable)
+    }
+
+    override fun withTag(tag: String): PluginLogger = TaggedRuntimePluginLogger(tag)
 }
 
 private inline fun <T> ParcelFileDescriptor.useReadOnly(block: (java.io.InputStream) -> T): T {
