@@ -100,7 +100,8 @@
         "en": "Not configured",
         "ar": "غير مُعدّ"
       },
-      "valuePresentation": "endAction"
+      "valuePresentation": "endAction",
+      "backup": false
     },
     {
       "type": "text",

@@ -112,6 +112,9 @@ object PluginManifestCodec {
             if (setting.conflictsWith.isNotEmpty()) {
                 settingJson.put("conflictsWith", JSONArray(setting.conflictsWith))
             }
+            if (!setting.backup) {
+                settingJson.put("backup", false)
+            }
             setting.defaultValue?.let { settingJson.put("default", encodeDefault(setting.type, it)) }
             if (setting.options.isNotEmpty()) {
                 settingJson.put(
@@ -195,7 +198,8 @@ object PluginManifestCodec {
                         inputType = PluginSettingInputType.fromWire(
                             item.optString("inputType", PluginSettingInputType.DEFAULT.wireName)
                         ) ?: throw IllegalArgumentException("Unsupported setting input type"),
-                        conflictsWith = decodeStringArray(item.optJSONArray("conflictsWith"))
+                        conflictsWith = decodeStringArray(item.optJSONArray("conflictsWith")),
+                        backup = item.optBoolean("backup", true)
                     )
                 )
             }

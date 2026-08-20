@@ -224,6 +224,7 @@ Manifest 可以用顶层 `activationSettingKey` 指定一个 `switch` 设置，�
 | `valuePresentation: summaryPreview`、`previewLineCount` | 按指定行数预览长文本，并使用旧页面的省略号规则 |
 | `conflictsWith` | 当前布尔项打开时，宿主自动关闭列出的互斥项 |
 | `inputType: uri` / `number` | 指定文本弹窗的键盘语义 |
+| `backup` | 是否把当前值写入完整 ZIP 备份，默认 `true`；API Key 等敏感值应声明为 `false` |
 
 这些字段仍然是语义契约，插件不需要导入 Compose 或 MIUIX。宿主负责将它们映射到当前的 Miuix 组件；因此插件可以复刻已有页面的标题、摘要、动态值、密码遮罩和 `endActions`，而不会把 UI 实现放入插件 DEX。
 
@@ -236,6 +237,8 @@ AI 翻译插件使用 `PluginStorage` 保存带版本的 JSON 索引和整首歌
 AI 翻译现在只有插件管理路径：歌词翻译页面不再渲染 AI 卡片，配置只来自 `hyperlyric.ai.translation` 的 Manifest Settings Schema；插件页的通用“启用”开关同时控制插件注册表和 AI 的 `enabled` 配置，AI 设置项始终平铺在独立 Card 中，不再折叠。Core 只执行插件 Processor。旧 Gateway、online AI 实现、SQLite 缓存和旧 UI 不再参与运行。
 
 卸载插件会清理本地配置、远程配置和插件存储；重新安装后从 Manifest 默认值重新建立配置并同步到 SystemUI，避免 UI 偏好与运行时远程偏好分叉。
+
+HyperLyric 的 JSON 备份只保存宿主设置，继续支持不使用插件的用户。完整 ZIP 备份还包含 `backup.json`、已安装插件的 ZIP、启用状态和通过 Schema `backup=true` 声明的插件配置；`backup=false` 的值不会写入备份，恢复时也不会覆盖设备上已有的值。插件的 `PluginStorage` 缓存不进入备份，因为缓存可能过期或与插件版本不兼容。恢复 JSON 只处理宿主设置，恢复 ZIP 会覆盖同 ID 插件包并恢复其非敏感配置和启用状态，不会删除备份中不存在的其他插件；代码仍需重启 SystemUI 后生效。
 
 插件通过带组件 tag 的 `PluginLogger` 保留原 AI 翻译的日志格式，例如 `AiTranslationGateway`、`AITranslator`、`AITranslationScheduler`、`AITranslationCache`、`OpenAiTranslationClient`、`AITranslationResponseParser` 和 `AITranslationApplicator`；插件生命周期本身不额外输出旧链路没有的翻译日志。
 

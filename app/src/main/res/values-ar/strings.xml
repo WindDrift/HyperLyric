@@ -55,8 +55,8 @@
   <string name="summary_contributors">شكرًا للمساهمين التاليين على مساعدتهم في تطوير HyperLyric، دون ترتيب معيّن</string>
   <string name="toast_backup_success">تم إنشاء النسخة الاحتياطية بنجاح</string>
   <string name="toast_backup_failed">فشل إنشاء النسخة الاحتياطية: %1$s</string>
-  <string name="toast_restore_empty">محتوى الملف فارغ</string>
   <string name="toast_restore_success">تمت الاستعادة بنجاح، يرجى إعادة تشغيل التطبيق</string>
+  <string name="toast_restore_success_with_plugins">تمت الاستعادة بنجاح، تمت استعادة %1$d من الإضافات. يرجى إعادة تشغيل واجهة النظام</string>
   <string name="toast_restore_invalid">تنسيق الملف غير صالح</string>
   <string name="toast_restore_failed">فشلت الاستعادة</string>
   <string name="title_settings_page">إعدادات التطبيق</string>
@@ -90,8 +90,13 @@
   <string name="title_exclude_from_recents">إخفاء من التطبيقات الأخيرة</string>
   <string name="title_hide_launcher_icon">إخفاء أيقونة المشغّل</string>
   <string name="title_config_management">إدارة الإعدادات</string>
-  <string name="title_backup">نسخ احتياطي</string>
-  <string name="title_restore">استعادة</string>
+  <string name="toast_restore_empty">محتوى الملف فارغ</string>
+  <string name="title_backup_json">نسخ إعدادات التطبيق احتياطيًا (JSON)</string>
+  <string name="summary_backup_json">إعدادات المضيف فقط</string>
+  <string name="title_backup_full">نسخ الإعدادات والإضافات احتياطيًا (ZIP)</string>
+  <string name="summary_backup_full">يتضمن حزم الإضافات وإعداداتها دون القيم الحساسة</string>
+  <string name="title_restore">استعادة الإعدادات أو الإضافات</string>
+  <string name="summary_restore">يدعم نسخ JSON وZIP الاحتياطية</string>
   <string name="title_debug_info">معلومات التصحيح</string>
   <string name="title_view_logs">عرض السجلات</string>
   <string name="lyric_mode_verbatim">كلمات Lyricon الحرفية</string>

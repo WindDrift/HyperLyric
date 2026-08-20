@@ -331,10 +331,16 @@ private fun LazyListScope.settingsSections(
         ) {
             Column {
                 ArrowPreference(
-                    title = stringResource(R.string.title_backup),
+                    title = stringResource(R.string.title_backup_json),
+                    summary = stringResource(R.string.summary_backup_json),
                     onClick = { backupRestoreHelper.launchBackup() })
                 ArrowPreference(
+                    title = stringResource(R.string.title_backup_full),
+                    summary = stringResource(R.string.summary_backup_full),
+                    onClick = { backupRestoreHelper.launchFullBackup() })
+                ArrowPreference(
                     title = stringResource(R.string.title_restore),
+                    summary = stringResource(R.string.summary_restore),
                     onClick = { backupRestoreHelper.launchRestore() })
             }
         }

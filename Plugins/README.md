@@ -30,6 +30,7 @@ README 只记录插件目录和当前插件；面向插件作者的构建、Mani
 
 - `apiVersion` 当前为 `1`；宿主接受不高于自身版本的插件。
 - 安装、卸载、启用、禁用和插件代码升级需要重启 SystemUI；设置修改实时同步。
+- 设置页同时提供宿主 JSON 备份和包含插件包、非敏感配置的完整 ZIP 备份；两种格式都可以恢复，JSON 不依赖插件。
 - 插件只能处理 `PluginSong` 快照，不能直接访问宿主 `Song`、Canvas、Renderer、LyriconDataBridge 或 Xposed 对象。
 - 当前只有 `LyricProcessorExtension` 一种歌词处理 Extension；一个 ZIP 未来仍可以注册多个 Extension。
 

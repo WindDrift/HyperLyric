@@ -179,6 +179,8 @@ public data class PluginSettingSpec(
     val previewLineCount: Int = 2,
     val inputType: PluginSettingInputType = PluginSettingInputType.DEFAULT,
     val conflictsWith: List<String> = emptyList(),
+    /** Whether this setting value may be included in a full HyperLyric backup. */
+    val backup: Boolean = true,
 )
 
 public data class PluginSettingsSchema(

@@ -13,11 +13,22 @@ import com.lidesheng.hyperlyric.plugin.core.PluginManifest
 import com.lidesheng.hyperlyric.plugin.core.PluginManifestCodec
 import com.lidesheng.hyperlyric.plugin.core.PluginRemoteFileNames
 import io.github.libxposed.service.XposedService
+import org.json.JSONArray
+import org.json.JSONObject
 
 data class InstalledPlugin(
     val manifest: PluginManifest,
     val fileName: String,
     val enabled: Boolean,
+)
+
+data class PluginBackupSnapshot(
+    val id: String,
+    val version: String,
+    val fileName: String,
+    val enabled: Boolean,
+    val settings: JSONObject,
+    val archive: ByteArray,
 )
 
 /** App-side install/config facade. SystemUI only consumes the remote registry and ZIP files. */
@@ -45,10 +56,34 @@ class PluginRepository(private val context: Context) {
         }.sortedBy { it.manifest.name }
     }
 
-    fun install(uri: Uri): InstalledPlugin {
+    fun exportPluginBackups(): List<PluginBackupSnapshot> {
+        val installed = listInstalled()
+        if (installed.isEmpty()) return emptyList()
         val service = requireService()
+        return installed.map { installedPlugin ->
+            val archive = readRemoteFile(service, installedPlugin.fileName)
+            require(PluginArchiveReader.read(archive).manifest.id == installedPlugin.manifest.id) {
+                "插件包与安装记录不匹配: ${installedPlugin.manifest.id}"
+            }
+            PluginBackupSnapshot(
+                id = installedPlugin.manifest.id,
+                version = installedPlugin.manifest.version,
+                fileName = installedPlugin.fileName,
+                enabled = installedPlugin.enabled,
+                settings = encodeBackupSettings(installedPlugin.manifest),
+                archive = archive
+            )
+        }
+    }
+
+    fun install(uri: Uri): InstalledPlugin {
         val bytes = context.contentResolver.openInputStream(uri)?.use(PluginArchiveReader::readBounded)
             ?: throw IllegalArgumentException("无法读取插件 ZIP")
+        return installArchive(bytes)
+    }
+
+    fun installArchive(bytes: ByteArray): InstalledPlugin {
+        val service = requireService()
         val archive = PluginArchiveReader.read(bytes)
         require(archive.manifest.apiVersion <= HYPERLYRIC_PLUGIN_API_VERSION) {
             "插件 API 版本高于当前 HyperLyric"
@@ -83,6 +118,19 @@ class PluginRepository(private val context: Context) {
         syncRegistry(service)
 
         return InstalledPlugin(archive.manifest, fileName, wasEnabled)
+    }
+
+    fun restorePluginSettings(manifest: PluginManifest, values: JSONObject) {
+        val local = configPreferences(manifest.id)
+        val editor = local.edit()
+        manifest.settings.settings.forEach { setting ->
+            if (!setting.backup || !values.has(setting.key)) return@forEach
+            decodeBackupValue(values.opt(setting.key), setting.type)?.let { value ->
+                putTypedValue(editor, setting.key, value)
+            }
+        }
+        editor.apply()
+        syncConfig(requireService(), manifest)
     }
 
     fun setEnabled(pluginId: String, enabled: Boolean) {
@@ -254,6 +302,53 @@ class PluginRepository(private val context: Context) {
         return putTypedValue(editor, key, value)
     }
 
+    private fun encodeBackupSettings(manifest: PluginManifest): JSONObject {
+        val preferences = configPreferences(manifest.id)
+        return JSONObject().apply {
+            manifest.settings.settings.forEach { setting ->
+                if (!setting.backup) return@forEach
+                val value = preferences.all[setting.key] ?: return@forEach
+                when (setting.type) {
+                    PluginSettingType.SWITCH -> (value as? Boolean)?.let { put(setting.key, it) }
+                    PluginSettingType.NUMBER -> (value as? Number)?.let { put(setting.key, it.toLong()) }
+                    PluginSettingType.SLIDER -> (value as? Number)?.let { put(setting.key, it.toFloat()) }
+                    PluginSettingType.MULTI_SELECT -> {
+                        val values = (value as? Set<*>)
+                            ?.filterIsInstance<String>()
+                            ?.takeIf { it.isNotEmpty() }
+                        if (values != null) put(setting.key, JSONArray(values))
+                    }
+
+                    PluginSettingType.TEXT,
+                    PluginSettingType.PASSWORD,
+                    PluginSettingType.SELECT,
+                    PluginSettingType.ACTION -> (value as? String)?.let { put(setting.key, it) }
+                }
+            }
+        }
+    }
+
+    private fun decodeBackupValue(value: Any?, type: PluginSettingType): Any? {
+        if (value == null || value === JSONObject.NULL) return null
+        return when (type) {
+            PluginSettingType.SWITCH -> value as? Boolean
+            PluginSettingType.NUMBER -> (value as? Number)?.toLong()
+            PluginSettingType.SLIDER -> (value as? Number)?.toFloat()
+            PluginSettingType.MULTI_SELECT -> (value as? JSONArray)?.let { array ->
+                buildSet(array.length()) {
+                    for (index in 0 until array.length()) {
+                        array.optString(index).takeIf(String::isNotBlank)?.let(::add)
+                    }
+                }
+            }
+
+            PluginSettingType.TEXT,
+            PluginSettingType.PASSWORD,
+            PluginSettingType.SELECT,
+            PluginSettingType.ACTION -> value as? String
+        }
+    }
+
     private fun isCompatible(value: Any, type: PluginSettingType): Boolean = when (type) {
         PluginSettingType.SWITCH -> value is Boolean
         PluginSettingType.TEXT,
@@ -277,5 +372,10 @@ class PluginRepository(private val context: Context) {
             output.write(bytes)
             output.flush()
         }
+    }
+
+    private fun readRemoteFile(service: XposedService, fileName: String): ByteArray {
+        val descriptor = service.openRemoteFile(fileName)
+        return ParcelFileDescriptor.AutoCloseInputStream(descriptor).use(PluginArchiveReader::readBounded)
     }
 }

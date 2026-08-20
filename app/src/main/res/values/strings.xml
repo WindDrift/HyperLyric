@@ -60,8 +60,8 @@
     <!-- ———————————————————————— SettingsPage ———————————————————————— -->
     <string name="toast_backup_success">备份成功</string>
     <string name="toast_backup_failed">备份失败: %1$s</string>
-    <string name="toast_restore_empty">文件内容为空</string>
     <string name="toast_restore_success">恢复成功，请重启应用</string>
+    <string name="toast_restore_success_with_plugins">恢复成功，已恢复 %1$d 个插件，请重启系统界面</string>
     <string name="toast_restore_invalid">文件格式无效</string>
     <string name="toast_restore_failed">恢复失败</string>
     <string name="title_settings_page">应用设置</string>
@@ -95,8 +95,13 @@
     <string name="title_exclude_from_recents">隐藏后台卡片</string>
     <string name="title_hide_launcher_icon">隐藏桌面图标</string>
     <string name="title_config_management">配置管理</string>
-    <string name="title_backup">备份</string>
-    <string name="title_restore">恢复</string>
+    <string name="toast_restore_empty">文件内容为空</string>
+    <string name="title_backup_json">备份设置（JSON）</string>
+    <string name="summary_backup_json">仅包含宿主设置</string>
+    <string name="title_backup_full">备份设置与插件（ZIP）</string>
+    <string name="summary_backup_full">包含插件配置和插件包，敏感配置不会备份</string>
+    <string name="title_restore">恢复设置或插件</string>
+    <string name="summary_restore">支持 JSON 和 ZIP 备份</string>
     <string name="title_debug_info">调试信息</string>
     <string name="title_view_logs">查看日志</string>
 
