@@ -1,0 +1,193 @@
+# HyperLyric 插件开发指南
+
+本文面向希望为 HyperLyric 编写插件的开发者。插件是 HyperLyric 管理的 ZIP 扩展，不是独立安装的 APK、Android Service 或 Xposed 模块。
+
+## 1. 插件边界
+
+插件代码运行在 HyperLyric 注入的 SystemUI 进程中，但只能通过 `PluginContext` 使用宿主能力。插件不应导入或操作以下对象：
+
+- HyperLyric 内部 `Song`、`RichLyricLine` 等模型；
+- `LyriconDataBridge`、Renderer、Canvas 或 SystemUI View；
+- `HookEntry`、`XposedModule`、SystemUI ClassLoader 或其他 Xposed 对象。
+
+插件只接收 `PluginSong` 快照并返回处理结果。最终结果是否采用、何时写回和如何刷新歌词，始终由 HyperLyric Core 决定。插件异常、超时、空结果和切歌后的迟到结果都不会替换原始歌词。
+
+## 2. 源码目录
+
+每个插件在 `Plugins/modules/` 下使用独立目录：
+
+```text
+Plugins/
+├─ api/                         # 插件唯一编译依赖
+└─ modules/
+   └─ my-plugin/
+      ├─ build.gradle.kts
+      └─ src/main/
+         ├─ java/.../MainPlugin.kt
+         └─ plugin/manifest.json
+```
+
+插件构建模块使用 Android Gradle Plugin 生成 DEX，但输出物是 HyperLyric ZIP，不要把它当作可以直接安装的 APK。
+
+最小依赖如下：
+
+```kotlin
+dependencies {
+    compileOnly(project(":plugins:api"))
+}
+```
+
+插件入口必须提供无参数构造函数，并实现 `HyperLyricPlugin`：
+
+```kotlin
+class MyPlugin : HyperLyricPlugin {
+    override fun onLoad(context: PluginContext) {
+        context.registerExtension(MyLyricProcessor(context))
+    }
+}
+```
+
+## 3. Manifest
+
+`src/main/plugin/manifest.json` 至少包含：
+
+```json
+{
+  "id": "hyperlyric.example.translation",
+  "name": "示例翻译插件",
+  "summary": "为当前歌词生成翻译",
+  "author": "Example Author",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "entry": "com.example.hyperlyric.MainPlugin"
+}
+```
+
+字段说明：
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 稳定唯一 ID，用于安装识别、配置命名空间、启用状态和插件存储；发布后不要修改 |
+| `name` | 插件展示名称 |
+| `summary` | 插件展示说明 |
+| `author` | 作者或开发者信息，可选；当前版本只保存和传递，不在 UI 展示 |
+| `version` | 插件版本，由插件作者维护 |
+| `apiVersion` | 所需 Plugin API 版本；高于宿主版本的插件不会加载 |
+| `entry` | 实现 `HyperLyricPlugin` 的无参数入口类 |
+
+`author` 缺失时仍兼容现有插件。宿主会保留非空作者信息，但当前设置页面不会渲染它。
+
+## 4. ZIP 输出格式
+
+插件 ZIP 直接使用 `.zip` 扩展名：
+
+```text
+my-plugin.zip
+├─ manifest.json
+├─ classes.dex
+├─ classes2.dex       # 如果构建产生多 DEX
+└─ assets/            # 可选资源
+```
+
+当前 Demo 的打包任务会从 Debug APK 提取全部 `classes*.dex`，再与 `manifest.json` 合并：
+
+```powershell
+.\gradlew.bat :plugins:demo-logger:packagePlugin --max-workers=2
+```
+
+输出目录为 `Plugins/modules/demo-logger/build/outputs/plugin/`。新插件应提供同名的 `packagePlugin` 任务。
+
+## 5. 生命周期与歌词处理
+
+宿主在 SystemUI 启动时加载已启用插件，并依次调用：
+
+```text
+onLoad(context)
+onEnable()
+onConfigChanged(config)   # 配置通过 App 修改后实时回调
+onUnload()                # Runtime 关闭时回调
+```
+
+一个插件可以注册一个或多个 Extension。V1 目前支持 `LyricProcessorExtension`：
+
+```kotlin
+private class MyLyricProcessor : LyricProcessorExtension {
+    override val id: String = "translation"
+
+    override fun process(song: PluginSong): PluginSong? {
+        return song.copy(
+            lyrics = song.lyrics?.map { line ->
+                line.copy(translation = translate(line.text))
+            }
+        )
+    }
+}
+```
+
+处理函数接收不可变快照，在后台线程运行。没有结果时返回 `null`；不要等待插件完成后才显示原始歌词，也不要修改歌曲 ID、标题、艺术家、时长和已有行时间轴。插件可以补充翻译、罗马音、词级时间信息等歌词增强数据。
+
+## 6. 配置 Schema 与 UI 映射
+
+插件只提供语义化设置描述，不依赖 MIUIX 或 Compose 类名。配置放在 `plugin.<pluginId>` 命名空间中，修改后会实时同步到 SystemUI Runtime。
+
+```json
+{
+  "settings": [
+    {
+      "type": "switch",
+      "key": "skip_existing",
+      "title": "跳过已有翻译",
+      "summary": "已有翻译时不再调用服务",
+      "default": true
+    }
+  ]
+}
+```
+
+当前宿主 UI 映射如下：
+
+| Schema 类型 | 宿主组件 | 交互 |
+| --- | --- | --- |
+| `switch` | `SwitchPreference` | 布尔开关 |
+| `text` | `ArrowPreference` + `TextInputDialog` | 普通文本输入 |
+| `password` | `ArrowPreference` + `TextInputDialog` | 密码输入，摘要脱敏 |
+| `number` | `ArrowPreference` + `TextInputDialog` | 数字输入 |
+| `select` | `WindowDropdownPreference` | 单选下拉 |
+| `multiSelect` | `ArrowPreference` + `MultiSelectDialog` | 多选对话框 |
+| `slider` | `SliderPreference` | 数值滑块，可指定 `min`、`max`、`step` |
+| `action` | `ArrowPreference` | V1 仅保留协议，当前宿主不执行操作 |
+
+插件不能写 `SwitchPreference`、`ArrowPreference` 等 MIUIX 名称，也不能自行提供设置页面。宿主未来可以替换 UI 实现而不改变插件协议。插件禁用时，配置页面中的设置项会由宿主统一置为不可用。
+
+## 7. 配置、存储与日志
+
+通过 `PluginContext` 获取能力：
+
+- `config`：只读读取 App 写入的插件设置；
+- `storage`：当前插件独立的持久化 Key/Value 命名空间；
+- `logger`：宿主托管的日志接口；
+- `registerExtension(...)`：注册歌词处理扩展。
+
+插件日志不要直接使用 Android `Log`、Xposed API 或自定义日志文件。使用：
+
+```kotlin
+context.logger.info("event=processSong, lines=${song.lyrics?.size ?: 0}")
+context.logger.debug("lifecycle=onConfigChanged, enabled=$enabled")
+context.logger.warn("event=cacheMiss")
+context.logger.error("event=requestFailed", exception)
+```
+
+Runtime 会使用插件 `id` 作为日志来源名，并通过 HyperLyric 的宿主日志入口输出到 LSPosed 日志。消息建议使用 `lifecycle=...` 或 `event=...` 开头，后面使用 `key=value` 字段；不要重复添加插件 ID 或 `[Plugin]` 前缀。
+
+## 8. 验证流程
+
+以 Demo 插件为例：
+
+1. 执行 `:plugins:demo-logger:packagePlugin` 生成 ZIP。
+2. 在 HyperLyric App 的插件页面安装 ZIP。
+3. 启用插件并重启 SystemUI。
+4. 播放一首有歌词的歌曲。
+5. 在 LSPosed 日志中按 `hyperlyric.demo.logger` 查找 `onLoad`、`onEnable` 和 `processSong` 日志。
+6. 确认插件失败时原始歌词仍能显示，且切歌后旧歌曲结果不会写回。
+
+Demo 还会在 `PluginMetadata` 中写入内存标记，用来验证插件结果回到 Core 的链路；这不是正式插件功能的要求。
