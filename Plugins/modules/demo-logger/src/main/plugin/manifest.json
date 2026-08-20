@@ -1,0 +1,18 @@
+{
+  "id": "hyperlyric.demo.logger",
+  "name": "歌曲信息 Demo",
+  "summary": "记录当前歌曲信息，用于验证插件运行时链路",
+  "author": "lidesheng",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "entry": "com.lidesheng.hyperlyric.plugin.demo.DemoPlugin",
+  "settings": [
+    {
+      "type": "switch",
+      "key": "log_song",
+      "title": "记录歌曲信息",
+      "summary": "收到歌曲时写入 Lsposed 日志",
+      "default": true
+    }
+  ]
+}

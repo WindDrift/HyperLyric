@@ -39,6 +39,8 @@ dependencyResolutionManagement {
 rootProject.name = "HyperLyric"
 include(":app")
 include(":plugins:api")
+include(":plugins:demo-logger")
 
 project(":plugins").projectDir = file("Plugins")
 project(":plugins:api").projectDir = file("Plugins/api")
+project(":plugins:demo-logger").projectDir = file("Plugins/modules/demo-logger")
