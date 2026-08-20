@@ -7,11 +7,13 @@
 ```text
 Plugins/
 ├─ api/
-│  └─ 公共 Plugin API，Gradle 模块 :plugins:api
+│  └─ 宿主与插件共享的公共 Plugin API，Gradle 模块 :plugins:api
 └─ modules/
    └─ demo-logger/
       └─ Demo 插件，Gradle 模块 :plugins:demo-logger
 ```
+
+`api/` 不是独立发布的 SDK，也不是可安装插件。它是 HyperLyric 仓库内部的稳定编译契约；插件通过 `compileOnly(project(":plugins:api"))` 使用，运行时由宿主提供同一份 API。
 
 ## 目录边界
 
@@ -20,7 +22,16 @@ Plugins/
 - SystemUI 侧 Runtime、App 侧安装/启用/配置管理和插件管理 UI 仍属于宿主 `app` 模块。
 - 设备上的已安装 ZIP、配置和插件数据由 HyperLyric App 管理，不写入此源码目录。
 
-后续新增插件时，在 `modules/` 下创建独立子目录，并复用 Demo 的 manifest、DEX 打包和 `Plugins/api` 依赖方式。
+README 只记录插件目录和当前插件；面向插件作者的构建、Manifest、R8、生命周期、歌词 DTO、设置 Schema 和验证流程见 [DEVELOPMENT.md](DEVELOPMENT.md)。
+
+## V1 当前边界
+
+- `apiVersion` 当前为 `1`；宿主接受不高于自身版本的插件。
+- 安装、卸载、启用、禁用和插件代码升级需要重启 SystemUI；设置修改实时同步。
+- 插件只能处理 `PluginSong` 快照，不能直接访问宿主 `Song`、Canvas、Renderer、LyriconDataBridge 或 Xposed 对象。
+- 当前只有 `LyricProcessorExtension` 一种歌词处理 Extension；一个 ZIP 未来仍可以注册多个 Extension。
+
+后续新增插件时，在 `modules/` 下创建独立子目录，并复用 Demo 的 Manifest、Release/R8 DEX 打包和 `Plugins/api` 依赖方式。
 
 ## 当前插件
 

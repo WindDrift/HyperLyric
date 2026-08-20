@@ -10,7 +10,7 @@
 - `LyriconDataBridge`、Renderer、Canvas 或 SystemUI View；
 - `HookEntry`、`XposedModule`、SystemUI ClassLoader 或其他 Xposed 对象。
 
-插件只接收 `PluginSong` 快照并返回处理结果。最终结果是否采用、何时写回和如何刷新歌词，始终由 HyperLyric Core 决定。插件异常、超时、空结果和切歌后的迟到结果都不会替换原始歌词。
+插件只接收 `PluginSong` 快照并返回处理结果。最终结果是否采用、何时写回和如何刷新歌词，始终由 HyperLyric Core 决定。原始歌词先正常显示，插件只是异步 Enhancement；插件异常、超时、空结果和切歌后的迟到结果都不会替换原始歌词。
 
 ## 2. 源码目录
 
@@ -18,7 +18,7 @@
 
 ```text
 Plugins/
-├─ api/                         # 插件唯一编译依赖
+├─ api/                         # 宿主与插件共享的 compileOnly API
 └─ modules/
    └─ my-plugin/
       ├─ build.gradle.kts
@@ -28,6 +28,8 @@ Plugins/
 ```
 
 插件构建模块使用 Android Gradle Plugin 生成 DEX，但输出物是 HyperLyric ZIP，不要把它当作可以直接安装的 APK。
+
+`Plugins/api` 是仓库内部契约，不单独发布 SDK。当前 `HYPERLYRIC_PLUGIN_API_VERSION` 为 `1`；宿主兼容 `apiVersion <= 1` 的插件。API 发生不兼容变化时才提升版本，并保留旧版本迁移策略。
 
 最小依赖如下：
 
@@ -98,6 +100,8 @@ my-plugin.zip
 └─ assets/            # 可选资源
 ```
 
+当前 Runtime 的 ZIP 限制为：总大小不超过 64 MB，单个 DEX 不超过 32 MB，最多 16 个 DEX，`manifest.json` 不超过 512 KB。`assets/` 可以随 ZIP 保存，但 V1 的 `PluginContext` 尚未提供资源读取接口，插件暂时不能依赖它读取运行时资源。
+
 正式插件的打包任务应从启用 R8 的 Release APK 提取全部 `classes*.dex`，再与 `manifest.json` 合并：
 
 ```powershell
@@ -124,7 +128,7 @@ Demo 插件的 `proguard-rules.pro` 已提供这组最小规则。规则保留�
 
 ## 6. 生命周期与歌词处理
 
-宿主在 SystemUI 启动时加载已启用插件，并依次调用：
+宿主在 SystemUI 启动时读取启用 ID 和 Remote File，校验 Manifest/API 版本，使用每个插件独立的 `InMemoryDexClassLoader` 加载入口类，并依次调用：
 
 ```text
 onLoad(context)
@@ -150,6 +154,30 @@ private class MyLyricProcessor : LyricProcessorExtension {
 ```
 
 处理函数接收不可变快照，在后台线程运行。没有结果时返回 `null`；不要等待插件完成后才显示原始歌词，也不要修改歌曲 ID、标题、艺术家、时长和已有行时间轴。插件可以补充翻译、罗马音、词级时间信息等歌词增强数据。
+
+每个歌词 Processor 最多运行 15 秒；网络请求、模型调用和缓存读取必须在插件内部自行设置更短的超时，并正确处理取消或异常。
+
+### 6.1 `PluginSong` 快照约束
+
+`PluginSong` 是插件边界上的 DTO，不要把 HyperLyric 内部模型类型带入插件。常用字段如下：
+
+| DTO | 作用 | V1 约束 |
+| --- | --- | --- |
+| `PluginSong.id`、`name`、`artist`、`duration` | 歌曲身份 | 返回时保持不变 |
+| `PluginSong.lyrics` | 歌词行快照 | 可补充或增强，但不能改变行顺序、数量和时间轴 |
+| `PluginLyricLine.translation` | 行翻译 | AI 翻译的主要写回字段 |
+| `PluginLyricLine.translationWords` | 翻译词级时间 | 只有能可靠匹配时间轴时才补充 |
+| `PluginLyricLine.roma` | 罗马音 | 作为歌词增强字段写回 |
+| `PluginLyricLine.words`、`secondaryWords` | 原词或副行词级信息 | 不要伪造已有时间 |
+| `PluginMetadata` | 插件或 Core 的元数据 | 只写入插件自己的命名空间 |
+
+Processor 应使用 `copy(...)` 返回新快照，不修改歌曲身份和已有行时间。返回 `null` 表示本次没有增强结果。
+
+### 6.2 多插件执行与失败策略
+
+启用插件按稳定 ID 顺序加载；同一插件内的 Extension 按注册顺序执行。上一个 Processor 返回的有效快照会作为下一个 Processor 的输入，因此后应用的有效字段会覆盖前一个结果。V1 不提供复杂冲突解决系统。
+
+每个 Processor 都有独立异常隔离。异常、超时或 `null` 结果会保留当前快照并继续执行其他 Processor；最终写回前 Core 还会重新校验歌曲身份和歌词时间轴。任何失败都必须回退到原始 `Song`。
 
 ## 7. 配置 Schema 与 UI 映射
 
@@ -184,6 +212,8 @@ private class MyLyricProcessor : LyricProcessorExtension {
 
 插件不能写 `SwitchPreference`、`ArrowPreference` 等 MIUIX 名称，也不能自行提供设置页面。宿主未来可以替换 UI 实现而不改变插件协议。插件禁用时，配置页面中的设置项会由宿主统一置为不可用。
 
+安装、卸载、启用、禁用和代码升级需要重启 SystemUI 才生效；配置值通过 Remote Preferences 实时同步，不触发代码热加载。当前 `PluginStorage` 是每个插件独立的 SharedPreferences Key/Value 命名空间，只提供字符串读写和清空，不等同于 ZIP 内的文件系统或缓存目录。
+
 ## 8. 配置、存储与日志
 
 通过 `PluginContext` 获取能力：
@@ -214,5 +244,6 @@ Runtime 会使用插件 `id` 作为日志来源名，并通过 HyperLyric 的宿
 4. 播放一首有歌词的歌曲。
 5. 在 LSPosed 日志中按 `hyperlyric.demo.logger` 查找 `onLoad`、`onEnable` 和 `processSong` 日志。
 6. 确认插件失败时原始歌词仍能显示，且切歌后旧歌曲结果不会写回。
+7. 修改 Demo 配置并确认无需重启即可收到 `onConfigChanged`；再禁用插件并重启 SystemUI，确认 Runtime 不再加载它。
 
 Demo 还会在 `PluginMetadata` 中写入内存标记，用来验证插件结果回到 Core 的链路；这不是正式插件功能的要求。
