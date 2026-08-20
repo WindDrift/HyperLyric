@@ -655,4 +655,24 @@
     <string name="title_media_card_debug_value">Value</string>
     <string name="title_media_card_layout_debug">Layout parameter debug</string>
     <string name="title_media_card_layout_debug_ios">iOS style · Super Island expanded state</string>
+
+    <!-- Plugin Runtime -->
+    <string name="title_plugins">Plugins</string>
+    <string name="summary_plugins">Manage ZIP extensions for HyperLyric</string>
+    <string name="title_plugin_manager">Plugin manager</string>
+    <string name="title_install_plugin">Install ZIP plugin</string>
+    <string name="title_plugin_settings">Plugin settings</string>
+    <string name="title_uninstall_plugin">Uninstall plugin</string>
+    <string name="plugin_status_enabled">Enabled</string>
+    <string name="plugin_status_disabled">Disabled</string>
+    <string name="summary_plugin_restart_system_ui">Restart System UI after installing, uninstalling, enabling, or disabling a plugin</string>
+    <string name="summary_plugin_version">Version %1$s</string>
+    <string name="summary_plugin_no_settings">This plugin has no configurable settings</string>
+    <string name="summary_plugin_empty">No plugins installed</string>
+    <string name="dialog_uninstall_plugin_title">Uninstall plugin?</string>
+    <string name="dialog_uninstall_plugin_summary">The plugin ZIP and configuration will be deleted. Runtime data management will arrive in a later version.</string>
+    <string name="toast_plugin_install_success">Plugin installed. Restart System UI to apply it.</string>
+    <string name="toast_plugin_uninstall_success">Plugin uninstalled</string>
+    <string name="toast_plugin_operation_failed">Plugin operation failed: %1$s</string>
+    <string name="toast_plugin_requires_xposed">Enable the HyperLyric Xposed module first</string>
 </resources>

@@ -15,6 +15,12 @@ sealed interface Route : NavKey {
     data object Settings : Route
 
     @Serializable
+    data object Plugins : Route
+
+    @Serializable
+    data class PluginSettings(val pluginId: String) : Route
+
+    @Serializable
     data object HookSettings : Route
 
     @Serializable

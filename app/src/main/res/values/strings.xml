@@ -655,4 +655,24 @@
     <string name="setup_completion_superlyric">请前往 LSPosed 启用 SuperLyric 模块，重启手机后即可使用</string>
     <string name="setup_completion_lyricinfo">建议在 LSPosed 中启用 LyricInfo 并勾选音乐软件，重启音乐软件后即可使用；如果软件自身支持歌词元数据，可跳过 LyricInfo</string>
     <string name="no_lyric_data">歌词源无数据</string>
+
+    <!-- Plugin Runtime -->
+    <string name="title_plugins">插件</string>
+    <string name="summary_plugins">管理 HyperLyric 的 ZIP 扩展</string>
+    <string name="title_plugin_manager">插件管理</string>
+    <string name="title_install_plugin">安装 ZIP 插件</string>
+    <string name="title_plugin_settings">插件设置</string>
+    <string name="title_uninstall_plugin">卸载插件</string>
+    <string name="plugin_status_enabled">已启用</string>
+    <string name="plugin_status_disabled">已禁用</string>
+    <string name="summary_plugin_restart_system_ui">安装、卸载、启用或禁用后需要重启系统界面</string>
+    <string name="summary_plugin_version">版本 %1$s</string>
+    <string name="summary_plugin_no_settings">此插件没有可配置项</string>
+    <string name="summary_plugin_empty">尚未安装插件</string>
+    <string name="dialog_uninstall_plugin_title">卸载插件？</string>
+    <string name="dialog_uninstall_plugin_summary">将删除插件 ZIP 和配置；运行时数据管理将在后续版本提供。</string>
+    <string name="toast_plugin_install_success">插件安装成功，重启系统界面后生效</string>
+    <string name="toast_plugin_uninstall_success">插件已卸载</string>
+    <string name="toast_plugin_operation_failed">插件操作失败：%1$s</string>
+    <string name="toast_plugin_requires_xposed">请先启用 HyperLyric Xposed 模块</string>
 </resources>

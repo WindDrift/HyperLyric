@@ -339,6 +339,20 @@ private fun LazyListScope.settingsSections(
             }
         }
     }
+    item(key = "plugins_entry") {
+        val navigator = LocalNavigator.current
+        Card(
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp)
+                .fillMaxWidth()
+        ) {
+            ArrowPreference(
+                title = stringResource(R.string.title_plugins),
+                onClick = { navigator.navigate(Route.Plugins) }
+            )
+        }
+    }
     item(key = "debug_info_title") {
         SmallTitle(text = stringResource(R.string.title_debug_info))
     }
