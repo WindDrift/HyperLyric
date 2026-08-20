@@ -18,6 +18,8 @@ import com.lidesheng.hyperlyric.root.island.content.IslandSlotContentFacade
 import com.lidesheng.hyperlyric.root.island.effects.color.IslandMusicWaveColorHooker
 import com.lidesheng.hyperlyric.root.island.renderer.IslandRenderer
 import com.lidesheng.hyperlyric.root.media.CurrentMediaInfoResolver
+import com.lidesheng.hyperlyric.root.plugin.PluginRuntime
+import com.lidesheng.hyperlyric.root.plugin.PluginSongMapper
 import com.lidesheng.hyperlyric.root.utils.CoverColorHelper
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import kotlin.math.abs
@@ -25,7 +27,8 @@ import kotlin.math.abs
 class RootLyricSink(
     private val renderer: IslandRenderer,
     private val context: Context,
-    private val prefs: SharedPreferences? = null
+    private val prefs: SharedPreferences? = null,
+    private val pluginRuntime: PluginRuntime? = null
 ) : LyricSink {
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -76,6 +79,21 @@ class RootLyricSink(
                 RootConstants.DEFAULT_HOOK_PLACEHOLDER_FORMAT
             ) ?: RootConstants.DEFAULT_HOOK_PLACEHOLDER_FORMAT
         )
+        val pluginVersion = LyriconDataBridge.versionCounter.get()
+        if (song == null) {
+            pluginRuntime?.cancelActiveProcessing()
+        } else {
+            val pluginSnapshot = PluginSongMapper.toPluginSong(song.deepCopy())
+            pluginRuntime?.processSong(pluginSnapshot) { enhancedSnapshot ->
+                mainHandler.post {
+                    val enhancedSong = PluginSongMapper.toInternalSong(song, enhancedSnapshot)
+                        ?: return@post
+                    if (LyriconDataBridge.applyPluginEnhancement(enhancedSong, pluginVersion, song)) {
+                        renderer.updateLyricLine()
+                    }
+                }
+            }
+        }
         if (song == null) {
             endColorSession()
         }
@@ -107,6 +125,7 @@ class RootLyricSink(
 
     override fun onStop() {
         AiTranslationGateway.cancelActiveRequests()
+        pluginRuntime?.cancelActiveProcessing()
         playbackActive = false
         cancelPendingPositionDispatch()
         lastReceivedPosition = Long.MIN_VALUE

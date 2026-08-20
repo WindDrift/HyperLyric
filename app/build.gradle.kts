@@ -68,6 +68,8 @@ android {
 }
 
 dependencies {
+    implementation(project(":plugins:api"))
+
     // --- 基本依赖 ---
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)

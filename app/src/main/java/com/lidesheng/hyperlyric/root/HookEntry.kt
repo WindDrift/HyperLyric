@@ -29,6 +29,7 @@ import com.lidesheng.hyperlyric.root.mediacard.notification.NotificationMediaAmb
 import com.lidesheng.hyperlyric.root.mediacard.notification.NotificationMediaCoverStyleHooker
 import com.lidesheng.hyperlyric.root.mediacard.notification.switcher.NotificationMediaSingleCardSwitcherHooker
 import com.lidesheng.hyperlyric.root.mediacard.progress.MediaProgressStyleHooker
+import com.lidesheng.hyperlyric.root.plugin.PluginRuntime
 import com.lidesheng.hyperlyric.root.source.LyricInfoSource
 import com.lidesheng.hyperlyric.root.source.LyriconSource
 import com.lidesheng.hyperlyric.root.source.RootLyricSink
@@ -128,6 +129,7 @@ class HookEntry : XposedModule() {
     private var prefListener: android.content.SharedPreferences.OnSharedPreferenceChangeListener? =
         null
     private var runtimeApp: Application? = null
+    private var pluginRuntime: PluginRuntime? = null
 
     val prefs: android.content.SharedPreferences
         get() {
@@ -309,7 +311,12 @@ class HookEntry : XposedModule() {
             runtimeApp = app
 
             val renderer = BaseIslandRenderer
-            val sink = RootLyricSink(renderer, app, prefs)
+            pluginRuntime = runCatching {
+                PluginRuntime(this, app).also { it.loadEnabledPlugins() }
+            }.onFailure { error ->
+                HookLogger.w(TAG, "插件 Runtime 初始化失败，继续使用原有歌词链路", error)
+            }.getOrNull()
+            val sink = RootLyricSink(renderer, app, prefs, pluginRuntime)
 
             lyriconSource.initialize(app, prefs)
             superLyricSource.initialize(app)
@@ -476,6 +483,8 @@ class HookEntry : XposedModule() {
             runCatching { prefs.unregisterOnSharedPreferenceChangeListener(it) }
         }
         prefListener = null
+        runCatching { pluginRuntime?.close() }
+        pluginRuntime = null
         runCatching { sourceManager?.stop() }
         AiTranslationGateway.cancelActiveRequests()
         sourceManager = null
@@ -529,6 +538,7 @@ class HookEntry : XposedModule() {
     ) : Hooker {
         override fun intercept(chain: Chain): Any? {
             val result = chain.proceed()
+            if (PluginRuntime.isCreatingPluginClassLoader()) return result
             val cl = chain.thisObject as? ClassLoader ?: return result
             try {
                 SystemUIHookRegistry.hook(this@HookEntry, cl, lyricsOnly = lyricsOnly)

@@ -6,6 +6,7 @@ import com.lidesheng.hyperlyric.common.AiTranslationLanguageSettings
 import com.lidesheng.hyperlyric.common.PrefsBridge
 import com.lidesheng.hyperlyric.common.SyllablePreferencePolicy
 import com.lidesheng.hyperlyric.common.UIConstants
+import com.lidesheng.hyperlyric.plugin.app.PluginRepository
 import com.lidesheng.hyperlyric.ui.utils.AppUtils
 import com.lidesheng.hyperlyric.ui.utils.LocaleUtils
 import com.lidesheng.hyperlyric.utils.LogManager
@@ -29,6 +30,7 @@ class RootApplication : Application() {
             override fun onServiceBind(service: XposedService) {
                 xposedService = service
                 reconcileRemotePreferences(this@RootApplication, service)
+                PluginRepository(this@RootApplication).syncAllRemote(service)
             }
 
             override fun onServiceDied(service: XposedService) {

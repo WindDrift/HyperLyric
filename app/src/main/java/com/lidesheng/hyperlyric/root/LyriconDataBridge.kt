@@ -111,6 +111,22 @@ object LyriconDataBridge {
         rebuildTimeline(translatedSong, selectCurrentPosition = true)
     }
 
+    /**
+     * Apply a plugin enhancement only while the song generation that produced it is current.
+     * The plugin never receives this bridge; Core remains the owner of the final Song and
+     * renderer refresh.
+     */
+    fun applyPluginEnhancement(
+        enhancedSong: Song,
+        expectedVersion: Int,
+        expectedBaseSong: Song
+    ): Boolean {
+        if (versionCounter.get() != expectedVersion || currentSong !== expectedBaseSong) return false
+        currentSong = enhancedSong
+        rebuildTimeline(enhancedSong, selectCurrentPosition = true)
+        return true
+    }
+
     fun updatePlaceholderFormat(format: Int): Boolean {
         val normalizedFormat = normalizePlaceholderFormat(format)
         if (placeholderFormat == normalizedFormat) return false
