@@ -117,6 +117,10 @@ HyperLyric 可在设置中切换三种 Xposed 歌词来源。逐字、翻译和�
 
 不使用 LSPosed 时，HyperLyric 也可监听媒体元数据，并通过小米焦点通知或 Android 实时通知显示歌词。该模式支持音乐应用白名单、通知样式和快捷设置磁贴。
 
+## 插件
+
+- [插件介绍](docs/plugins.md)
+
 ## 配置与问题
 
 - [基础配置教程](docs/getting-started.md)
