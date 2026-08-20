@@ -14,7 +14,6 @@ import top.yukonga.miuix.kmp.preference.SwitchPreference
 
 fun LazyListScope.translationSections(
     lyricSource: String,
-    lyricMode: Int,
     disableTranslation: Boolean,
     onDisableTranslationChange: (Boolean) -> Unit,
     translationOnly: Boolean,
@@ -26,8 +25,7 @@ fun LazyListScope.translationSections(
     autoSwitchTranslation: Boolean,
     onAutoSwitchTranslationChange: (Boolean) -> Unit
 ) {
-    val supportsNextLyricLine =
-        (lyricSource == "lyricon" || lyricSource == "lyricinfo") && lyricMode == 0
+    val supportsNextLyricLine = lyricSource == "lyricon" || lyricSource == "lyricinfo"
     val translationControlsEnabled =
         !supportsNextLyricLine || !nextLyricLine || autoSwitchTranslation
 

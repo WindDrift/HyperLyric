@@ -2,7 +2,6 @@ package com.lidesheng.hyperlyric.ui.page.hooksettings.lyrics.translation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -18,14 +17,6 @@ fun LyricTranslationPage() {
     val prefs = rememberHookPrefs()
     val saveConfig = rememberHookConfigSaver(prefs)
 
-    val lyricMode by remember {
-        mutableIntStateOf(
-            prefs.getInt(
-                RootConstants.KEY_HOOK_LYRIC_MODE,
-                RootConstants.DEFAULT_HOOK_LYRIC_MODE
-            )
-        )
-    }
     val lyricSource by remember {
         mutableStateOf(
             prefs.getString(
@@ -77,7 +68,6 @@ fun LyricTranslationPage() {
     XposedLyricSettingPage(title = stringResource(id = R.string.title_double_line_content)) {
         translationSections(
             lyricSource = lyricSource,
-            lyricMode = lyricMode,
             disableTranslation = disableTranslation,
             onDisableTranslationChange = {
                 disableTranslation = it

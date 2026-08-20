@@ -206,6 +206,11 @@ open class SpaceGateLyricLineView(context: Context, attrs: AttributeSet? = null)
 
     val textSize: Float get() = textPaint.textSize
 
+    fun currentTextStartX(): Float = resolveTextStartX(lineWidth, _model.isAlignedRight)
+
+    fun textStartX(text: String?, isAlignedRight: Boolean): Float =
+        resolveTextStartX(textPaint.measureText(text.orEmpty()), isAlignedRight)
+
     fun setTextSize(size: Float) {
         val needsUpdate = textPaint.textSize != size || syncRenderer.bgPaint.textSize != size
         if (!needsUpdate) return
@@ -587,6 +592,16 @@ open class SpaceGateLyricLineView(context: Context, attrs: AttributeSet? = null)
 
         val virtualWidth = leftView.width + rightView.width
         return maxOf(measuredWidth, virtualWidth)
+    }
+
+    private fun resolveTextStartX(textWidth: Float, isAlignedRight: Boolean): Float {
+        val availableWidth = measuredWidth.toFloat()
+        return when {
+            textWidth >= availableWidth -> 0f
+            isAlignedRight || rightIfPossible -> availableWidth - textWidth
+            centerIfPossible -> (availableWidth - textWidth) / 2f
+            else -> 0f
+        }
     }
 
     override fun getLeftFadingEdgeStrength(): Float {

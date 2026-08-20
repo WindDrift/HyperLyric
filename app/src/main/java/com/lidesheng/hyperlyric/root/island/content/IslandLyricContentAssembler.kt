@@ -208,7 +208,14 @@ internal object IslandLyricContentAssembler {
         val splitResult = RichLyricLineSplitter.split(
             line = rawLine,
             primaryPaint = textPaint,
-            secondaryPaint = secondaryPaint,
+            // A next-line preview is rendered in the secondary slot only temporarily. It will
+            // be promoted to the primary slot on the next lyric change, so keep its split
+            // boundary identical to the primary row even though its current paint is smaller.
+            secondaryPaint = if (rawLine.metadata?.getBoolean(METADATA_NEXT_LINE_PREVIEW) == true) {
+                textPaint
+            } else {
+                secondaryPaint
+            },
             containerWidthSpec = containerWidthSpec
         )
         return if (isLeft) splitResult.left else splitResult.right
@@ -238,7 +245,7 @@ internal object IslandLyricContentAssembler {
         config: IslandSlotRuntimeConfig,
         currentLine: IRichLyricLine? = LyriconDataBridge.currentLyricLine
     ): Boolean {
-        if (!config.nextLyricLine || config.isSplitMode) return false
+        if (!config.nextLyricLine) return false
         if (LyriconDataBridge.isTextMode) return false
         val source = prefs.getString(
             RootConstants.KEY_HOOK_LYRIC_SOURCE,
