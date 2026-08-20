@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   announce:
-    name: Send Stable APKs to Telegram
+    name: Send Stable APKs and Plugins to Telegram
     if: github.event_name == 'workflow_dispatch' || !github.event.release.prerelease
     runs-on: ubuntu-latest
 
@@ -54,7 +54,7 @@ jobs:
             .github/scripts
           sparse-checkout-cone-mode: false
 
-      - name: 下载已发布的 APK Download Release APKs
+      - name: 下载已发布的 APK 和插件 Download Release APKs and Plugins
         id: assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -69,6 +69,7 @@ jobs:
             --dir release-assets \
             --pattern 'HyperLyric-online-*.apk' \
             --pattern 'HyperLyric-offline-*.apk' \
+            --pattern 'hyperlyric-*-plugin.zip' \
             --clobber
 
           find_one_apk() {
@@ -88,10 +89,22 @@ jobs:
 
           ONLINE_APK="$(find_one_apk 'HyperLyric-online-*.apk' online)"
           OFFLINE_APK="$(find_one_apk 'HyperLyric-offline-*.apk' offline)"
+          mapfile -t PLUGIN_FILES < <(
+            find release-assets -maxdepth 1 -type f \
+              -name 'hyperlyric-*-plugin.zip' \
+              -print | sort
+          )
+          if [[ "${#PLUGIN_FILES[@]}" -eq 0 ]]; then
+            echo '::error::没有找到正式插件 ZIP'
+            exit 1
+          fi
 
           {
             echo "online=$ONLINE_APK"
             echo "offline=$OFFLINE_APK"
+            echo 'plugins<<EOF'
+            printf '%s\n' "${PLUGIN_FILES[@]}"
+            echo 'EOF'
           } >> "$GITHUB_OUTPUT"
 
       - name: 保存正式版 Release 说明 Save Published Release Notes
@@ -151,5 +164,6 @@ jobs:
           RELEASE_NOTES_ZH_FILE: release-notes-zh.md
           ONLINE_APK: ${{ steps.assets.outputs.online }}
           OFFLINE_APK: ${{ steps.assets.outputs.offline }}
+          PLUGIN_FILES: ${{ steps.assets.outputs.plugins }}
         shell: bash
         run: bash .github/scripts/send-telegram-release.sh

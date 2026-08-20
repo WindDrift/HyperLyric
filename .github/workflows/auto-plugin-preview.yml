@@ -1,0 +1,146 @@
+name: Plugin Preview to Telegram
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "Plugins/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle.properties"
+      - "gradle/**"
+      - "gradlew"
+      - "gradlew.bat"
+  workflow_dispatch:
+
+concurrency:
+  group: plugin-preview
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build_and_notify:
+    name: Build Plugin Preview and Send to Telegram
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      !contains(github.event.head_commit.message, '[skip plugin preview]')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 拉取代码 Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: 安装 JDK Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: 安装 Android SDK Setup Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          api-level: 37
+          build-tools: '36.0.0'
+
+      - name: 配置 Gradle Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: wrapper
+          cache-read-only: false
+
+      - name: 授权脚本 Grant Permission
+        run: chmod +x ./gradlew
+
+      - name: 构建正式插件 Build Release Plugins
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./gradlew packageReleasePlugins --build-cache
+
+      - name: 校验并准备预览插件 Prepare Plugin Preview Assets
+        id: prepare
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SHORT_SHA="$(git rev-parse --short=7 HEAD)"
+          mkdir -p plugin-preview-assets
+          mapfile -t plugin_zips < <(
+            find Plugins/modules -type f \
+              -path '*/build/outputs/plugin/*.zip' \
+              ! -name '*-debug.zip' \
+              -print | sort
+          )
+
+          if [[ "${#plugin_zips[@]}" -eq 0 ]]; then
+            echo '::error::没有找到插件 ZIP'
+            exit 1
+          fi
+
+          declare -A plugin_ids=()
+          : > plugin-preview-summary.md
+          : > plugin-preview-files.txt
+
+          for plugin_zip in "${plugin_zips[@]}"; do
+            manifest="$(unzip -p "$plugin_zip" manifest.json)"
+            plugin_id="$(jq -r '.id // empty' <<< "$manifest")"
+            plugin_version="$(jq -r '.version // empty' <<< "$manifest")"
+            api_version="$(jq -r '.apiVersion // empty' <<< "$manifest")"
+
+            if [[ -z "$plugin_id" || -z "$plugin_version" || -z "$api_version" ]]; then
+              echo "::error::插件 Manifest 缺少必填字段: $plugin_zip"
+              exit 1
+            fi
+            if [[ -n "${plugin_ids[$plugin_id]:-}" ]]; then
+              echo "::error::插件 ID 重复: $plugin_id"
+              exit 1
+            fi
+            if ! [[ "$api_version" =~ ^[0-9]+$ ]] || (( api_version > 1 )); then
+              echo "::error::插件 API 版本不受当前宿主支持: $plugin_id ($api_version)"
+              exit 1
+            fi
+            if ! unzip -l "$plugin_zip" | grep -Eq '[[:space:]]classes\.dex$'; then
+              echo "::error::插件 ZIP 缺少 classes.dex: $plugin_zip"
+              exit 1
+            fi
+
+            plugin_ids["$plugin_id"]="$plugin_version"
+            plugin_name="$(basename "$plugin_zip" .zip)-preview-${SHORT_SHA}.zip"
+            cp "$plugin_zip" "plugin-preview-assets/$plugin_name"
+            printf '%s\n' "$GITHUB_WORKSPACE/plugin-preview-assets/$plugin_name" >> plugin-preview-files.txt
+            printf -- '- `%s` %s\n' "$plugin_id" "$plugin_version" >> plugin-preview-summary.md
+          done
+
+          {
+            echo '自动构建的插件预览版。此预览不会创建 GitHub Release。'
+            echo
+            echo "Commit: $GITHUB_SHA"
+            echo
+            echo '## 插件'
+            cat plugin-preview-summary.md
+            echo
+            echo '## 相关提交'
+            git log -n 20 --no-merges --pretty=format:'- %s (%h)' -- Plugins/api Plugins/modules build.gradle.kts settings.gradle.kts
+          } > plugin-preview-notes.md
+
+          {
+            echo 'plugins<<EOF'
+            cat plugin-preview-files.txt
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: 同步插件预览到 Telegram Send Plugin Preview to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          RELEASE_TAG: plugin-preview-${{ github.sha }}
+          RELEASE_URL: https://github.com/${{ github.repository }}/commit/${{ github.sha }}
+          RELEASE_NOTES_ZH_FILE: plugin-preview-notes.md
+          ANNOUNCEMENT_HEADER: 自动构建的插件预览版
+          PLUGIN_FILES: ${{ steps.prepare.outputs.plugins }}
+        shell: bash
+        run: bash .github/scripts/send-telegram-release.sh

@@ -7,10 +7,39 @@ set -euo pipefail
 : "${RELEASE_TAG:?RELEASE_TAG is required}"
 : "${RELEASE_URL:?RELEASE_URL is required}"
 : "${RELEASE_NOTES_ZH_FILE:?RELEASE_NOTES_ZH_FILE is required}"
-: "${ONLINE_APK:?ONLINE_APK is required}"
-: "${OFFLINE_APK:?OFFLINE_APK is required}"
 
-for file in "$ONLINE_APK" "$OFFLINE_APK" "$RELEASE_NOTES_ZH_FILE"; do
+ONLINE_APK="${ONLINE_APK:-}"
+OFFLINE_APK="${OFFLINE_APK:-}"
+PLUGIN_FILES="${PLUGIN_FILES:-}"
+
+if [[ -n "$ONLINE_APK" || -n "$OFFLINE_APK" ]]; then
+  : "${ONLINE_APK:?ONLINE_APK is required when sending APKs}"
+  : "${OFFLINE_APK:?OFFLINE_APK is required when sending APKs}"
+fi
+
+declare -a FILES=()
+if [[ -n "$ONLINE_APK" ]]; then
+  FILES+=("$ONLINE_APK" "$OFFLINE_APK")
+fi
+
+if [[ -n "$PLUGIN_FILES" ]]; then
+  while IFS= read -r plugin_file; do
+    [[ -z "$plugin_file" ]] && continue
+    FILES+=("$plugin_file")
+  done <<< "$PLUGIN_FILES"
+fi
+
+if (( ${#FILES[@]} == 0 )); then
+  echo '::error::没有可发送的 APK 或插件文件'
+  exit 1
+fi
+
+if (( ${#FILES[@]} > 10 )); then
+  echo '::error::Telegram 单个媒体组最多发送 10 个文件，请拆分发布附件'
+  exit 1
+fi
+
+for file in "${FILES[@]}" "$RELEASE_NOTES_ZH_FILE"; do
   if [[ ! -f "$file" ]]; then
     echo "::error::文件不存在: $file"
     exit 1
@@ -47,18 +76,36 @@ if (( ${#CAPTION} > 1024 )); then
   exit 1
 fi
 
-MEDIA_JSON="$(jq -cn \
-  --arg caption "$CAPTION" \
-  '[
-    {"type":"document","media":"attach://online","caption":$caption},
-    {"type":"document","media":"attach://offline"}
-  ]')"
+if (( ${#FILES[@]} == 1 )); then
+  telegram_request sendDocument \
+    --form-string "chat_id=$TELEGRAM_CHAT_ID" \
+    --form-string "caption=$CAPTION" \
+    -F "document=@${FILES[0]}"
+else
+  MEDIA_JSON='[]'
+  declare -a FORM_ARGS=()
 
-# Send both APKs and the Chinese release notes as one media group.
-telegram_request sendMediaGroup \
-  --form-string "chat_id=$TELEGRAM_CHAT_ID" \
-  --form-string "media=$MEDIA_JSON" \
-  -F "online=@$ONLINE_APK" \
-  -F "offline=@$OFFLINE_APK"
+  for index in "${!FILES[@]}"; do
+    ATTACH_NAME="file${index}"
+    if (( index == 0 )); then
+      MEDIA_JSON="$(jq -c \
+        --arg media "attach://$ATTACH_NAME" \
+        --arg caption "$CAPTION" \
+        '. + [{"type":"document","media":$media,"caption":$caption}]' \
+        <<< "$MEDIA_JSON")"
+    else
+      MEDIA_JSON="$(jq -c \
+        --arg media "attach://$ATTACH_NAME" \
+        '. + [{"type":"document","media":$media}]' \
+        <<< "$MEDIA_JSON")"
+    fi
+    FORM_ARGS+=(-F "${ATTACH_NAME}=@${FILES[$index]}")
+  done
 
-echo "Telegram release announcement sent for $RELEASE_TAG"
+  telegram_request sendMediaGroup \
+    --form-string "chat_id=$TELEGRAM_CHAT_ID" \
+    --form-string "media=$MEDIA_JSON" \
+    "${FORM_ARGS[@]}"
+fi
+
+echo "Telegram release announcement sent for $RELEASE_TAG (${#FILES[@]} file(s))"
