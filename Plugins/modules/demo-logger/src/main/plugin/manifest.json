@@ -27,6 +27,13 @@
       "title": "Demo 添加翻译",
       "summary": "启用后在翻译阶段根据最新原文添加 Demo 翻译",
       "default": false
+    },
+    {
+      "type": "switch",
+      "key": "add_roma_metadata",
+      "title": "Demo 添加罗马音与 Metadata",
+      "summary": "启用后只更新歌词行的罗马音和 Demo Metadata 字段",
+      "default": false
     }
   ]
 }

@@ -4,7 +4,10 @@ import com.lidesheng.hyperlyric.plugin.api.HyperLyricPlugin
 import com.lidesheng.hyperlyric.plugin.api.LyricProcessorExtension
 import com.lidesheng.hyperlyric.plugin.api.PluginConfig
 import com.lidesheng.hyperlyric.plugin.api.PluginContext
+import com.lidesheng.hyperlyric.plugin.api.PluginLyricField
 import com.lidesheng.hyperlyric.plugin.api.PluginLyricLine
+import com.lidesheng.hyperlyric.plugin.api.PluginLyricsUpdateMode
+import com.lidesheng.hyperlyric.plugin.api.PluginMetadata
 import com.lidesheng.hyperlyric.plugin.api.PluginProcessingContext
 import com.lidesheng.hyperlyric.plugin.api.PluginProcessorStage
 import com.lidesheng.hyperlyric.plugin.api.PluginSong
@@ -17,7 +20,9 @@ class DemoPlugin : HyperLyricPlugin {
         const val EXTENSION_ID = "demo.logger"
         const val LYRIC_REPLACEMENT_EXTENSION_ID = "demo.lyric-replacement"
         const val TRANSLATION_EXTENSION_ID = "demo.translation"
+        const val ROMA_METADATA_EXTENSION_ID = "demo.roma-metadata"
         const val DEMO_PREFIX = "[Demo] "
+        const val DEMO_METADATA_KEY = "hyperlyric.demo"
         const val MAX_LOG_LYRIC_LINES = 5
         const val MAX_LOG_WORDS_PER_LINE = 8
         const val MAX_LOG_TEXT_LENGTH = 120
@@ -29,8 +34,9 @@ class DemoPlugin : HyperLyricPlugin {
         this.context = context
         context.registerExtension(LyricReplacementProcessor(context))
         context.registerExtension(TranslationProcessor(context))
+        context.registerExtension(RomaMetadataProcessor(context))
         context.registerExtension(LoggerProcessor(context))
-        context.logger.info("lifecycle=onLoad, extensions=3")
+        context.logger.info("lifecycle=onLoad, extensions=4")
     }
 
     override fun onEnable() {
@@ -39,9 +45,10 @@ class DemoPlugin : HyperLyricPlugin {
 
     override fun onConfigChanged(config: PluginConfig) {
         context.logger.debug(
-            "lifecycle=onConfigChanged, log_song=${config.getBoolean("log_song", true)}, " +
+                    "lifecycle=onConfigChanged, log_song=${config.getBoolean("log_song", true)}, " +
                     "replace_lyrics=${config.getBoolean("replace_lyrics", false)}, " +
-                    "add_translation=${config.getBoolean("add_translation", false)}"
+                    "add_translation=${config.getBoolean("add_translation", false)}, " +
+                    "add_roma_metadata=${config.getBoolean("add_roma_metadata", false)}"
         )
     }
 
@@ -130,7 +137,9 @@ class DemoPlugin : HyperLyricPlugin {
             val replaced = lyrics.map(::replaceLine)
             return PluginSongResult(
                 song = song.copy(lyrics = replaced),
-                changedFields = setOf(PluginSongField.LYRICS)
+                changedFields = setOf(PluginSongField.LYRICS),
+                lyricsUpdateMode = PluginLyricsUpdateMode.PATCH,
+                changedLyricFields = setOf(PluginLyricField.TEXT, PluginLyricField.WORDS)
             )
         }
 
@@ -210,7 +219,44 @@ class DemoPlugin : HyperLyricPlugin {
             }
             return PluginSongResult(
                 song = song.copy(lyrics = translated),
-                changedFields = setOf(PluginSongField.LYRICS)
+                changedFields = setOf(PluginSongField.LYRICS),
+                lyricsUpdateMode = PluginLyricsUpdateMode.PATCH,
+                changedLyricFields = setOf(
+                    PluginLyricField.TRANSLATION,
+                    PluginLyricField.TRANSLATION_WORDS
+                )
+            )
+        }
+    }
+
+    private class RomaMetadataProcessor(
+        private val context: PluginContext
+    ) : LyricProcessorExtension {
+        override val id: String = ROMA_METADATA_EXTENSION_ID
+        override val stage: PluginProcessorStage = PluginProcessorStage.TRANSLATION_ENHANCEMENT
+
+        override fun processResult(song: PluginSong): PluginSongResult? {
+            if (!context.config.getBoolean("add_roma_metadata", false)) return null
+            val lyrics = song.lyrics ?: return null
+            var changed = false
+            val enriched = lyrics.map { line ->
+                val roma = line.roma ?: line.text?.takeIf { it.isNotBlank() }?.let { "Demo: $it" }
+                val metadata = (line.metadata ?: PluginMetadata()).let { current ->
+                    if (current.values[DEMO_METADATA_KEY] == "true") {
+                        current
+                    } else {
+                        current.copy(values = current.values + (DEMO_METADATA_KEY to "true"))
+                    }
+                }
+                if (line.roma != roma || line.metadata != metadata) changed = true
+                line.copy(roma = roma, metadata = metadata)
+            }
+            if (!changed) return null
+            return PluginSongResult(
+                song = song.copy(lyrics = enriched),
+                changedFields = setOf(PluginSongField.LYRICS),
+                lyricsUpdateMode = PluginLyricsUpdateMode.PATCH,
+                changedLyricFields = setOf(PluginLyricField.ROMA, PluginLyricField.METADATA)
             )
         }
     }
