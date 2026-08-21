@@ -26,30 +26,13 @@ public interface LyricProcessorExtension : HyperLyricExtension {
         get() = PluginProcessorStage.TRANSLATION_ENHANCEMENT
 
     /**
-     * Process an immutable snapshot off the SystemUI main thread.
-     *
-     * This method remains as a source migration bridge for API 1 processors. New
-     * processors should override [processResult] so that an explicit field update set is
-     * available to Core.
-     */
-    @Deprecated("Override processResult to declare changed fields explicitly")
-    public fun process(song: PluginSong): PluginSong? = null
-
-    /**
      * Process an immutable snapshot and explicitly declare the lyric update.
      *
      * Returning null means that this processor has no result. The host keeps the previous
-     * snapshot and continues with the next enabled processor. The default implementation
-     * adapts legacy [process] implementations by comparing the returned snapshot.
-    */
-    public fun processResult(song: PluginSong): PluginSongResult? {
-        @Suppress("DEPRECATION")
-        val result = process(song) ?: return null
-        return PluginSongResult(
-            song = result,
-            changedFields = PluginSongField.changedFields(song, result)
-        )
-    }
+     * snapshot and continues with the next enabled processor. Every accepted change must be
+     * declared in the returned result; Core never infers changed fields by comparing DTOs.
+     */
+    public fun processResult(song: PluginSong): PluginSongResult? = null
 
     /**
      * Process with a Core-owned, read-only media snapshot. Existing processors that only
@@ -73,6 +56,8 @@ public interface PluginContext {
     public val hostApiVersion: Int
     public val config: PluginConfig
     public val logger: PluginLogger
+    /** Host-owned persistent cache; the plugin controls keys and serialization only. */
+    public val cache: PluginCache
     public val storage: PluginStorage
 
     public fun registerExtension(extension: HyperLyricExtension)
@@ -123,36 +108,80 @@ public interface PluginStorage {
     public fun clear()
 }
 
+/**
+ * Host-owned persistent cache isolated by plugin ID.
+ *
+ * The plugin owns cache keys, serialization, schema versions and expiry semantics. The host owns
+ * the backend, namespace, error isolation and size policy. No Android or filesystem object crosses
+ * this boundary.
+ */
+public interface PluginCache {
+    public fun getString(key: String): String?
+    public fun putString(key: String, value: String)
+    public fun getBytes(key: String): ByteArray?
+    public fun putBytes(key: String, value: ByteArray)
+    public fun contains(key: String): Boolean
+    public fun remove(key: String)
+    public fun clear()
+}
+
 /** Stable read-only media and lyric snapshot passed across the plugin boundary. */
 public data class PluginSong(
     val id: String? = null,
     val name: String? = null,
     val artist: String? = null,
+    val album: String? = null,
     val duration: Long = 0L,
     val metadata: PluginMetadata? = null,
     val lyrics: List<PluginLyricLine>? = null,
-    val album: String? = null,
 )
 
-/** The only Song field that a processor may explicitly update. */
+/** Top-level Song fields that a processor may explicitly update. */
 public enum class PluginSongField {
-    LYRICS;
+    ID,
+    NAME,
+    ARTIST,
+    ALBUM,
+    DURATION,
+    METADATA,
+    LYRICS,
+}
 
-    public companion object {
-        public fun changedFields(before: PluginSong, after: PluginSong): Set<PluginSongField> =
-            buildSet {
-                if (before.lyrics != after.lyrics) add(LYRICS)
-            }
-    }
+/** Whether a lyrics result patches existing rows or supplies a complete new list. */
+public enum class PluginLyricsUpdateMode {
+    PATCH,
+    REPLACE,
+}
+
+/** Individual fields that can be updated when [PluginLyricsUpdateMode.PATCH] is used. */
+public enum class PluginLyricField {
+    BEGIN,
+    END,
+    DURATION,
+    IS_ALIGNED_RIGHT,
+    METADATA,
+    TEXT,
+    WORDS,
+    SECONDARY,
+    SECONDARY_WORDS,
+    TRANSLATION,
+    TRANSLATION_WORDS,
+    ROMA,
 }
 
 /**
- * Immutable lyric candidate returned by a processor. Core keeps every Song-level media field
- * from the current song and only considers [PluginSongField.LYRICS].
+ * Immutable candidate returned by a processor.
+ *
+ * [changedFields] is authoritative. A nullable value in [song] is copied into Core only when
+ * the corresponding field is present in [changedFields], so plugins can explicitly clear fields.
+ * When [PluginSongField.LYRICS] is present, [lyricsUpdateMode] and [changedLyricFields] describe
+ * how the candidate lyric rows are merged.
  */
 public data class PluginSongResult(
     val song: PluginSong,
     val changedFields: Set<PluginSongField>,
+    val lyricsUpdateMode: PluginLyricsUpdateMode = PluginLyricsUpdateMode.REPLACE,
+    val changedLyricFields: Set<PluginLyricField> = emptySet(),
 )
 
 public data class PluginMetadata(
