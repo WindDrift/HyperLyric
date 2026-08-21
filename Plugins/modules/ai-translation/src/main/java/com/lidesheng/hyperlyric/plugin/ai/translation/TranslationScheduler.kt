@@ -9,10 +9,10 @@ import java.util.concurrent.Executors
 import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicBoolean
 
 /** Bounded request scheduler mirroring the legacy 3-running/5-pending policy. */
 internal class TranslationScheduler(
-    private val cache: TranslationCache,
     private val logger: PluginLogger,
 ) {
     private companion object {
@@ -30,11 +30,27 @@ internal class TranslationScheduler(
     private val pending = ArrayDeque<TranslationJob>()
     private var running = 0
 
+    /**
+     * A completed request stays in [jobs] until the caller has finished consuming it. This
+     * closes the small window between completing the future and writing the result to the
+     * persistent plugin cache.
+     */
+    internal class ScheduledTranslation(
+        val items: List<TranslationItem>?,
+        private val releaseCallback: () -> Unit,
+    ) {
+        private val released = AtomicBoolean(false)
+
+        fun release() {
+            if (released.compareAndSet(false, true)) releaseCallback()
+        }
+    }
+
     fun getOrEnqueue(
         key: String,
         songName: String,
         request: () -> List<TranslationItem>?,
-    ): List<TranslationItem>? {
+    ): ScheduledTranslation {
         val job = synchronized(lock) {
             jobs[key]?.also {
                 logger.debug("复用翻译任务: song=$songName, key=$key")
@@ -53,7 +69,10 @@ internal class TranslationScheduler(
                 dispatchNextLocked()
             }
         }
-        return await(job)
+        return ScheduledTranslation(
+            items = await(job),
+            releaseCallback = { release(job) }
+        )
     }
 
     fun cancelAll() {
@@ -133,21 +152,27 @@ internal class TranslationScheduler(
         try {
             if (job.state == State.CANCELLED || Thread.currentThread().isInterrupted) return
             val result = job.request()
-            if (job.state == State.CANCELLED || Thread.currentThread().isInterrupted) {
-                job.future.complete(null)
-            } else {
-                if (!result.isNullOrEmpty()) {
-                    logger.debug("翻译任务完成: song=${job.songName}, cached=true")
-                    cache.put(job.key, result)
+            synchronized(lock) {
+                if (job.state == State.CANCELLED || Thread.currentThread().isInterrupted) {
+                    job.state = State.CANCELLED
+                    job.future.complete(null)
+                } else {
+                    if (!result.isNullOrEmpty()) {
+                        logger.debug("翻译任务完成: song=${job.songName}, items=${result.size}")
+                    }
+                    // Publish the terminal state before waking callers. A caller can release
+                    // the completed job immediately after future.get() returns.
+                    job.state = State.COMPLETED
+                    job.future.complete(result)
                 }
-                job.future.complete(result)
             }
-            job.state = State.COMPLETED
         } catch (error: Exception) {
-            if (job.state != State.CANCELLED) {
-                job.state = State.COMPLETED
-                logger.error("翻译任务失败: song=${job.songName}", error)
-                job.future.complete(null)
+            synchronized(lock) {
+                if (job.state != State.CANCELLED) {
+                    job.state = State.COMPLETED
+                    logger.error("翻译任务失败: song=${job.songName}", error)
+                    job.future.complete(null)
+                }
             }
         } finally {
             synchronized(lock) {
@@ -155,8 +180,19 @@ internal class TranslationScheduler(
                     job.running = false
                     running = (running - 1).coerceAtLeast(0)
                 }
-                jobs.remove(job.key, job)
+                // Successful and failed terminal results are retained until the consumer calls
+                // release(). Cancelled jobs are removed immediately and can be retried later.
+                if (job.state != State.COMPLETED) jobs.remove(job.key, job)
                 dispatchNextLocked()
+            }
+        }
+    }
+
+    private fun release(job: TranslationJob) {
+        synchronized(lock) {
+            if (jobs[job.key] === job && job.state == State.COMPLETED) {
+                jobs.remove(job.key, job)
+                logger.debug("释放已完成翻译任务: song=${job.songName}, key=${job.key}")
             }
         }
     }

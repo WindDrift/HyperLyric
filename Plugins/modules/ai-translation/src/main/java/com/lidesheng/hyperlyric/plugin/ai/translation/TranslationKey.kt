@@ -5,19 +5,33 @@ import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 
 internal object TranslationKey {
-    fun calculate(song: PluginSong, lines: List<String>, targetLanguage: String): String {
+    private const val CACHE_SCHEMA_VERSION = 2
+
+    fun calculate(song: PluginSong, lines: List<String>, config: AiTranslationConfig): String {
         val source = buildString {
-            append("target=").appendLine(targetLanguage)
-            append("title=").appendLine(song.name.orEmpty())
-            append("artist=").appendLine(song.artist.orEmpty())
-            append("album=").appendLine(song.album.orEmpty())
-            append("duration=").appendLine(song.duration)
+            appendPart("schema", CACHE_SCHEMA_VERSION.toString())
+            appendPart("provider", config.provider)
+            appendPart("target", config.targetLanguage)
+            appendPart("title", song.name.orEmpty())
+            appendPart("artist", song.artist.orEmpty())
+            appendPart("album", song.album.orEmpty())
+            appendPart("duration", song.duration.toString())
+            appendPart("model", config.model)
+            appendPart("base_url", config.baseUrl.trim().removeSuffix("/"))
+            appendPart("prompt", config.prompt)
+            appendPart("temperature", config.temperature.toString())
+            appendPart("top_p", config.topP.toString())
+            appendPart("max_tokens", config.maxTokens.toString())
             lines.forEachIndexed { index, line ->
-                append(index).append(':').appendLine(line)
+                appendPart("line_$index", line)
             }
         }
-        return MessageDigest.getInstance("MD5")
+        return MessageDigest.getInstance("SHA-256")
             .digest(source.toByteArray(StandardCharsets.UTF_8))
             .joinToString("") { byte -> "%02x".format(byte) }
+    }
+
+    private fun StringBuilder.appendPart(name: String, value: String) {
+        append(name).append('=').append(value.length).append(':').append(value).append('\u0000')
     }
 }

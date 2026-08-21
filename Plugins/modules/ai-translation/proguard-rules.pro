@@ -17,9 +17,6 @@
     public com.lidesheng.hyperlyric.plugin.api.PluginProcessorStage getStage();
 }
 -keepclassmembers,allowoptimization class * implements com.lidesheng.hyperlyric.plugin.api.LyricProcessorExtension {
-    public com.lidesheng.hyperlyric.plugin.api.PluginSong process(
-        com.lidesheng.hyperlyric.plugin.api.PluginSong
-    );
     public com.lidesheng.hyperlyric.plugin.api.PluginSongResult processResult(
         com.lidesheng.hyperlyric.plugin.api.PluginSong
     );
@@ -33,9 +30,12 @@
 -keep,allowoptimization,allowobfuscation public class com.lidesheng.hyperlyric.plugin.api.PluginSong { *; }
 -keep,allowoptimization,allowobfuscation public class com.lidesheng.hyperlyric.plugin.api.PluginSongResult { *; }
 -keep,allowoptimization,allowobfuscation public enum com.lidesheng.hyperlyric.plugin.api.PluginSongField { *; }
+-keep,allowoptimization,allowobfuscation public enum com.lidesheng.hyperlyric.plugin.api.PluginLyricsUpdateMode { *; }
+-keep,allowoptimization,allowobfuscation public enum com.lidesheng.hyperlyric.plugin.api.PluginLyricField { *; }
 -keep,allowoptimization,allowobfuscation public enum com.lidesheng.hyperlyric.plugin.api.PluginProcessorStage { *; }
 -keep,allowoptimization,allowobfuscation public class com.lidesheng.hyperlyric.plugin.api.PluginMediaInfo { *; }
 -keep,allowoptimization,allowobfuscation public class com.lidesheng.hyperlyric.plugin.api.PluginProcessingContext { *; }
 -keep,allowoptimization,allowobfuscation public class com.lidesheng.hyperlyric.plugin.api.PluginLyricLine { *; }
 -keep,allowoptimization,allowobfuscation public class com.lidesheng.hyperlyric.plugin.api.PluginWord { *; }
 -keep,allowoptimization,allowobfuscation public class com.lidesheng.hyperlyric.plugin.api.PluginMetadata { *; }
+-keep,allowoptimization,allowobfuscation public interface com.lidesheng.hyperlyric.plugin.api.PluginCache { *; }

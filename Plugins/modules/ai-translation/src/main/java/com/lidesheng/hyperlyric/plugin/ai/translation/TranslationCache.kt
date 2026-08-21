@@ -1,20 +1,20 @@
 package com.lidesheng.hyperlyric.plugin.ai.translation
 
 import com.lidesheng.hyperlyric.plugin.api.PluginLogger
-import com.lidesheng.hyperlyric.plugin.api.PluginStorage
+import com.lidesheng.hyperlyric.plugin.api.PluginCache
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Collections
 
 /** Memory LRU plus a bounded JSON index backed only by the plugin's string storage. */
 internal class TranslationCache(
-    private val storage: PluginStorage,
+    private val storage: PluginCache,
     private val logger: PluginLogger,
 ) {
     private companion object {
         const val MAX_ENTRIES = 1_000
-        const val INDEX_KEY = "cache.index.v1"
-        const val ENTRY_PREFIX = "cache.entry."
+        const val INDEX_KEY = "cache.index.v2"
+        const val ENTRY_PREFIX = "cache.entry.v2."
     }
 
     private val lock = Any()
@@ -36,10 +36,14 @@ internal class TranslationCache(
         val raw = runCatching { storage.getString(entryKey(key)) }.getOrElse {
             logger.error("查询翻译缓存失败", it)
             return@synchronized null
-        } ?: return@synchronized null
+        } ?: run {
+            removeCorruptEntryLocked(index, key)
+            return@synchronized null
+        }
         val items = decode(raw)
         if (items.isNullOrEmpty()) {
             logger.error("查询翻译缓存失败")
+            removeCorruptEntryLocked(index, key)
             return@synchronized null
         }
 
@@ -74,6 +78,11 @@ internal class TranslationCache(
         }
     }
 
+    fun remove(key: String) = synchronized(lock) {
+        memory.remove(key)
+        removeCorruptEntryLocked(readIndexLocked(), key)
+    }
+
     private fun touchIndexLocked(index: List<String>, key: String) {
         val updated = index.toMutableList().apply {
             remove(key)
@@ -99,7 +108,20 @@ internal class TranslationCache(
             }.distinct().take(MAX_ENTRIES)
         }.getOrElse {
             logger.error("查询翻译缓存失败", it)
+            runCatching { storage.remove(INDEX_KEY) }
             emptyList()
+        }
+    }
+
+    private fun removeCorruptEntryLocked(index: List<String>, key: String) {
+        val updated = index.filterNot { it == key }
+        runCatching { storage.remove(entryKey(key)) }.onFailure {
+            logger.error("删除翻译缓存失败", it)
+        }
+        if (updated != index) {
+            runCatching { storage.putString(INDEX_KEY, encodeIndex(updated)) }.onFailure {
+                logger.error("更新翻译缓存索引失败", it)
+            }
         }
     }
 
@@ -127,7 +149,7 @@ internal class TranslationCache(
 
     private fun entryKey(key: String): String = ENTRY_PREFIX + key
 
-    private val KEY_PATTERN = Regex("[0-9a-f]{32}")
+    private val KEY_PATTERN = Regex("[0-9a-f]{64}")
 
     data class CacheLookup(
         val items: List<TranslationItem>,

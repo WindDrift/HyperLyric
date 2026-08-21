@@ -3,9 +3,11 @@ package com.lidesheng.hyperlyric.plugin.ai.translation
 import com.lidesheng.hyperlyric.plugin.api.LyricProcessorExtension
 import com.lidesheng.hyperlyric.plugin.api.PluginConfig
 import com.lidesheng.hyperlyric.plugin.api.PluginContext
+import com.lidesheng.hyperlyric.plugin.api.PluginLyricField
 import com.lidesheng.hyperlyric.plugin.api.PluginMediaInfo
 import com.lidesheng.hyperlyric.plugin.api.PluginProcessingContext
 import com.lidesheng.hyperlyric.plugin.api.PluginProcessorStage
+import com.lidesheng.hyperlyric.plugin.api.PluginLyricsUpdateMode
 import com.lidesheng.hyperlyric.plugin.api.PluginSong
 import com.lidesheng.hyperlyric.plugin.api.PluginSongField
 import com.lidesheng.hyperlyric.plugin.api.PluginSongResult
@@ -18,7 +20,7 @@ internal class AiTranslationProcessor(
 
     private val gatewayLogger = context.logger.withTag("AiTranslationGateway")
     private val translatorLogger = context.logger.withTag("AITranslator")
-    private val engine = AiTranslationEngine(context.storage, context.logger, translatorLogger)
+    private val engine = AiTranslationEngine(context.cache, context.logger, translatorLogger)
 
     override fun processResult(
         song: PluginSong,
@@ -90,7 +92,12 @@ internal class AiTranslationProcessor(
             engine.translate(querySong, config)?.let { translated ->
                 PluginSongResult(
                     song = translated,
-                    changedFields = setOf(PluginSongField.LYRICS)
+                    changedFields = setOf(PluginSongField.LYRICS),
+                    lyricsUpdateMode = PluginLyricsUpdateMode.PATCH,
+                    changedLyricFields = setOf(
+                        PluginLyricField.TRANSLATION,
+                        PluginLyricField.TRANSLATION_WORDS
+                    )
                 )
             }
         } catch (_: InterruptedException) {

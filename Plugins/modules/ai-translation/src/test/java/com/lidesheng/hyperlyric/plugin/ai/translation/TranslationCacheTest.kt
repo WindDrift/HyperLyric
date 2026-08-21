@@ -1,0 +1,216 @@
+package com.lidesheng.hyperlyric.plugin.ai.translation
+
+import com.lidesheng.hyperlyric.plugin.api.PluginCache
+import com.lidesheng.hyperlyric.plugin.api.PluginLogger
+import com.lidesheng.hyperlyric.plugin.api.PluginLyricLine
+import com.lidesheng.hyperlyric.plugin.api.PluginSong
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class TranslationCacheTest {
+    @Test
+    fun cacheHitAfterNewEngineDoesNotCallNetwork() {
+        val cache = FakePluginCache()
+        val song = song()
+        val config = config()
+        var firstCalls = 0
+        AiTranslationEngine(
+            cacheStore = cache,
+            logger = NO_OP_LOGGER,
+            translatorLogger = NO_OP_LOGGER,
+            networkRequester = { _, _, _ ->
+                firstCalls++
+                listOf(TranslationItem(0, "translated"))
+            }
+        ).let { engine ->
+            assertEquals("translated", engine.translate(song, config)?.lyrics?.single()?.translation)
+            engine.close()
+        }
+        assertEquals(1, firstCalls)
+
+        var secondCalls = 0
+        AiTranslationEngine(
+            cacheStore = cache,
+            logger = NO_OP_LOGGER,
+            translatorLogger = NO_OP_LOGGER,
+            networkRequester = { _, _, _ ->
+                secondCalls++
+                listOf(TranslationItem(0, "network-should-not-run"))
+            }
+        ).let { engine ->
+            val translated = engine.translate(song, config)
+            assertEquals("translated", translated?.lyrics?.single()?.translation)
+            engine.close()
+        }
+        assertEquals(0, secondCalls)
+    }
+
+    @Test
+    fun corruptCacheIsRemovedAndFallsBackToNetwork() {
+        val cache = FakePluginCache()
+        val song = song()
+        val config = config()
+        AiTranslationEngine(
+            cacheStore = cache,
+            logger = NO_OP_LOGGER,
+            translatorLogger = NO_OP_LOGGER,
+            networkRequester = { _, _, _ -> listOf(TranslationItem(0, "cached")) }
+        ).let { engine ->
+            engine.translate(song, config)
+            engine.close()
+        }
+
+        val entryKey = cache.values.keys.first { it.startsWith("cache.entry.v2.") }
+        cache.values[entryKey] = "{broken"
+        var calls = 0
+        AiTranslationEngine(
+            cacheStore = cache,
+            logger = NO_OP_LOGGER,
+            translatorLogger = NO_OP_LOGGER,
+            networkRequester = { _, _, _ ->
+                calls++
+                listOf(TranslationItem(0, "recovered"))
+            }
+        ).let { engine ->
+            assertEquals("recovered", engine.translate(song, config)?.lyrics?.single()?.translation)
+            engine.close()
+        }
+
+        assertEquals(1, calls)
+        assertTrue(cache.values[entryKey]?.contains("recovered") == true)
+    }
+
+    @Test
+    fun cacheKeyExcludesApiKeyButIncludesResultInputs() {
+        val song = song()
+        val base = config()
+        val sameWithoutSecret = base.copy(apiKey = "different-secret")
+        val changedWritePolicy = base.copy(forceOverride = true)
+        val changedModel = base.copy(model = "another-model")
+        val changedAlbum = song.copy(album = "another-album")
+
+        assertEquals(
+            TranslationKey.calculate(song, listOf("original"), base),
+            TranslationKey.calculate(song, listOf("original"), sameWithoutSecret)
+        )
+        assertEquals(
+            TranslationKey.calculate(song, listOf("original"), base),
+            TranslationKey.calculate(song, listOf("original"), changedWritePolicy)
+        )
+        assertFalse(
+            TranslationKey.calculate(song, listOf("original"), base) ==
+                    TranslationKey.calculate(song, listOf("original"), changedModel)
+        )
+        assertFalse(
+            TranslationKey.calculate(song, listOf("original"), base) ==
+                    TranslationKey.calculate(changedAlbum, listOf("original"), base)
+        )
+    }
+
+    @Test
+    fun networkResultIsCachedEvenWhenCurrentSongNeedsNoWriteback() {
+        val cache = FakePluginCache()
+        val song = song().copy(
+            lyrics = listOf(song().lyrics!!.single().copy(translation = "existing"))
+        )
+        val config = config()
+        var firstCalls = 0
+        AiTranslationEngine(
+            cacheStore = cache,
+            logger = NO_OP_LOGGER,
+            translatorLogger = NO_OP_LOGGER,
+            networkRequester = { _, _, _ ->
+                firstCalls++
+                listOf(TranslationItem(0, "new translation"))
+            }
+        ).let { engine ->
+            assertNull(engine.translate(song, config))
+            engine.close()
+        }
+        assertEquals(1, firstCalls)
+
+        var secondCalls = 0
+        AiTranslationEngine(
+            cacheStore = cache,
+            logger = NO_OP_LOGGER,
+            translatorLogger = NO_OP_LOGGER,
+            networkRequester = { _, _, _ ->
+                secondCalls++
+                listOf(TranslationItem(0, "network-should-not-run"))
+            }
+        ).let { engine ->
+            assertNull(engine.translate(song, config))
+            engine.close()
+        }
+        assertEquals(0, secondCalls)
+    }
+
+    private fun song(): PluginSong = PluginSong(
+        name = "title",
+        artist = "artist",
+        album = "album",
+        duration = 180_000L,
+        lyrics = listOf(
+            PluginLyricLine(
+                begin = 0L,
+                end = 1_000L,
+                duration = 1_000L,
+                text = "original"
+            )
+        )
+    )
+
+    private fun config(): AiTranslationConfig = AiTranslationConfig(
+        provider = "OPENAI",
+        apiKey = "secret",
+        baseUrl = "https://example.test/v1/",
+        model = "model",
+        targetLanguage = "中文",
+        prompt = "prompt",
+        skipLanguages = emptySet(),
+        skipExisting = false,
+        forceOverride = false,
+        temperature = 1f,
+        topP = 1f,
+        maxTokens = 100,
+        enabled = true
+    )
+
+    private class FakePluginCache : PluginCache {
+        val values = linkedMapOf<String, String>()
+
+        override fun getString(key: String): String? = values[key]
+
+        override fun putString(key: String, value: String) {
+            values[key] = value
+        }
+
+        override fun getBytes(key: String): ByteArray? = values[key]?.toByteArray()
+
+        override fun putBytes(key: String, value: ByteArray) {
+            values[key] = value.decodeToString()
+        }
+
+        override fun contains(key: String): Boolean = values.containsKey(key)
+
+        override fun remove(key: String) {
+            values.remove(key)
+        }
+
+        override fun clear() {
+            values.clear()
+        }
+    }
+
+    private companion object {
+        val NO_OP_LOGGER = object : PluginLogger {
+            override fun debug(message: String) = Unit
+            override fun info(message: String) = Unit
+            override fun warn(message: String, throwable: Throwable?) = Unit
+            override fun error(message: String, throwable: Throwable?) = Unit
+        }
+    }
+}

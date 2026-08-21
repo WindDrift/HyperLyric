@@ -38,6 +38,11 @@ dependencies {
     compileOnly("org.jetbrains.kotlin:kotlin-stdlib:${libs.versions.kotlin.get()}")
 
     // Networking and JSON use Android platform APIs, so this plugin has no duplicate host runtime.
+
+    testImplementation("junit:junit:4.13.2")
+    testImplementation(project(":plugins:api"))
+    testImplementation("org.jetbrains.kotlin:kotlin-stdlib:" + libs.versions.kotlin.get())
+    testImplementation("org.json:json:20240303")
 }
 
 val debugApk = layout.buildDirectory.file("outputs/apk/debug/${project.name}-debug.apk")
