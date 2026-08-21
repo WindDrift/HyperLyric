@@ -117,6 +117,13 @@ Download the latest build from [GitHub Releases](https://github.com/limczhh/Hype
 
 Without LSPosed, HyperLyric can listen to media metadata and display lyrics through Xiaomi Notification Spotlight or Android Live Update notifications. This mode includes a player allowlist, notification styling, and a Quick Settings tile.
 
+## Plugins
+
+Plugins are optional HyperLyric lyric features that can be installed when needed, such as translation, romanization, and word-level lyrics.
+
+- [Plugin introduction](docs/en/plugins.md)
+- [Plugin development guide](docs/en/plugin-development.md)
+
 ## Setup and troubleshooting
 
 - [Basic setup guide](docs/en/getting-started.md)

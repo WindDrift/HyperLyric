@@ -119,7 +119,10 @@ HyperLyric 可在设置中切换三种 Xposed 歌词来源。逐字、翻译和�
 
 ## 插件
 
+插件是 HyperLyric 按需安装的额外歌词功能，例如翻译、罗马音和逐字歌词。
+
 - [插件介绍](docs/plugins.md)
+- [插件开发文档](docs/plugin-development.md)
 
 ## 配置与问题
 
