@@ -329,7 +329,7 @@ class BackupRestoreHelper(
 ) {
     private val pluginRepository = PluginRepository(context.applicationContext)
 
-    val hasInstalledPlugins: Boolean
+    private val hasInstalledPlugins: Boolean
         get() = pluginRepository.listInstalled().isNotEmpty()
 
     fun launchBackup() {

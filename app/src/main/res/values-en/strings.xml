@@ -96,12 +96,8 @@
     <string name="title_hide_launcher_icon">Hide Launcher Icon</string>
     <string name="title_config_management">Configuration Management</string>
     <string name="toast_restore_empty">File content is empty</string>
-    <string name="title_backup_json">Backup Settings (JSON)</string>
-    <string name="summary_backup_json">Host settings only</string>
-    <string name="title_backup_full">Backup Settings and Plugins (ZIP)</string>
-    <string name="summary_backup_full">Includes plugin packages and settings, excluding sensitive values</string>
-    <string name="title_restore">Restore Settings or Plugins</string>
-    <string name="summary_restore">Supports JSON and ZIP backups</string>
+    <string name="title_backup">Backup</string>
+    <string name="title_restore">Restore</string>
     <string name="title_debug_info">Debug Info</string>
     <string name="title_view_logs">View Logs</string>
 

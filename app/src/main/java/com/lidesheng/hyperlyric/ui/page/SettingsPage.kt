@@ -330,26 +330,11 @@ private fun LazyListScope.settingsSections(
                 .fillMaxWidth()
         ) {
             Column {
-                val backupWithPlugins = backupRestoreHelper.hasInstalledPlugins
                 ArrowPreference(
-                    title = stringResource(
-                        if (backupWithPlugins) {
-                            R.string.title_backup_full
-                        } else {
-                            R.string.title_backup_json
-                        }
-                    ),
-                    summary = stringResource(
-                        if (backupWithPlugins) {
-                            R.string.summary_backup_full
-                        } else {
-                            R.string.summary_backup_json
-                        }
-                    ),
+                    title = stringResource(R.string.title_backup),
                     onClick = { backupRestoreHelper.launchBackup() })
                 ArrowPreference(
                     title = stringResource(R.string.title_restore),
-                    summary = stringResource(R.string.summary_restore),
                     onClick = { backupRestoreHelper.launchRestore() })
             }
         }

@@ -96,12 +96,8 @@
     <string name="title_hide_launcher_icon">隐藏桌面图标</string>
     <string name="title_config_management">配置管理</string>
     <string name="toast_restore_empty">文件内容为空</string>
-    <string name="title_backup_json">备份设置（JSON）</string>
-    <string name="summary_backup_json">仅包含宿主设置</string>
-    <string name="title_backup_full">备份设置与插件（ZIP）</string>
-    <string name="summary_backup_full">包含插件配置和插件包，敏感配置不会备份</string>
-    <string name="title_restore">恢复设置或插件</string>
-    <string name="summary_restore">支持 JSON 和 ZIP 备份</string>
+    <string name="title_backup">备份</string>
+    <string name="title_restore">恢复</string>
     <string name="title_debug_info">调试信息</string>
     <string name="title_view_logs">查看日志</string>
 
