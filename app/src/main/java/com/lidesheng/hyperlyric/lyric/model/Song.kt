@@ -17,6 +17,7 @@ import kotlinx.serialization.Serializable
  * @property id 歌曲ID
  * @property name 歌曲名
  * @property artist 艺术家
+ * @property album 专辑
  * @property duration 歌曲时长
  * @property metadata 元数据
  * @property lyrics 歌词列表
@@ -29,6 +30,7 @@ data class Song(
     var duration: Long = 0,
     var metadata: LyricMetadata? = null,
     var lyrics: List<RichLyricLine>? = null,
+    var album: String? = null,
 ) : DeepCopyable<Song>, Normalize<Song> {
 
     override fun deepCopy(): Song = copy(lyrics = lyrics?.deepCopy())

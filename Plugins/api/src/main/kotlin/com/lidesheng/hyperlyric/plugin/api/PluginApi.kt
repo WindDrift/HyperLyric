@@ -21,13 +21,50 @@ public interface HyperLyricExtension {
 
 /** The first extension type supported by the runtime. */
 public interface LyricProcessorExtension : HyperLyricExtension {
+    /** The deterministic stage in which this processor runs. */
+    public val stage: PluginProcessorStage
+        get() = PluginProcessorStage.TRANSLATION_ENHANCEMENT
+
     /**
      * Process an immutable snapshot off the SystemUI main thread.
      *
-     * Returning null means that this processor has no result. The host keeps the previous
-     * snapshot and continues with the next enabled processor.
+     * This method remains as a source migration bridge for API 1 processors. New
+     * processors should override [processResult] so that an explicit field update set is
+     * available to Core.
      */
-    public fun process(song: PluginSong): PluginSong?
+    @Deprecated("Override processResult to declare changed fields explicitly")
+    public fun process(song: PluginSong): PluginSong? = null
+
+    /**
+     * Process an immutable snapshot and explicitly declare the lyric update.
+     *
+     * Returning null means that this processor has no result. The host keeps the previous
+     * snapshot and continues with the next enabled processor. The default implementation
+     * adapts legacy [process] implementations by comparing the returned snapshot.
+    */
+    public fun processResult(song: PluginSong): PluginSongResult? {
+        @Suppress("DEPRECATION")
+        val result = process(song) ?: return null
+        return PluginSongResult(
+            song = result,
+            changedFields = PluginSongField.changedFields(song, result)
+        )
+    }
+
+    /**
+     * Process with a Core-owned, read-only media snapshot. Existing processors that only
+     * implement [processResult] continue to work through the default bridge.
+     */
+    public fun processResult(
+        song: PluginSong,
+        processingContext: PluginProcessingContext
+    ): PluginSongResult? = processResult(song)
+}
+
+/** Fixed V1 processor stages. Lower stages always run first. */
+public enum class PluginProcessorStage {
+    LYRIC_REPLACEMENT,
+    TRANSLATION_ENHANCEMENT,
 }
 
 /** The only host object made available to a plugin. */
@@ -40,6 +77,19 @@ public interface PluginContext {
 
     public fun registerExtension(extension: HyperLyricExtension)
 }
+
+/** Read-only media fields assembled by Core for network lookup and prompt construction. */
+public data class PluginMediaInfo(
+    val title: String? = null,
+    val artist: String? = null,
+    val album: String? = null,
+    val duration: Long? = null,
+)
+
+/** Per-invocation data supplied by Core without exposing Android, MediaSession or Xposed types. */
+public data class PluginProcessingContext(
+    val mediaInfo: PluginMediaInfo? = null,
+)
 
 /** Read-only from the plugin's point of view; values are changed by the HyperLyric App. */
 public interface PluginConfig {
@@ -73,7 +123,7 @@ public interface PluginStorage {
     public fun clear()
 }
 
-/** Stable media snapshot passed across the plugin boundary. */
+/** Stable read-only media and lyric snapshot passed across the plugin boundary. */
 public data class PluginSong(
     val id: String? = null,
     val name: String? = null,
@@ -81,6 +131,28 @@ public data class PluginSong(
     val duration: Long = 0L,
     val metadata: PluginMetadata? = null,
     val lyrics: List<PluginLyricLine>? = null,
+    val album: String? = null,
+)
+
+/** The only Song field that a processor may explicitly update. */
+public enum class PluginSongField {
+    LYRICS;
+
+    public companion object {
+        public fun changedFields(before: PluginSong, after: PluginSong): Set<PluginSongField> =
+            buildSet {
+                if (before.lyrics != after.lyrics) add(LYRICS)
+            }
+    }
+}
+
+/**
+ * Immutable lyric candidate returned by a processor. Core keeps every Song-level media field
+ * from the current song and only considers [PluginSongField.LYRICS].
+ */
+public data class PluginSongResult(
+    val song: PluginSong,
+    val changedFields: Set<PluginSongField>,
 )
 
 public data class PluginMetadata(

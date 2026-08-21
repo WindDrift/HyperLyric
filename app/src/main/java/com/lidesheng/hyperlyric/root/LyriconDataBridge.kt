@@ -1,6 +1,7 @@
 package com.lidesheng.hyperlyric.root
 
 import com.lidesheng.hyperlyric.common.RootConstants
+import com.lidesheng.hyperlyric.common.media.MediaMetadataHelper
 import com.lidesheng.hyperlyric.lyric.model.RichLyricLine
 import com.lidesheng.hyperlyric.lyric.model.Song
 import com.lidesheng.hyperlyric.lyric.model.LyricMediaMetadata
@@ -90,6 +91,36 @@ object LyriconDataBridge {
 
     fun updateMediaMetadata(metadata: LyricMediaMetadata?) {
         currentLyricMediaMetadata = metadata?.normalized()
+    }
+
+    /**
+     * Merge resolved Core media fields into the current full Song without delaying its first
+     * render. Source-owned Song fields win because only missing values are filled here.
+     *
+     * The identity context remains outside Song. A changed result starts a new processing
+     * version so an earlier plugin callback cannot write over the enriched snapshot.
+     */
+    fun applyResolvedMediaInfo(mediaInfo: MediaMetadataHelper.MediaInfo): Boolean {
+        val song = currentSong ?: return false
+        val merged = song.copy(
+            name = song.name.orMissingText(mediaInfo.title),
+            artist = song.artist.orMissingText(mediaInfo.artist),
+            album = song.album.orMissingText(mediaInfo.album),
+            duration = if (song.duration > 0L) {
+                song.duration
+            } else {
+                mediaInfo.duration.takeIf { it > 0L } ?: song.duration
+            }
+        )
+        if (merged == song) return false
+
+        currentSong = merged
+        currentSongName = merged.name.orMissingText(mediaInfo.title)
+        versionCounter.incrementAndGet()
+        if (merged.name != song.name || merged.artist != song.artist) {
+            rebuildTimeline(merged, selectCurrentPosition = true)
+        }
+        return true
     }
 
     /** Clear only streaming lyric content after the resolved media identity changes. */
@@ -244,6 +275,9 @@ object LyriconDataBridge {
             else -> TitleSlot.NAME_ARTIST
         }
     }
+
+    private fun String?.orMissingText(fallback: String): String? =
+        this?.takeIf { it.isNotBlank() } ?: fallback.takeIf { it.isNotBlank() }
 
 }
 

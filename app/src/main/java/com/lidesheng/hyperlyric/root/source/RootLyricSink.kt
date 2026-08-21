@@ -17,11 +17,15 @@ import com.lidesheng.hyperlyric.root.island.content.IslandSlotContentFacade
 import com.lidesheng.hyperlyric.root.island.effects.color.IslandMusicWaveColorHooker
 import com.lidesheng.hyperlyric.root.island.renderer.IslandRenderer
 import com.lidesheng.hyperlyric.root.media.CurrentMediaInfoResolver
+import com.lidesheng.hyperlyric.root.plugin.PluginProcessingResult
 import com.lidesheng.hyperlyric.root.plugin.PluginRuntime
 import com.lidesheng.hyperlyric.root.plugin.PluginSongMapper
+import com.lidesheng.hyperlyric.plugin.api.PluginMediaInfo
+import com.lidesheng.hyperlyric.plugin.api.PluginProcessingContext
 import com.lidesheng.hyperlyric.root.utils.CoverColorHelper
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import kotlin.math.abs
+import java.util.concurrent.atomic.AtomicLong
 
 class RootLyricSink(
     private val renderer: IslandRenderer,
@@ -42,6 +46,9 @@ class RootLyricSink(
     private var lastDispatchedPlaybackSpeed = Float.NaN
     private var currentPlaybackSpeed = 1f
     private var activeMediaIdentity: MediaIdentity? = null
+    @Volatile
+    private var latestPluginMediaInfo: PluginMediaInfo? = null
+    private val pluginRequestGeneration = AtomicLong(0L)
     private val positionDispatchRunnable = Runnable {
         positionDispatchScheduled = false
         val latest = pendingPosition ?: return@Runnable
@@ -70,27 +77,20 @@ class RootLyricSink(
         lastDispatchedPlaybackSpeed = Float.NaN
         currentPlaybackSpeed = 1f
         activeMediaIdentity = null
+        latestPluginMediaInfo = null
+        val ownedSong = song?.deepCopy()
         LyriconDataBridge.updateSong(
-            song = song,
+            song = ownedSong,
             placeholderFormat = prefs?.getInt(
                 RootConstants.KEY_HOOK_PLACEHOLDER_FORMAT,
                 RootConstants.DEFAULT_HOOK_PLACEHOLDER_FORMAT
             ) ?: RootConstants.DEFAULT_HOOK_PLACEHOLDER_FORMAT
         )
-        val pluginVersion = LyriconDataBridge.versionCounter.get()
         if (song == null) {
             pluginRuntime?.cancelActiveProcessing()
+            pluginRequestGeneration.incrementAndGet()
         } else {
-            val pluginSnapshot = PluginSongMapper.toPluginSong(song.deepCopy())
-            pluginRuntime?.processSong(pluginSnapshot) { enhancedSnapshot ->
-                mainHandler.post {
-                    val enhancedSong = PluginSongMapper.toInternalSong(song, enhancedSnapshot)
-                        ?: return@post
-                    if (LyriconDataBridge.applyPluginEnhancement(enhancedSong, pluginVersion, song)) {
-                        renderer.updateLyricLine()
-                    }
-                }
-            }
+            startPluginProcessing()
         }
         if (song == null) {
             endColorSession()
@@ -119,6 +119,8 @@ class RootLyricSink(
         lastDispatchedPlaybackSpeed = Float.NaN
         currentPlaybackSpeed = 1f
         activeMediaIdentity = null
+        latestPluginMediaInfo = null
+        pluginRequestGeneration.incrementAndGet()
         endColorSession()
         renderer.clearAllViews()
         LyriconDataBridge.clearState()
@@ -129,6 +131,9 @@ class RootLyricSink(
         LyriconDataBridge.updateMediaMetadata(normalized)
         normalized?.packageName?.let(LyriconDataBridge::updateLyricPackage)
         if (normalized == null) {
+            latestPluginMediaInfo = null
+            pluginRequestGeneration.incrementAndGet()
+            pluginRuntime?.cancelActiveProcessing()
             endColorSession()
             renderer.updateMetadata()
             return
@@ -142,18 +147,57 @@ class RootLyricSink(
             logger = HookLogger,
             sourceMetadata = normalized
         )
+        LyriconDataBridge.applyResolvedMediaInfo(mediaInfo)
+        latestPluginMediaInfo = mediaInfo.toPluginMediaInfo()
         val mediaChanged = activeMediaIdentity?.isCompatibleWith(mediaInfo.identity) == false
         if (mediaChanged && LyriconDataBridge.currentSong == null) {
             LyriconDataBridge.resetLyricContentForMediaChange()
             renderer.updateLyricLine()
         }
         activeMediaIdentity = mediaInfo.identity
-        LyriconDataBridge.currentSongName = mediaInfo.title
-            .takeIf { it.isNotBlank() }
-            ?: LyriconDataBridge.currentSong?.name
+        LyriconDataBridge.currentSongName = LyriconDataBridge.currentSong?.name
+            ?.takeIf { it.isNotBlank() }
+            ?: mediaInfo.title.takeIf { it.isNotBlank() }
+        startPluginProcessing(latestPluginMediaInfo)
         updateColorSession(mediaInfo, reason = "metadata_changed")
         renderer.updateMetadata()
     }
+
+    /** Starts a fresh plugin pass for the current Core-owned Song snapshot. */
+    private fun startPluginProcessing(mediaInfo: PluginMediaInfo? = latestPluginMediaInfo) {
+        val baseSong = LyriconDataBridge.currentSong ?: return
+        val expectedVersion = LyriconDataBridge.versionCounter.get()
+        val expectedRequest = pluginRequestGeneration.incrementAndGet()
+        val pluginSnapshot = PluginSongMapper.toPluginSong(baseSong.deepCopy())
+        pluginRuntime?.processSong(
+            song = pluginSnapshot,
+            processingContext = PluginProcessingContext(mediaInfo = mediaInfo)
+        ) { processingResult: PluginProcessingResult ->
+            mainHandler.post {
+                if (pluginRequestGeneration.get() != expectedRequest) return@post
+                val enhancedSong = PluginSongMapper.toInternalSong(
+                    base = baseSong,
+                    result = processingResult.result
+                ) ?: return@post
+                if (LyriconDataBridge.applyPluginEnhancement(
+                        enhancedSong = enhancedSong,
+                        expectedVersion = expectedVersion,
+                        expectedBaseSong = baseSong
+                    )
+                ) {
+                    renderer.updateLyricLine()
+                }
+            }
+        }
+    }
+
+    private fun MediaMetadataHelper.MediaInfo.toPluginMediaInfo(): PluginMediaInfo =
+        PluginMediaInfo(
+            title = title.takeIf { it.isNotBlank() },
+            artist = artist.takeIf { it.isNotBlank() },
+            album = album.takeIf { it.isNotBlank() },
+            duration = duration.takeIf { it > 0L }
+        )
 
     override fun onPlaybackStateChanged(isPlaying: Boolean, playbackSpeed: Float) {
         playbackActive = isPlaying

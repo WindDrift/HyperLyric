@@ -16,6 +16,7 @@ data class LyricMediaMetadata(
     val title: String? = null,
     val artist: String? = null,
     val album: String? = null,
+    val duration: Long? = null,
     /** Exact MediaSession identity when the source already owns a controller. */
     val sessionToken: MediaSession.Token? = null,
     /** Player-defined identity of the current media item, when available. */
@@ -29,6 +30,7 @@ data class LyricMediaMetadata(
         title = title.normalizeMediaText(),
         artist = artist.normalizeMediaText(),
         album = album.normalizeMediaText(),
+        duration = duration?.takeIf { it > 0L },
         mediaId = mediaId.normalizeMediaText()
     )
 

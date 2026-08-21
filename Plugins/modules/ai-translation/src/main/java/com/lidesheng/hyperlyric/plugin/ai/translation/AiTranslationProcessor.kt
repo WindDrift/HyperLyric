@@ -3,24 +3,36 @@ package com.lidesheng.hyperlyric.plugin.ai.translation
 import com.lidesheng.hyperlyric.plugin.api.LyricProcessorExtension
 import com.lidesheng.hyperlyric.plugin.api.PluginConfig
 import com.lidesheng.hyperlyric.plugin.api.PluginContext
+import com.lidesheng.hyperlyric.plugin.api.PluginMediaInfo
+import com.lidesheng.hyperlyric.plugin.api.PluginProcessingContext
+import com.lidesheng.hyperlyric.plugin.api.PluginProcessorStage
 import com.lidesheng.hyperlyric.plugin.api.PluginSong
+import com.lidesheng.hyperlyric.plugin.api.PluginSongField
+import com.lidesheng.hyperlyric.plugin.api.PluginSongResult
 
 internal class AiTranslationProcessor(
     private val context: PluginContext,
 ) : LyricProcessorExtension {
     override val id: String = AI_TRANSLATION_EXTENSION_ID
+    override val stage = PluginProcessorStage.TRANSLATION_ENHANCEMENT
 
     private val gatewayLogger = context.logger.withTag("AiTranslationGateway")
     private val translatorLogger = context.logger.withTag("AITranslator")
     private val engine = AiTranslationEngine(context.storage, context.logger, translatorLogger)
 
-    override fun process(song: PluginSong): PluginSong? {
+    override fun processResult(
+        song: PluginSong,
+        processingContext: PluginProcessingContext
+    ): PluginSongResult? {
         return try {
             val config = AiTranslationConfig.from(context.config)
             if (!config.enabled) return null
-            val lyrics = song.lyrics
+            // Media fields are a read-only Core snapshot used for lookup/cache/prompt only.
+            // PluginSongMapper never writes these local query values back into Core Song.
+            val querySong = song.withMediaInfo(processingContext.mediaInfo)
+            val lyrics = querySong.lyrics
             if (lyrics.isNullOrEmpty()) {
-                gatewayLogger.debug("跳过 AI 翻译: reason=no_lyrics, song=${song.name}")
+                gatewayLogger.debug("跳过 AI 翻译: reason=no_lyrics, song=${querySong.name}")
                 return null
             }
 
@@ -29,15 +41,19 @@ internal class AiTranslationProcessor(
                 !config.forceOverride &&
                 lyrics.any { !it.translation.isNullOrBlank() }
             ) {
-                gatewayLogger.debug("跳过 AI 翻译: reason=existing_translation, song=${song.name}")
+                gatewayLogger.debug(
+                    "跳过 AI 翻译: reason=existing_translation, song=${querySong.name}"
+                )
                 return null
             }
 
             if (config.skipLanguages.isNotEmpty()) {
-                if (!TranslationLanguageDetector.hasEnoughText(song)) {
-                    gatewayLogger.debug("跳过语言识别: reason=text_too_short, song=${song.name}")
+                if (!TranslationLanguageDetector.hasEnoughText(querySong)) {
+                    gatewayLogger.debug(
+                        "跳过语言识别: reason=text_too_short, song=${querySong.name}"
+                    )
                 } else {
-                    val detected = TranslationLanguageDetector.detect(song)
+                    val detected = TranslationLanguageDetector.detect(querySong)
                     if (detected != null) {
                         val margin = detected.secondConfidence?.let {
                             detected.confidence - it
@@ -50,14 +66,14 @@ internal class AiTranslationProcessor(
                             "%.3f".format(java.util.Locale.US, it)
                         } ?: "-"
                         gatewayLogger.debug(
-                            "歌词语言识别: song=${song.name}, detected=${detected.languageTag}, " +
+                            "歌词语言识别: song=${querySong.name}, detected=${detected.languageTag}, " +
                                     "confidence=$confidence, margin=$marginText, " +
                                     "hypotheses=${detected.hypothesisCount}, selected=$selected, " +
                                     "confident=$confidentEnough"
                         )
                         if (selected && confidentEnough) {
                             gatewayLogger.debug(
-                                "跳过 AI 翻译: reason=selected_language, song=${song.name}, " +
+                                "跳过 AI 翻译: reason=selected_language, song=${querySong.name}, " +
                                         "detected=${detected.languageTag}"
                             )
                             return null
@@ -70,8 +86,13 @@ internal class AiTranslationProcessor(
                 translatorLogger.warn("跳过翻译：配置不完整，API Key 或其他配置为空")
                 return null
             }
-            translatorLogger.debug("正在翻译：${song.name}（共 ${lyrics.size} 行）")
-            engine.translate(song, config)
+            translatorLogger.debug("正在翻译：${querySong.name}（共 ${lyrics.size} 行）")
+            engine.translate(querySong, config)?.let { translated ->
+                PluginSongResult(
+                    song = translated,
+                    changedFields = setOf(PluginSongField.LYRICS)
+                )
+            }
         } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
             null
@@ -79,6 +100,16 @@ internal class AiTranslationProcessor(
             translatorLogger.error("翻译过程发生错误", error)
             null
         }
+    }
+
+    private fun PluginSong.withMediaInfo(mediaInfo: PluginMediaInfo?): PluginSong {
+        mediaInfo ?: return this
+        return copy(
+            name = mediaInfo.title ?: name,
+            artist = mediaInfo.artist ?: artist,
+            album = mediaInfo.album ?: album,
+            duration = mediaInfo.duration ?: duration
+        )
     }
 
     fun close() {

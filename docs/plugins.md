@@ -22,21 +22,28 @@ HyperLyric 插件是一个由宿主管理的 ZIP 扩展包。它通过稳定的 
   → Manifest 校验与安装
   → SystemUI 启动时由 PluginRuntime 加载
   → PluginContext 注册 Extension
-  → 接收 PluginSong 快照并返回增强结果
-  → 宿主校验歌曲身份和歌词结构后写回
+  → 接收只读 PluginSong + PluginProcessingContext.mediaInfo
+  → 按 LYRIC_REPLACEMENT → TRANSLATION_ENHANCEMENT 阶段返回 PluginSongResult
+  → 宿主只合并 changedFields.LYRICS，并校验歌词结构后写回
 ```
 
 插件代码在 SystemUI 启动时加载，因此安装、卸载和代码升级需要重启 SystemUI。配置修改不需要重新加载代码，会通过 Remote Preferences 实时同步。
 
 ## 歌词处理边界
 
-插件接收的是 `PluginSong` 快照，而不是 HyperLyric 内部的 `Song`。歌词原文会先正常显示，插件在后台执行增强；插件没有结果、发生异常、超时或网络失败时，宿主会保留原始歌词。
+插件接收的是只读 `PluginSong` 快照，而不是 HyperLyric 内部的 `Song`。快照包含 `id`、`name`、`artist`、`album`、`duration`、`metadata` 和完整歌词行；`PluginProcessingContext.mediaInfo` 提供 Core 确认过的当前媒体标题、艺术家、Album 和 Duration，供网络查询使用。歌词原文会先正常显示，插件在后台执行增强；插件没有结果、发生异常、超时或网络失败时，宿主会保留原始歌词。
 
 插件可以补充的内容包括：
 
+- 完整原文歌词或新的逐字时间轴，声明 `PluginSongField.LYRICS`；
 - 行级翻译，写入 `PluginLyricLine.translation`；
-- 只有时间轴能够可靠匹配时，才写入 `translationWords`；
-- 罗马音、词级信息或插件自己的元数据。
+- 只有时间轴能够可靠匹配时，才写入 `translationWords` 或其他逐字字段；
+- 罗马音、secondary、行/词 metadata 或插件自己的 metadata 命名空间；
+- Album、标题、艺术家和 Duration 只能通过只读 DTO 读取，不能写回 Core Song。
+
+完整歌词替换不能返回空列表；Core 会校验行/词的 begin、end、duration、顺序和结果大小。V1 只允许写回 `LYRICS`，不会接受 Song 身份、Album、Duration 或 Metadata 的修改。
+
+多个插件按固定阶段执行，同一阶段按稳定顺序运行。后返回且有效的完整 lyrics 候选覆盖前值，后续插件看到最新歌词。某个插件失败不能清空原歌词，也不能阻止后续插件继续运行。
 
 插件不能直接访问宿主内部模型、Canvas、Renderer、SystemUI View、`LyriconDataBridge` 或 Xposed 对象。这样可以让插件和歌词渲染实现保持独立，也能让宿主在插件失败时安全降级。
 
@@ -54,7 +61,7 @@ HyperLyric 插件是一个由宿主管理的 ZIP 扩展包。它通过稳定的 
 | --- | --- |
 | Manifest | `id`、入口类和 API 版本必须稳定、可校验；`summary` 可以省略。 |
 | API 依赖 | 只使用 `Plugins/api` 暴露的接口；API 依赖使用 `compileOnly`。 |
-| 歌词处理 | 使用 `PluginSong` 输入，保持歌曲身份、行顺序和时间轴不变。 |
+| 歌词处理 | 使用只读 `PluginSong` 和 `PluginProcessingContext.mediaInfo` 输入，只以 `PluginSongResult.changedFields.LYRICS` 声明完整歌词修改。 |
 | 失败策略 | 异常、超时、空结果和缓存错误都必须回退到当前歌词。 |
 | 配置页面 | 通过 Manifest Settings Schema 描述设置，不自行实现 MIUIX 或 Compose 页面。 |
 | 运行库 | 插件自己的运行时依赖由插件携带，宿主已有 API 和运行库不能重复打包。 |

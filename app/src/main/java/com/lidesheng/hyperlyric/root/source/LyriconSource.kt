@@ -152,7 +152,9 @@ class LyriconSource : LyricSource {
                         packageName = activePlayerPackageName,
                         songId = it.id,
                         title = it.name,
-                        artist = it.artist
+                        artist = it.artist,
+                        album = it.album,
+                        duration = it.duration.takeIf { duration -> duration > 0L }
                     )
                 }
             )

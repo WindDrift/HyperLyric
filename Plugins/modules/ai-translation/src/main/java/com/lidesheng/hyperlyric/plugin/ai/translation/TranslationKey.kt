@@ -10,6 +10,8 @@ internal object TranslationKey {
             append("target=").appendLine(targetLanguage)
             append("title=").appendLine(song.name.orEmpty())
             append("artist=").appendLine(song.artist.orEmpty())
+            append("album=").appendLine(song.album.orEmpty())
+            append("duration=").appendLine(song.duration)
             lines.forEachIndexed { index, line ->
                 append(index).append(':').appendLine(line)
             }

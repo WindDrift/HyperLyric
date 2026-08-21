@@ -89,6 +89,7 @@ object LyricInfoParser {
                     id = songId,
                     name = title,
                     artist = artist,
+                    album = album,
                     lyrics = resultLines
                 ),
                 songId = songId,

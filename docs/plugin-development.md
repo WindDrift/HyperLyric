@@ -4,13 +4,17 @@
 
 ## 1. 开发前需要知道的边界
 
-插件运行在 HyperLyric 注入的 SystemUI 进程中，但插件能够使用的宿主能力只有 `PluginContext` 和 Plugin API DTO。不要导入或操作以下对象：
+插件运行在 HyperLyric 注入的 SystemUI 进程中，但插件能够使用的宿主能力只有 `PluginContext`、Plugin API DTO 和每次处理调用携带的 `PluginProcessingContext`。不要导入或操作以下对象：
 
 - HyperLyric 内部的 `Song`、`RichLyricLine` 或其他歌词模型；
 - `LyriconDataBridge`、Renderer、Canvas、SystemUI View；
 - `HookEntry`、`XposedModule`、SystemUI ClassLoader 或其他 Xposed 对象。
 
-插件处理的是不可变的 `PluginSong` 快照。原始歌词会先显示，处理器在后台执行；插件返回 `null`、抛出异常、超时、网络失败或缓存失败时，宿主继续使用当前歌词结果，不会因为插件失败而影响原始歌词。
+插件处理的是不可变的 `PluginSong` 快照。它是 Core `Song` 的独立 DTO，不是宿主内部类。快照至少包含 `id`、`name`、`artist`、`album`、`duration`、`metadata` 和完整 `lyrics`；歌词行还包含时间轴、原文、次要文本、翻译、罗马音、metadata 以及各自的逐字时间轴。`PluginProcessingContext.mediaInfo` 另外提供 Core 组装并确认过的当前标题、艺术家、Album 和 Duration，只用于搜索、缓存或请求参数。
+
+原始歌词会先显示，处理器在后台执行；插件返回 `null`、抛出异常、超时、网络失败或缓存失败时，宿主继续使用当前歌词结果，不会因为插件失败而影响原始歌词。
+
+当前 Processor 只接收已经产生完整 `Song` 的歌词源。SuperLyric 目前只提供 metadata 和当前歌词行/纯文本，因此不会被伪造为空 Song 送入 Processor；metadata-only source 将来需要独立的 `LyricSourceExtension` 契约。
 
 ## 2. 创建插件模块
 
@@ -107,36 +111,66 @@ private class MyLyricProcessor(
     private val context: PluginContext,
 ) : LyricProcessorExtension {
     override val id: String = "translation"
+    override val stage = PluginProcessorStage.TRANSLATION_ENHANCEMENT
 
-    override fun process(song: PluginSong): PluginSong? {
+    override fun processResult(
+        song: PluginSong,
+        processingContext: PluginProcessingContext
+    ): PluginSongResult? {
         val lyrics = song.lyrics ?: return null
-        return song.copy(
+        val updated = song.copy(
             lyrics = lyrics.map { line ->
                 line.copy(translation = translate(line.text))
             }
+        )
+        return PluginSongResult(
+            song = updated,
+            changedFields = setOf(PluginSongField.LYRICS)
         )
     }
 }
 ```
 
-一个插件可以注册多个 `LyricProcessorExtension`。每个处理器都有独立的异常和超时隔离；返回 `null` 表示本次没有增强结果，宿主会继续保留上一个快照。
+一个插件可以注册多个 `LyricProcessorExtension`。每个处理器都有独立的异常和超时隔离；返回 `null` 表示本次没有增强结果，宿主会继续保留上一个快照。旧 API 处理器仍可实现 `process(song): PluginSong?`，宿主会用歌词快照差异自动生成 `PluginSongResult`；新插件应使用带 `PluginProcessingContext` 的显式结果。
 
-## 5. `PluginSong` 写回规则
+## 5. `PluginSong` 与完整写回规则
 
-`PluginSong` 是插件边界上的 DTO。处理器可以使用歌曲信息和歌词快照，但返回时必须遵守以下规则：
+`PluginSong` 是插件边界上的只读 DTO。`album` 是歌曲核心字段，不放在 `PluginMetadata` 中；标题、艺术家、Album、Duration 和 Metadata 都只能读取，不能通过插件结果写回 Core。处理器只能返回新的歌词 DTO 和 `changedFields`：
+
+| `PluginSongField` | 语义 |
+| --- | --- |
+| `LYRICS` | 覆盖完整歌词候选，包含所有歌词行字段和逐字时间轴。 |
+
+V1 的 `PluginSongField` 只有 `LYRICS`。插件返回的候选即使携带修改后的标题、艺术家、Album、Duration 或 Metadata，Core 也会忽略这些字段；它们不会改变当前播放歌曲的身份。
 
 | 字段 | 规则 |
 | --- | --- |
-| `id`、`name`、`artist`、`duration` | 保持歌曲身份不变。 |
-| `lyrics` | 不改变行顺序、行数和原有时间轴。 |
-| `PluginLyricLine.translation` | 行级翻译的主要写回字段。 |
-| `PluginLyricLine.translationWords` | 只有能够可靠匹配翻译词与原文时间轴时才写入；不能为了填充字段而伪造时间。 |
-| `PluginLyricLine.roma` | 可靠生成罗马音时可以写入。 |
-| `PluginMetadata` | 只写入插件自己的命名空间，不覆盖其他插件的数据。 |
+| `PluginLyricLine.begin/end/duration` | 必须为合法正向时间轴，`duration` 与行区间一致。 |
+| `words`、`secondaryWords`、`translationWords` | 每个词必须位于对应行范围内，按时间不倒退，词 `duration` 合法。 |
+| `text`、`secondary`、`translation`、`roma` | 可以单独修改或清空；逐字字段只有可靠时才写入。 |
+| `PluginLyricLine.metadata`、`PluginWord.metadata` | 保持为 DTO metadata，不依赖宿主内部类型。 |
+| `lyrics` | 不能返回空列表或 `null` 作为完整替换；V1 不支持清空整首歌词。结果大小也受 Core 限制。 |
+
+“只返回翻译”和“完整歌词替换”都使用 `LYRICS`，区别在于候选 DTO：翻译插件应基于收到的最新快照，只修改 `translation/translationWords`；原文、罗马音或词级增强插件可以返回完整行列表，Core 会校验并替换所有行字段。插件不需要也不能创建内部 `Song`。
+
+逐字歌词的可见原文来自 `words`，因此不能只修改 `PluginLyricLine.text`。如果原文内容发生变化，插件应同时返回匹配的新 `words` 和合法时间轴；可以保留原时间轴，也可以在当前行范围内重新分配时间。Demo 插件会新增一个带时间轴的 `[Demo] ` 词并重排原词，作为完整逐字替换示例。
 
 建议使用 `copy(...)` 返回结果，不要改变收到的对象，也不要在处理器里修改宿主对象。处理器不能等待完成后才允许原始歌词显示；网络和模型调用必须在插件自己的后台任务中完成。
 
-宿主对单次歌词 Processor 设置 40 秒的总超时。网络请求、模型调用和缓存读取应设置更短的超时，并正确处理线程中断和协程取消。即使服务返回空结果、响应解析失败或缓存损坏，也应返回 `null` 或保留当前快照。
+### 多插件顺序
+
+Runtime 使用固定阶段和稳定顺序：
+
+```text
+LYRIC_REPLACEMENT
+→ TRANSLATION_ENHANCEMENT
+```
+
+同一阶段内按启用插件 ID、扩展 ID 的稳定顺序执行。每个成功结果先由 Core 校验并替换完整 lyrics，再把合并后的快照交给下一个插件；后返回且有效的歌词候选覆盖前一个候选。一个插件异常、超时或结果非法时只跳过该插件，后续插件继续看到最近一次有效快照，原始歌词不会被清空。
+
+典型链路是：搜索插件在 `LYRIC_REPLACEMENT` 返回新的原文歌词 → AI 插件在 `TRANSLATION_ENHANCEMENT` 看到新原文并返回翻译 → 罗马音/逐字增强插件继续处理最新快照。
+
+宿主对每个歌词 Processor 设置独立的 40 秒超时。网络请求、模型调用和缓存读取应设置更短的超时，并正确处理线程中断和协程取消。即使服务返回空结果、响应解析失败或缓存损坏，也应返回 `null` 或保留当前快照。
 
 ## 6. Manifest Settings Schema
 
@@ -186,11 +220,12 @@ private class MyLyricProcessor(
 
 ## 7. 配置、存储和日志
 
-插件通过 `PluginContext` 使用宿主提供的三个接口：
+插件通过 `PluginContext` 使用宿主提供的三个接口；处理时另有只读的 `PluginProcessingContext`：
 
 - `config`：只读读取 App 写入的配置。支持 `getBoolean`、`getString`、`getLong`、`getFloat` 和 `getStringSet`。
 - `storage`：当前插件独立的字符串 Key/Value 存储，支持读、写、删除和清空。
 - `logger`：宿主托管的日志接口，支持 `debug`、`info`、`warn` 和 `error`。
+- `PluginProcessingContext.mediaInfo`：当前媒体的标题、艺术家、Album 和 Duration，只用于网络查询、缓存 key 或请求参数。它不是 `MediaMetadataHelper`，也不包含包名、Session Token 或 Xposed 对象。
 
 示例：
 
@@ -212,7 +247,10 @@ context.logger.error("event=requestFailed", exception)
 - Manifest 中声明的入口类及其无参数构造函数；
 - `onLoad`、`onEnable`、`onConfigChanged`、`onUnload`；
 - `HyperLyricExtension.id`；
-- `LyricProcessorExtension.process`。
+- `LyricProcessorExtension.stage`；
+- 迁移旧插件时的 `LyricProcessorExtension.process`；
+- 新插件的带 `PluginProcessingContext` 的 `LyricProcessorExtension.processResult`；
+- `PluginSong`、`PluginSongResult`、`PluginSongField`、`PluginMediaInfo`、`PluginProcessingContext` 及其协议字段和 DTO 构造/访问成员。
 
 可以参考 Demo 插件的 `proguard-rules.pro`，只保留协议需要的成员，让插件内部实现继续由 R8 优化和混淆。
 
@@ -250,7 +288,7 @@ my-plugin.zip
 1. Debug 和 Release ZIP 都能生成，Release 入口类可以被 R8 后的 Runtime 加载。
 2. ZIP 只有预期的 `manifest.json`、DEX 和插件自有运行库，没有宿主 API 或宿主包的重复定义。
 3. 插件首次加载、启用、配置变更和卸载都能在日志中确认。
-4. 成功结果能写入正确的歌词字段；不可靠的词级时间信息不要写入 `translationWords`。
+4. 成功结果能写入正确的歌词字段；不可靠的词级时间信息不要写入任何 `*Words` 字段。
 5. 网络超时、异常、空结果、解析错误、缓存损坏和未配置必要参数时，原始歌词仍然正常显示。
 6. 播放过程中切歌，旧歌曲的迟到结果不会写回新歌曲。
 7. 禁用插件后配置项仍然可见但不可编辑；配置更新无需重启，代码更新需要重启 SystemUI。

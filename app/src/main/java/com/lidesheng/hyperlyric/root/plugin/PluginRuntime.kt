@@ -11,8 +11,11 @@ import com.lidesheng.hyperlyric.plugin.api.LyricProcessorExtension
 import com.lidesheng.hyperlyric.plugin.api.PluginConfig
 import com.lidesheng.hyperlyric.plugin.api.PluginContext
 import com.lidesheng.hyperlyric.plugin.api.PluginLogger
+import com.lidesheng.hyperlyric.plugin.api.PluginProcessingContext
+import com.lidesheng.hyperlyric.plugin.api.PluginSongField
 import com.lidesheng.hyperlyric.plugin.api.PluginStorage
 import com.lidesheng.hyperlyric.plugin.api.PluginSong
+import com.lidesheng.hyperlyric.plugin.api.PluginSongResult
 import com.lidesheng.hyperlyric.plugin.core.PluginArchiveReader
 import com.lidesheng.hyperlyric.plugin.core.PluginConstants
 import com.lidesheng.hyperlyric.plugin.core.PluginManifest
@@ -76,7 +79,7 @@ class PluginRuntime(
     private val loadedPlugins = mutableListOf<LoadedPlugin>()
 
     @Volatile
-    private var processors: List<LyricProcessorExtension> = emptyList()
+    private var processors: List<RegisteredProcessor> = emptyList()
 
     fun loadEnabledPlugins() {
         if (closed.get()) return
@@ -110,9 +113,25 @@ class PluginRuntime(
             }
         }
 
-        processors = loadedPlugins
-            .flatMap { it.extensions }
-            .filterIsInstance<LyricProcessorExtension>()
+        val registeredProcessors = mutableListOf<RegisteredProcessor>()
+        loadedPlugins.forEachIndexed { pluginIndex, loaded ->
+            loaded.extensions.filterIsInstance<LyricProcessorExtension>()
+                .forEachIndexed { extensionIndex, extension ->
+                    registeredProcessors += RegisteredProcessor(
+                        pluginId = loaded.manifest.id,
+                        pluginIndex = pluginIndex,
+                        extensionIndex = extensionIndex,
+                        extension = extension
+                    )
+                }
+        }
+        processors = registeredProcessors.sortedWith(
+            compareBy<RegisteredProcessor> { it.extension.stage.ordinal }
+                .thenBy { it.pluginId }
+                .thenBy { it.extension.id }
+                .thenBy { it.pluginIndex }
+                .thenBy { it.extensionIndex }
+        )
         HookLogger.i(
             TAG,
             "插件 Runtime 初始化完成: enabled=${enabledIds.size}, " +
@@ -120,7 +139,11 @@ class PluginRuntime(
         )
     }
 
-    fun processSong(song: PluginSong, onResult: (PluginSong) -> Unit) {
+    internal fun processSong(
+        song: PluginSong,
+        processingContext: PluginProcessingContext,
+        onResult: (PluginProcessingResult) -> Unit
+    ) {
         if (closed.get()) return
         val currentGeneration = generation.incrementAndGet()
         activeJob?.cancel()
@@ -129,17 +152,43 @@ class PluginRuntime(
 
         activeJob = scope.launch {
             var current = song
-            var changed = false
-            for (processor in currentProcessors) {
+            val changedFields = linkedSetOf<PluginSongField>()
+            for (registered in currentProcessors) {
                 if (!isActive || currentGeneration != generation.get()) return@launch
-                val result = runProcessor(processor, current) ?: continue
-                if (result != current) {
-                    current = result
-                    changed = true
+                val result = runProcessor(
+                    processor = registered.extension,
+                    song = current,
+                    processingContext = processingContext
+                ) ?: continue
+                val merged = PluginSongMapper.mergePluginSong(
+                    base = current,
+                    result = result
+                )
+                if (merged == null) {
+                    HookLogger.w(
+                        TAG,
+                        "插件结果非法，保留当前快照: extension=${registered.extension.id}"
+                    )
+                    continue
+                }
+                if (merged != current) {
+                    current = merged
+                    changedFields += result.changedFields
                 }
             }
-            if (!changed || !isActive || currentGeneration != generation.get()) return@launch
-            runCatching { onResult(current) }.onFailure { error ->
+            if (changedFields.isEmpty() || !isActive || currentGeneration != generation.get()) {
+                return@launch
+            }
+            runCatching {
+                onResult(
+                    PluginProcessingResult(
+                        result = PluginSongResult(
+                            song = current,
+                            changedFields = changedFields.toSet()
+                        )
+                    )
+                )
+            }.onFailure { error ->
                 HookLogger.w(TAG, "插件结果回调失败", error)
             }
         }
@@ -228,10 +277,13 @@ class PluginRuntime(
 
     private fun runProcessor(
         processor: LyricProcessorExtension,
-        song: PluginSong
-    ): PluginSong? {
-        val future: Future<PluginSong?> = try {
-            processorExecutor.submit<PluginSong?> { processor.process(song) }
+        song: PluginSong,
+        processingContext: PluginProcessingContext
+    ): PluginSongResult? {
+        val future: Future<PluginSongResult?> = try {
+            processorExecutor.submit<PluginSongResult?> {
+                processor.processResult(song, processingContext)
+            }
         } catch (_: Exception) {
             return null
         }
@@ -268,7 +320,18 @@ class PluginRuntime(
         val listener: SharedPreferences.OnSharedPreferenceChangeListener,
         val extensions: List<HyperLyricExtension>,
     )
+
+    private data class RegisteredProcessor(
+        val pluginId: String,
+        val pluginIndex: Int,
+        val extensionIndex: Int,
+        val extension: LyricProcessorExtension,
+    )
 }
+
+internal data class PluginProcessingResult(
+    val result: PluginSongResult,
+)
 
 private class RuntimePluginContext(
     override val pluginId: String,

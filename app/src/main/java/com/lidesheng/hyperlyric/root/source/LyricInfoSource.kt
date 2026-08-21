@@ -251,6 +251,9 @@ class LyricInfoSource(private val context: Context) : LyricSource {
                     title = payload.title,
                     artist = payload.artist,
                     album = payload.album,
+                    duration = runCatching {
+                        metadata.getLong(MediaMetadata.METADATA_KEY_DURATION)
+                    }.getOrNull()?.takeIf { it > 0L },
                     sessionToken = controller.sessionToken,
                     mediaId = metadata.getString(MediaMetadata.METADATA_KEY_MEDIA_ID)
                 )
