@@ -12,16 +12,26 @@ HyperLyric 可以通过插件增加更多歌词功能。插件由 HyperLyric 统
 
 插件收到的是独立的只读 `PluginSong` 快照，包含 `id`、`name`、`artist`、`album`、`duration`、`metadata` 和完整 `lyrics`。处理调用还会携带只读的 `PluginProcessingContext.mediaInfo`，用于网络搜索、缓存 key 或提示词。插件不能导入宿主内部 `Song`、`LyricMediaMetadata`、`MediaMetadataHelper`、`CurrentMediaInfoResolver`、`LyriconDataBridge`、Xposed 或 SystemUI 类型。
 
-处理器通过 `PluginSongResult(song, changedFields)` 返回候选结果：
+处理器通过 `PluginSongResult` 返回候选结果。当前 API 版本仍为 `1`，Demo 阶段不升级版本号，也不处理正式发布后的兼容迁移：
 
+- `PluginSongField` 支持 `ID`、`NAME`、`ARTIST`、`ALBUM`、`DURATION`、`METADATA` 和 `LYRICS`；字段未声明时 Core 保留原值，字段已声明且候选为 `null` 时明确清空；
 - `LYRIC_REPLACEMENT` 阶段适合搜索并替换原文歌词、逐字时间轴或罗马音；
 - `TRANSLATION_ENHANCEMENT` 阶段会看到前一阶段已经合并的最新歌词，适合翻译和其他增强；
-- 同阶段按稳定顺序执行，后一个有效结果覆盖前一个完整 lyrics 候选；Song 的媒体字段始终由 Core 保留；
-- 插件异常、超时、无匹配或非法时间轴会回退到上一个有效 Song，不能清空原歌词。
+- `PluginLyricsUpdateMode.PATCH` 要求行数不变，按稳定行索引只合并声明的 `PluginLyricField`；`REPLACE` 允许返回全新的歌词列表和时间轴；
+- 同阶段按稳定插件 ID、扩展 ID 顺序执行，后一个有效的同字段结果覆盖前值，不同字段同时保留；
+- 插件异常、超时、无匹配或非法时间轴只跳过当前插件，后续插件继续运行，最终没有有效结果时保持原始 Song。
 
-插件结果只能声明 `PluginSongField.LYRICS`。Core 会校验完整候选的行/词时间轴和结果大小；只翻译时只改行的 `translation`，完整歌词替换时可以同时返回原文、翻译、罗马音、secondary、metadata 和所有逐字字段。Album 等媒体字段仅供读取和搜索，不会被插件写回。
+Core 会校验完整候选的行/词时间轴和结果大小：歌词行要求 `begin >= 0`、`end > begin`、`duration == end - begin`、按 begin 升序且有 text 或 words；每个 words 列表必须在行范围内、按 begin 升序，不能产生越界时间轴。只翻译时声明 `TRANSLATION/TRANSLATION_WORDS`，原文插件声明 `TEXT/WORDS`，罗马音插件声明 `ROMA`；这些字段可以在同一批歌词行上同时存在。Album、标题、艺术家、Duration 和 Metadata 通过 DTO 受控写回，不允许插件访问宿主内部媒体对象。
 
-对于逐字歌词，渲染使用的是 `words` 的文本和时间轴，不能只修改行级 `text` 后期待逐字内容变化。插件需要在返回完整歌词时同时返回新的 `words`（或明确保留原词文本）；每个词的时间必须仍在对应行范围内、按顺序排列。Demo 插件的“替换原文歌词”会新增带时间轴的 `[Demo] ` 词并重排当前行词时间，用于验证这个路径。
+Core 写回最终 Song 后会同步 `LyriconDataBridge.currentSong`、`currentSongName`、完整歌词可用状态和 `TimingNavigator`，并按修改字段刷新 metadata/lyric。插件只能访问 `PluginContext`、`PluginSong`、`PluginProcessingContext.mediaInfo` 和公开 API，不能访问 `Song`、`LyriconDataBridge`、Renderer、Canvas、MediaMetadataHelper、MediaSession、CurrentMediaInfoResolver、Xposed 或 SystemUI。
+
+对于逐字歌词，渲染使用的是 `words` 的文本和时间轴，不能只修改行级 `text` 后期待逐字内容变化。PATCH 时必须声明 `WORDS` 并返回匹配的行索引；REPLACE 时可以同时返回新的 `words`。每个词的时间必须仍在对应行范围内、按顺序排列。Demo 插件的“替换原文歌词”会新增带时间轴的 `[Demo] ` 词并重排当前行词时间，用于验证字段级合并路径。
+
+## 统一缓存入口
+
+插件通过 `PluginContext.cache` 使用 Core 提供的抽象缓存，支持 `getString`、`putString`、`getBytes`、`putBytes`、`contains`、`remove` 和 `clear`。插件负责缓存什么、key、序列化格式、schema 版本、TTL/失效逻辑和 cache hit 后的 `PluginSongResult`；Core 负责插件 ID 隔离、实际存储后端、大小限制和读写异常隔离。
+
+当前实现使用宿主运行时侧按插件隔离的 `SharedPreferences`，不是 `plugins/<id>/cache/` 文件目录，也不假设 Remote Files 能从 SystemUI 写回 HyperLyric App。插件看不到 Android Context、文件路径、SystemUI、Xposed 或 MediaSession。缓存损坏、解析失败、读取/写入失败不会影响原始歌词，插件可以删除当前条目并回退到网络请求。AI Translation 会先查缓存，命中后禁止网络请求，并基于当前 Song 重新生成只声明翻译字段的 PATCH；成功且校验通过后保存翻译结果条目，而不是整份 Song。API Key 不进入缓存 key。卸载插件时 App 会通过 Remote Preferences 发布一次性清理标记，SystemUI Core 清理对应宿主缓存；仅禁用插件不会删除缓存。
 
 ## 怎么使用
 

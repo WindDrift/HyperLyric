@@ -125,35 +125,71 @@ private class MyLyricProcessor(
         )
         return PluginSongResult(
             song = updated,
-            changedFields = setOf(PluginSongField.LYRICS)
+            changedFields = setOf(PluginSongField.LYRICS),
+            lyricsUpdateMode = PluginLyricsUpdateMode.PATCH,
+            changedLyricFields = setOf(
+                PluginLyricField.TRANSLATION,
+                PluginLyricField.TRANSLATION_WORDS
+            )
         )
     }
 }
 ```
 
-一个插件可以注册多个 `LyricProcessorExtension`。每个处理器都有独立的异常和超时隔离；返回 `null` 表示本次没有增强结果，宿主会继续保留上一个快照。旧 API 处理器仍可实现 `process(song): PluginSong?`，宿主会用歌词快照差异自动生成 `PluginSongResult`；新插件应使用带 `PluginProcessingContext` 的显式结果。
+一个插件可以注册多个 `LyricProcessorExtension`。每个处理器都有独立的异常和超时隔离；返回 `null` 表示本次没有增强结果，宿主会继续保留上一个快照。API 版本仍为 `1`，当前 Demo 阶段要求处理器直接使用显式的 `PluginSongResult`，Core 不通过比较前后 DTO 推断修改字段。
 
-## 5. `PluginSong` 与完整写回规则
+## 5. `PluginSong` 与字段级写回规则
 
-`PluginSong` 是插件边界上的只读 DTO。`album` 是歌曲核心字段，不放在 `PluginMetadata` 中；标题、艺术家、Album、Duration 和 Metadata 都只能读取，不能通过插件结果写回 Core。处理器只能返回新的歌词 DTO 和 `changedFields`：
+`PluginSong` 是插件边界上的只读 DTO。它包含 Core `Song` 的全部字段：`id`、`name`、`artist`、`album`、`duration`、`metadata` 和 `lyrics`。`album` 是独立的歌曲字段，不放在 `PluginMetadata` 中。插件只能返回新的 DTO，不能获得或修改内部 `Song`、`LyriconDataBridge` 或 Live Song 引用。
 
 | `PluginSongField` | 语义 |
 | --- | --- |
-| `LYRICS` | 覆盖完整歌词候选，包含所有歌词行字段和逐字时间轴。 |
+| `ID` | 写回候选 `id`。 |
+| `NAME` | 写回候选 `name`。 |
+| `ARTIST` | 写回候选 `artist`。 |
+| `ALBUM` | 写回候选 `album`。 |
+| `DURATION` | 写回候选 `duration`；内部 `Song` 使用 `0` 表示未知。 |
+| `METADATA` | 写回候选顶层 `metadata`。 |
+| `LYRICS` | 按 `lyricsUpdateMode` 对歌词行进行 PATCH 或完整 REPLACE。 |
 
-V1 的 `PluginSongField` 只有 `LYRICS`。插件返回的候选即使携带修改后的标题、艺术家、Album、Duration 或 Metadata，Core 也会忽略这些字段；它们不会改变当前播放歌曲的身份。
+`PluginSongResult.changedFields` 是唯一的顶层修改声明。字段没有出现在集合中时，Core 保留当前值；字段出现在集合中时，即使候选值是 `null` 也会明确清空该字段。这样插件可以清空 `name`、`album`、`metadata` 或其他 nullable 字段，不需要依赖前后对象差异。
+
+Core 的合并顺序是：
+
+```text
+当前 Core Song
+→ 读取 PluginSongResult.changedFields
+→ 合并声明的字段（包含显式 null）
+→ 校验歌词候选和时间轴
+→ 生成新的 Core Song
+```
+
+### 歌词 PATCH 与 REPLACE
+
+歌词行字段由 `PluginLyricField` 表示：`BEGIN`、`END`、`DURATION`、`IS_ALIGNED_RIGHT`、`METADATA`、`TEXT`、`WORDS`、`SECONDARY`、`SECONDARY_WORDS`、`TRANSLATION`、`TRANSLATION_WORDS` 和 `ROMA`。
+
+`PluginLyricsUpdateMode.PATCH` 适用于翻译、罗马音、逐字信息等增强：
+
+- 候选行列表必须和当前歌词行数相同，列表索引就是本次快照内的稳定行身份；
+- 只应用 `changedLyricFields` 中声明的行字段，未声明字段从当前行保留；
+- nullable 字段声明后可以用 `null` 清空，例如声明 `TRANSLATION_WORDS` 并返回 `null`；
+- Core 合并后再校验最终行列表，非法结果整项回退。
+
+`PluginLyricsUpdateMode.REPLACE` 适用于联网搜索得到的完整新歌词：候选列表可以改变行数、时间轴、原文、words、secondary、translation 和 roma，所有歌词行字段都由候选接管。显式声明 `LYRICS` 时，候选为 `null` 或空列表也表示明确清空整首歌词；插件异常、超时或非法时间轴不会走这个清空路径，而是保留上一份有效歌词。
+
+示例：原文插件声明 `TEXT/WORDS`，翻译插件声明 `TRANSLATION/TRANSLATION_WORDS`，罗马音插件声明 `ROMA`，三者会在同一批行上合并，不会互相覆盖。
 
 | 字段 | 规则 |
 | --- | --- |
-| `PluginLyricLine.begin/end/duration` | 必须为合法正向时间轴，`duration` 与行区间一致。 |
-| `words`、`secondaryWords`、`translationWords` | 每个词必须位于对应行范围内，按时间不倒退，词 `duration` 合法。 |
+| `PluginLyricLine.begin/end/duration` | `begin >= 0`、`end > begin`、`duration == end - begin`；歌词行按 `begin` 非递减排列，乱序直接拒绝。 |
+| `words`、`secondaryWords`、`translationWords` | 每个词必须位于对应行范围内，`begin/end/duration` 合法，列表按时间升序且不能回退。 |
 | `text`、`secondary`、`translation`、`roma` | 可以单独修改或清空；逐字字段只有可靠时才写入。 |
 | `PluginLyricLine.metadata`、`PluginWord.metadata` | 保持为 DTO metadata，不依赖宿主内部类型。 |
-| `lyrics` | 不能返回空列表或 `null` 作为完整替换；V1 不支持清空整首歌词。结果大小也受 Core 限制。 |
+| `lyrics` | REPLACE 结果大小受 Core 限制；PATCH 必须保持行数和稳定索引。显式清空与失败回退是两条不同路径。 |
 
-“只返回翻译”和“完整歌词替换”都使用 `LYRICS`，区别在于候选 DTO：翻译插件应基于收到的最新快照，只修改 `translation/translationWords`；原文、罗马音或词级增强插件可以返回完整行列表，Core 会校验并替换所有行字段。插件不需要也不能创建内部 `Song`。
+插件不需要也不能创建内部 `Song`。如果只修改翻译，必须声明 `PATCH` 和 `TRANSLATION/TRANSLATION_WORDS`；不要把一个只包含翻译的部分行列表伪装成 `REPLACE`。
 
-逐字歌词的可见原文来自 `words`，因此不能只修改 `PluginLyricLine.text`。如果原文内容发生变化，插件应同时返回匹配的新 `words` 和合法时间轴；可以保留原时间轴，也可以在当前行范围内重新分配时间。Demo 插件会新增一个带时间轴的 `[Demo] ` 词并重排原词，作为完整逐字替换示例。
+逐字歌词的可见原文来自 `words`，因此不能只修改 `PluginLyricLine.text`。PATCH 时如果原文内容发生变化，插件应同时声明并返回匹配的新 `words` 和合法时间轴；REPLACE 可以直接返回完整的新词列表。Demo 插件会新增一个带时间轴的 `[Demo] ` 词并重排原词，作为 `TEXT/WORDS` 字段级 PATCH 示例。
 
 建议使用 `copy(...)` 返回结果，不要改变收到的对象，也不要在处理器里修改宿主对象。处理器不能等待完成后才允许原始歌词显示；网络和模型调用必须在插件自己的后台任务中完成。
 
@@ -166,11 +202,11 @@ LYRIC_REPLACEMENT
 → TRANSLATION_ENHANCEMENT
 ```
 
-同一阶段内按启用插件 ID、扩展 ID 的稳定顺序执行。每个成功结果先由 Core 校验并替换完整 lyrics，再把合并后的快照交给下一个插件；后返回且有效的歌词候选覆盖前一个候选。一个插件异常、超时或结果非法时只跳过该插件，后续插件继续看到最近一次有效快照，原始歌词不会被清空。
+同一阶段内按启用插件 ID、扩展 ID 的稳定顺序执行。每个成功结果先由 Core 按顶层字段和歌词字段合并，再把合并后的最新快照交给下一个插件。后返回且有效的同字段结果覆盖之前结果，不同字段同时保留。一个插件异常、超时、无结果或结果非法时只跳过该插件，后续插件继续看到最近一次有效快照，原始歌词不会被清空。
 
 典型链路是：搜索插件在 `LYRIC_REPLACEMENT` 返回新的原文歌词 → AI 插件在 `TRANSLATION_ENHANCEMENT` 看到新原文并返回翻译 → 罗马音/逐字增强插件继续处理最新快照。
 
-宿主对每个歌词 Processor 设置独立的 40 秒超时。网络请求、模型调用和缓存读取应设置更短的超时，并正确处理线程中断和协程取消。即使服务返回空结果、响应解析失败或缓存损坏，也应返回 `null` 或保留当前快照。
+宿主对每个歌词 Processor 设置独立的 40 秒超时。网络请求、模型调用和缓存读取应设置更短的超时，并正确处理线程中断和协程取消。即使服务返回空结果、响应解析失败或缓存损坏，也应返回 `null` 或保留当前快照。Core 用完整的源 `PluginSong` 快照、Core 内部 `MediaIdentity`、`PluginMediaInfo` 和请求代次区分重复事件、媒体信息补全、歌词变化与切歌；同一有效输入不会重复启动完整插件链。`onSongChanged()` 后紧接的 `onMetadata()` 会在主线程调度点合并，迟到回调仍必须经过代次和当前 Song 引用校验。重复源 DTO 不会绕过 Core 的歌曲状态刷新；若后续 metadata 证明媒体身份或来源发生变化，Core 会切换到新的原始 Song。配置改变只影响下一次正常插件处理，不会主动重跑当前歌曲。
 
 ## 6. Manifest Settings Schema
 
@@ -220,10 +256,11 @@ LYRIC_REPLACEMENT
 
 ## 7. 配置、存储和日志
 
-插件通过 `PluginContext` 使用宿主提供的三个接口；处理时另有只读的 `PluginProcessingContext`：
+插件通过 `PluginContext` 使用宿主提供的四个接口；处理时另有只读的 `PluginProcessingContext`：
 
 - `config`：只读读取 App 写入的配置。支持 `getBoolean`、`getString`、`getLong`、`getFloat` 和 `getStringSet`。
-- `storage`：当前插件独立的字符串 Key/Value 存储，支持读、写、删除和清空。
+- `storage`：当前插件独立的小型字符串 Key/Value 状态存储，支持读、写、删除和清空。
+- `cache`：当前插件独立的缓存入口，支持 `getString`、`putString`、`getBytes`、`putBytes`、`contains`、`remove` 和 `clear`。插件决定缓存 key、序列化格式、schema 版本、TTL 和命中后的结果生成；Core 只负责插件 ID 隔离、实际后端、大小限制和读写异常隔离。
 - `logger`：宿主托管的日志接口，支持 `debug`、`info`、`warn` 和 `error`。
 - `PluginProcessingContext.mediaInfo`：当前媒体的标题、艺术家、Album 和 Duration，只用于网络查询、缓存 key 或请求参数。它不是 `MediaMetadataHelper`，也不包含包名、Session Token 或 Xposed 对象。
 
@@ -236,9 +273,11 @@ context.logger.warn("event=cacheMiss")
 context.logger.error("event=requestFailed", exception)
 ```
 
-不要直接使用 Android `Log`、Xposed API 或自定义日志文件。宿主会以插件 ID 作为日志来源，并保留插件组件的日志标签；消息建议使用 `lifecycle=...` 或 `event=...` 开头，再用 `key=value` 表达上下文。
+不要直接使用 Android `Log`、Xposed API 或自定义日志文件。宿主会以“插件 ID/组件标签”作为日志来源，组件标签不会丢失插件 ID；消息建议使用 `lifecycle=...` 或 `event=...` 开头，再用 `key=value` 表达上下文。
 
-`PluginStorage` 适合保存小型状态、缓存索引和 JSON 条目，不是文件系统，也不是宿主的 SQLite。缓存应带有自己的版本或校验信息；读取失败时应清除损坏条目并回退到原始歌词。PluginStorage 不会进入 HyperLyric 的插件 ZIP 备份。
+`PluginCache` 当前由 Core 使用宿主运行时的 `SharedPreferences` 实现，并按插件 ID 使用独立命名空间；它不是 `plugins/<id>/cache/` 文件目录，也不假设 libxposed Remote Files 能从 SystemUI 写回 HyperLyric App。插件看不到 Android `Context`、文件路径、SystemUI/Xposed/MediaSession 对象。未来替换为文件或字节后端时，插件调用方式不变。卸载插件时 App 会通过 Remote Preferences 发布一次性清理标记，SystemUI Core 消费标记并清理宿主缓存；禁用插件不会自动删除缓存。`PluginStorage` 仍适合保存小型插件状态，不等同于缓存。
+
+缓存失败、读取异常、JSON 损坏或超出 Core 大小限制时，插件应删除或忽略当前条目并回退到网络/无结果路径；Core 不会因为缓存失败清空原始歌词，也不会阻止其他插件。AI Translation 会先查 `context.cache`，命中后基于当前 `PluginSong` 重新构造翻译 PATCH，禁止网络请求；未命中才进入 `TranslationScheduler`，成功并通过应用校验后只保存翻译条目，不保存整份可能过期的 Song。即使当前 Song 已有翻译、Applicator 没有实际写回，也会缓存已经验证的网络翻译结果。Scheduler 会在缓存写入完成前保留已完成的同 key 任务，调用方完成消费后显式释放。其 key 包含原文歌词、title、artist、album、duration、target language、model、base URL、prompt/schema 及其他影响网络结果的参数，但不包含只影响写回策略的 `force_override` 和 API Key。
 
 ## 8. R8 与正式打包
 
@@ -248,9 +287,8 @@ context.logger.error("event=requestFailed", exception)
 - `onLoad`、`onEnable`、`onConfigChanged`、`onUnload`；
 - `HyperLyricExtension.id`；
 - `LyricProcessorExtension.stage`；
-- 迁移旧插件时的 `LyricProcessorExtension.process`；
 - 新插件的带 `PluginProcessingContext` 的 `LyricProcessorExtension.processResult`；
-- `PluginSong`、`PluginSongResult`、`PluginSongField`、`PluginMediaInfo`、`PluginProcessingContext` 及其协议字段和 DTO 构造/访问成员。
+- `PluginSong`、`PluginSongResult`、`PluginSongField`、`PluginLyricsUpdateMode`、`PluginLyricField`、`PluginMediaInfo`、`PluginProcessingContext` 及其协议字段和 DTO 构造/访问成员。
 
 可以参考 Demo 插件的 `proguard-rules.pro`，只保留协议需要的成员，让插件内部实现继续由 R8 优化和混淆。
 
