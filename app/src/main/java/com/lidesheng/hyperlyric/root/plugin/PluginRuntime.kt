@@ -3,13 +3,17 @@ package com.lidesheng.hyperlyric.root.plugin
 import android.app.Application
 import android.content.SharedPreferences
 import android.os.ParcelFileDescriptor
+import android.util.Base64
 import dalvik.system.InMemoryDexClassLoader
 import com.lidesheng.hyperlyric.plugin.api.HYPERLYRIC_PLUGIN_API_VERSION
 import com.lidesheng.hyperlyric.plugin.api.HyperLyricExtension
 import com.lidesheng.hyperlyric.plugin.api.HyperLyricPlugin
 import com.lidesheng.hyperlyric.plugin.api.LyricProcessorExtension
+import com.lidesheng.hyperlyric.plugin.api.PluginCache
 import com.lidesheng.hyperlyric.plugin.api.PluginConfig
 import com.lidesheng.hyperlyric.plugin.api.PluginContext
+import com.lidesheng.hyperlyric.plugin.api.PluginLyricField
+import com.lidesheng.hyperlyric.plugin.api.PluginLyricsUpdateMode
 import com.lidesheng.hyperlyric.plugin.api.PluginLogger
 import com.lidesheng.hyperlyric.plugin.api.PluginProcessingContext
 import com.lidesheng.hyperlyric.plugin.api.PluginSongField
@@ -48,6 +52,7 @@ class PluginRuntime(
 ) {
     companion object {
         private const val TAG = "PluginRuntime"
+        private const val LAST_CACHE_CLEAR_TOKEN_KEY = "__hyperlyric_core_last_clear_token"
 
         private val creatingPluginLoaderDepth = ThreadLocal.withInitial<Int> { 0 }
 
@@ -77,17 +82,33 @@ class PluginRuntime(
     private val closed = AtomicBoolean(false)
     private var activeJob: Job? = null
     private val loadedPlugins = mutableListOf<LoadedPlugin>()
+    private var registryPreferences: SharedPreferences? = null
+
+    private val registryListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == PluginConstants.REMOTE_CACHE_CLEAR_TOKENS_KEY) {
+            consumePendingCacheClears(registryPreferences)
+        }
+    }
 
     @Volatile
     private var processors: List<RegisteredProcessor> = emptyList()
+    @Volatile
+    private var processorSetFingerprint: String = ""
 
     fun loadEnabledPlugins() {
         if (closed.get()) return
 
-        val enabledIds = runCatching {
+        val registry = runCatching {
             module.getRemotePreferences(PluginConstants.REMOTE_REGISTRY_PREFS)
-                .getStringSet(PluginConstants.REMOTE_ENABLED_IDS_KEY, emptySet())
-                .orEmpty()
+        }.getOrElse { error ->
+            HookLogger.w(TAG, "读取插件启用状态失败，跳过插件加载", error)
+            return
+        }
+        registryPreferences = registry
+        consumePendingCacheClears(registry)
+        registry.registerOnSharedPreferenceChangeListener(registryListener)
+        val enabledIds = runCatching {
+            registry.getStringSet(PluginConstants.REMOTE_ENABLED_IDS_KEY, emptySet()).orEmpty()
         }.getOrElse { error ->
             HookLogger.w(TAG, "读取插件启用状态失败，跳过插件加载", error)
             emptySet()
@@ -132,6 +153,9 @@ class PluginRuntime(
                 .thenBy { it.pluginIndex }
                 .thenBy { it.extensionIndex }
         )
+        processorSetFingerprint = processors.joinToString("\u001F") { registered ->
+            "${registered.pluginId}:${registered.extension.id}:${registered.extension.stage.name}"
+        }
         HookLogger.i(
             TAG,
             "插件 Runtime 初始化完成: enabled=${enabledIds.size}, " +
@@ -139,20 +163,29 @@ class PluginRuntime(
         )
     }
 
+    internal fun processingSetFingerprint(): String = processorSetFingerprint
+
     internal fun processSong(
         song: PluginSong,
         processingContext: PluginProcessingContext,
-        onResult: (PluginProcessingResult) -> Unit
+        onResult: (PluginProcessingResult?) -> Unit
     ) {
         if (closed.get()) return
         val currentGeneration = generation.incrementAndGet()
         activeJob?.cancel()
         val currentProcessors = processors
-        if (currentProcessors.isEmpty()) return
+        if (currentProcessors.isEmpty()) {
+            runCatching { onResult(null) }.onFailure { error ->
+                HookLogger.w(TAG, "插件结果回调失败", error)
+            }
+            return
+        }
 
         activeJob = scope.launch {
             var current = song
             val changedFields = linkedSetOf<PluginSongField>()
+            val changedLyricFields = linkedSetOf<PluginLyricField>()
+            var lyricsUpdateMode: PluginLyricsUpdateMode? = null
             for (registered in currentProcessors) {
                 if (!isActive || currentGeneration != generation.get()) return@launch
                 val result = runProcessor(
@@ -174,9 +207,27 @@ class PluginRuntime(
                 if (merged != current) {
                     current = merged
                     changedFields += result.changedFields
+                    if (PluginSongField.LYRICS in result.changedFields) {
+                        if (result.lyricsUpdateMode == PluginLyricsUpdateMode.REPLACE) {
+                            // A full replacement already contains every lyric field. Any patch
+                            // that follows is applied to this complete snapshot and the final
+                            // callback can safely remain a REPLACE result.
+                            lyricsUpdateMode = PluginLyricsUpdateMode.REPLACE
+                            changedLyricFields.clear()
+                        } else if (lyricsUpdateMode != PluginLyricsUpdateMode.REPLACE) {
+                            lyricsUpdateMode = PluginLyricsUpdateMode.PATCH
+                            changedLyricFields += result.changedLyricFields
+                        }
+                    }
                 }
             }
-            if (changedFields.isEmpty() || !isActive || currentGeneration != generation.get()) {
+            if (!isActive || currentGeneration != generation.get()) {
+                return@launch
+            }
+            if (changedFields.isEmpty()) {
+                runCatching { onResult(null) }.onFailure { error ->
+                    HookLogger.w(TAG, "插件结果回调失败", error)
+                }
                 return@launch
             }
             runCatching {
@@ -184,7 +235,16 @@ class PluginRuntime(
                     PluginProcessingResult(
                         result = PluginSongResult(
                             song = current,
-                            changedFields = changedFields.toSet()
+                            changedFields = changedFields.toSet(),
+                            lyricsUpdateMode = if (
+                                PluginSongField.LYRICS in changedFields &&
+                                lyricsUpdateMode != PluginLyricsUpdateMode.REPLACE
+                            ) {
+                                PluginLyricsUpdateMode.PATCH
+                            } else {
+                                PluginLyricsUpdateMode.REPLACE
+                            },
+                            changedLyricFields = changedLyricFields.toSet()
                         )
                     )
                 )
@@ -211,8 +271,54 @@ class PluginRuntime(
         }
         loadedPlugins.clear()
         processors = emptyList()
+        processorSetFingerprint = ""
+        registryPreferences?.let { preferences ->
+            runCatching { preferences.unregisterOnSharedPreferenceChangeListener(registryListener) }
+        }
+        registryPreferences = null
         processorExecutor.shutdownNow()
         scope.cancel()
+    }
+
+    /**
+     * App-side uninstall cannot directly open SystemUI's private preferences. It publishes a
+     * one-shot token through the existing remote registry; the host runtime clears its own cache
+     * and records the token locally so a later SystemUI restart does not repeat the operation.
+     */
+    private fun consumePendingCacheClears(registry: SharedPreferences?) {
+        val tokens = runCatching {
+            registry?.getStringSet(
+                PluginConstants.REMOTE_CACHE_CLEAR_TOKENS_KEY,
+                emptySet()
+            ).orEmpty()
+        }.onFailure { error ->
+            HookLogger.w(TAG, "读取插件缓存清理请求失败", error)
+        }.getOrDefault(emptySet())
+        tokens.forEach { encoded ->
+            val separator = encoded.indexOf('\u001F')
+            if (separator <= 0 || separator == encoded.lastIndex) return@forEach
+            val pluginId = encoded.substring(0, separator)
+            val token = encoded.substring(separator + 1)
+            runCatching {
+                val marker = application.getSharedPreferences(
+                    PluginConstants.cacheMetadataPreferences(pluginId),
+                    android.content.Context.MODE_PRIVATE
+                )
+                if (marker.getString(LAST_CACHE_CLEAR_TOKEN_KEY, null) == token) {
+                    return@runCatching
+                }
+                val cleared = application.getSharedPreferences(
+                    PluginConstants.cachePreferences(pluginId),
+                    android.content.Context.MODE_PRIVATE
+                ).edit().clear().commit()
+                check(cleared) { "cache clear commit returned false" }
+                val marked = marker.edit().putString(LAST_CACHE_CLEAR_TOKEN_KEY, token).commit()
+                check(marked) { "cache clear marker commit returned false" }
+                HookLogger.i(TAG, "插件缓存已清理: id=$pluginId")
+            }.onFailure { error ->
+                HookLogger.w(TAG, "插件缓存清理失败: id=$pluginId", error)
+            }
+        }
     }
 
     private fun loadPlugin(pluginId: String, fileName: String) {
@@ -282,7 +388,13 @@ class PluginRuntime(
     ): PluginSongResult? {
         val future: Future<PluginSongResult?> = try {
             processorExecutor.submit<PluginSongResult?> {
-                processor.processResult(song, processingContext)
+                invokePluginProcessorSafely(
+                    processor = processor,
+                    song = song,
+                    processingContext = processingContext
+                ) { error ->
+                    HookLogger.w(TAG, "插件处理失败: extension=${processor.id}", error)
+                }
             }
         } catch (_: Exception) {
             return null
@@ -329,6 +441,18 @@ class PluginRuntime(
     )
 }
 
+internal fun invokePluginProcessorSafely(
+    processor: LyricProcessorExtension,
+    song: PluginSong,
+    processingContext: PluginProcessingContext,
+    onFailure: (Throwable) -> Unit,
+): PluginSongResult? = try {
+    processor.processResult(song, processingContext)
+} catch (error: Throwable) {
+    onFailure(error)
+    null
+}
+
 internal data class PluginProcessingResult(
     val result: PluginSongResult,
 )
@@ -344,6 +468,13 @@ private class RuntimePluginContext(
     override val hostApiVersion: Int = HYPERLYRIC_PLUGIN_API_VERSION
     override val config: PluginConfig = SharedPreferencesPluginConfig(preferences)
     override val logger: PluginLogger = RuntimePluginLogger(pluginId)
+    override val cache: PluginCache = SharedPreferencesPluginCache(
+        preferences = application.getSharedPreferences(
+            PluginConstants.cachePreferences(pluginId),
+            android.content.Context.MODE_PRIVATE
+        ),
+        logger = logger.withTag("PluginCache")
+    )
     override val storage: PluginStorage = SharedPreferencesPluginStorage(
         application.getSharedPreferences(
             com.lidesheng.hyperlyric.plugin.core.PluginConstants.storagePreferences(pluginId),
@@ -404,6 +535,82 @@ private class SharedPreferencesPluginStorage(
     }
 }
 
+/** SharedPreferences is the current host backend, not a plugin-visible file directory. */
+private class SharedPreferencesPluginCache(
+    private val preferences: SharedPreferences,
+    private val logger: PluginLogger,
+) : PluginCache {
+    private companion object {
+        const val MAX_KEY_LENGTH = 256
+        const val MAX_VALUE_BYTES = 2 * 1024 * 1024
+    }
+
+    override fun getString(key: String): String? {
+        if (!isValidKey(key)) return null
+        return runCatching { preferences.getString(key, null) }
+            .onFailure { logger.warn("读取缓存失败: key=$key", it) }
+            .getOrNull()
+    }
+
+    override fun putString(key: String, value: String) {
+        if (!isValidKey(key) || !isWithinLimit(value.toByteArray(Charsets.UTF_8))) {
+            logger.warn("忽略超限或非法缓存写入: key=$key")
+            return
+        }
+        runCatching { preferences.edit().putString(key, value).apply() }
+            .onFailure { logger.warn("写入缓存失败: key=$key", it) }
+    }
+
+    override fun getBytes(key: String): ByteArray? {
+        val encoded = getString(key) ?: return null
+        return runCatching { Base64.decode(encoded, Base64.DEFAULT) }
+            .map { decoded ->
+                if (!isWithinLimit(decoded)) {
+                    remove(key)
+                    null
+                } else {
+                    decoded
+                }
+            }
+            .onFailure {
+                logger.warn("解析缓存字节失败，删除记录: key=$key", it)
+                remove(key)
+            }
+            .getOrNull()
+    }
+
+    override fun putBytes(key: String, value: ByteArray) {
+        if (!isValidKey(key) || !isWithinLimit(value)) {
+            logger.warn("忽略超限或非法缓存字节写入: key=$key")
+            return
+        }
+        putString(key, Base64.encodeToString(value, Base64.NO_WRAP))
+    }
+
+    override fun contains(key: String): Boolean {
+        if (!isValidKey(key)) return false
+        return runCatching { preferences.contains(key) }
+            .onFailure { logger.warn("检查缓存失败: key=$key", it) }
+            .getOrDefault(false)
+    }
+
+    override fun remove(key: String) {
+        if (!isValidKey(key)) return
+        runCatching { preferences.edit().remove(key).apply() }
+            .onFailure { logger.warn("删除缓存失败: key=$key", it) }
+    }
+
+    override fun clear() {
+        runCatching { preferences.edit().clear().apply() }
+            .onFailure { logger.warn("清空缓存失败", it) }
+    }
+
+    private fun isValidKey(key: String): Boolean =
+        key.isNotBlank() && key.length <= MAX_KEY_LENGTH
+
+    private fun isWithinLimit(value: ByteArray): Boolean = value.size <= MAX_VALUE_BYTES
+}
+
 private class RuntimePluginLogger(private val pluginId: String) : PluginLogger {
     private fun tag() = pluginId
 
@@ -419,27 +626,32 @@ private class RuntimePluginLogger(private val pluginId: String) : PluginLogger {
         if (throwable == null) HookLogger.e(tag(), message) else HookLogger.e(tag(), message, throwable)
     }
 
-    override fun withTag(tag: String): PluginLogger = TaggedRuntimePluginLogger(tag)
+    override fun withTag(tag: String): PluginLogger =
+        TaggedRuntimePluginLogger(pluginId, tag)
 }
 
 private class TaggedRuntimePluginLogger(
+    private val pluginId: String,
     private val componentTag: String,
 ) : PluginLogger {
-    override fun debug(message: String) = HookLogger.d(componentTag, message)
+    private val logTag = "$pluginId/$componentTag"
 
-    override fun info(message: String) = HookLogger.i(componentTag, message)
+    override fun debug(message: String) = HookLogger.d(logTag, message)
+
+    override fun info(message: String) = HookLogger.i(logTag, message)
 
     override fun warn(message: String, throwable: Throwable?) {
-        if (throwable == null) HookLogger.w(componentTag, message)
-        else HookLogger.w(componentTag, message, throwable)
+        if (throwable == null) HookLogger.w(logTag, message)
+        else HookLogger.w(logTag, message, throwable)
     }
 
     override fun error(message: String, throwable: Throwable?) {
-        if (throwable == null) HookLogger.e(componentTag, message)
-        else HookLogger.e(componentTag, message, throwable)
+        if (throwable == null) HookLogger.e(logTag, message)
+        else HookLogger.e(logTag, message, throwable)
     }
 
-    override fun withTag(tag: String): PluginLogger = TaggedRuntimePluginLogger(tag)
+    override fun withTag(tag: String): PluginLogger =
+        TaggedRuntimePluginLogger(pluginId, "$componentTag/$tag")
 }
 
 private inline fun <T> ParcelFileDescriptor.useReadOnly(block: (java.io.InputStream) -> T): T {

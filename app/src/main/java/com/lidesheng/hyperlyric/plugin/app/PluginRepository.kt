@@ -15,6 +15,7 @@ import com.lidesheng.hyperlyric.plugin.core.PluginRemoteFileNames
 import io.github.libxposed.service.XposedService
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.UUID
 
 data class InstalledPlugin(
     val manifest: PluginManifest,
@@ -184,9 +185,16 @@ class PluginRepository(private val context: Context) {
             .orEmpty().toMutableSet().apply { remove(pluginId) }
         val enabled = registry.getStringSet(PluginConstants.REMOTE_ENABLED_IDS_KEY, emptySet())
             .orEmpty().toMutableSet().apply { remove(pluginId) }
+        val cacheClearTokens = registry.getStringSet(
+            PluginConstants.REMOTE_CACHE_CLEAR_TOKENS_KEY,
+            emptySet()
+        ).orEmpty().filterNot { token -> token.substringBefore('\u001F') == pluginId }
+            .toMutableSet()
+            .apply { add("$pluginId\u001F${UUID.randomUUID()}") }
         registry.edit()
             .putStringSet(PluginConstants.LOCAL_INSTALLED_IDS_KEY, ids)
             .putStringSet(PluginConstants.REMOTE_ENABLED_IDS_KEY, enabled)
+            .putStringSet(PluginConstants.REMOTE_CACHE_CLEAR_TOKENS_KEY, cacheClearTokens)
             .remove(PluginConstants.LOCAL_MANIFEST_PREFIX + pluginId)
             .remove(PluginConstants.LOCAL_FILE_PREFIX + pluginId)
             .apply()
@@ -250,6 +258,11 @@ class PluginRepository(private val context: Context) {
         service.getRemotePreferences(PluginConstants.REMOTE_REGISTRY_PREFS)
             .edit()
             .putStringSet(PluginConstants.REMOTE_ENABLED_IDS_KEY, enabled)
+            .putStringSet(
+                PluginConstants.REMOTE_CACHE_CLEAR_TOKENS_KEY,
+                registry.getStringSet(PluginConstants.REMOTE_CACHE_CLEAR_TOKENS_KEY, emptySet())
+                    .orEmpty()
+            )
             .apply()
     }
 

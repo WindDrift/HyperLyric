@@ -131,6 +131,8 @@ dependencies {
     // --- 动画库 (YoYo) ---
     implementation(libs.daimajia.animations) { artifact { type = "aar" } }
     implementation(libs.daimajia.easing) { artifact { type = "aar" } }
+
+    testImplementation("junit:junit:4.13.2")
 }
 
 apply(from = "fetch_contributors.gradle")

@@ -10,6 +10,8 @@ object PluginConstants {
 
     const val REMOTE_REGISTRY_PREFS = "hyperlyric.plugin.registry"
     const val REMOTE_ENABLED_IDS_KEY = "enabled_ids"
+    /** App-side uninstall tombstones consumed by the SystemUI runtime. */
+    const val REMOTE_CACHE_CLEAR_TOKENS_KEY = "cache_clear_tokens"
 
     const val LOCAL_REGISTRY_PREFS = "hyperlyric_plugin_registry"
     const val LOCAL_INSTALLED_IDS_KEY = "installed_ids"
@@ -30,4 +32,9 @@ object PluginConstants {
     fun configGroup(pluginId: String): String = "plugin.$pluginId"
 
     fun storagePreferences(pluginId: String): String = "hyperlyric_plugin_data_$pluginId"
+
+    fun cachePreferences(pluginId: String): String = "hyperlyric_plugin_cache_$pluginId"
+
+    fun cacheMetadataPreferences(pluginId: String): String =
+        "hyperlyric_plugin_cache_meta_$pluginId"
 }

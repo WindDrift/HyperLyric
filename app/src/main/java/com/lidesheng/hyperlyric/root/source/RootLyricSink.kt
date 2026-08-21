@@ -18,10 +18,14 @@ import com.lidesheng.hyperlyric.root.island.effects.color.IslandMusicWaveColorHo
 import com.lidesheng.hyperlyric.root.island.renderer.IslandRenderer
 import com.lidesheng.hyperlyric.root.media.CurrentMediaInfoResolver
 import com.lidesheng.hyperlyric.root.plugin.PluginProcessingResult
+import com.lidesheng.hyperlyric.root.plugin.PluginProcessingRequestKey
+import com.lidesheng.hyperlyric.root.plugin.PluginProcessingRequestTracker
 import com.lidesheng.hyperlyric.root.plugin.PluginRuntime
 import com.lidesheng.hyperlyric.root.plugin.PluginSongMapper
 import com.lidesheng.hyperlyric.plugin.api.PluginMediaInfo
 import com.lidesheng.hyperlyric.plugin.api.PluginProcessingContext
+import com.lidesheng.hyperlyric.plugin.api.PluginSong
+import com.lidesheng.hyperlyric.plugin.api.PluginSongField
 import com.lidesheng.hyperlyric.root.utils.CoverColorHelper
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import kotlin.math.abs
@@ -46,9 +50,19 @@ class RootLyricSink(
     private var lastDispatchedPlaybackSpeed = Float.NaN
     private var currentPlaybackSpeed = 1f
     private var activeMediaIdentity: MediaIdentity? = null
+    private var activeMediaSourceId: String? = null
     @Volatile
     private var latestPluginMediaInfo: PluginMediaInfo? = null
+    private var sourcePluginSong: PluginSong? = null
+    private var pendingRepeatedSourceSong: Song? = null
+    private val pluginRequestTracker = PluginProcessingRequestTracker()
+    private var activePluginRequestKey: PluginProcessingRequestKey? = null
+    private var pluginStartScheduled = false
     private val pluginRequestGeneration = AtomicLong(0L)
+    private val pluginStartRunnable = Runnable {
+        pluginStartScheduled = false
+        startPluginProcessing()
+    }
     private val positionDispatchRunnable = Runnable {
         positionDispatchScheduled = false
         val latest = pendingPosition ?: return@Runnable
@@ -76,9 +90,35 @@ class RootLyricSink(
         lastDispatchedPosition = Long.MIN_VALUE
         lastDispatchedPlaybackSpeed = Float.NaN
         currentPlaybackSpeed = 1f
-        activeMediaIdentity = null
-        latestPluginMediaInfo = null
         val ownedSong = song?.deepCopy()
+        val incomingPluginSong = ownedSong?.let(PluginSongMapper::toPluginSong)
+        val repeatedSourceEvent = incomingPluginSong != null &&
+                incomingPluginSong == sourcePluginSong &&
+                LyriconDataBridge.currentSong != null &&
+                activeMediaIdentity != null
+        if (repeatedSourceEvent) {
+            // The DTO may be repeated for a replay or a source callback refresh. Keep the Core
+            // state path alive so timing/current-line state is reset, but do not throw away an
+            // accepted plugin enhancement before the following metadata event identifies the
+            // media item. If that identity changes, onMetadata commits the raw Song below.
+            pendingRepeatedSourceSong = ownedSong
+            LyriconDataBridge.refreshSongEvent()
+            renderer.updateLyricLine()
+            HookLogger.i(
+                TAG,
+                "plugin_request event=request_deduplicated reason=repeated_source_event " +
+                        "fingerprint=${incomingPluginSong.hashCode()}"
+            )
+            return
+        }
+
+        pendingRepeatedSourceSong = null
+        cancelPendingPluginStart()
+        invalidatePluginRequest(reason = if (song == null) "song_cleared" else "song_changed")
+        activeMediaIdentity = null
+        activeMediaSourceId = null
+        latestPluginMediaInfo = null
+        sourcePluginSong = incomingPluginSong
         LyriconDataBridge.updateSong(
             song = ownedSong,
             placeholderFormat = prefs?.getInt(
@@ -87,10 +127,9 @@ class RootLyricSink(
             ) ?: RootConstants.DEFAULT_HOOK_PLACEHOLDER_FORMAT
         )
         if (song == null) {
-            pluginRuntime?.cancelActiveProcessing()
-            pluginRequestGeneration.incrementAndGet()
+            sourcePluginSong = null
         } else {
-            startPluginProcessing()
+            schedulePluginProcessing()
         }
         if (song == null) {
             endColorSession()
@@ -109,7 +148,6 @@ class RootLyricSink(
     }
 
     override fun onStop() {
-        pluginRuntime?.cancelActiveProcessing()
         playbackActive = false
         cancelPendingPositionDispatch()
         lastReceivedPosition = Long.MIN_VALUE
@@ -119,8 +157,12 @@ class RootLyricSink(
         lastDispatchedPlaybackSpeed = Float.NaN
         currentPlaybackSpeed = 1f
         activeMediaIdentity = null
+        activeMediaSourceId = null
         latestPluginMediaInfo = null
-        pluginRequestGeneration.incrementAndGet()
+        sourcePluginSong = null
+        pendingRepeatedSourceSong = null
+        cancelPendingPluginStart()
+        invalidatePluginRequest(reason = "stopped")
         endColorSession()
         renderer.clearAllViews()
         LyriconDataBridge.clearState()
@@ -132,8 +174,11 @@ class RootLyricSink(
         normalized?.packageName?.let(LyriconDataBridge::updateLyricPackage)
         if (normalized == null) {
             latestPluginMediaInfo = null
-            pluginRequestGeneration.incrementAndGet()
-            pluginRuntime?.cancelActiveProcessing()
+            activeMediaIdentity = null
+            activeMediaSourceId = null
+            pendingRepeatedSourceSong = null
+            cancelPendingPluginStart()
+            invalidatePluginRequest(reason = "metadata_cleared")
             endColorSession()
             renderer.updateMetadata()
             return
@@ -147,57 +192,207 @@ class RootLyricSink(
             logger = HookLogger,
             sourceMetadata = normalized
         )
+        val mediaChanged = activeMediaIdentity?.isCompatibleWith(mediaInfo.identity) == false
+        val sourceChanged = activeMediaSourceId != null &&
+                activeMediaSourceId != normalized.sourceId
+        val repeatedSourceSong = pendingRepeatedSourceSong
+        pendingRepeatedSourceSong = null
+        if (repeatedSourceSong != null && (mediaChanged || sourceChanged)) {
+            HookLogger.i(
+                TAG,
+                "plugin_request event=request_cancelled reason=source_media_identity_changed"
+            )
+            cancelPendingPluginStart()
+            invalidatePluginRequest(reason = "source_media_identity_changed")
+            activeMediaIdentity = null
+            activeMediaSourceId = null
+            latestPluginMediaInfo = null
+            LyriconDataBridge.updateSong(
+                song = repeatedSourceSong,
+                placeholderFormat = prefs?.getInt(
+                    RootConstants.KEY_HOOK_PLACEHOLDER_FORMAT,
+                    RootConstants.DEFAULT_HOOK_PLACEHOLDER_FORMAT
+                ) ?: RootConstants.DEFAULT_HOOK_PLACEHOLDER_FORMAT
+            )
+            renderer.updateLyricLine()
+        }
         LyriconDataBridge.applyResolvedMediaInfo(mediaInfo)
         latestPluginMediaInfo = mediaInfo.toPluginMediaInfo()
-        val mediaChanged = activeMediaIdentity?.isCompatibleWith(mediaInfo.identity) == false
         if (mediaChanged && LyriconDataBridge.currentSong == null) {
             LyriconDataBridge.resetLyricContentForMediaChange()
             renderer.updateLyricLine()
         }
         activeMediaIdentity = mediaInfo.identity
+        activeMediaSourceId = normalized.sourceId
         LyriconDataBridge.currentSongName = LyriconDataBridge.currentSong?.name
             ?.takeIf { it.isNotBlank() }
             ?: mediaInfo.title.takeIf { it.isNotBlank() }
-        startPluginProcessing(latestPluginMediaInfo)
+        invalidateIfPluginInputChanged()
+        schedulePluginProcessing()
         updateColorSession(mediaInfo, reason = "metadata_changed")
         renderer.updateMetadata()
     }
 
-    /** Starts a fresh plugin pass for the current Core-owned Song snapshot. */
-    private fun startPluginProcessing(mediaInfo: PluginMediaInfo? = latestPluginMediaInfo) {
+    /** Coalesces the synchronous onSongChanged -> onMetadata event chain on the main handler. */
+    private fun schedulePluginProcessing() {
+        if (pluginRuntime == null || pluginStartScheduled) return
+        pluginStartScheduled = true
+        mainHandler.post(pluginStartRunnable)
+    }
+
+    /** Starts one plugin pass for the current Core-owned Song snapshot. */
+    private fun startPluginProcessing() {
         val baseSong = LyriconDataBridge.currentSong ?: return
         val expectedVersion = LyriconDataBridge.versionCounter.get()
+        val requestKey = currentPluginRequestKey() ?: return
+        if (activePluginRequestKey != null && activePluginRequestKey != requestKey) {
+            invalidatePluginRequest(reason = "effective_input_changed")
+        }
+        if (pluginRequestTracker.isDuplicate(requestKey)) {
+            HookLogger.i(
+                TAG,
+                "plugin_request event=request_deduplicated " +
+                        "fingerprint=${requestKey.hashCode()}"
+            )
+            return
+        }
+        pluginRequestTracker.markStarted(requestKey)
+        activePluginRequestKey = requestKey
         val expectedRequest = pluginRequestGeneration.incrementAndGet()
         val pluginSnapshot = PluginSongMapper.toPluginSong(baseSong.deepCopy())
+        val processingMediaInfo = latestPluginMediaInfo
+        HookLogger.i(
+            TAG,
+            "plugin_request event=request_started " +
+                    "fingerprint=${requestKey.hashCode()} " +
+                    "generation=${expectedRequest}"
+        )
         pluginRuntime?.processSong(
             song = pluginSnapshot,
-            processingContext = PluginProcessingContext(mediaInfo = mediaInfo)
-        ) { processingResult: PluginProcessingResult ->
+            processingContext = PluginProcessingContext(mediaInfo = processingMediaInfo)
+        ) { processingResult: PluginProcessingResult? ->
             mainHandler.post {
-                if (pluginRequestGeneration.get() != expectedRequest) return@post
+                if (pluginRequestGeneration.get() != expectedRequest) {
+                    logStalePluginResult(requestKey, "generation_changed")
+                    return@post
+                }
+                if (LyriconDataBridge.versionCounter.get() != expectedVersion ||
+                    LyriconDataBridge.currentSong !== baseSong
+                ) {
+                    logStalePluginResult(requestKey, "song_snapshot_changed")
+                    if (activePluginRequestKey == requestKey) activePluginRequestKey = null
+                    return@post
+                }
+                if (processingResult == null) {
+                    if (activePluginRequestKey == requestKey) activePluginRequestKey = null
+                    HookLogger.i(
+                        TAG,
+                        "plugin_request event=request_completed status=no_result " +
+                                "fingerprint=${requestKey.hashCode()}"
+                    )
+                    return@post
+                }
                 val enhancedSong = PluginSongMapper.toInternalSong(
                     base = baseSong,
                     result = processingResult.result
-                ) ?: return@post
+                ) ?: run {
+                    if (activePluginRequestKey == requestKey) activePluginRequestKey = null
+                    HookLogger.i(
+                        TAG,
+                        "plugin_request event=request_completed status=invalid_result " +
+                                "fingerprint=${requestKey.hashCode()}"
+                    )
+                    return@post
+                }
                 if (LyriconDataBridge.applyPluginEnhancement(
                         enhancedSong = enhancedSong,
                         expectedVersion = expectedVersion,
-                        expectedBaseSong = baseSong
+                        expectedBaseSong = baseSong,
+                        changedFields = processingResult.result.changedFields
                     )
                 ) {
-                    renderer.updateLyricLine()
+                    val changedFields = processingResult.result.changedFields
+                    if (changedFields.any { it in MEDIA_SONG_FIELDS }) {
+                        renderer.updateMetadata()
+                    }
+                    if (changedFields.any { it in LYRIC_RENDER_FIELDS }) {
+                        renderer.updateLyricLine()
+                    }
+                    if (activePluginRequestKey == requestKey) activePluginRequestKey = null
+                    HookLogger.i(
+                        TAG,
+                        "plugin_request event=request_completed status=applied " +
+                                "fingerprint=${requestKey.hashCode()}"
+                    )
+                } else {
+                    logStalePluginResult(requestKey, "writeback_rejected")
+                    if (activePluginRequestKey == requestKey) activePluginRequestKey = null
                 }
             }
         }
     }
 
-    private fun MediaMetadataHelper.MediaInfo.toPluginMediaInfo(): PluginMediaInfo =
+    private fun currentPluginRequestKey(): PluginProcessingRequestKey? {
+        val song = sourcePluginSong ?: LyriconDataBridge.currentSong
+            ?.deepCopy()
+            ?.let(PluginSongMapper::toPluginSong)
+            ?: return null
+        return PluginProcessingRequestKey(
+            sourceSong = song,
+            mediaIdentity = activeMediaIdentity?.normalized(),
+            mediaInfo = latestPluginMediaInfo,
+            processorSetFingerprint = pluginRuntime?.processingSetFingerprint().orEmpty()
+        )
+    }
+
+    private fun invalidateIfPluginInputChanged() {
+        val active = activePluginRequestKey ?: return
+        val current = currentPluginRequestKey() ?: return
+        if (active != current) {
+            invalidatePluginRequest(reason = "effective_input_changed")
+        }
+    }
+
+    private fun invalidatePluginRequest(reason: String) {
+        val active = activePluginRequestKey
+        if (active != null) {
+            HookLogger.i(
+                TAG,
+                "plugin_request event=request_cancelled reason=${reason} " +
+                        "fingerprint=${active.hashCode()}"
+            )
+        }
+        activePluginRequestKey = null
+        pluginRequestTracker.reset()
+        pluginRequestGeneration.incrementAndGet()
+        pluginRuntime?.cancelActiveProcessing()
+    }
+
+    private fun cancelPendingPluginStart() {
+        mainHandler.removeCallbacks(pluginStartRunnable)
+        pluginStartScheduled = false
+    }
+
+    private fun logStalePluginResult(
+        requestKey: PluginProcessingRequestKey,
+        reason: String
+    ) {
+        HookLogger.i(
+            TAG,
+            "plugin_request event=stale_result_ignored reason=${reason} " +
+                    "fingerprint=${requestKey.hashCode()}"
+        )
+    }
+
+    private fun MediaMetadataHelper.MediaInfo.toPluginMediaInfo(): PluginMediaInfo? =
         PluginMediaInfo(
             title = title.takeIf { it.isNotBlank() },
             artist = artist.takeIf { it.isNotBlank() },
             album = album.takeIf { it.isNotBlank() },
             duration = duration.takeIf { it > 0L }
-        )
+        ).takeIf { info ->
+            info.title != null || info.artist != null || info.album != null || info.duration != null
+        }
 
     override fun onPlaybackStateChanged(isPlaying: Boolean, playbackSpeed: Float) {
         playbackActive = isPlaying
@@ -343,6 +538,23 @@ class RootLyricSink(
             IslandMusicWaveColorHooker.refresh()
         }
     }
+
+    private val MEDIA_SONG_FIELDS = setOf(
+        PluginSongField.ID,
+        PluginSongField.NAME,
+        PluginSongField.ARTIST,
+        PluginSongField.ALBUM,
+        PluginSongField.DURATION,
+        PluginSongField.METADATA
+    )
+
+    private val LYRIC_RENDER_FIELDS = setOf(
+        PluginSongField.NAME,
+        PluginSongField.ARTIST,
+        PluginSongField.DURATION,
+        PluginSongField.METADATA,
+        PluginSongField.LYRICS
+    )
 
 }
 
