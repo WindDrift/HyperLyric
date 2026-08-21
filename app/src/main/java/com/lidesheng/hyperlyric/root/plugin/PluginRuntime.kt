@@ -26,6 +26,7 @@ import com.lidesheng.hyperlyric.plugin.core.PluginManifest
 import com.lidesheng.hyperlyric.plugin.core.PluginRemoteFileNames
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 import io.github.libxposed.api.XposedModule
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -33,7 +34,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import java.util.concurrent.CancellationException as FutureCancellationException
+import kotlinx.coroutines.runInterruptible
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -381,48 +382,27 @@ class PluginRuntime(
         )
     }
 
-    private fun runProcessor(
+    private suspend fun runProcessor(
         processor: LyricProcessorExtension,
         song: PluginSong,
         processingContext: PluginProcessingContext
-    ): PluginSongResult? {
-        val future: Future<PluginSongResult?> = try {
-            processorExecutor.submit<PluginSongResult?> {
-                invokePluginProcessorSafely(
-                    processor = processor,
-                    song = song,
-                    processingContext = processingContext
-                ) { error ->
-                    HookLogger.w(TAG, "插件处理失败: extension=${processor.id}", error)
-                }
-            }
-        } catch (_: Exception) {
-            return null
-        }
-        return try {
-            future.get(PluginConstants.MAX_PROCESSOR_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-        } catch (_: TimeoutException) {
-            future.cancel(true)
+    ): PluginSongResult? = runPluginProcessorCancellable(
+        executor = processorExecutor,
+        processor = processor,
+        song = song,
+        processingContext = processingContext,
+        timeoutMs = PluginConstants.MAX_PROCESSOR_TIMEOUT_MS,
+        onPluginFailure = { error ->
+            HookLogger.w(TAG, "插件处理失败: extension=${processor.id}", error)
+        },
+        onTimeout = {
             HookLogger.w(
                 TAG,
                 "插件处理超时: extension=${processor.id}, " +
                         "timeoutMs=${PluginConstants.MAX_PROCESSOR_TIMEOUT_MS}"
             )
-            null
-        } catch (_: InterruptedException) {
-            future.cancel(true)
-            Thread.currentThread().interrupt()
-            null
-        } catch (_: FutureCancellationException) {
-            null
-        } catch (error: ExecutionException) {
-            HookLogger.w(TAG, "插件处理失败: extension=${processor.id}", error.cause)
-            null
-        } catch (error: Exception) {
-            HookLogger.w(TAG, "插件处理失败: extension=${processor.id}", error)
-            null
         }
-    }
+    )
 
     private data class LoadedPlugin(
         val manifest: PluginManifest,
@@ -451,6 +431,60 @@ internal fun invokePluginProcessorSafely(
 } catch (error: Throwable) {
     onFailure(error)
     null
+}
+
+/**
+ * Runs one trusted plugin processor while keeping coroutine and Future cancellation linked.
+ *
+ * The processor itself runs on [executor]. [runInterruptible] makes cancellation interrupt the
+ * thread waiting in Future.get; the cancellation handler then cancels the actual processor task
+ * with interruption as well. This prevents a stale song from occupying a plugin worker after a
+ * newer song has invalidated the processing job.
+ */
+internal suspend fun runPluginProcessorCancellable(
+    executor: ExecutorService,
+    processor: LyricProcessorExtension,
+    song: PluginSong,
+    processingContext: PluginProcessingContext,
+    timeoutMs: Long,
+    onPluginFailure: (Throwable) -> Unit,
+    onTimeout: () -> Unit,
+): PluginSongResult? {
+    val future: Future<PluginSongResult?> = try {
+        executor.submit<PluginSongResult?> {
+            invokePluginProcessorSafely(
+                processor = processor,
+                song = song,
+                processingContext = processingContext,
+                onFailure = onPluginFailure
+            )
+        }
+    } catch (_: Exception) {
+        return null
+    }
+
+    return try {
+        runInterruptible {
+            future.get(timeoutMs, TimeUnit.MILLISECONDS)
+        }
+    } catch (error: CancellationException) {
+        future.cancel(true)
+        throw error
+    } catch (_: TimeoutException) {
+        future.cancel(true)
+        onTimeout()
+        null
+    } catch (_: InterruptedException) {
+        future.cancel(true)
+        Thread.currentThread().interrupt()
+        null
+    } catch (error: ExecutionException) {
+        onPluginFailure(error.cause ?: error)
+        null
+    } catch (error: Exception) {
+        onPluginFailure(error)
+        null
+    }
 }
 
 internal data class PluginProcessingResult(
