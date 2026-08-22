@@ -545,6 +545,27 @@ private fun PluginSettingsPageContent(
                         }
                     }
                 }
+                if (plugin.manifest.cacheScopes.isNotEmpty()) {
+                    item(key = "plugin_cache_scopes") {
+                        Card(
+                            modifier = Modifier
+                                .padding(horizontal = 12.dp)
+                                .padding(bottom = 12.dp)
+                                .fillMaxWidth()
+                        ) {
+                            plugin.manifest.cacheScopes.forEach { cacheScope ->
+                                ArrowPreference(
+                                    title = cacheScope.localizedTitle(context),
+                                    onClick = {
+                                        navigator.navigate(
+                                            Route.PluginCache(plugin.manifest.id, cacheScope.id)
+                                        )
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
             }
             VerticalScrollBar(
                 adapter = rememberScrollBarAdapter(lazyListState),
@@ -809,7 +830,7 @@ private fun previewSettingValue(value: String, lineCount: Int): String {
     }
 }
 
-private fun com.lidesheng.hyperlyric.plugin.core.PluginManifest.localizedName(
+internal fun com.lidesheng.hyperlyric.plugin.core.PluginManifest.localizedName(
     context: Context
 ): String = resolveLocalizedText(
     context = context,
@@ -817,7 +838,7 @@ private fun com.lidesheng.hyperlyric.plugin.core.PluginManifest.localizedName(
     values = nameByLocale
 )
 
-private fun com.lidesheng.hyperlyric.plugin.core.PluginManifest.localizedSummary(
+internal fun com.lidesheng.hyperlyric.plugin.core.PluginManifest.localizedSummary(
     context: Context
 ): String? = resolveOptionalLocalizedText(
     context = context,
@@ -825,34 +846,34 @@ private fun com.lidesheng.hyperlyric.plugin.core.PluginManifest.localizedSummary
     values = summaryByLocale
 )
 
-private fun PluginSettingSpec.localizedTitle(context: Context): String = resolveLocalizedText(
+internal fun PluginSettingSpec.localizedTitle(context: Context): String = resolveLocalizedText(
     context = context,
     fallback = title,
     values = titleByLocale
 )
 
-private fun PluginSettingSpec.localizedSummary(context: Context): String? =
+internal fun PluginSettingSpec.localizedSummary(context: Context): String? =
     resolveOptionalLocalizedText(
         context = context,
         fallback = summary,
         values = summaryByLocale
     )
 
-private fun PluginSettingSpec.localizedDialogSummary(context: Context): String? =
+internal fun PluginSettingSpec.localizedDialogSummary(context: Context): String? =
     resolveOptionalLocalizedText(
         context = context,
         fallback = dialogSummary,
         values = dialogSummaryByLocale
     )
 
-private fun PluginSettingSpec.localizedEmptyValueSummary(context: Context): String? =
+internal fun PluginSettingSpec.localizedEmptyValueSummary(context: Context): String? =
     resolveOptionalLocalizedText(
         context = context,
         fallback = emptyValueSummary,
         values = emptyValueSummaryByLocale
     )
 
-private fun com.lidesheng.hyperlyric.plugin.api.PluginSettingOption.localizedLabel(
+internal fun com.lidesheng.hyperlyric.plugin.api.PluginSettingOption.localizedLabel(
     context: Context
 ): String = resolveLocalizedText(
     context = context,
@@ -860,7 +881,15 @@ private fun com.lidesheng.hyperlyric.plugin.api.PluginSettingOption.localizedLab
     values = labelByLocale
 )
 
-private fun resolveOptionalLocalizedText(
+internal fun com.lidesheng.hyperlyric.plugin.core.PluginCacheScope.localizedTitle(
+    context: Context
+): String = resolveLocalizedText(context, title, titleByLocale)
+
+internal fun com.lidesheng.hyperlyric.plugin.core.PluginCacheScope.localizedSummary(
+    context: Context
+): String? = resolveOptionalLocalizedText(context, summary, summaryByLocale)
+
+internal fun resolveOptionalLocalizedText(
     context: Context,
     fallback: String?,
     values: Map<String, String>
@@ -869,7 +898,7 @@ private fun resolveOptionalLocalizedText(
     return resolveLocalizedText(context, fallback.orEmpty(), values)
 }
 
-private fun resolveLocalizedText(
+internal fun resolveLocalizedText(
     context: Context,
     fallback: String,
     values: Map<String, String>

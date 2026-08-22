@@ -8,10 +8,16 @@ import com.lidesheng.hyperlyric.plugin.api.HYPERLYRIC_PLUGIN_API_VERSION
 import com.lidesheng.hyperlyric.plugin.api.PluginSettingSpec
 import com.lidesheng.hyperlyric.plugin.api.PluginSettingType
 import com.lidesheng.hyperlyric.plugin.core.PluginArchiveReader
+import com.lidesheng.hyperlyric.plugin.core.PluginCacheOperationCodec
+import com.lidesheng.hyperlyric.plugin.core.PluginCacheOperationRequest
+import com.lidesheng.hyperlyric.plugin.core.PluginCacheOperationResponse
+import com.lidesheng.hyperlyric.plugin.core.PluginCacheOperationType
+import com.lidesheng.hyperlyric.plugin.core.PluginCacheResultChannel
 import com.lidesheng.hyperlyric.plugin.core.PluginConstants
 import com.lidesheng.hyperlyric.plugin.core.PluginManifest
 import com.lidesheng.hyperlyric.plugin.core.PluginManifestCodec
 import com.lidesheng.hyperlyric.plugin.core.PluginRemoteFileNames
+import com.lidesheng.hyperlyric.root.utils.ShellUtils
 import io.github.libxposed.service.XposedService
 import org.json.JSONArray
 import org.json.JSONObject
@@ -31,6 +37,12 @@ data class PluginBackupSnapshot(
     val settings: JSONObject,
     val archive: ByteArray,
 )
+
+internal sealed interface PluginCacheOperationOutcome {
+    data class Completed(val response: PluginCacheOperationResponse) : PluginCacheOperationOutcome
+    data class Waiting(val reason: String) : PluginCacheOperationOutcome
+    data class Rejected(val reason: String) : PluginCacheOperationOutcome
+}
 
 /** App-side install/config facade. SystemUI only consumes the remote registry and ZIP files. */
 class PluginRepository(private val context: Context) {
@@ -160,6 +172,32 @@ class PluginRepository(private val context: Context) {
         }
     }
 
+    /**
+     * Sends one bounded cache operation to SystemUI and waits only for its request-ID-matched
+     * response. Call from a background dispatcher; App code never invokes plugin objects directly.
+     */
+    internal fun listPluginCache(pluginId: String, scopeId: String): PluginCacheOperationOutcome =
+        requestPluginCacheOperation(pluginId, scopeId, PluginCacheOperationType.LIST)
+
+    internal fun clearPluginCache(pluginId: String, scopeId: String): PluginCacheOperationOutcome =
+        requestPluginCacheOperation(pluginId, scopeId, PluginCacheOperationType.CLEAR_ALL)
+
+    internal fun clearPluginCacheEntry(
+        pluginId: String,
+        scopeId: String,
+        entryId: String
+    ): PluginCacheOperationOutcome = requestPluginCacheOperation(
+        pluginId = pluginId,
+        scopeId = scopeId,
+        type = PluginCacheOperationType.CLEAR_ENTRY,
+        entryId = entryId
+    )
+
+    /** Read-only Root fallback for inspecting SystemUI cache files before the injected runtime reloads. */
+    internal suspend fun queryPluginCacheFilesWithRoot(
+        pluginId: String
+    ): ShellUtils.RootPluginCacheQuery = ShellUtils.querySystemUiPluginCacheFiles(pluginId)
+
     fun uninstall(pluginId: String) {
         val installed = listInstalled().firstOrNull { it.manifest.id == pluginId }
             ?: throw IllegalArgumentException("插件未安装: $pluginId")
@@ -199,6 +237,105 @@ class PluginRepository(private val context: Context) {
             .remove(PluginConstants.LOCAL_FILE_PREFIX + pluginId)
             .apply()
         syncRegistry(service)
+    }
+
+    private fun requestPluginCacheOperation(
+        pluginId: String,
+        scopeId: String,
+        type: PluginCacheOperationType,
+        entryId: String? = null
+    ): PluginCacheOperationOutcome {
+        val installed = listInstalled().firstOrNull { it.manifest.id == pluginId }
+            ?: return PluginCacheOperationOutcome.Rejected("plugin_not_installed")
+        if (installed.manifest.cacheScopes.none { it.id == scopeId }) {
+            return PluginCacheOperationOutcome.Rejected("scope_not_declared")
+        }
+        val service = requireServiceOrNull()
+            ?: return PluginCacheOperationOutcome.Waiting("xposed_service_unavailable")
+        val request = PluginCacheOperationRequest(
+            requestId = UUID.randomUUID().toString(),
+            responseToken = UUID.randomUUID().toString(),
+            pluginId = pluginId,
+            scopeId = scopeId,
+            type = type,
+            entryId = entryId
+        )
+        if (runCatching { PluginCacheOperationCodec.encodeRequest(request) }.isFailure) {
+            return PluginCacheOperationOutcome.Rejected("invalid_request")
+        }
+
+        PluginCacheResultChannel.registerPending(context, request)
+
+        val remote = runCatching {
+            service.getRemotePreferences(PluginConstants.REMOTE_REGISTRY_PREFS)
+        }.getOrElse {
+            PluginCacheResultChannel.clear(context, request.requestId)
+            return PluginCacheOperationOutcome.Waiting("xposed_service_unavailable")
+        }
+        val now = System.currentTimeMillis()
+        val queued = remote.getStringSet(
+            PluginConstants.REMOTE_CACHE_OPERATION_REQUESTS_KEY,
+            emptySet()
+        ).orEmpty().mapNotNull(PluginCacheOperationCodec::decodeRequest)
+            .filterNot { PluginCacheOperationCodec.isRequestExpired(it, now) }
+            .take(PluginCacheOperationCodec.MAX_ACTIVE_REQUESTS)
+            .toMutableList()
+        if (queued.size >= PluginCacheOperationCodec.MAX_ACTIVE_REQUESTS) {
+            PluginCacheResultChannel.clear(context, request.requestId)
+            return PluginCacheOperationOutcome.Waiting("request_queue_full")
+        }
+        queued += request
+        runCatching {
+            remote.edit()
+                .putStringSet(
+                    PluginConstants.REMOTE_CACHE_OPERATION_REQUESTS_KEY,
+                    queued.map(PluginCacheOperationCodec::encodeRequest).toSet()
+                )
+                .apply()
+        }.getOrElse {
+            PluginCacheResultChannel.clear(context, request.requestId)
+            return PluginCacheOperationOutcome.Waiting("request_write_failed")
+        }
+
+        val deadline = System.currentTimeMillis() + CACHE_OPERATION_RESPONSE_TIMEOUT_MS
+        while (System.currentTimeMillis() < deadline) {
+            val response = PluginCacheResultChannel.consumeResponse(context, request.requestId)
+            if (response != null) {
+                cleanupCacheOperationRecords(remote, request.requestId)
+                return PluginCacheOperationOutcome.Completed(response)
+            }
+            try {
+                Thread.sleep(CACHE_OPERATION_RESPONSE_POLL_MS)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+                cleanupCacheOperationRecords(remote, request.requestId)
+                return PluginCacheOperationOutcome.Waiting("request_interrupted")
+            }
+        }
+        cleanupCacheOperationRecords(remote, request.requestId)
+        return PluginCacheOperationOutcome.Waiting("system_ui_not_responding")
+    }
+
+    private fun cleanupCacheOperationRecords(
+        remote: SharedPreferences,
+        requestId: String
+    ) {
+        val now = System.currentTimeMillis()
+        runCatching {
+            val requests = remote.getStringSet(
+                PluginConstants.REMOTE_CACHE_OPERATION_REQUESTS_KEY,
+                emptySet()
+            ).orEmpty().mapNotNull(PluginCacheOperationCodec::decodeRequest)
+                .filter { it.requestId != requestId }
+                .filterNot { PluginCacheOperationCodec.isRequestExpired(it, now) }
+                .take(PluginCacheOperationCodec.MAX_ACTIVE_REQUESTS)
+                .map(PluginCacheOperationCodec::encodeRequest)
+                .toSet()
+            remote.edit()
+                .putStringSet(PluginConstants.REMOTE_CACHE_OPERATION_REQUESTS_KEY, requests)
+                .apply()
+        }
+        PluginCacheResultChannel.clear(context, requestId)
     }
 
     fun configPreferences(pluginId: String): SharedPreferences = context.getSharedPreferences(
@@ -390,5 +527,10 @@ class PluginRepository(private val context: Context) {
     private fun readRemoteFile(service: XposedService, fileName: String): ByteArray {
         val descriptor = service.openRemoteFile(fileName)
         return ParcelFileDescriptor.AutoCloseInputStream(descriptor).use(PluginArchiveReader::readBounded)
+    }
+
+    private companion object {
+        const val CACHE_OPERATION_RESPONSE_TIMEOUT_MS = 6_000L
+        const val CACHE_OPERATION_RESPONSE_POLL_MS = 200L
     }
 }

@@ -8,8 +8,8 @@ class ShellUtilsTest {
     fun parsesBoundedRootCacheFileListing() {
         val parsed = ShellUtils.parsePluginCacheFiles(
             listOf(
-                "file\ta.cache\t42",
-                "legacy\thyperlyric_plugin_cache_demo.xml\t256",
+                "file\t/data/user_de/0/com.android.systemui/files/hyperlyric_plugin_cache/demo/a.cache\ta.cache\t42",
+                "legacy\t/data/user/0/com.android.systemui/shared_prefs/hyperlyric_plugin_cache_demo.xml\thyperlyric_plugin_cache_demo.xml\t256",
                 "invalid"
             ).joinToString("\n")
         )
@@ -17,6 +17,10 @@ class ShellUtilsTest {
         assertEquals(2, parsed.size)
         assertEquals("a.cache", parsed[0].fileName)
         assertEquals(42L, parsed[0].sizeBytes)
+        assertEquals(
+            "/data/user_de/0/com.android.systemui/files/hyperlyric_plugin_cache/demo/a.cache",
+            parsed[0].absolutePath
+        )
         assertEquals(true, parsed[1].legacyPreferences)
     }
 }

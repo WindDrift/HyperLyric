@@ -10,6 +10,7 @@ object ShellUtils {
         val fileName: String,
         val sizeBytes: Long,
         val legacyPreferences: Boolean,
+        val absolutePath: String,
     )
 
     sealed interface RootPluginCacheQuery {
@@ -80,24 +81,22 @@ object ShellUtils {
         if (!PluginCacheFileLayout.isValidPluginId(pluginId)) {
             return RootPluginCacheQuery.InvalidPluginId
         }
-        val cacheDirectory = "/data/user/0/com.android.systemui/" +
-            PluginCacheFileLayout.rootRelativeDirectory(pluginId)
-        val legacyPreferences = "/data/user/0/com.android.systemui/shared_prefs/" +
-            "hyperlyric_plugin_cache_$pluginId.xml"
         val script = $$"""
-            cache_dir="$$cacheDirectory"
-            legacy_prefs="$$legacyPreferences"
-            if [ -d "$cache_dir" ]; then
-                for file in "$cache_dir"/*.cache; do
-                    [ -f "$file" ] || continue
-                    size=$(wc -c < "$file" 2>/dev/null | tr -d ' ')
-                    printf 'file\t%s\t%s\n' "${file##*/}" "$size"
-                done
-            fi
-            if [ -f "$legacy_prefs" ]; then
-                size=$(wc -c < "$legacy_prefs" 2>/dev/null | tr -d ' ')
-                printf 'legacy\t%s\t%s\n' "${legacy_prefs##*/}" "$size"
-            fi
+            for data_root in /data/user/0 /data/user_de/0; do
+                cache_dir="$data_root/com.android.systemui/$${PluginCacheFileLayout.rootRelativeDirectory(pluginId)}"
+                legacy_prefs="$data_root/com.android.systemui/shared_prefs/hyperlyric_plugin_cache_$${pluginId}.xml"
+                if [ -d "$cache_dir" ]; then
+                    for file in "$cache_dir"/*.cache; do
+                        [ -f "$file" ] || continue
+                        size=$(wc -c < "$file" 2>/dev/null | tr -d ' ')
+                        printf 'file\t%s\t%s\t%s\n' "$file" "${file##*/}" "$size"
+                    done
+                fi
+                if [ -f "$legacy_prefs" ]; then
+                    size=$(wc -c < "$legacy_prefs" 2>/dev/null | tr -d ' ')
+                    printf 'legacy\t%s\t%s\t%s\n' "$legacy_prefs" "${legacy_prefs##*/}" "$size"
+                fi
+            done
         """.trimIndent()
         val result = execRootScript("nsenter --mount=/proc/1/ns/mnt -- sh", script)
             ?: return RootPluginCacheQuery.RootUnavailable
@@ -114,10 +113,12 @@ object ShellUtils {
                 "legacy" -> true
                 else -> return@mapNotNull null
             }
-            val fileName = parts.getOrNull(1)?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-            val sizeBytes = parts.getOrNull(2)?.toLongOrNull()?.takeIf { it >= 0L }
+            val absolutePath = parts.getOrNull(1)?.takeIf { it.startsWith("/") }
                 ?: return@mapNotNull null
-            RootPluginCacheFile(fileName, sizeBytes, legacy)
+            val fileName = parts.getOrNull(2)?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            val sizeBytes = parts.getOrNull(3)?.toLongOrNull()?.takeIf { it >= 0L }
+                ?: return@mapNotNull null
+            RootPluginCacheFile(fileName, sizeBytes, legacy, absolutePath)
         }
         .take(128)
         .toList()

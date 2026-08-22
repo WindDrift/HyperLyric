@@ -129,6 +129,17 @@ object PluginSongMapper {
                 val patched = base.mapIndexed { index, line ->
                     applyLyricFields(line, candidate[index], changedFields)
                 }
+                // Translation-only plugins neither alter the lyric structure nor add timed words.
+                // Some supported lyric sources intentionally leave begin/end/duration incomplete,
+                // so re-validating their untouched timing here would discard a safe translation.
+                val isSafeTranslationOnlyPatch = changedFields.all {
+                    it == PluginLyricField.TRANSLATION ||
+                        it == PluginLyricField.TRANSLATION_WORDS
+                } && (
+                    PluginLyricField.TRANSLATION_WORDS !in changedFields ||
+                        candidate.all { it.translationWords == null }
+                    )
+                if (isSafeTranslationOnlyPatch) return LyricsMergeResult(patched)
                 if (patched.isEmpty() || hasValidLyrics(patched)) {
                     LyricsMergeResult(patched)
                 } else {

@@ -21,6 +21,16 @@ data class PluginManifest(
     val summaryByLocale: Map<String, String> = emptyMap(),
     val activationSettingKey: String? = null,
     val settings: PluginSettingsSchema = PluginSettingsSchema(),
+    val cacheScopes: List<PluginCacheScope> = emptyList(),
+)
+
+/** Manifest-only description of a plugin cache scope; the App supplies the UI. */
+data class PluginCacheScope(
+    val id: String,
+    val title: String,
+    val summary: String? = null,
+    val titleByLocale: Map<String, String> = emptyMap(),
+    val summaryByLocale: Map<String, String> = emptyMap(),
 )
 
 object PluginManifestCodec {
@@ -45,6 +55,7 @@ object PluginManifestCodec {
         require(entryPattern.matches(entry)) { "Invalid plugin entry" }
 
         val settings = decodeSettings(json.optJSONArray("settings"))
+        val cacheScopes = decodeCacheScopes(json.optJSONArray("cacheScopes"))
         activationSettingKey?.let { key ->
             val setting = settings.firstOrNull { it.key == key }
                 ?: throw IllegalArgumentException("Activation setting does not exist: $key")
@@ -64,7 +75,8 @@ object PluginManifestCodec {
             nameByLocale = decodeLocalizedMap(json.optJSONObject("nameLocales")),
             summaryByLocale = decodeLocalizedMap(json.optJSONObject("summaryLocales")),
             activationSettingKey = activationSettingKey,
-            settings = PluginSettingsSchema(settings)
+            settings = PluginSettingsSchema(settings),
+            cacheScopes = cacheScopes
         )
     }
 
@@ -143,7 +155,50 @@ object PluginManifestCodec {
             settings.put(settingJson)
         }
         if (settings.length() > 0) json.put("settings", settings)
+        if (manifest.cacheScopes.isNotEmpty()) {
+            json.put(
+                "cacheScopes",
+                JSONArray().apply {
+                    manifest.cacheScopes.forEach { scope ->
+                        put(
+                            JSONObject()
+                                .put("id", scope.id)
+                                .put("title", scope.title)
+                                .also { scopeJson ->
+                                    scope.summary?.let { scopeJson.put("summary", it) }
+                                    putLocalizedMap(scopeJson, "titleLocales", scope.titleByLocale)
+                                    putLocalizedMap(scopeJson, "summaryLocales", scope.summaryByLocale)
+                                }
+                        )
+                    }
+                }
+            )
+        }
         return json.toString()
+    }
+
+    private fun decodeCacheScopes(array: JSONArray?): List<PluginCacheScope> {
+        if (array == null) return emptyList()
+        require(array.length() <= MAX_CACHE_SCOPES) { "Too many plugin cache scopes" }
+        val ids = HashSet<String>()
+        return buildList(array.length()) {
+            for (index in 0 until array.length()) {
+                val item = array.optJSONObject(index)
+                    ?: throw IllegalArgumentException("Plugin cache scope must be an object")
+                val id = item.requiredString("id")
+                require(idPattern.matches(id)) { "Invalid plugin cache scope id" }
+                require(ids.add(id)) { "Duplicate plugin cache scope id: $id" }
+                add(
+                    PluginCacheScope(
+                        id = id,
+                        title = item.requiredString("title"),
+                        summary = item.optionalString("summary"),
+                        titleByLocale = decodeLocalizedMap(item.optJSONObject("titleLocales")),
+                        summaryByLocale = decodeLocalizedMap(item.optJSONObject("summaryLocales"))
+                    )
+                )
+            }
+        }
     }
 
     private fun decodeSettings(array: JSONArray?): List<PluginSettingSpec> {
@@ -279,4 +334,6 @@ object PluginManifestCodec {
 
     private fun JSONObject.optNullableFloat(key: String): Float? =
         opt(key)?.takeUnless { it === JSONObject.NULL }?.toString()?.toFloatOrNull()
+
+    private const val MAX_CACHE_SCOPES = 32
 }

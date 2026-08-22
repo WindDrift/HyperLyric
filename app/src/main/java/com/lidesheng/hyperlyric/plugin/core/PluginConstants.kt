@@ -12,6 +12,9 @@ object PluginConstants {
     const val REMOTE_ENABLED_IDS_KEY = "enabled_ids"
     /** App-side uninstall tombstones consumed by the SystemUI runtime. */
     const val REMOTE_CACHE_CLEAR_TOKENS_KEY = "cache_clear_tokens"
+    /** Bounded request/response queues for App-side plugin cache management. */
+    const val REMOTE_CACHE_OPERATION_REQUESTS_KEY = "cache_operation_requests"
+    const val CACHE_RESULT_PROVIDER_AUTHORITY = "com.lidesheng.hyperlyric.plugin-cache-result"
 
     const val LOCAL_REGISTRY_PREFS = "hyperlyric_plugin_registry"
     const val LOCAL_INSTALLED_IDS_KEY = "installed_ids"
@@ -28,6 +31,8 @@ object PluginConstants {
 
     /** Absolute host-side safety gate for one plugin Processor invocation. */
     const val MAX_PROCESSOR_TIMEOUT_MS = 40_000L
+    /** Independent safety gate for a plugin cache-management operation. */
+    const val MAX_CACHE_OPERATION_TIMEOUT_MS = 10_000L
 
     fun configGroup(pluginId: String): String = "plugin.$pluginId"
 
@@ -37,4 +42,7 @@ object PluginConstants {
 
     fun cacheMetadataPreferences(pluginId: String): String =
         "hyperlyric_plugin_cache_meta_$pluginId"
+
+    fun cacheOperationPreferences(pluginId: String): String =
+        "hyperlyric_plugin_cache_operations_$pluginId"
 }

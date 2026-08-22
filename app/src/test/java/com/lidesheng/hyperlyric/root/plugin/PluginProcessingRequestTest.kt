@@ -34,10 +34,27 @@ class PluginProcessingRequestTest {
         )
     }
 
+    @Test
+    fun sourcePackageNameChangeStartsAnotherRequest() {
+        val tracker = PluginProcessingRequestTracker()
+        val first = request(name = "same", duration = 180_000L)
+        tracker.markStarted(first)
+
+        assertFalse(
+            tracker.isDuplicate(
+                first.copy(mediaInfo = first.mediaInfo?.copy(sourcePackageName = "other.player"))
+            )
+        )
+    }
+
     private fun request(name: String, duration: Long): PluginProcessingRequestKey =
         PluginProcessingRequestKey(
             sourceSong = PluginSong(name = name, duration = duration),
             mediaIdentity = null,
-            mediaInfo = PluginMediaInfo(title = name, duration = duration)
+            mediaInfo = PluginMediaInfo(
+                title = name,
+                duration = duration,
+                sourcePackageName = "source.player"
+            )
         )
 }

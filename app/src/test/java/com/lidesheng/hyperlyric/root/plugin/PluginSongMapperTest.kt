@@ -105,6 +105,40 @@ class PluginSongMapperTest {
     }
 
     @Test
+    fun translationPatchAcceptsIncompleteUnchangedSourceTiming() {
+        val base = PluginSong(
+            lyrics = listOf(
+                PluginLyricLine(
+                    begin = 0L,
+                    end = 0L,
+                    duration = 0L,
+                    text = "未带精确时间的原文",
+                    translationWords = listOf(word("旧译文"))
+                )
+            )
+        )
+        val candidate = base.copy(
+            lyrics = listOf(base.lyrics!!.single().copy(translation = "AI 译文", translationWords = null))
+        )
+
+        val merged = PluginSongMapper.mergePluginSong(
+            base,
+            PluginSongResult(
+                song = candidate,
+                changedFields = setOf(PluginSongField.LYRICS),
+                lyricsUpdateMode = PluginLyricsUpdateMode.PATCH,
+                changedLyricFields = setOf(
+                    PluginLyricField.TRANSLATION,
+                    PluginLyricField.TRANSLATION_WORDS
+                )
+            )
+        )
+
+        assertEquals("AI 译文", merged?.lyrics?.single()?.translation)
+        assertNull(merged?.lyrics?.single()?.translationWords)
+    }
+
+    @Test
     fun invalidReplaceOrderIsRejectedAndBaseRemainsAvailable() {
         val base = PluginSong(
             lyrics = listOf(

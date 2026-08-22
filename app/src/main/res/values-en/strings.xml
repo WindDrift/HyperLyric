@@ -655,4 +655,21 @@
     <string name="toast_plugin_uninstall_success">Plugin uninstalled</string>
     <string name="toast_plugin_operation_failed">Plugin operation failed: %1$s</string>
     <string name="toast_plugin_requires_xposed">Enable the HyperLyric Xposed module first</string>
+    <string name="title_plugin_cache">Cache management</string>
+    <string name="title_plugin_cache_clear_all">Clear all cache</string>
+    <string name="title_plugin_cache_clear_entry">Delete cache entry</string>
+    <string name="plugin_cache_loading">Loading cache…</string>
+    <string name="plugin_cache_empty">No cached entries</string>
+    <string name="plugin_cache_waiting">System UI has not responded. Confirm the plugin is loaded and try again.</string>
+    <string name="plugin_cache_unavailable">This cache capability is unavailable</string>
+    <string name="plugin_cache_retry">Try again</string>
+    <string name="dialog_plugin_cache_clear_all_summary">Clear every entry in this cache scope? Plugin settings and stored data will be kept.</string>
+    <string name="dialog_plugin_cache_clear_entry_summary">Delete this cached entry?</string>
+    <string name="toast_plugin_cache_cleared">Cache cleared</string>
+    <string name="toast_plugin_cache_entry_cleared">Cache entry deleted</string>
+    <string name="plugin_cache_root_query">Use Root to inspect SystemUI private cache files</string>
+    <string name="plugin_cache_root_unavailable">Unable to inspect SystemUI private cache files with Root</string>
+    <string name="plugin_cache_root_result">Root found %1$d private cache files. They are inspection-only; load SystemUI to manage entries.</string>
+    <string name="plugin_cache_root_file">Cache file #%1$d</string>
+    <string name="plugin_cache_root_legacy_file">Legacy cache preference file #%1$d</string>
 </resources>

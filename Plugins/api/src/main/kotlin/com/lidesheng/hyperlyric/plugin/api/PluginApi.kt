@@ -69,6 +69,11 @@ public data class PluginMediaInfo(
     val artist: String? = null,
     val album: String? = null,
     val duration: Long? = null,
+    /**
+     * Package name supplied by the lyric source for this metadata event. It can be null when the
+     * source did not provide a package and must not be inferred from MediaSession or host state.
+     */
+    val sourcePackageName: String? = null,
 )
 
 /** Per-invocation data supplied by Core without exposing Android, MediaSession or Xposed types. */
@@ -124,6 +129,27 @@ public interface PluginCache {
     public fun remove(key: String)
     public fun clear()
 }
+
+/** Metadata-only cache-management capability exposed by a plugin to the host App. */
+public interface PluginCacheExtension : HyperLyricExtension {
+    /** Cache scope ID. It must match a scope declared in the plugin manifest. */
+    public fun listEntries(): List<PluginCacheEntry>
+
+    /** Clears this extension's cache scope without touching PluginConfig or PluginStorage. */
+    public fun clearAll()
+
+    /** Clears one plugin-defined opaque entry ID and returns whether it existed. */
+    public fun clearEntry(entryId: String): Boolean
+}
+
+/** Safe-to-display cache metadata. Cache bodies, API keys and translations never cross this API. */
+public data class PluginCacheEntry(
+    val id: String,
+    val title: String,
+    val summary: String? = null,
+    val sizeBytes: Long? = null,
+    val updatedAtEpochMs: Long? = null,
+)
 
 /** Stable read-only media and lyric snapshot passed across the plugin boundary. */
 public data class PluginSong(

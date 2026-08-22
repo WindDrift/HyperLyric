@@ -183,6 +183,10 @@ class RootLyricSink(
             renderer.updateMetadata()
             return
         }
+        // This is deliberately captured before Core supplements the internal media state. A
+        // plugin may only receive the package supplied by this lyric source event, never a
+        // MediaSession/identity package or the previous lyric package retained by the bridge.
+        val sourcePackageName = normalized.packageName?.takeIf { it.isNotBlank() }
         val packageName = normalized.packageName
             ?: LyriconDataBridge.currentLyricPackageName
             ?: ""
@@ -217,7 +221,7 @@ class RootLyricSink(
             renderer.updateLyricLine()
         }
         LyriconDataBridge.applyResolvedMediaInfo(mediaInfo)
-        latestPluginMediaInfo = mediaInfo.toPluginMediaInfo()
+        latestPluginMediaInfo = mediaInfo.toPluginMediaInfo(sourcePackageName)
         if (mediaChanged && LyriconDataBridge.currentSong == null) {
             LyriconDataBridge.resetLyricContentForMediaChange()
             renderer.updateLyricLine()
@@ -384,16 +388,6 @@ class RootLyricSink(
         )
     }
 
-    private fun MediaMetadataHelper.MediaInfo.toPluginMediaInfo(): PluginMediaInfo? =
-        PluginMediaInfo(
-            title = title.takeIf { it.isNotBlank() },
-            artist = artist.takeIf { it.isNotBlank() },
-            album = album.takeIf { it.isNotBlank() },
-            duration = duration.takeIf { it > 0L }
-        ).takeIf { info ->
-            info.title != null || info.artist != null || info.album != null || info.duration != null
-        }
-
     override fun onPlaybackStateChanged(isPlaying: Boolean, playbackSpeed: Float) {
         playbackActive = isPlaying
         explicitPlaybackSpeed(playbackSpeed)?.let { currentPlaybackSpeed = it }
@@ -556,6 +550,27 @@ class RootLyricSink(
         PluginSongField.LYRICS
     )
 
+}
+
+/**
+ * Builds the plugin DTO from resolved Core media fields while retaining the lyric source's package
+ * boundary. [sourcePackageName] is intentionally supplied separately so a MediaIdentity package
+ * cannot leak into plugins when the source did not provide one.
+ */
+internal fun MediaMetadataHelper.MediaInfo.toPluginMediaInfo(
+    sourcePackageName: String?
+): PluginMediaInfo? = PluginMediaInfo(
+    title = title.takeIf { it.isNotBlank() },
+    artist = artist.takeIf { it.isNotBlank() },
+    album = album.takeIf { it.isNotBlank() },
+    duration = duration.takeIf { it > 0L },
+    sourcePackageName = sourcePackageName?.takeIf { it.isNotBlank() }
+).takeIf { info ->
+    info.title != null ||
+            info.artist != null ||
+            info.album != null ||
+            info.duration != null ||
+            info.sourcePackageName != null
 }
 
 

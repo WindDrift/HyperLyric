@@ -9,6 +9,7 @@ import dalvik.system.InMemoryDexClassLoader
 import com.lidesheng.hyperlyric.plugin.api.HYPERLYRIC_PLUGIN_API_VERSION
 import com.lidesheng.hyperlyric.plugin.api.HyperLyricExtension
 import com.lidesheng.hyperlyric.plugin.api.HyperLyricPlugin
+import com.lidesheng.hyperlyric.plugin.api.PluginCacheExtension
 import com.lidesheng.hyperlyric.plugin.api.LyricProcessorExtension
 import com.lidesheng.hyperlyric.plugin.api.PluginCache
 import com.lidesheng.hyperlyric.plugin.api.PluginConfig
@@ -22,6 +23,13 @@ import com.lidesheng.hyperlyric.plugin.api.PluginStorage
 import com.lidesheng.hyperlyric.plugin.api.PluginSong
 import com.lidesheng.hyperlyric.plugin.api.PluginSongResult
 import com.lidesheng.hyperlyric.plugin.core.PluginArchiveReader
+import com.lidesheng.hyperlyric.plugin.core.PluginCacheOperationCodec
+import com.lidesheng.hyperlyric.plugin.core.PluginCacheOperationRequest
+import com.lidesheng.hyperlyric.plugin.core.PluginCacheOperationReplayTracker
+import com.lidesheng.hyperlyric.plugin.core.PluginCacheOperationResponse
+import com.lidesheng.hyperlyric.plugin.core.PluginCacheOperationType
+import com.lidesheng.hyperlyric.plugin.core.PluginCacheResultChannel
+import com.lidesheng.hyperlyric.plugin.core.PluginCacheFileLayout
 import com.lidesheng.hyperlyric.plugin.core.PluginConstants
 import com.lidesheng.hyperlyric.plugin.core.PluginManifest
 import com.lidesheng.hyperlyric.plugin.core.PluginRemoteFileNames
@@ -57,6 +65,8 @@ class PluginRuntime(
     companion object {
         private const val TAG = "PluginRuntime"
         private const val LAST_CACHE_CLEAR_TOKEN_KEY = "__hyperlyric_core_last_clear_token"
+        private const val CACHE_OPERATION_RESULT_PREFIX = "result."
+        private const val MAX_STORED_CACHE_OPERATION_RESULTS = 16
 
         private val creatingPluginLoaderDepth = ThreadLocal.withInitial<Int> { 0 }
 
@@ -82,20 +92,32 @@ class PluginRuntime(
     private val processorExecutor: ExecutorService = Executors.newCachedThreadPool { runnable ->
         Thread(runnable, "HyperLyric-PluginProcessor").apply { isDaemon = true }
     }
+    /** Cache operations never share the lyric processor executor. */
+    private val cacheOperationExecutor: ExecutorService = Executors.newCachedThreadPool { runnable ->
+        Thread(runnable, "HyperLyric-PluginCacheOperation").apply { isDaemon = true }
+    }
     private val generation = AtomicInteger(0)
     private val closed = AtomicBoolean(false)
+    private val cacheOperationConsuming = AtomicBoolean(false)
+    private val cacheOperationReplayTracker = PluginCacheOperationReplayTracker()
     private var activeJob: Job? = null
     private val loadedPlugins = mutableListOf<LoadedPlugin>()
+    private val pluginLoadLock = Any()
     private var registryPreferences: SharedPreferences? = null
 
     private val registryListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == PluginConstants.REMOTE_CACHE_CLEAR_TOKENS_KEY) {
             consumePendingCacheClears(registryPreferences)
         }
+        if (key == PluginConstants.REMOTE_CACHE_OPERATION_REQUESTS_KEY) {
+            consumePendingCacheOperations(registryPreferences)
+        }
     }
 
     @Volatile
     private var processors: List<RegisteredProcessor> = emptyList()
+    @Volatile
+    private var cacheExtensions: List<RegisteredCacheExtension> = emptyList()
     @Volatile
     private var processorSetFingerprint: String = ""
 
@@ -118,6 +140,8 @@ class PluginRuntime(
             emptySet()
         }
         if (enabledIds.isEmpty()) {
+            rebuildExtensionRegistries()
+            consumePendingCacheOperations(registry)
             HookLogger.d(TAG, "没有启用的 HyperLyric 插件")
             return
         }
@@ -133,17 +157,33 @@ class PluginRuntime(
                 HookLogger.w(TAG, "插件文件不存在: id=$pluginId, file=$fileName")
                 return@forEach
             }
-            runCatching { loadPlugin(pluginId, fileName) }.onFailure { error ->
-                HookLogger.w(TAG, "插件加载失败: id=$pluginId", error)
+            synchronized(pluginLoadLock) {
+                if (loadedPlugins.any { it.manifest.id == pluginId }) return@synchronized
+                runCatching { loadPlugin(pluginId, fileName, enableProcessing = true) }
+                    .onFailure { error ->
+                        HookLogger.w(TAG, "插件加载失败: id=$pluginId", error)
+                    }
             }
         }
 
+        rebuildExtensionRegistries()
+        consumePendingCacheOperations(registry)
+        HookLogger.i(
+            TAG,
+            "插件 Runtime 初始化完成: enabled=${enabledIds.size}, " +
+                    "loaded=${loadedPlugins.size}, processors=${processors.size}, " +
+                    "cacheExtensions=${cacheExtensions.size}"
+        )
+    }
+
+    private fun rebuildExtensionRegistries() {
+        val loaded = synchronized(pluginLoadLock) { loadedPlugins.toList() }
         val registeredProcessors = mutableListOf<RegisteredProcessor>()
-        loadedPlugins.forEachIndexed { pluginIndex, loaded ->
-            loaded.extensions.filterIsInstance<LyricProcessorExtension>()
+        loaded.filter { it.processingEnabled }.forEachIndexed { pluginIndex, loadedPlugin ->
+            loadedPlugin.extensions.filterIsInstance<LyricProcessorExtension>()
                 .forEachIndexed { extensionIndex, extension ->
                     registeredProcessors += RegisteredProcessor(
-                        pluginId = loaded.manifest.id,
+                        pluginId = loadedPlugin.manifest.id,
                         pluginIndex = pluginIndex,
                         extensionIndex = extensionIndex,
                         extension = extension
@@ -160,11 +200,16 @@ class PluginRuntime(
         processorSetFingerprint = processors.joinToString("\u001F") { registered ->
             "${registered.pluginId}:${registered.extension.id}:${registered.extension.stage.name}"
         }
-        HookLogger.i(
-            TAG,
-            "插件 Runtime 初始化完成: enabled=${enabledIds.size}, " +
-                    "loaded=${loadedPlugins.size}, processors=${processors.size}"
-        )
+        cacheExtensions = loaded.flatMap { loadedPlugin ->
+            loadedPlugin.extensions.filterIsInstance<PluginCacheExtension>()
+                .filter { extension -> loadedPlugin.manifest.cacheScopes.any { it.id == extension.id } }
+                .map { extension ->
+                    RegisteredCacheExtension(
+                        pluginId = loadedPlugin.manifest.id,
+                        extension = extension
+                    )
+                }
+        }.sortedWith(compareBy<RegisteredCacheExtension> { it.pluginId }.thenBy { it.extension.id })
     }
 
     internal fun processingSetFingerprint(): String = processorSetFingerprint
@@ -267,20 +312,26 @@ class PluginRuntime(
     fun close() {
         if (!closed.compareAndSet(false, true)) return
         cancelActiveProcessing()
-        loadedPlugins.asReversed().forEach { loaded ->
-            runCatching { loaded.preferences.unregisterOnSharedPreferenceChangeListener(loaded.listener) }
+        val pluginsToClose = synchronized(pluginLoadLock) {
+            loadedPlugins.toList().also { loadedPlugins.clear() }
+        }
+        pluginsToClose.asReversed().forEach { loaded ->
+            loaded.listener?.let { listener ->
+                runCatching { loaded.preferences.unregisterOnSharedPreferenceChangeListener(listener) }
+            }
             runCatching { loaded.plugin.onUnload() }.onFailure { error ->
                 HookLogger.w(TAG, "插件卸载回调失败: id=${loaded.manifest.id}", error)
             }
         }
-        loadedPlugins.clear()
         processors = emptyList()
+        cacheExtensions = emptyList()
         processorSetFingerprint = ""
         registryPreferences?.let { preferences ->
             runCatching { preferences.unregisterOnSharedPreferenceChangeListener(registryListener) }
         }
         registryPreferences = null
         processorExecutor.shutdownNow()
+        cacheOperationExecutor.shutdownNow()
         scope.cancel()
     }
 
@@ -303,6 +354,10 @@ class PluginRuntime(
             if (separator <= 0 || separator == encoded.lastIndex) return@forEach
             val pluginId = encoded.substring(0, separator)
             val token = encoded.substring(separator + 1)
+            if (!PluginCacheFileLayout.isValidPluginId(pluginId)) {
+                HookLogger.w(TAG, "忽略非法插件缓存清理请求: id=$pluginId")
+                return@forEach
+            }
             runCatching {
                 val marker = application.getSharedPreferences(
                     PluginConstants.cacheMetadataPreferences(pluginId),
@@ -316,6 +371,7 @@ class PluginRuntime(
                     android.content.Context.MODE_PRIVATE
                 ).edit().clear().commit()
                 check(cleared) { "cache clear commit returned false" }
+                clearPluginCacheFiles(pluginId)
                 val marked = marker.edit().putString(LAST_CACHE_CLEAR_TOKEN_KEY, token).commit()
                 check(marked) { "cache clear marker commit returned false" }
                 HookLogger.i(TAG, "插件缓存已清理: id=$pluginId")
@@ -325,7 +381,260 @@ class PluginRuntime(
         }
     }
 
-    private fun loadPlugin(pluginId: String, fileName: String) {
+    /**
+     * Reads bounded cache-management requests from the App. The target-process
+     * RemotePreferences view is read-only, so each result is submitted to the App-owned provider
+     * instead of attempting to write the registry from SystemUI.
+     */
+    private fun consumePendingCacheOperations(registry: SharedPreferences?) {
+        if (closed.get() || !cacheOperationConsuming.compareAndSet(false, true)) return
+        scope.launch {
+            var snapshotRequestIds: Set<String> = emptySet()
+            var requestSnapshotRead = false
+            try {
+                val now = System.currentTimeMillis()
+                val pendingRequests = runCatching {
+                    registry?.getStringSet(
+                        PluginConstants.REMOTE_CACHE_OPERATION_REQUESTS_KEY,
+                        emptySet()
+                    ).orEmpty()
+                }.onSuccess {
+                    requestSnapshotRead = true
+                }.getOrElse { error ->
+                    HookLogger.w(TAG, "读取插件缓存操作请求失败", error)
+                    emptySet()
+                }.mapNotNull(PluginCacheOperationCodec::decodeRequest)
+                snapshotRequestIds = pendingRequests.mapTo(linkedSetOf()) { it.requestId }
+                val requests = pendingRequests
+                    .sortedBy { it.createdAtEpochMs }
+                    .take(PluginCacheOperationCodec.MAX_ACTIVE_REQUESTS)
+
+                requests.forEach { request ->
+                    if (closed.get()) return@forEach
+                    val response = when {
+                        PluginCacheOperationCodec.isRequestExpired(request, now) -> {
+                            PluginCacheOperationResponse(
+                                requestId = request.requestId,
+                                success = false,
+                                errorCode = "request_expired"
+                            )
+                        }
+
+                        else -> storedCacheOperationResponse(request)
+                            ?.also(cacheOperationReplayTracker::markCompleted)
+                            ?: cacheOperationReplayTracker.completedResponse(request.requestId)
+                            ?: executeCacheOperation(request).also {
+                                storeCacheOperationResponse(request.pluginId, it)
+                                cacheOperationReplayTracker.markCompleted(it)
+                            }
+                    }
+                    if (!PluginCacheResultChannel.publishFromSystemUi(application, request, response)) {
+                        HookLogger.w(
+                            TAG,
+                            "回传插件缓存操作结果失败: plugin=${request.pluginId}, " +
+                                    "scope=${request.scopeId}"
+                        )
+                    }
+                }
+            } finally {
+                cacheOperationConsuming.set(false)
+                if (
+                    requestSnapshotRead &&
+                    hasNewPendingCacheOperation(registry, snapshotRequestIds)
+                ) {
+                    consumePendingCacheOperations(registry)
+                }
+            }
+        }
+    }
+
+    /**
+     * A registry listener can fire while the previous snapshot is still executing. Recheck after
+     * releasing the single-consumer gate so that newly appended requests are not left waiting for
+     * an unrelated preference change.
+     */
+    private fun hasNewPendingCacheOperation(
+        registry: SharedPreferences?,
+        snapshotRequestIds: Set<String>
+    ): Boolean {
+        val now = System.currentTimeMillis()
+        return runCatching {
+            registry?.getStringSet(
+                PluginConstants.REMOTE_CACHE_OPERATION_REQUESTS_KEY,
+                emptySet()
+            ).orEmpty().mapNotNull(PluginCacheOperationCodec::decodeRequest)
+                .any { request ->
+                    !PluginCacheOperationCodec.isRequestExpired(request, now) &&
+                            request.requestId !in snapshotRequestIds
+                }
+        }.onFailure { error ->
+            HookLogger.w(TAG, "复查插件缓存操作请求失败", error)
+        }.getOrDefault(false)
+    }
+
+    /** The tombstone is marked only after both the legacy and file-backed cache are cleared. */
+    private fun clearPluginCacheFiles(pluginId: String) {
+        val directory = PluginCacheFileLayout.directory(application, pluginId)
+        directory.listFiles()?.forEach { file ->
+            if (file.isFile) {
+                check(file.delete()) { "cannot delete plugin cache file: ${file.name}" }
+            }
+        }
+    }
+
+    private fun executeCacheOperation(
+        request: PluginCacheOperationRequest
+    ): PluginCacheOperationResponse {
+        val task = try {
+            cacheOperationExecutor.submit<PluginCacheOperationResponse> {
+                val loaded = findOrLoadPluginForCache(request.pluginId)
+                    ?: return@submit cacheOperationFailure(request, "plugin_not_loaded")
+                if (loaded.manifest.cacheScopes.none { it.id == request.scopeId }) {
+                    return@submit cacheOperationFailure(request, "scope_not_declared")
+                }
+                val extension = cacheExtensions.firstOrNull {
+                    it.pluginId == request.pluginId && it.extension.id == request.scopeId
+                }?.extension ?: return@submit cacheOperationFailure(request, "scope_not_loaded")
+
+                try {
+                    when (request.type) {
+                        PluginCacheOperationType.LIST -> PluginCacheOperationResponse(
+                            requestId = request.requestId,
+                            success = true,
+                            entries = PluginCacheOperationCodec.sanitizeEntries(
+                                extension.listEntries()
+                            )
+                        )
+
+                        PluginCacheOperationType.CLEAR_ALL -> {
+                            extension.clearAll()
+                            PluginCacheOperationResponse(
+                                requestId = request.requestId,
+                                success = true
+                            )
+                        }
+
+                        PluginCacheOperationType.CLEAR_ENTRY -> PluginCacheOperationResponse(
+                            requestId = request.requestId,
+                            success = true,
+                            entryCleared = extension.clearEntry(request.entryId.orEmpty())
+                        )
+                    }
+                } catch (error: Throwable) {
+                    HookLogger.w(
+                        TAG,
+                        "插件缓存操作失败: plugin=${request.pluginId}, scope=${request.scopeId}",
+                        error
+                    )
+                    cacheOperationFailure(request, "extension_failed")
+                }
+            }
+        } catch (error: Exception) {
+            HookLogger.w(TAG, "无法提交插件缓存操作", error)
+            return cacheOperationFailure(request, "runtime_unavailable")
+        }
+
+        return try {
+            task.get(PluginConstants.MAX_CACHE_OPERATION_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        } catch (_: TimeoutException) {
+            task.cancel(true)
+            HookLogger.w(
+                TAG,
+                "插件缓存操作超时: plugin=${request.pluginId}, scope=${request.scopeId}"
+            )
+            cacheOperationFailure(request, "operation_timeout")
+        } catch (error: Exception) {
+            task.cancel(true)
+            HookLogger.w(TAG, "插件缓存操作异常", error)
+            cacheOperationFailure(request, "runtime_failed")
+        }
+    }
+
+    /**
+     * A disabled plugin does not run lyric processors, but its declared cache remains user-owned
+     * data. Load it only when the App asks to manage that cache, without invoking [onEnable].
+     */
+    private fun findOrLoadPluginForCache(pluginId: String): LoadedPlugin? =
+        synchronized(pluginLoadLock) {
+            loadedPlugins.firstOrNull { it.manifest.id == pluginId } ?: run {
+                val fileName = PluginRemoteFileNames.forId(pluginId)
+                val remoteFiles = runCatching { module.listRemoteFiles().toSet() }
+                    .getOrElse { error ->
+                        HookLogger.w(TAG, "读取插件远程文件列表失败，无法管理缓存: id=$pluginId", error)
+                        return@synchronized null
+                    }
+                if (fileName !in remoteFiles) {
+                    HookLogger.w(TAG, "插件文件不存在，无法管理缓存: id=$pluginId, file=$fileName")
+                    return@synchronized null
+                }
+                runCatching {
+                    loadPlugin(pluginId, fileName, enableProcessing = false).also {
+                        rebuildExtensionRegistries()
+                    }
+                }.onFailure { error ->
+                    HookLogger.w(TAG, "为缓存管理加载插件失败: id=$pluginId", error)
+                }.getOrNull()
+            }
+        }
+
+    private fun cacheOperationFailure(
+        request: PluginCacheOperationRequest,
+        errorCode: String
+    ): PluginCacheOperationResponse = PluginCacheOperationResponse(
+        requestId = request.requestId,
+        success = false,
+        errorCode = errorCode
+    )
+
+    private fun storedCacheOperationResponse(
+        request: PluginCacheOperationRequest
+    ): PluginCacheOperationResponse? {
+        val preferences = application.getSharedPreferences(
+            PluginConstants.cacheOperationPreferences(request.pluginId),
+            android.content.Context.MODE_PRIVATE
+        )
+        return preferences.getString(CACHE_OPERATION_RESULT_PREFIX + request.requestId, null)
+            ?.let(PluginCacheOperationCodec::decodeResponse)
+            ?.takeIf { it.requestId == request.requestId }
+    }
+
+    private fun storeCacheOperationResponse(
+        pluginId: String,
+        response: PluginCacheOperationResponse
+    ) {
+        val encoded = runCatching { PluginCacheOperationCodec.encodeResponse(response) }
+            .getOrElse { error ->
+                HookLogger.w(TAG, "插件缓存操作结果过大或非法", error)
+                return
+            }
+        val preferences = application.getSharedPreferences(
+            PluginConstants.cacheOperationPreferences(pluginId),
+            android.content.Context.MODE_PRIVATE
+        )
+        val retainedKeys = preferences.all
+            .filterKeys { it.startsWith(CACHE_OPERATION_RESULT_PREFIX) }
+            .mapNotNull { (key, value) ->
+                (value as? String)?.let(PluginCacheOperationCodec::decodeResponse)
+                    ?.let { key to it }
+            }
+            .sortedByDescending { it.second.completedAtEpochMs }
+            .take(MAX_STORED_CACHE_OPERATION_RESULTS - 1)
+            .map { it.first }
+            .toSet()
+        preferences.edit().apply {
+            preferences.all.keys
+                .filter { it.startsWith(CACHE_OPERATION_RESULT_PREFIX) && it !in retainedKeys }
+                .forEach(::remove)
+            putString(CACHE_OPERATION_RESULT_PREFIX + response.requestId, encoded)
+            apply()
+        }
+    }
+
+    private fun loadPlugin(
+        pluginId: String,
+        fileName: String,
+        enableProcessing: Boolean,
+    ): LoadedPlugin {
         val archiveBytes = module.openRemoteFile(fileName).useReadOnly { input ->
             PluginArchiveReader.readBounded(input)
         }
@@ -356,33 +665,41 @@ class PluginRuntime(
 
         try {
             plugin.onLoad(context)
-            plugin.onEnable()
+            if (enableProcessing) plugin.onEnable()
         } catch (error: Throwable) {
             runCatching { plugin.onUnload() }
             throw error
         }
 
-        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
-            scope.launch {
-                runCatching { plugin.onConfigChanged(context.config) }.onFailure { error ->
-                    HookLogger.w(TAG, "插件配置回调失败: id=$pluginId", error)
+        val listener = if (enableProcessing) {
+            SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+                scope.launch {
+                    runCatching { plugin.onConfigChanged(context.config) }.onFailure { error ->
+                        HookLogger.w(TAG, "插件配置回调失败: id=$pluginId", error)
+                    }
                 }
             }
+                .also(preferences::registerOnSharedPreferenceChangeListener)
+        } else {
+            null
         }
-        preferences.registerOnSharedPreferenceChangeListener(listener)
-        loadedPlugins += LoadedPlugin(
+        val loaded = LoadedPlugin(
             manifest = archive.manifest,
             plugin = plugin,
             context = context,
             preferences = preferences,
             listener = listener,
-            extensions = context.registeredExtensions()
+            extensions = context.registeredExtensions(),
+            processingEnabled = enableProcessing
         )
+        loadedPlugins += loaded
         HookLogger.i(
             TAG,
-            "插件已启用: id=$pluginId, version=${archive.manifest.version}, " +
+            "插件已${if (enableProcessing) "启用" else "为缓存管理加载"}: " +
+                    "id=$pluginId, version=${archive.manifest.version}, " +
                     "extensions=${context.registeredExtensions().size}"
         )
+        return loaded
     }
 
     private suspend fun runProcessor(
@@ -412,8 +729,9 @@ class PluginRuntime(
         val plugin: HyperLyricPlugin,
         val context: RuntimePluginContext,
         val preferences: SharedPreferences,
-        val listener: SharedPreferences.OnSharedPreferenceChangeListener,
+        val listener: SharedPreferences.OnSharedPreferenceChangeListener?,
         val extensions: List<HyperLyricExtension>,
+        val processingEnabled: Boolean = false,
     )
 
     private data class RegisteredProcessor(
@@ -421,6 +739,11 @@ class PluginRuntime(
         val pluginIndex: Int,
         val extensionIndex: Int,
         val extension: LyricProcessorExtension,
+    )
+
+    private data class RegisteredCacheExtension(
+        val pluginId: String,
+        val extension: PluginCacheExtension,
     )
 }
 
@@ -592,6 +915,10 @@ private class FilePluginCache(
     }
 
     private val lock = Any()
+
+    init {
+        logger.info("插件缓存目录: ${directory.absolutePath}")
+    }
 
     override fun getString(key: String): String? {
         if (!isValidKey(key)) return null
