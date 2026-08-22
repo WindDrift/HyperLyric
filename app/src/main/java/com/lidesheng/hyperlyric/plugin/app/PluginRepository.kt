@@ -297,7 +297,7 @@ class PluginRepository(private val context: Context) {
             return PluginCacheOperationOutcome.Waiting("request_write_failed")
         }
 
-        val deadline = System.currentTimeMillis() + CACHE_OPERATION_RESPONSE_TIMEOUT_MS
+        val deadline = PluginCacheOperationCodec.operationDeadlineEpochMs(request)
         while (System.currentTimeMillis() < deadline) {
             val response = PluginCacheResultChannel.consumeResponse(context, request.requestId)
             if (response != null) {
@@ -530,7 +530,6 @@ class PluginRepository(private val context: Context) {
     }
 
     private companion object {
-        const val CACHE_OPERATION_RESPONSE_TIMEOUT_MS = 6_000L
         const val CACHE_OPERATION_RESPONSE_POLL_MS = 200L
     }
 }

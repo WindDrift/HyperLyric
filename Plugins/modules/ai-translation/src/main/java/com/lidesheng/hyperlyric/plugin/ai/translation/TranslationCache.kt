@@ -33,6 +33,9 @@ internal class TranslationCache(
                 ): Boolean = size > MAX_ENTRIES
             }
         )
+    private var generation: Long = 0L
+
+    fun currentGeneration(): Long = synchronized(lock) { generation }
 
     fun get(key: String): CacheLookup? = synchronized(lock) {
         memory[key]?.let { return@synchronized CacheLookup(it, fromMemory = true) }
@@ -57,9 +60,18 @@ internal class TranslationCache(
         CacheLookup(items, fromMemory = false)
     }
 
-    fun put(key: String, items: List<TranslationItem>, song: PluginSong) {
+    fun put(
+        key: String,
+        items: List<TranslationItem>,
+        song: PluginSong,
+        expectedGeneration: Long = currentGeneration(),
+    ) {
         if (items.isEmpty()) return
         synchronized(lock) {
+            if (generation != expectedGeneration) {
+                logger.debug("缓存已清理，丢弃过期翻译结果: key=$key")
+                return
+            }
             val encoded = encode(items)
             runCatching { storage.putString(entryKey(key), encoded) }.onFailure {
                 logger.error("写入翻译缓存失败", it)
@@ -115,21 +127,23 @@ internal class TranslationCache(
 
     fun clearAll() {
         synchronized(lock) {
+            generation++
             memory.clear()
             // This plugin has a single cache scope. Clearing the PluginCache removes orphaned
             // entry bodies too when a damaged index can no longer enumerate their opaque keys.
-            runCatching { storage.clear() }.onFailure {
-                logger.error("清空翻译缓存失败", it)
+            runCatching { storage.clear() }.getOrElse { error ->
+                logger.error("清空翻译缓存失败", error)
+                throw IllegalStateException("无法清空翻译缓存", error)
             }
         }
     }
 
     fun clearEntry(entryId: String): Boolean = synchronized(lock) {
+        generation++
         val index = readIndexLocked()
         if (index.none { it.key == entryId }) return@synchronized false
         memory.remove(entryId)
         removeEntryLocked(index, entryId)
-        true
     }
 
     private fun readIndexLocked(): List<CacheRecord> {
@@ -167,12 +181,16 @@ internal class TranslationCache(
         )
     }
 
-    private fun removeEntryLocked(index: List<CacheRecord>, key: String) {
+    private fun removeEntryLocked(index: List<CacheRecord>, key: String): Boolean {
         val updated = index.filterNot { it.key == key }
-        runCatching { storage.remove(entryKey(key)) }.onFailure {
-            logger.error("删除翻译缓存失败", it)
-        }
-        if (updated.size != index.size) writeIndexLocked(updated)
+        val entryRemoved = runCatching {
+            storage.remove(entryKey(key))
+            true
+        }.onFailure { error ->
+            logger.error("删除翻译缓存失败", error)
+        }.getOrDefault(false)
+        val indexWritten = if (updated.size != index.size) writeIndexLocked(updated) else true
+        return entryRemoved && indexWritten
     }
 
     private fun rebuildIndexLocked() {
@@ -181,11 +199,12 @@ internal class TranslationCache(
         }
     }
 
-    private fun writeIndexLocked(index: List<CacheRecord>) {
-        runCatching { storage.putString(INDEX_KEY, encodeIndex(index)) }.onFailure {
-            logger.error("写入翻译缓存索引失败", it)
-        }
-    }
+    private fun writeIndexLocked(index: List<CacheRecord>): Boolean = runCatching {
+        storage.putString(INDEX_KEY, encodeIndex(index))
+        true
+    }.onFailure { error ->
+        logger.error("写入翻译缓存索引失败", error)
+    }.getOrDefault(false)
 
     private fun encode(items: List<TranslationItem>): String = JSONArray().apply {
         items.forEach { item ->

@@ -371,6 +371,8 @@ class PluginRuntime(
                     android.content.Context.MODE_PRIVATE
                 ).edit().clear().commit()
                 check(cleared) { "cache clear commit returned false" }
+                cancelActiveProcessing()
+                clearLoadedPluginCache(pluginId)
                 clearPluginCacheFiles(pluginId)
                 val marked = marker.edit().putString(LAST_CACHE_CLEAR_TOKEN_KEY, token).commit()
                 check(marked) { "cache clear marker commit returned false" }
@@ -482,13 +484,43 @@ class PluginRuntime(
         }
     }
 
+    /** Clears plugin-owned memory state before the uninstall tombstone removes its files. */
+    private fun clearLoadedPluginCache(pluginId: String) {
+        val extensions: List<PluginCacheExtension> = synchronized(pluginLoadLock) {
+            val loaded = loadedPlugins.firstOrNull { it.manifest.id == pluginId }
+                ?: return@synchronized emptyList()
+            loaded.extensions.filterIsInstance<PluginCacheExtension>()
+                .filter { extension -> loaded.manifest.cacheScopes.any { it.id == extension.id } }
+        }
+        extensions.forEach { extension -> extension.clearAll() }
+    }
+
     private fun executeCacheOperation(
         request: PluginCacheOperationRequest
     ): PluginCacheOperationResponse {
+        if (PluginCacheOperationCodec.isOperationTimedOut(request, System.currentTimeMillis())) {
+            return cacheOperationFailure(request, "operation_timeout")
+        }
+        if (request.type != PluginCacheOperationType.LIST) {
+            // A clear must not race with an in-flight processor and repopulate the cache later.
+            cancelActiveProcessing()
+        }
         val task = try {
             cacheOperationExecutor.submit<PluginCacheOperationResponse> {
+                if (
+                    Thread.currentThread().isInterrupted ||
+                    PluginCacheOperationCodec.isOperationTimedOut(request, System.currentTimeMillis())
+                ) {
+                    return@submit cacheOperationFailure(request, "operation_timeout")
+                }
                 val loaded = findOrLoadPluginForCache(request.pluginId)
                     ?: return@submit cacheOperationFailure(request, "plugin_not_loaded")
+                if (
+                    Thread.currentThread().isInterrupted ||
+                    PluginCacheOperationCodec.isOperationTimedOut(request, System.currentTimeMillis())
+                ) {
+                    return@submit cacheOperationFailure(request, "operation_timeout")
+                }
                 if (loaded.manifest.cacheScopes.none { it.id == request.scopeId }) {
                     return@submit cacheOperationFailure(request, "scope_not_declared")
                 }
@@ -514,11 +546,11 @@ class PluginRuntime(
                             )
                         }
 
-                        PluginCacheOperationType.CLEAR_ENTRY -> PluginCacheOperationResponse(
-                            requestId = request.requestId,
-                            success = true,
-                            entryCleared = extension.clearEntry(request.entryId.orEmpty())
-                        )
+                        PluginCacheOperationType.CLEAR_ENTRY ->
+                            PluginCacheOperationCodec.clearEntryResponse(
+                                request,
+                                extension.clearEntry(request.entryId.orEmpty())
+                            )
                     }
                 } catch (error: Throwable) {
                     HookLogger.w(
@@ -534,8 +566,16 @@ class PluginRuntime(
             return cacheOperationFailure(request, "runtime_unavailable")
         }
 
+        val timeoutMs = PluginCacheOperationCodec.remainingOperationTimeoutMs(
+            request,
+            System.currentTimeMillis()
+        )
+        if (timeoutMs == 0L) {
+            task.cancel(true)
+            return cacheOperationFailure(request, "operation_timeout")
+        }
         return try {
-            task.get(PluginConstants.MAX_CACHE_OPERATION_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+            task.get(timeoutMs, TimeUnit.MILLISECONDS)
         } catch (_: TimeoutException) {
             task.cancel(true)
             HookLogger.w(
@@ -929,12 +969,15 @@ private class FilePluginCache(
 
     override fun putString(key: String, value: String) {
         if (!isValidKey(key) || !isWithinLimit(value.toByteArray(Charsets.UTF_8))) {
-            logger.warn("忽略超限或非法缓存写入: key=$key")
-            return
+            val message = "拒绝超限或非法缓存写入: key=$key"
+            logger.warn(message)
+            throw IllegalArgumentException(message)
         }
         synchronized(lock) {
-            if (!writeFileValue(key, value)) return
-            legacyPreferences.edit().remove(key).apply()
+            check(writeFileValue(key, value)) { "无法写入插件缓存: key=$key" }
+            check(legacyPreferences.edit().remove(key).commit()) {
+                "无法移除旧版插件缓存: key=$key"
+            }
         }
     }
 
@@ -968,45 +1011,62 @@ private class FilePluginCache(
         if (!isValidKey(key)) return false
         return synchronized(lock) {
             val file = fileForKey(key)
-            (file.isFile && isWithinLimit(file.length())) || legacyPreferences.contains(key)
+            hasReadableFile(file) || legacyPreferences.contains(key)
         }
     }
 
     override fun remove(key: String) {
         if (!isValidKey(key)) return
         synchronized(lock) {
-            runCatching {
-                fileForKey(key).delete()
-                File(fileForKey(key).path + ".bak").delete()
-                legacyPreferences.edit().remove(key).apply()
-            }.onFailure { logger.warn("删除缓存失败: key=$key", it) }
+            val file = fileForKey(key)
+            deleteFileIfPresent(file)
+            deleteFileIfPresent(File(file.path + ".bak"))
+            check(legacyPreferences.edit().remove(key).commit()) {
+                "无法删除旧版插件缓存: key=$key"
+            }
         }
     }
 
     override fun clear() {
         synchronized(lock) {
-            runCatching {
-                directory.listFiles()?.forEach { file ->
-                    if (file.isFile) file.delete()
-                }
-                legacyPreferences.edit().clear().apply()
-            }.onFailure { logger.warn("清空缓存失败", it) }
+            directory.listFiles()?.forEach { file ->
+                if (file.isFile) deleteFileIfPresent(file)
+            }
+            check(legacyPreferences.edit().clear().commit()) {
+                "无法清空旧版插件缓存"
+            }
         }
     }
 
     private fun readFileValue(key: String): String? {
         val file = fileForKey(key)
-        if (!file.isFile) return null
-        if (!isWithinLimit(file.length())) {
-            removeFile(file)
-            return null
+        val backup = File(file.path + ".bak")
+        if (!file.isFile && !backup.isFile) return null
+        return runCatching {
+            AtomicFile(file).openRead().use { input ->
+                if (!isWithinLimit(file.length())) {
+                    error("插件缓存文件超限: key=$key")
+                }
+                input.bufferedReader(Charsets.UTF_8).use { reader -> reader.readText() }
+            }
         }
-        return runCatching { file.readText(Charsets.UTF_8) }
             .onFailure {
                 logger.warn("读取缓存文件失败: key=$key", it)
                 removeFile(file)
             }
             .getOrNull()
+    }
+
+    /** Also restores a pending AtomicFile backup before cache metadata asks whether it exists. */
+    private fun hasReadableFile(file: File): Boolean {
+        val backup = File(file.path + ".bak")
+        if (!file.isFile && !backup.isFile) return false
+        return runCatching {
+            AtomicFile(file).openRead().use { isWithinLimit(file.length()) }
+        }.onFailure { error ->
+            logger.warn("检查缓存文件失败: file=${file.name}", error)
+            removeFile(file)
+        }.getOrDefault(false)
     }
 
     private fun migrateLegacyValue(key: String): String? {
@@ -1074,6 +1134,12 @@ private class FilePluginCache(
         runCatching {
             file.delete()
             File(file.path + ".bak").delete()
+        }
+    }
+
+    private fun deleteFileIfPresent(file: File) {
+        if (file.exists()) {
+            check(file.delete()) { "无法删除插件缓存文件: ${file.name}" }
         }
     }
 

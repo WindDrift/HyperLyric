@@ -157,20 +157,23 @@ class TranslationCacheTest {
         val cacheStore = FakePluginCache()
         val pluginStorage = mutableMapOf("setting" to "must-stay")
         val cache = TranslationCache(cacheStore, NO_OP_LOGGER)
+        var cancellationCount = 0
         val first = "a".repeat(64)
         val second = "b".repeat(64)
         cache.put(first, listOf(TranslationItem(0, "first")), song().copy(name = "first song"))
         cache.put(second, listOf(TranslationItem(0, "second")), song().copy(name = "second song"))
-        val extension = AiTranslationCacheExtension(cache)
+        val extension = AiTranslationCacheExtension(cache) { cancellationCount++ }
 
         assertTrue(extension.clearEntry(first))
         assertFalse(extension.clearEntry(first))
+        assertEquals(2, cancellationCount)
         assertEquals(listOf(second), extension.listEntries().map { it.id })
         assertEquals("must-stay", pluginStorage["setting"])
         cacheStore.values["cache.entry.v3.${"c".repeat(64)}"] = "orphaned translation body"
 
         extension.clearAll()
 
+        assertEquals(3, cancellationCount)
         assertTrue(extension.listEntries().isEmpty())
         assertTrue(cacheStore.values.isEmpty())
         assertEquals("must-stay", pluginStorage["setting"])
@@ -186,6 +189,54 @@ class TranslationCacheTest {
         cache.put("c".repeat(64), listOf(TranslationItem(0, "translated")), song())
 
         assertEquals(1, cache.listEntries().size)
+    }
+
+    @Test
+    fun clearEntryReportsFailureWhenDeletingTheCacheBodyFails() {
+        val cacheStore = FakePluginCache()
+        val cache = TranslationCache(cacheStore, NO_OP_LOGGER)
+        val key = "d".repeat(64)
+        cache.put(key, listOf(TranslationItem(0, "translated")), song())
+        cacheStore.failRemoveKey = "cache.entry.v3.$key"
+
+        assertFalse(cache.clearEntry(key))
+    }
+
+    @Test
+    fun clearEntryReportsFailureWhenWritingTheIndexFails() {
+        val cacheStore = FakePluginCache()
+        val cache = TranslationCache(cacheStore, NO_OP_LOGGER)
+        val key = "e".repeat(64)
+        cache.put(key, listOf(TranslationItem(0, "translated")), song())
+        cacheStore.failIndexWrite = true
+
+        assertFalse(cache.clearEntry(key))
+    }
+
+    @Test
+    fun clearAllFailureIsPropagatedToTheRuntime() {
+        val cacheStore = FakePluginCache().apply { failClear = true }
+        val cache = TranslationCache(cacheStore, NO_OP_LOGGER)
+
+        assertTrue(runCatching { cache.clearAll() }.isFailure)
+    }
+
+    @Test
+    fun clearPreventsAnOlderTranslationTaskFromWritingBack() {
+        val cacheStore = FakePluginCache()
+        val cache = TranslationCache(cacheStore, NO_OP_LOGGER)
+        val key = "f".repeat(64)
+        val generationBeforeClear = cache.currentGeneration()
+
+        cache.clearAll()
+        cache.put(
+            key = key,
+            items = listOf(TranslationItem(0, "stale")),
+            song = song(),
+            expectedGeneration = generationBeforeClear
+        )
+
+        assertTrue(cache.listEntries().isEmpty())
     }
 
     private fun song(): PluginSong = PluginSong(
@@ -221,10 +272,16 @@ class TranslationCacheTest {
 
     private class FakePluginCache : PluginCache {
         val values = linkedMapOf<String, String>()
+        var failRemoveKey: String? = null
+        var failIndexWrite: Boolean = false
+        var failClear: Boolean = false
 
         override fun getString(key: String): String? = values[key]
 
         override fun putString(key: String, value: String) {
+            if (failIndexWrite && key == "cache.index.v3") {
+                error("index write failure")
+            }
             values[key] = value
         }
 
@@ -237,10 +294,12 @@ class TranslationCacheTest {
         override fun contains(key: String): Boolean = values.containsKey(key)
 
         override fun remove(key: String) {
+            if (failRemoveKey == key) error("cache delete failure")
             values.remove(key)
         }
 
         override fun clear() {
+            if (failClear) error("cache clear failure")
             values.clear()
         }
     }

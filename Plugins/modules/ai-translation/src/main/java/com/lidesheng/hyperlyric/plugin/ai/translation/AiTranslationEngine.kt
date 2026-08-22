@@ -32,6 +32,7 @@ internal class AiTranslationEngine(
         val lyrics = song.lyrics ?: return null
         val originalLines = lyrics.map { it.text?.trim().orEmpty() }
         val key = TranslationKey.calculate(song, originalLines, config, sourcePackageName)
+        val cacheGeneration = cache.currentGeneration()
 
         cache.get(key)?.let { cached ->
             if (cached.fromMemory) {
@@ -73,7 +74,7 @@ internal class AiTranslationEngine(
                 } else {
                     // Cache the verified network response even when the current Song already
                     // contains some/all translations and the applicator has nothing to write.
-                    cache.put(key, validItems, song)
+                    cache.put(key, validItems, song, cacheGeneration)
                     TranslationApplicator.apply(
                         song,
                         validItems,

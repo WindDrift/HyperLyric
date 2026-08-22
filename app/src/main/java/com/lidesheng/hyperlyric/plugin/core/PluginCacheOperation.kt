@@ -153,7 +153,9 @@ internal object PluginCacheOperationCodec {
 
     fun sanitizeEntries(entries: List<PluginCacheEntry>): List<PluginCacheEntry> = buildList {
         entries.asSequence().take(MAX_ENTRY_COUNT).forEach { entry ->
-            val id = entry.id.takeIf { it.isNotBlank() }?.take(MAX_ID_LENGTH) ?: return@forEach
+            val id = entry.id.takeIf {
+                it.isNotBlank() && it.length <= MAX_ID_LENGTH
+            } ?: return@forEach
             val title = entry.title.takeIf { it.isNotBlank() }?.take(MAX_TITLE_LENGTH)
                 ?: return@forEach
             add(
@@ -173,6 +175,37 @@ internal object PluginCacheOperationCodec {
 
     fun isResponseExpired(response: PluginCacheOperationResponse, nowEpochMs: Long): Boolean =
         response.completedAtEpochMs <= 0L || nowEpochMs - response.completedAtEpochMs > RESPONSE_TTL_MS
+
+    /** Shared end-to-end deadline, counted from App-side request creation. */
+    fun operationDeadlineEpochMs(request: PluginCacheOperationRequest): Long =
+        request.createdAtEpochMs + PluginConstants.MAX_CACHE_OPERATION_TIMEOUT_MS
+
+    fun remainingOperationTimeoutMs(
+        request: PluginCacheOperationRequest,
+        nowEpochMs: Long
+    ): Long = (operationDeadlineEpochMs(request) - nowEpochMs).coerceAtLeast(0L)
+
+    fun isOperationTimedOut(request: PluginCacheOperationRequest, nowEpochMs: Long): Boolean =
+        remainingOperationTimeoutMs(request, nowEpochMs) == 0L
+
+    /** A missing or failed delete is never represented as a successful cache operation. */
+    fun clearEntryResponse(
+        request: PluginCacheOperationRequest,
+        entryCleared: Boolean
+    ): PluginCacheOperationResponse = if (entryCleared) {
+        PluginCacheOperationResponse(
+            requestId = request.requestId,
+            success = true,
+            entryCleared = true
+        )
+    } else {
+        PluginCacheOperationResponse(
+            requestId = request.requestId,
+            success = false,
+            entryCleared = false,
+            errorCode = "entry_not_cleared"
+        )
+    }
 
     private fun validateRequest(request: PluginCacheOperationRequest) {
         require(requestIdPattern.matches(request.requestId)) { "Invalid cache request id" }

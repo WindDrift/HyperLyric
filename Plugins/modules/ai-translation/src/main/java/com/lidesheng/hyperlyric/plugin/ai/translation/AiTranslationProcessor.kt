@@ -22,13 +22,13 @@ internal class AiTranslationProcessor(
     private val gatewayLogger = context.logger.withTag("AiTranslationGateway")
     private val translatorLogger = context.logger.withTag("AITranslator")
     private val cache = TranslationCache(context.cache, context.logger.withTag("AITranslationCache"))
-    private val cacheExtension = AiTranslationCacheExtension(cache)
     private val engine = AiTranslationEngine(
         cacheStore = context.cache,
         logger = context.logger,
         translatorLogger = translatorLogger,
         translationCache = cache
     )
+    private val cacheExtension = AiTranslationCacheExtension(cache, engine::cancelPending)
 
     override fun processResult(
         song: PluginSong,

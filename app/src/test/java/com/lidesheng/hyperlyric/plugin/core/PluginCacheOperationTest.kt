@@ -44,6 +44,56 @@ class PluginCacheOperationTest {
     }
 
     @Test
+    fun overlongEntryIdsAreRejectedInsteadOfTruncated() {
+        val sanitized = PluginCacheOperationCodec.sanitizeEntries(
+            listOf(
+                PluginCacheEntry(
+                    id = "x".repeat(PluginCacheOperationCodec.MAX_ID_LENGTH + 1),
+                    title = "entry"
+                )
+            )
+        )
+
+        assertTrue(sanitized.isEmpty())
+    }
+
+    @Test
+    fun failedEntryClearIsNotReportedAsSuccess() {
+        val request = PluginCacheOperationRequest(
+            requestId = "request-12345678",
+            responseToken = "response-12345678",
+            pluginId = "plugin.example",
+            scopeId = "translation",
+            type = PluginCacheOperationType.CLEAR_ENTRY,
+            entryId = "entry"
+        )
+
+        val response = PluginCacheOperationCodec.clearEntryResponse(request, entryCleared = false)
+
+        assertFalse(response.success)
+        assertFalse(response.entryCleared ?: true)
+        assertEquals("entry_not_cleared", response.errorCode)
+    }
+
+    @Test
+    fun operationDeadlineUsesTheSharedAppAndSystemUiTimeout() {
+        val request = PluginCacheOperationRequest(
+            requestId = "request-12345678",
+            responseToken = "response-12345678",
+            pluginId = "plugin.example",
+            scopeId = "translation",
+            type = PluginCacheOperationType.LIST,
+            createdAtEpochMs = 1_000L
+        )
+
+        val deadline = PluginCacheOperationCodec.operationDeadlineEpochMs(request)
+
+        assertEquals(1_000L + PluginConstants.MAX_CACHE_OPERATION_TIMEOUT_MS, deadline)
+        assertEquals(500L, PluginCacheOperationCodec.remainingOperationTimeoutMs(request, deadline - 500L))
+        assertTrue(PluginCacheOperationCodec.isOperationTimedOut(request, deadline))
+    }
+
+    @Test
     fun clearEntryRequestsRequireAnOpaqueEntryId() {
         val request = PluginCacheOperationRequest(
             requestId = "request-12345678",

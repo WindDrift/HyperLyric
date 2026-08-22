@@ -31,8 +31,8 @@ object PluginConstants {
 
     /** Absolute host-side safety gate for one plugin Processor invocation. */
     const val MAX_PROCESSOR_TIMEOUT_MS = 40_000L
-    /** Independent safety gate for a plugin cache-management operation. */
-    const val MAX_CACHE_OPERATION_TIMEOUT_MS = 10_000L
+    /** End-to-end App/SystemUI deadline for one plugin cache-management operation. */
+    const val MAX_CACHE_OPERATION_TIMEOUT_MS = 6_000L
 
     fun configGroup(pluginId: String): String = "plugin.$pluginId"
 
