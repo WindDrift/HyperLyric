@@ -14,12 +14,15 @@ import com.lidesheng.hyperlyric.plugin.api.PluginWord
 /**
  * AMLL TTML 歌词处理器（LYRIC_REPLACEMENT 阶段）
  *
- * 主流程（spec §3.2）：配置检查 → 平台探测（songId 非空时，含已解析平台快路径）
- * → 搜索回退（title/artist 模糊匹配）→ 全部未命中返回 null（宿主保留原始歌词）。
+ * 主流程（spec §3.2）：配置检查 → 平台探测（songId 非空时：包名直查 >
+ * 已解析平台快路径 > 逐平台探测）→ 搜索回退（title/artist 模糊匹配）
+ * → 全部未命中返回 null（宿主保留原始歌词）。
  *
  * 查询参数优先级（对齐 main 分支 fetchTtmlInternal）：
  * title = mediaInfo.title ?: song.name；artist = mediaInfo.artist ?: song.artist；
- * album = mediaInfo.album；songId = song.id（歌词源的歌曲 ID）。
+ * album = mediaInfo.album；songId = song.id（歌词源的歌曲 ID）；
+ * sourcePackageName = mediaInfo.sourcePackageName（宿主仅透传歌词源提供的包名，
+ * 不做任何推断，spec §7.1 落地为平台单次直查）。
  *
  * 命中时以 REPLACE 模式完整替换歌词（仅 LYRICS 字段，name/artist 等保留主歌词源值）；
  * 处理器在 34s 总预算内同步完成（宿主硬超时 40s），每步网络前检查预算与线程中断。
@@ -35,6 +38,10 @@ internal class AmllTtmlProcessor(
     private val client = AmllTtmlClient(context.logger.withTag("AmllTtmlClient"))
     private val parser = TtmlParser(context.logger.withTag("AmllTtmlParser"))
     private val cache = TtmlCache(context.cache, context.logger.withTag("TtmlCache"))
+    private val cacheExtension = AmllTtmlCacheExtension(cache)
+
+    /** 缓存管理扩展（onLoad 时注册给宿主，id 与 manifest cacheScopes 的 "ttml" 一致） */
+    fun cacheExtension(): AmllTtmlCacheExtension = cacheExtension
 
     override fun processResult(
         song: PluginSong,
@@ -76,17 +83,23 @@ internal class AmllTtmlProcessor(
             ?: song.artist?.takeIf { it.isNotBlank() }
         val album = mediaInfo?.album?.takeIf { it.isNotBlank() }
         val songId = song.id?.takeIf { it.isNotBlank() }
+        // 歌词源包名：宿主仅透传本次歌词源提供的 packageName（无 MediaSession 推断），
+        // 可信度高，映射到平台后单次精确直查（spec §7.1 宿主建议已落地）
+        val sourcePackageName = mediaInfo?.sourcePackageName?.takeIf { it.isNotBlank() }
 
         logger.debug(
             "AMLL 开始处理: song=\"${song.name.orEmpty()}\", " +
                     "songIdPresent=${songId != null}, " +
+                    "sourcePackagePresent=${sourcePackageName != null}, " +
                     "search=[title=${title ?: "-"}, artist=${artist ?: "-"}, album=${album ?: "-"}]"
         )
 
-        // 1. 平台探测：songId 非空、开关开启、title/artist 至少一个可用于交叉校验
-        //    （无法验证即不冒险，直接搜索回退——spec §3.3）
-        if (songId != null && config.platformProbe && (title != null || artist != null)) {
-            val probeTtml = probePlatforms(songId, title, artist, budget)
+        // 1. 平台探测：songId 非空、开关开启；包名直查无需 title/artist（平台已明确），
+        //    逐平台探测需至少一个用于交叉校验（无法验证即不冒险——spec §3.3）
+        if (songId != null && config.platformProbe &&
+            (sourcePackageName != null || title != null || artist != null)
+        ) {
+            val probeTtml = probePlatforms(songId, title, artist, sourcePackageName, budget)
             if (probeTtml != null) {
                 return buildResult(song, probeTtml, fromCache = false)
             }
@@ -102,27 +115,44 @@ internal class AmllTtmlProcessor(
     }
 
     /**
-     * 平台探测（替代 main 分支的 packageName 直查）：
-     * - 已解析平台快路径：resolve 缓存命中 → 精确缓存/直查该平台（跳过逐平台探测）；
-     * - 否则按 ID 格式预判顺序逐平台探测，每平台命中须通过 title/artist 交叉校验
-     *   （防跨平台 ID 撞号误匹配）；
-     * - 探测命中后缓存 exact 与 resolve 两个条目，二次播放零网络命中。
+     * 平台探测，平台解析优先级（spec §3.3 + §7.1 落地）：
+     * 1. 包名直查：sourcePackageName 由歌词源明确提供（宿主不做任何推断），
+     *    映射到平台后单次精确查询，命中无需交叉校验（对齐 main 分支直查行为）；
+     * 2. resolve 缓存快路径：上次探测已解析出平台（写入前已通过校验），仅查该平台；
+     * 3. ID 格式预判逐平台探测：每平台命中须通过 title/artist 交叉校验
+     *    （防跨平台 ID 撞号误匹配）；title/artist 皆空则不探测（无法验证即不冒险）。
+     * 探测命中后缓存 exact 与 resolve 两个条目，二次播放零网络命中。
      */
     private fun probePlatforms(
         songId: String,
         title: String?,
         artist: String?,
+        sourcePackageName: String?,
         budget: ProcessingBudget
     ): String? {
-        // 快路径：上次探测已解析出平台
-        val resolvedPlatform = cache.get(TtmlCache.resolveKey(songId))?.ttml
-            ?.let { cached -> AmllPlatformIdField.entries.firstOrNull { it.name == cached } }
-        val probeOrder = if (resolvedPlatform != null) {
-            listOf(resolvedPlatform)
+        // 包名直查：歌词源已明确平台（无撞号风险，跳过交叉校验与 resolve 快路径）
+        val mappedPlatform = AmllPlatformId.mapPackageName(sourcePackageName)
+        // 快路径：上次探测已解析出平台（写入前已通过校验，同样无需再校验）
+        val resolvedPlatform = if (mappedPlatform == null) {
+            cache.getResolve(songId)
+                ?.let { cached -> AmllPlatformIdField.entries.firstOrNull { it.name == cached } }
         } else {
-            AmllPlatformId.probeOrderFor(songId)
+            null
         }
+        val probeOrder = when {
+            mappedPlatform != null -> listOf(mappedPlatform)
+            resolvedPlatform != null -> listOf(resolvedPlatform)
+            else -> if (title == null && artist == null) {
+                logger.debug("AMLL 平台探测未触发: reason=no_title_artist")
+                return null
+            } else {
+                AmllPlatformId.probeOrderFor(songId)
+            }
+        }
+        // 仅逐平台探测路径需要交叉校验（包名/resolve 已确定平台）
+        val requireVerification = mappedPlatform == null && resolvedPlatform == null
 
+        val generation = cache.currentGeneration()
         for (platform in probeOrder) {
             if (Thread.currentThread().isInterrupted) {
                 logger.debug("event=interrupted")
@@ -153,7 +183,7 @@ internal class AmllTtmlProcessor(
                 logger.debug("event=platform_probe platform=${platform.name} result=miss")
                 continue
             }
-            if (!AmllMatch.isPlausibleMatch(item, title, artist)) {
+            if (requireVerification && !AmllMatch.isPlausibleMatch(item, title, artist)) {
                 // 跨平台 ID 撞号：条目与请求 title/artist 不匹配，拒绝并继续下一平台
                 logger.debug("event=platform_probe platform=${platform.name} result=rejected")
                 continue
@@ -162,8 +192,8 @@ internal class AmllTtmlProcessor(
                 "event=platform_probe platform=${platform.name} result=hit, " +
                         "id=${item.id}, size=${ttml.toByteArray().size}B"
             )
-            cache.put(exactKey, ttml)
-            cache.put(TtmlCache.resolveKey(songId), platform.name)
+            cache.put(exactKey, ttml, title, artist, generation)
+            cache.putResolve(songId, platform.name)
             return ttml
         }
         return null
@@ -192,6 +222,7 @@ internal class AmllTtmlProcessor(
             return null
         }
 
+        val generation = cache.currentGeneration()
         val searchItem = client.searchByMetadata(title, artist, album, budget) ?: return null
         logger.debug(
             "AMLL 搜索命中: id=${searchItem.id}, " +
@@ -202,7 +233,13 @@ internal class AmllTtmlProcessor(
         val ttml = fullItem.lyrics
         if (ttml.isNullOrBlank()) return null
         logger.debug("AMLL 搜索回退命中: size=${ttml.toByteArray().size}B")
-        cache.put(searchKey, ttml)
+        // 展示元数据优先用 AMLL 条目自身的歌名/歌手（与缓存正文内容一致）
+        cache.put(
+            searchKey, ttml,
+            title = fullItem.musicNames?.firstOrNull() ?: title,
+            artist = fullItem.artistNames?.joinToString(" / ") ?: artist,
+            expectedGeneration = generation
+        )
         return ttml
     }
 

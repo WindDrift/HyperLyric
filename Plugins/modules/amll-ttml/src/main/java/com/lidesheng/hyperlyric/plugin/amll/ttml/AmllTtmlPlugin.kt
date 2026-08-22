@@ -19,6 +19,8 @@ class AmllTtmlPlugin : HyperLyricPlugin {
         val created = AmllTtmlProcessor(context)
         processor = created
         context.registerExtension(created)
+        // 缓存管理扩展（id="ttml"，与 manifest cacheScopes 声明一致）
+        context.registerExtension(created.cacheExtension())
     }
 
     override fun onEnable() {

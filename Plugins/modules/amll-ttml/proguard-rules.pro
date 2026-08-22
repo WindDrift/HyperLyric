@@ -27,6 +27,13 @@
     public void onUnload();
 }
 
+# Runtime 通过 PluginCacheExtension 协议调用缓存管理方法（宿主 App 列出/清理插件缓存）。
+-keepclassmembers,allowoptimization class * implements com.lidesheng.hyperlyric.plugin.api.PluginCacheExtension {
+    public java.util.List listEntries();
+    public void clearAll();
+    public boolean clearEntry(java.lang.String);
+}
+
 # Runtime 通过 API 接口反射扩展属性与处理器。
 -keepclassmembers,allowoptimization class * implements com.lidesheng.hyperlyric.plugin.api.HyperLyricExtension {
     public java.lang.String getId();
@@ -55,3 +62,5 @@
 -keep,allowoptimization,allowobfuscation public class com.lidesheng.hyperlyric.plugin.api.PluginWord { *; }
 -keep,allowoptimization,allowobfuscation public class com.lidesheng.hyperlyric.plugin.api.PluginMetadata { *; }
 -keep,allowoptimization,allowobfuscation public interface com.lidesheng.hyperlyric.plugin.api.PluginCache { *; }
+-keep,allowoptimization,allowobfuscation public interface com.lidesheng.hyperlyric.plugin.api.PluginCacheExtension { *; }
+-keep,allowoptimization,allowobfuscation public class com.lidesheng.hyperlyric.plugin.api.PluginCacheEntry { *; }
