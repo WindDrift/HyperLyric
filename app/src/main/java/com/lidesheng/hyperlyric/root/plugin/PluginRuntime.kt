@@ -3,6 +3,7 @@ package com.lidesheng.hyperlyric.root.plugin
 import android.app.Application
 import android.content.SharedPreferences
 import android.os.ParcelFileDescriptor
+import android.util.AtomicFile
 import android.util.Base64
 import dalvik.system.InMemoryDexClassLoader
 import com.lidesheng.hyperlyric.plugin.api.HYPERLYRIC_PLUGIN_API_VERSION
@@ -43,6 +44,8 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.io.File
+import java.io.FileOutputStream
 
 /** SystemUI-side loader and executor for trusted HyperLyric ZIP plugins. */
 class PluginRuntime(
@@ -502,8 +505,10 @@ private class RuntimePluginContext(
     override val hostApiVersion: Int = HYPERLYRIC_PLUGIN_API_VERSION
     override val config: PluginConfig = SharedPreferencesPluginConfig(preferences)
     override val logger: PluginLogger = RuntimePluginLogger(pluginId)
-    override val cache: PluginCache = SharedPreferencesPluginCache(
-        preferences = application.getSharedPreferences(
+    override val cache: PluginCache = FilePluginCache(
+        directory = com.lidesheng.hyperlyric.plugin.core.PluginCacheFileLayout
+            .directory(application, pluginId),
+        legacyPreferences = application.getSharedPreferences(
             PluginConstants.cachePreferences(pluginId),
             android.content.Context.MODE_PRIVATE
         ),
@@ -569,21 +574,30 @@ private class SharedPreferencesPluginStorage(
     }
 }
 
-/** SharedPreferences is the current host backend, not a plugin-visible file directory. */
-private class SharedPreferencesPluginCache(
-    private val preferences: SharedPreferences,
+/**
+ * Private SystemUI file backend for potentially large plugin cache bodies.
+ *
+ * The legacy preferences remain read-only migration input so upgrading does not discard an
+ * existing cache. Individual keys migrate lazily when a plugin next reads or writes them.
+ */
+private class FilePluginCache(
+    private val directory: File,
+    private val legacyPreferences: SharedPreferences,
     private val logger: PluginLogger,
 ) : PluginCache {
     private companion object {
         const val MAX_KEY_LENGTH = 256
         const val MAX_VALUE_BYTES = 2 * 1024 * 1024
+        const val MAX_TOTAL_BYTES = 64 * 1024 * 1024
     }
+
+    private val lock = Any()
 
     override fun getString(key: String): String? {
         if (!isValidKey(key)) return null
-        return runCatching { preferences.getString(key, null) }
-            .onFailure { logger.warn("读取缓存失败: key=$key", it) }
-            .getOrNull()
+        return synchronized(lock) {
+            readFileValue(key) ?: migrateLegacyValue(key)
+        }
     }
 
     override fun putString(key: String, value: String) {
@@ -591,8 +605,10 @@ private class SharedPreferencesPluginCache(
             logger.warn("忽略超限或非法缓存写入: key=$key")
             return
         }
-        runCatching { preferences.edit().putString(key, value).apply() }
-            .onFailure { logger.warn("写入缓存失败: key=$key", it) }
+        synchronized(lock) {
+            if (!writeFileValue(key, value)) return
+            legacyPreferences.edit().remove(key).apply()
+        }
     }
 
     override fun getBytes(key: String): ByteArray? {
@@ -623,26 +639,123 @@ private class SharedPreferencesPluginCache(
 
     override fun contains(key: String): Boolean {
         if (!isValidKey(key)) return false
-        return runCatching { preferences.contains(key) }
-            .onFailure { logger.warn("检查缓存失败: key=$key", it) }
-            .getOrDefault(false)
+        return synchronized(lock) {
+            val file = fileForKey(key)
+            (file.isFile && isWithinLimit(file.length())) || legacyPreferences.contains(key)
+        }
     }
 
     override fun remove(key: String) {
         if (!isValidKey(key)) return
-        runCatching { preferences.edit().remove(key).apply() }
-            .onFailure { logger.warn("删除缓存失败: key=$key", it) }
+        synchronized(lock) {
+            runCatching {
+                fileForKey(key).delete()
+                File(fileForKey(key).path + ".bak").delete()
+                legacyPreferences.edit().remove(key).apply()
+            }.onFailure { logger.warn("删除缓存失败: key=$key", it) }
+        }
     }
 
     override fun clear() {
-        runCatching { preferences.edit().clear().apply() }
-            .onFailure { logger.warn("清空缓存失败", it) }
+        synchronized(lock) {
+            runCatching {
+                directory.listFiles()?.forEach { file ->
+                    if (file.isFile) file.delete()
+                }
+                legacyPreferences.edit().clear().apply()
+            }.onFailure { logger.warn("清空缓存失败", it) }
+        }
+    }
+
+    private fun readFileValue(key: String): String? {
+        val file = fileForKey(key)
+        if (!file.isFile) return null
+        if (!isWithinLimit(file.length())) {
+            removeFile(file)
+            return null
+        }
+        return runCatching { file.readText(Charsets.UTF_8) }
+            .onFailure {
+                logger.warn("读取缓存文件失败: key=$key", it)
+                removeFile(file)
+            }
+            .getOrNull()
+    }
+
+    private fun migrateLegacyValue(key: String): String? {
+        val legacy = runCatching { legacyPreferences.getString(key, null) }
+            .onFailure { logger.warn("读取旧缓存失败: key=$key", it) }
+            .getOrNull()
+            ?: return null
+        if (!isWithinLimit(legacy.toByteArray(Charsets.UTF_8))) {
+            legacyPreferences.edit().remove(key).apply()
+            return null
+        }
+        if (writeFileValue(key, legacy)) {
+            legacyPreferences.edit().remove(key).apply()
+        }
+        return legacy
+    }
+
+    private fun writeFileValue(key: String, value: String): Boolean {
+        val bytes = value.toByteArray(Charsets.UTF_8)
+        val file = fileForKey(key)
+        if (!ensureCapacity(file, bytes.size.toLong())) {
+            logger.warn("插件缓存总容量已达上限: key=$key")
+            return false
+        }
+        return runCatching {
+            if (!directory.exists() && !directory.mkdirs()) {
+                error("无法创建插件缓存目录")
+            }
+            val atomicFile = AtomicFile(file)
+            var output: FileOutputStream? = null
+            try {
+                output = atomicFile.startWrite()
+                output.write(bytes)
+                output.fd.sync()
+                atomicFile.finishWrite(output)
+            } catch (error: Throwable) {
+                output?.let(atomicFile::failWrite)
+                throw error
+            }
+            true
+        }.onFailure { logger.warn("写入缓存文件失败: key=$key", it) }
+            .getOrDefault(false)
+    }
+
+    private fun ensureCapacity(replacing: File, newSizeBytes: Long): Boolean {
+        val existingSize = replacing.takeIf(File::isFile)?.length() ?: 0L
+        val totalSize = directory.listFiles()
+            ?.asSequence()
+            ?.filter {
+                it.isFile && it.name.endsWith(
+                    com.lidesheng.hyperlyric.plugin.core.PluginCacheFileLayout.CACHE_FILE_EXTENSION
+                )
+            }
+            ?.sumOf(File::length)
+            ?: 0L
+        return totalSize - existingSize + newSizeBytes <= MAX_TOTAL_BYTES
+    }
+
+    private fun fileForKey(key: String): File = File(
+        directory,
+        com.lidesheng.hyperlyric.plugin.core.PluginCacheFileLayout.fileNameForKey(key)
+    )
+
+    private fun removeFile(file: File) {
+        runCatching {
+            file.delete()
+            File(file.path + ".bak").delete()
+        }
     }
 
     private fun isValidKey(key: String): Boolean =
         key.isNotBlank() && key.length <= MAX_KEY_LENGTH
 
     private fun isWithinLimit(value: ByteArray): Boolean = value.size <= MAX_VALUE_BYTES
+
+    private fun isWithinLimit(value: Long): Boolean = value in 0..MAX_VALUE_BYTES.toLong()
 }
 
 private class RuntimePluginLogger(private val pluginId: String) : PluginLogger {

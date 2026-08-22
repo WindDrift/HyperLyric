@@ -1,10 +1,29 @@
 package com.lidesheng.hyperlyric.root.utils
 
+import com.lidesheng.hyperlyric.plugin.core.PluginCacheFileLayout
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.DataOutputStream
 
 object ShellUtils {
+    data class RootPluginCacheFile(
+        val fileName: String,
+        val sizeBytes: Long,
+        val legacyPreferences: Boolean,
+    )
+
+    sealed interface RootPluginCacheQuery {
+        data class Available(val files: List<RootPluginCacheFile>) : RootPluginCacheQuery
+        data object RootUnavailable : RootPluginCacheQuery
+        data object InvalidPluginId : RootPluginCacheQuery
+    }
+
+    private data class RootCommandResult(
+        val exitCode: Int,
+        val standardOutput: String,
+    ) {
+        val isSuccess: Boolean get() = exitCode == 0
+    }
 
     suspend fun restartSystemUI(): Boolean {
         return killAppProcess("com.android.systemui")
@@ -50,6 +69,63 @@ object ShellUtils {
     }
 
     suspend fun execRootScriptSilent(cmd: String, inputScript: String? = null): Boolean {
+        return execRootScript(cmd, inputScript)?.isSuccess == true
+    }
+
+    /**
+     * Read-only fallback for cache inspection when the injected SystemUI runtime has not yet
+     * reloaded. It never parses or mutates a plugin's cache body.
+     */
+    suspend fun querySystemUiPluginCacheFiles(pluginId: String): RootPluginCacheQuery {
+        if (!PluginCacheFileLayout.isValidPluginId(pluginId)) {
+            return RootPluginCacheQuery.InvalidPluginId
+        }
+        val cacheDirectory = "/data/user/0/com.android.systemui/" +
+            PluginCacheFileLayout.rootRelativeDirectory(pluginId)
+        val legacyPreferences = "/data/user/0/com.android.systemui/shared_prefs/" +
+            "hyperlyric_plugin_cache_$pluginId.xml"
+        val script = $$"""
+            cache_dir="$$cacheDirectory"
+            legacy_prefs="$$legacyPreferences"
+            if [ -d "$cache_dir" ]; then
+                for file in "$cache_dir"/*.cache; do
+                    [ -f "$file" ] || continue
+                    size=$(wc -c < "$file" 2>/dev/null | tr -d ' ')
+                    printf 'file\t%s\t%s\n' "${file##*/}" "$size"
+                done
+            fi
+            if [ -f "$legacy_prefs" ]; then
+                size=$(wc -c < "$legacy_prefs" 2>/dev/null | tr -d ' ')
+                printf 'legacy\t%s\t%s\n' "${legacy_prefs##*/}" "$size"
+            fi
+        """.trimIndent()
+        val result = execRootScript("nsenter --mount=/proc/1/ns/mnt -- sh", script)
+            ?: return RootPluginCacheQuery.RootUnavailable
+        if (!result.isSuccess) return RootPluginCacheQuery.RootUnavailable
+        return RootPluginCacheQuery.Available(parsePluginCacheFiles(result.standardOutput))
+    }
+
+    internal fun parsePluginCacheFiles(output: String): List<RootPluginCacheFile> = output
+        .lineSequence()
+        .mapNotNull { line ->
+            val parts = line.split('\t')
+            val legacy = when (parts.getOrNull(0)) {
+                "file" -> false
+                "legacy" -> true
+                else -> return@mapNotNull null
+            }
+            val fileName = parts.getOrNull(1)?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            val sizeBytes = parts.getOrNull(2)?.toLongOrNull()?.takeIf { it >= 0L }
+                ?: return@mapNotNull null
+            RootPluginCacheFile(fileName, sizeBytes, legacy)
+        }
+        .take(128)
+        .toList()
+
+    private suspend fun execRootScript(
+        cmd: String,
+        inputScript: String? = null
+    ): RootCommandResult? {
         return withContext(Dispatchers.IO) {
             var process: Process? = null
             var os: DataOutputStream? = null
@@ -61,10 +137,11 @@ object ShellUtils {
                     os.writeBytes("\nexit\n")
                     os.flush()
                 }
+                val standardOutput = process.inputStream.bufferedReader().use { it.readText() }
                 val exitCode = process.waitFor()
-                return@withContext exitCode == 0
+                return@withContext RootCommandResult(exitCode, standardOutput)
             } catch (_: Exception) {
-                return@withContext false
+                return@withContext null
             } finally {
                 try {
                     os?.close()
