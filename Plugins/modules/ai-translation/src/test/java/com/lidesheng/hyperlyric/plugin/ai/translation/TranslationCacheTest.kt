@@ -63,7 +63,7 @@ class TranslationCacheTest {
             engine.close()
         }
 
-        val entryKey = cache.values.keys.first { it.startsWith("cache.entry.v2.") }
+        val entryKey = cache.values.keys.first { it.startsWith("cache.entry.v3.") }
         cache.values[entryKey] = "{broken"
         var calls = 0
         AiTranslationEngine(
@@ -108,6 +108,10 @@ class TranslationCacheTest {
             TranslationKey.calculate(song, listOf("original"), base) ==
                     TranslationKey.calculate(changedAlbum, listOf("original"), base)
         )
+        assertFalse(
+            TranslationKey.calculate(song, listOf("original"), base, "player.one") ==
+                    TranslationKey.calculate(song, listOf("original"), base, "player.two")
+        )
     }
 
     @Test
@@ -146,6 +150,42 @@ class TranslationCacheTest {
             engine.close()
         }
         assertEquals(0, secondCalls)
+    }
+
+    @Test
+    fun cacheExtensionClearsOnlyItsRequestedEntriesAndNeverPluginStorage() {
+        val cacheStore = FakePluginCache()
+        val pluginStorage = mutableMapOf("setting" to "must-stay")
+        val cache = TranslationCache(cacheStore, NO_OP_LOGGER)
+        val first = "a".repeat(64)
+        val second = "b".repeat(64)
+        cache.put(first, listOf(TranslationItem(0, "first")), song().copy(name = "first song"))
+        cache.put(second, listOf(TranslationItem(0, "second")), song().copy(name = "second song"))
+        val extension = AiTranslationCacheExtension(cache)
+
+        assertTrue(extension.clearEntry(first))
+        assertFalse(extension.clearEntry(first))
+        assertEquals(listOf(second), extension.listEntries().map { it.id })
+        assertEquals("must-stay", pluginStorage["setting"])
+        cacheStore.values["cache.entry.v3.${"c".repeat(64)}"] = "orphaned translation body"
+
+        extension.clearAll()
+
+        assertTrue(extension.listEntries().isEmpty())
+        assertTrue(cacheStore.values.isEmpty())
+        assertEquals("must-stay", pluginStorage["setting"])
+    }
+
+    @Test
+    fun damagedCacheIndexIsSafelyRebuiltForLaterWrites() {
+        val cacheStore = FakePluginCache()
+        cacheStore.values["cache.index.v3"] = "{broken"
+        val cache = TranslationCache(cacheStore, NO_OP_LOGGER)
+
+        assertTrue(cache.listEntries().isEmpty())
+        cache.put("c".repeat(64), listOf(TranslationItem(0, "translated")), song())
+
+        assertEquals(1, cache.listEntries().size)
     }
 
     private fun song(): PluginSong = PluginSong(

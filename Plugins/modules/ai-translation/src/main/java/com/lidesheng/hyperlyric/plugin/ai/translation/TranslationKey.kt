@@ -7,7 +7,12 @@ import java.security.MessageDigest
 internal object TranslationKey {
     private const val CACHE_SCHEMA_VERSION = 2
 
-    fun calculate(song: PluginSong, lines: List<String>, config: AiTranslationConfig): String {
+    fun calculate(
+        song: PluginSong,
+        lines: List<String>,
+        config: AiTranslationConfig,
+        sourcePackageName: String? = null
+    ): String {
         val source = buildString {
             appendPart("schema", CACHE_SCHEMA_VERSION.toString())
             appendPart("provider", config.provider)
@@ -16,6 +21,10 @@ internal object TranslationKey {
             appendPart("artist", song.artist.orEmpty())
             appendPart("album", song.album.orEmpty())
             appendPart("duration", song.duration.toString())
+            // The source package is only an auxiliary matching context. Title/artist/album,
+            // duration and lyric text remain the song identity, so package alone never identifies
+            // a translation cache entry.
+            appendPart("source_package", sourcePackageName.orEmpty())
             appendPart("model", config.model)
             appendPart("base_url", config.baseUrl.trim().removeSuffix("/"))
             appendPart("prompt", config.prompt)

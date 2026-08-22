@@ -1,20 +1,27 @@
 package com.lidesheng.hyperlyric.plugin.ai.translation
 
-import com.lidesheng.hyperlyric.plugin.api.PluginLogger
 import com.lidesheng.hyperlyric.plugin.api.PluginCache
+import com.lidesheng.hyperlyric.plugin.api.PluginCacheEntry
+import com.lidesheng.hyperlyric.plugin.api.PluginLogger
+import com.lidesheng.hyperlyric.plugin.api.PluginSong
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Collections
 
-/** Memory LRU plus a bounded JSON index backed only by the plugin's string storage. */
+/**
+ * Translation-owned cache with a bounded metadata index. The index never contains translation
+ * bodies or configuration secrets, so it can back a PluginCacheExtension safely.
+ */
 internal class TranslationCache(
     private val storage: PluginCache,
     private val logger: PluginLogger,
 ) {
     private companion object {
         const val MAX_ENTRIES = 1_000
-        const val INDEX_KEY = "cache.index.v2"
-        const val ENTRY_PREFIX = "cache.entry.v2."
+        const val MAX_LIST_ENTRIES = 100
+        const val INDEX_KEY = "cache.index.v3"
+        const val ENTRY_PREFIX = "cache.entry.v3."
+        const val INDEX_VERSION = 3
     }
 
     private val lock = Any()
@@ -31,28 +38,26 @@ internal class TranslationCache(
         memory[key]?.let { return@synchronized CacheLookup(it, fromMemory = true) }
 
         val index = readIndexLocked()
-        if (key !in index) return@synchronized null
-
+        if (index.none { it.key == key }) return@synchronized null
         val raw = runCatching { storage.getString(entryKey(key)) }.getOrElse {
             logger.error("查询翻译缓存失败", it)
             return@synchronized null
         } ?: run {
-            removeCorruptEntryLocked(index, key)
+            removeEntryLocked(index, key)
             return@synchronized null
         }
         val items = decode(raw)
         if (items.isNullOrEmpty()) {
             logger.error("查询翻译缓存失败")
-            removeCorruptEntryLocked(index, key)
+            removeEntryLocked(index, key)
             return@synchronized null
         }
 
         memory[key] = items
-        touchIndexLocked(index, key)
         CacheLookup(items, fromMemory = false)
     }
 
-    fun put(key: String, items: List<TranslationItem>) {
+    fun put(key: String, items: List<TranslationItem>, song: PluginSong) {
         if (items.isEmpty()) return
         synchronized(lock) {
             val encoded = encode(items)
@@ -60,68 +65,125 @@ internal class TranslationCache(
                 logger.error("写入翻译缓存失败", it)
                 return
             }
-
             memory[key] = items
-            val index = readIndexLocked().toMutableList()
-            index.remove(key)
-            index.add(0, key)
-            while (index.size > MAX_ENTRIES) {
-                val removed = index.removeAt(index.lastIndex)
-                memory.remove(removed)
-                runCatching { storage.remove(entryKey(removed)) }.onFailure {
-                    logger.error("写入翻译缓存失败", it)
+            val now = System.currentTimeMillis()
+            val record = CacheRecord(
+                key = key,
+                title = song.name.orEmpty().ifBlank { "未知歌曲" },
+                artist = song.artist.orEmpty().ifBlank { null },
+                album = song.album.orEmpty().ifBlank { null },
+                updatedAtEpochMs = now,
+                sizeBytes = encoded.toByteArray(Charsets.UTF_8).size.toLong()
+            )
+            val updated = readIndexLocked().toMutableList().apply {
+                removeAll { it.key == key }
+                add(0, record)
+                while (size > MAX_ENTRIES) {
+                    val removed = removeAt(lastIndex)
+                    memory.remove(removed.key)
+                    runCatching { storage.remove(entryKey(removed.key)) }.onFailure {
+                        logger.error("删除翻译缓存失败", it)
+                    }
                 }
             }
-            runCatching { storage.putString(INDEX_KEY, encodeIndex(index)) }.onFailure {
-                logger.error("写入翻译缓存失败", it)
-            }
+            writeIndexLocked(updated)
         }
     }
 
     fun remove(key: String) = synchronized(lock) {
         memory.remove(key)
-        removeCorruptEntryLocked(readIndexLocked(), key)
+        removeEntryLocked(readIndexLocked(), key)
     }
 
-    private fun touchIndexLocked(index: List<String>, key: String) {
-        val updated = index.toMutableList().apply {
-            remove(key)
-            add(0, key)
-        }
-        runCatching { storage.putString(INDEX_KEY, encodeIndex(updated)) }.onFailure {
-            logger.error("写入翻译缓存失败", it)
+    fun listEntries(): List<PluginCacheEntry> = synchronized(lock) {
+        readIndexLocked().asSequence()
+            .filter { storage.contains(entryKey(it.key)) }
+            .take(MAX_LIST_ENTRIES)
+            .map { record ->
+                PluginCacheEntry(
+                    id = record.key,
+                    title = record.title,
+                    summary = listOfNotNull(record.artist, record.album)
+                        .joinToString(" · ")
+                        .takeIf { it.isNotBlank() },
+                    sizeBytes = record.sizeBytes,
+                    updatedAtEpochMs = record.updatedAtEpochMs
+                )
+            }
+            .toList()
+    }
+
+    fun clearAll() {
+        synchronized(lock) {
+            memory.clear()
+            // This plugin has a single cache scope. Clearing the PluginCache removes orphaned
+            // entry bodies too when a damaged index can no longer enumerate their opaque keys.
+            runCatching { storage.clear() }.onFailure {
+                logger.error("清空翻译缓存失败", it)
+            }
         }
     }
 
-    private fun readIndexLocked(): List<String> {
+    fun clearEntry(entryId: String): Boolean = synchronized(lock) {
+        val index = readIndexLocked()
+        if (index.none { it.key == entryId }) return@synchronized false
+        memory.remove(entryId)
+        removeEntryLocked(index, entryId)
+        true
+    }
+
+    private fun readIndexLocked(): List<CacheRecord> {
         val raw = runCatching { storage.getString(INDEX_KEY) }.getOrElse {
-            logger.error("查询翻译缓存失败", it)
+            logger.error("查询翻译缓存索引失败", it)
             return emptyList()
         } ?: return emptyList()
         return runCatching {
-            val array = JSONArray(raw)
-            buildList(array.length()) {
-                for (index in 0 until array.length()) {
-                    val key = array.optString(index, "")
-                    if (key.matches(KEY_PATTERN)) add(key)
+            val json = JSONObject(raw)
+            require(json.optInt("version") == INDEX_VERSION) { "Unsupported translation cache index" }
+            val entries = json.optJSONArray("entries") ?: JSONArray()
+            buildList(entries.length()) {
+                for (index in 0 until entries.length()) {
+                    decodeRecord(entries.optJSONObject(index))?.let(::add)
                 }
-            }.distinct().take(MAX_ENTRIES)
-        }.getOrElse {
-            logger.error("查询翻译缓存失败", it)
-            runCatching { storage.remove(INDEX_KEY) }
+            }.distinctBy { it.key }.take(MAX_ENTRIES)
+        }.getOrElse { error ->
+            logger.warn("翻译缓存索引损坏，已安全重建", error)
+            rebuildIndexLocked()
             emptyList()
         }
     }
 
-    private fun removeCorruptEntryLocked(index: List<String>, key: String) {
-        val updated = index.filterNot { it == key }
+    private fun decodeRecord(json: JSONObject?): CacheRecord? {
+        val key = json?.optString("key", "")?.takeIf(KEY_PATTERN::matches) ?: return null
+        val title = json.optString("title", "").trim().takeIf { it.isNotBlank() } ?: return null
+        return CacheRecord(
+            key = key,
+            title = title,
+            artist = json.optString("artist", "").trim().takeIf { it.isNotBlank() },
+            album = json.optString("album", "").trim().takeIf { it.isNotBlank() },
+            updatedAtEpochMs = json.optLong("updatedAtEpochMs", 0L).takeIf { it > 0L }
+                ?: return null,
+            sizeBytes = json.optLong("sizeBytes", -1L).takeIf { it >= 0L }
+        )
+    }
+
+    private fun removeEntryLocked(index: List<CacheRecord>, key: String) {
+        val updated = index.filterNot { it.key == key }
         runCatching { storage.remove(entryKey(key)) }.onFailure {
             logger.error("删除翻译缓存失败", it)
         }
-        if (updated != index) {
-            runCatching { storage.putString(INDEX_KEY, encodeIndex(updated)) }.onFailure {
-                logger.error("更新翻译缓存索引失败", it)
-            }
+        if (updated.size != index.size) writeIndexLocked(updated)
+    }
+
+    private fun rebuildIndexLocked() {
+        runCatching { storage.putString(INDEX_KEY, encodeIndex(emptyList())) }.onFailure {
+            logger.error("重建翻译缓存索引失败", it)
+        }
+    }
+
+    private fun writeIndexLocked(index: List<CacheRecord>) {
+        runCatching { storage.putString(INDEX_KEY, encodeIndex(index)) }.onFailure {
+            logger.error("写入翻译缓存索引失败", it)
         }
     }
 
@@ -138,16 +200,39 @@ internal class TranslationCache(
                 val item = array.optJSONObject(index) ?: continue
                 if (!item.has("index") || !item.has("trans")) continue
                 val text = item.optString("trans", "").trim()
-                if (text.isNotBlank()) {
-                    add(TranslationItem(item.optInt("index", Int.MIN_VALUE), text))
-                }
+                if (text.isNotBlank()) add(TranslationItem(item.optInt("index"), text))
             }
         }.takeIf { it.isNotEmpty() }
     }.getOrNull()
 
-    private fun encodeIndex(keys: List<String>): String = JSONArray(keys).toString()
+    private fun encodeIndex(records: List<CacheRecord>): String = JSONObject()
+        .put("version", INDEX_VERSION)
+        .put("entries", JSONArray().apply {
+            records.forEach { record ->
+                put(
+                    JSONObject()
+                        .put("key", record.key)
+                        .put("title", record.title)
+                        .put("updatedAtEpochMs", record.updatedAtEpochMs)
+                        .also { item ->
+                            record.artist?.let { item.put("artist", it) }
+                            record.album?.let { item.put("album", it) }
+                            record.sizeBytes?.let { item.put("sizeBytes", it) }
+                        }
+                )
+            }
+        }).toString()
 
     private fun entryKey(key: String): String = ENTRY_PREFIX + key
+
+    private data class CacheRecord(
+        val key: String,
+        val title: String,
+        val artist: String?,
+        val album: String?,
+        val updatedAtEpochMs: Long,
+        val sizeBytes: Long?,
+    )
 
     private val KEY_PATTERN = Regex("[0-9a-f]{64}")
 

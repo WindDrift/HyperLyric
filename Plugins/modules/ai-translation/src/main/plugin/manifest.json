@@ -10,6 +10,19 @@
   "apiVersion": 1,
   "entry": "com.lidesheng.hyperlyric.plugin.ai.translation.AiTranslationPlugin",
   "activationSettingKey": "enabled",
+  "cacheScopes": [
+    {
+      "id": "translation",
+      "title": "翻译缓存",
+      "summary": "清理 AI 翻译结果缓存",
+      "titleLocales": {
+        "en": "Translation Cache"
+      },
+      "summaryLocales": {
+        "en": "Clear cached AI translation results"
+      }
+    }
+  ],
   "settings": [
     {
       "type": "switch",

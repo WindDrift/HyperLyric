@@ -2,6 +2,7 @@ package com.lidesheng.hyperlyric.plugin.ai.translation
 
 import com.lidesheng.hyperlyric.plugin.api.LyricProcessorExtension
 import com.lidesheng.hyperlyric.plugin.api.PluginConfig
+import com.lidesheng.hyperlyric.plugin.api.PluginCacheExtension
 import com.lidesheng.hyperlyric.plugin.api.PluginContext
 import com.lidesheng.hyperlyric.plugin.api.PluginLyricField
 import com.lidesheng.hyperlyric.plugin.api.PluginMediaInfo
@@ -20,7 +21,14 @@ internal class AiTranslationProcessor(
 
     private val gatewayLogger = context.logger.withTag("AiTranslationGateway")
     private val translatorLogger = context.logger.withTag("AITranslator")
-    private val engine = AiTranslationEngine(context.cache, context.logger, translatorLogger)
+    private val cache = TranslationCache(context.cache, context.logger.withTag("AITranslationCache"))
+    private val cacheExtension = AiTranslationCacheExtension(cache)
+    private val engine = AiTranslationEngine(
+        cacheStore = context.cache,
+        logger = context.logger,
+        translatorLogger = translatorLogger,
+        translationCache = cache
+    )
 
     override fun processResult(
         song: PluginSong,
@@ -89,7 +97,11 @@ internal class AiTranslationProcessor(
                 return null
             }
             translatorLogger.debug("正在翻译：${querySong.name}（共 ${lyrics.size} 行）")
-            engine.translate(querySong, config)?.let { translated ->
+            engine.translate(
+                song = querySong,
+                config = config,
+                sourcePackageName = processingContext.mediaInfo?.sourcePackageName
+            )?.let { translated ->
                 PluginSongResult(
                     song = translated,
                     changedFields = setOf(PluginSongField.LYRICS),
@@ -128,6 +140,8 @@ internal class AiTranslationProcessor(
             engine.cancelPending()
         }
     }
+
+    fun cacheExtension(): PluginCacheExtension = cacheExtension
 
     private companion object {
         const val AI_TRANSLATION_EXTENSION_ID = "ai.translation"

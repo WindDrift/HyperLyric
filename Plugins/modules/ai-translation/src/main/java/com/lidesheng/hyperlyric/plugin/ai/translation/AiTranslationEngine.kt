@@ -9,8 +9,12 @@ internal class AiTranslationEngine(
     logger: PluginLogger,
     private val translatorLogger: PluginLogger,
     networkRequester: ((AiTranslationConfig, PluginSong, List<String>) -> List<TranslationItem>?)? = null,
+    translationCache: TranslationCache? = null,
 ) {
-    private val cache = TranslationCache(cacheStore, logger.withTag("AITranslationCache"))
+    private val cache = translationCache ?: TranslationCache(
+        cacheStore,
+        logger.withTag("AITranslationCache")
+    )
     private val client = OpenAiTranslationClient(
         logger = logger.withTag("OpenAiTranslationClient"),
         parserLogger = logger.withTag("AITranslationResponseParser")
@@ -20,10 +24,14 @@ internal class AiTranslationEngine(
         networkRequester ?: client::request
     private val scheduler = TranslationScheduler(logger.withTag("AITranslationScheduler"))
 
-    fun translate(song: PluginSong, config: AiTranslationConfig): PluginSong? {
+    fun translate(
+        song: PluginSong,
+        config: AiTranslationConfig,
+        sourcePackageName: String? = null
+    ): PluginSong? {
         val lyrics = song.lyrics ?: return null
         val originalLines = lyrics.map { it.text?.trim().orEmpty() }
-        val key = TranslationKey.calculate(song, originalLines, config)
+        val key = TranslationKey.calculate(song, originalLines, config, sourcePackageName)
 
         cache.get(key)?.let { cached ->
             if (cached.fromMemory) {
@@ -65,7 +73,7 @@ internal class AiTranslationEngine(
                 } else {
                     // Cache the verified network response even when the current Song already
                     // contains some/all translations and the applicator has nothing to write.
-                    cache.put(key, validItems)
+                    cache.put(key, validItems, song)
                     TranslationApplicator.apply(
                         song,
                         validItems,

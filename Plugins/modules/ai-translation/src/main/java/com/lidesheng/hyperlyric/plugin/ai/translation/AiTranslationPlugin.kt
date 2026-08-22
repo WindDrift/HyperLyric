@@ -11,6 +11,7 @@ class AiTranslationPlugin : HyperLyricPlugin {
         val created = AiTranslationProcessor(context)
         processor = created
         context.registerExtension(created)
+        context.registerExtension(created.cacheExtension())
     }
 
     override fun onEnable() = Unit

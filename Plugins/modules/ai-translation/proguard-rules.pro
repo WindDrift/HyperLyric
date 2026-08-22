@@ -25,6 +25,11 @@
         com.lidesheng.hyperlyric.plugin.api.PluginProcessingContext
     );
 }
+-keepclassmembers,allowoptimization class * implements com.lidesheng.hyperlyric.plugin.api.PluginCacheExtension {
+    public java.util.List listEntries();
+    public void clearAll();
+    public boolean clearEntry(java.lang.String);
+}
 
 # Keep the immutable protocol DTOs and enum fields used across the host/plugin ClassLoader.
 -keep,allowoptimization,allowobfuscation public class com.lidesheng.hyperlyric.plugin.api.PluginSong { *; }
@@ -39,3 +44,5 @@
 -keep,allowoptimization,allowobfuscation public class com.lidesheng.hyperlyric.plugin.api.PluginWord { *; }
 -keep,allowoptimization,allowobfuscation public class com.lidesheng.hyperlyric.plugin.api.PluginMetadata { *; }
 -keep,allowoptimization,allowobfuscation public interface com.lidesheng.hyperlyric.plugin.api.PluginCache { *; }
+-keep,allowoptimization,allowobfuscation public interface com.lidesheng.hyperlyric.plugin.api.PluginCacheExtension { *; }
+-keep,allowoptimization,allowobfuscation public class com.lidesheng.hyperlyric.plugin.api.PluginCacheEntry { *; }
