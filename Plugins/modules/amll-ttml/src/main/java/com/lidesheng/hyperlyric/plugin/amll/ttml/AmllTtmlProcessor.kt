@@ -11,6 +11,12 @@ import com.lidesheng.hyperlyric.plugin.api.PluginSongField
 import com.lidesheng.hyperlyric.plugin.api.PluginSongResult
 import com.lidesheng.hyperlyric.plugin.api.PluginWord
 
+/** 命中结果：TTML 原文 + 来源标记（缓存命中/网络获取），用于日志准确上报 */
+internal data class TtmlFetch(
+    val ttml: String,
+    val fromCache: Boolean,
+)
+
 /**
  * AMLL TTML 歌词处理器（LYRIC_REPLACEMENT 阶段）
  *
@@ -101,7 +107,7 @@ internal class AmllTtmlProcessor(
         ) {
             val probeTtml = probePlatforms(songId, title, artist, sourcePackageName, budget)
             if (probeTtml != null) {
-                return buildResult(song, probeTtml, fromCache = false)
+                return buildResult(song, probeTtml.ttml, probeTtml.fromCache)
             }
         }
 
@@ -111,7 +117,7 @@ internal class AmllTtmlProcessor(
             return null
         }
         val searchTtml = searchFallback(title, artist, album, budget) ?: return null
-        return buildResult(song, searchTtml, fromCache = false)
+        return buildResult(song, searchTtml.ttml, searchTtml.fromCache)
     }
 
     /**
@@ -129,7 +135,7 @@ internal class AmllTtmlProcessor(
         artist: String?,
         sourcePackageName: String?,
         budget: ProcessingBudget
-    ): String? {
+    ): TtmlFetch? {
         // 包名直查：歌词源已明确平台（无撞号风险，跳过交叉校验与 resolve 快路径）
         val mappedPlatform = AmllPlatformId.mapPackageName(sourcePackageName)
         // 快路径：上次探测已解析出平台（写入前已通过校验，同样无需再校验）
@@ -169,7 +175,7 @@ internal class AmllTtmlProcessor(
                 logger.debug(
                     "event=cache_hit key=$exactKey, size=${lookup.ttml.toByteArray().size}B"
                 )
-                return lookup.ttml
+                return TtmlFetch(lookup.ttml, fromCache = true)
             }
             logger.debug("event=cache_miss key=$exactKey")
 
@@ -194,7 +200,7 @@ internal class AmllTtmlProcessor(
             )
             cache.put(exactKey, ttml, title, artist, generation)
             cache.putResolve(songId, platform.name)
-            return ttml
+            return TtmlFetch(ttml, fromCache = false)
         }
         return null
     }
@@ -205,11 +211,11 @@ internal class AmllTtmlProcessor(
         artist: String?,
         album: String?,
         budget: ProcessingBudget
-    ): String? {
+    ): TtmlFetch? {
         val searchKey = TtmlCache.searchKey(title.orEmpty(), artist.orEmpty())
         cache.get(searchKey)?.let { lookup ->
             logger.debug("event=cache_hit key=$searchKey, size=${lookup.ttml.toByteArray().size}B")
-            return lookup.ttml
+            return TtmlFetch(lookup.ttml, fromCache = true)
         }
         logger.debug("event=cache_miss key=$searchKey")
 
@@ -240,7 +246,7 @@ internal class AmllTtmlProcessor(
             artist = fullItem.artistNames?.joinToString(" / ") ?: artist,
             expectedGeneration = generation
         )
-        return ttml
+        return TtmlFetch(ttml, fromCache = false)
     }
 
     /**
