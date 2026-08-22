@@ -34,6 +34,9 @@ internal class TtmlCache(
     private val logger: PluginLogger,
 ) {
     companion object {
+        /** 语义 key 恒定前缀（含 schema 版本）；解析逻辑升级时递增即可整体失效 */
+        private const val SCHEMA_PREFIX = "amll.ttml.v1"
+
         private const val MAX_ENTRIES = 200
 
         /** 缓存管理列表的最大返回条数（对齐 AI 翻译插件） */
@@ -51,17 +54,21 @@ internal class TtmlCache(
 
         /** 精确命中（平台探测）的语义 key */
         fun exactKey(platform: AmllPlatformIdField, songId: String): String =
-            "amll.ttml.v1|exact|${platform.name}|$songId"
+            "$SCHEMA_PREFIX|exact|${platform.name}|$songId"
 
         /** 搜索命中的语义 key（title/artist 归一化保证同曲稳定） */
         fun searchKey(title: String, artist: String): String {
             val normalizedTitle = title.trim().replace(Regex("\\s+"), " ")
             val normalizedArtist = artist.trim().replace(Regex("\\s+"), " ")
-            return "amll.ttml.v1|search|$normalizedTitle|$normalizedArtist"
+            return "$SCHEMA_PREFIX|search|$normalizedTitle|$normalizedArtist"
         }
 
         /** 平台探测结果（songId → 命中平台名）的语义 key：二次播放跳过逐平台探测 */
-        fun resolveKey(songId: String): String = "amll.ttml.v1|resolve|$songId"
+        fun resolveKey(songId: String): String = "$SCHEMA_PREFIX|resolve|$songId"
+
+        /** 日志展示用短 key：去掉恒定前缀（如 exact|NCM|551339078） */
+        fun shortKey(semanticKey: String): String =
+            semanticKey.removePrefix("$SCHEMA_PREFIX|")
     }
 
     private val lock = Any()
@@ -100,7 +107,7 @@ internal class TtmlCache(
         if (index.none { it.key == physicalKey }) return@synchronized null
 
         val raw = runCatching { storage.getString(entryKey(physicalKey)) }.getOrElse {
-            logger.warn("查询 TTML 缓存失败: key=$semanticKey", it)
+            logger.warn("读取缓存失败: key=${shortKey(semanticKey)}", it)
             return@synchronized null
         } ?: run {
             // 索引命中但条目缺失：损坏条目，自愈删除
@@ -123,17 +130,17 @@ internal class TtmlCache(
         if (ttml.isEmpty()) return
         val bytes = ttml.toByteArray(StandardCharsets.UTF_8)
         if (bytes.size > MAX_VALUE_BYTES) {
-            logger.warn("TTML 超过缓存单值上限，放弃缓存: size=${bytes.size}B", null)
+            logger.warn("超出缓存单值上限，放弃缓存: size=${bytes.size}B", null)
             return
         }
         val physicalKey = physicalKeyOf(semanticKey)
         synchronized(lock) {
             if (generation != expectedGeneration) {
-                logger.debug("缓存已清理，丢弃过期写入: key=$semanticKey")
+                logger.debug("缓存已清理，丢弃过期写入: key=${shortKey(semanticKey)}")
                 return
             }
             runCatching { storage.putString(entryKey(physicalKey), ttml) }.onFailure {
-                logger.warn("写入 TTML 缓存失败: key=$semanticKey", it)
+                logger.warn("写入缓存失败: key=${shortKey(semanticKey)}", it)
                 return
             }
 
@@ -152,7 +159,7 @@ internal class TtmlCache(
                     val removed = removeAt(lastIndex)
                     memory.remove(removed.key)
                     runCatching { storage.remove(entryKey(removed.key)) }.onFailure {
-                        logger.warn("删除 TTML 缓存失败: key=${removed.key}", it)
+                        logger.warn("删除缓存条目失败: key=${removed.key}", it)
                     }
                 }
             }
@@ -165,7 +172,7 @@ internal class TtmlCache(
         return runCatching {
             storage.getString(entryKey(physicalKeyOf(resolveKey(songId))))
         }.getOrElse {
-            logger.warn("查询平台探测结果失败: songId=$songId", it)
+            logger.warn("读取平台探测缓存失败: songId=$songId", it)
             null
         }?.takeIf { it.isNotBlank() }
     }
@@ -173,7 +180,7 @@ internal class TtmlCache(
     /** 写入 resolve 条目：仅存储不进索引（清理后残留仅影响探测快路径，无正确性影响） */
     fun putResolve(songId: String, platformName: String) {
         runCatching { storage.putString(entryKey(physicalKeyOf(resolveKey(songId))), platformName) }
-            .onFailure { logger.warn("写入平台探测结果失败: songId=$songId", it) }
+            .onFailure { logger.warn("写入平台探测缓存失败: songId=$songId", it) }
     }
 
     /** 缓存管理：列出当前索引条目（仅展示元数据，缓存正文不出边界） */
@@ -200,7 +207,7 @@ internal class TtmlCache(
             memory.clear()
             // 单一缓存作用域：直接清空 PluginCache，损坏索引无法枚举的孤儿条目一并移除
             runCatching { storage.clear() }.getOrElse { error ->
-                logger.error("清空 TTML 缓存失败", error)
+                logger.error("清空缓存失败", error)
                 throw IllegalStateException("无法清空 TTML 缓存", error)
             }
         }
@@ -235,7 +242,7 @@ internal class TtmlCache(
     private fun readIndexLocked(): List<CacheRecord> {
         migrateLegacyIndexLocked()
         val raw = runCatching { storage.getString(INDEX_KEY) }.getOrElse {
-            logger.warn("查询 TTML 缓存索引失败", it)
+            logger.warn("读取缓存索引失败", it)
             return emptyList()
         } ?: return emptyList()
         return runCatching {
@@ -249,7 +256,7 @@ internal class TtmlCache(
             }.distinctBy { it.key }.take(MAX_ENTRIES)
         }.getOrElse {
             // 索引损坏：清空重建（条目成为孤儿，LRU 淘汰/自愈路径最终清理）
-            logger.warn("TTML 缓存索引损坏，重建索引", it)
+            logger.warn("缓存索引损坏，重建索引", it)
             runCatching { storage.remove(INDEX_KEY) }
             emptyList()
         }
@@ -311,7 +318,7 @@ internal class TtmlCache(
             storage.remove(entryKey(key))
             true
         }.onFailure {
-            logger.warn("删除 TTML 缓存失败: key=$key", it)
+            logger.warn("删除缓存条目失败: key=$key", it)
         }.getOrDefault(false)
         val indexWritten = if (updated.size != index.size) writeIndexLocked(updated) else true
         return entryRemoved && indexWritten
@@ -321,7 +328,7 @@ internal class TtmlCache(
         storage.putString(INDEX_KEY, encodeIndex(index))
         true
     }.onFailure {
-        logger.warn("写入 TTML 缓存索引失败", it)
+        logger.warn("写入缓存索引失败", it)
     }.getOrDefault(false)
 
     private fun encodeIndex(records: List<CacheRecord>): String = JSONObject()

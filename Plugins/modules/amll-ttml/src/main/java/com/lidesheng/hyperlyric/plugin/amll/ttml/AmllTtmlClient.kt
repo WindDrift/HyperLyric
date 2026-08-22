@@ -101,7 +101,7 @@ internal class AmllTtmlClient(private val logger: PluginLogger) {
         val artistName = artist?.takeIf { it.isNotBlank() }
         val albumName = album?.takeIf { it.isNotBlank() }
         if (musicName == null && artistName == null && albumName == null) {
-            logger.debug("AMLL 搜索未命中: reason=no_search_params")
+            logger.debug("搜索未执行: 无搜索参数")
             return null
         }
         val params = buildList {
@@ -117,10 +117,14 @@ internal class AmllTtmlClient(private val logger: PluginLogger) {
         val items = AmllModels.parseSearchResponse(body) ?: return null
         val item = items.firstOrNull { AmllMatch.isPlausibleMatch(it, musicName, artistName) }
         if (item == null) {
-            logger.debug(
-                "AMLL 搜索未命中: reason=${if (items.isEmpty()) "empty_items" else "no_plausible_match"}, " +
-                        "total=${items.size}, first=${items.firstOrNull()?.musicNames?.joinToString("/") ?: "-"}"
-            )
+            if (items.isEmpty()) {
+                logger.debug("搜索未命中: 无结果")
+            } else {
+                logger.debug(
+                    "搜索未命中: 结果均不匹配, total=${items.size}, " +
+                            "first=${items.firstOrNull()?.musicNames?.joinToString("/") ?: "-"}"
+                )
+            }
             return null
         }
         return item
@@ -129,7 +133,7 @@ internal class AmllTtmlClient(private val logger: PluginLogger) {
     /** 提取携带非空 lyrics 的条目；status=200 但 lyrics 为空字符串/null 视为未命中 */
     private fun extractWithLyrics(item: SongItem?): SongItem? {
         if (item == null || item.lyrics.isNullOrBlank()) {
-            logger.debug("AMLL 精确未命中: reason=empty_lyrics")
+            logger.debug("查询命中但歌词为空")
             return null
         }
         return item
@@ -151,11 +155,11 @@ internal class AmllTtmlClient(private val logger: PluginLogger) {
         var attempt = 0
         while (true) {
             if (Thread.currentThread().isInterrupted) {
-                logger.debug("event=interrupted request=$requestLabel")
+                logger.debug("请求被中断: request=$requestLabel")
                 return null
             }
             if (!budget.hasEnoughForAttempt(CONNECT_TIMEOUT_MS.toLong())) {
-                logger.debug("event=budget_exhausted remaining=${budget.remainingMs()}ms, request=$requestLabel")
+                logger.debug("预算不足，放弃请求: remaining=${budget.remainingMs()}ms, request=$requestLabel")
                 return null
             }
 
@@ -174,20 +178,20 @@ internal class AmllTtmlClient(private val logger: PluginLogger) {
                 }
                 val retryable = code == HTTP_TOO_MANY_REQUESTS || code in 500..599
                 if (!retryable || attempt >= MAX_RETRIES) {
-                    logger.debug("AMLL 抓取失败: reason=http_$code, retries=$attempt, request=$requestLabel")
+                    logger.debug("请求失败: code=$code, retries=$attempt, request=$requestLabel")
                     return null
                 }
                 attempt++
                 logger.debug(
-                    "event=http_retry code=$code, attempt=$attempt/$MAX_RETRIES, " +
+                    "HTTP 错误重试: code=$code, attempt=$attempt/$MAX_RETRIES, " +
                             "delay=${retryDelay}ms, request=$requestLabel"
                 )
             } catch (e: IOException) {
-                logger.debug("event=network_error type=${e.javaClass.simpleName}, request=$requestLabel")
+                logger.debug("网络错误: type=${e.javaClass.simpleName}, request=$requestLabel")
                 return null
             } catch (e: Exception) {
                 // 反序列化等本地异常：不重试（对齐 main：异常不伪装成重试场景）
-                logger.debug("event=request_error type=${e.javaClass.simpleName}, request=$requestLabel")
+                logger.debug("请求异常: type=${e.javaClass.simpleName}, request=$requestLabel")
                 return null
             } finally {
                 connection?.disconnect()
@@ -195,14 +199,14 @@ internal class AmllTtmlClient(private val logger: PluginLogger) {
 
             // 重试前检查预算：等待 + 一次尝试的最小开销
             if (budget.remainingMs() < retryDelay + CONNECT_TIMEOUT_MS) {
-                logger.debug("event=budget_exhausted remaining=${budget.remainingMs()}ms, request=$requestLabel")
+                logger.debug("预算不足，放弃请求: remaining=${budget.remainingMs()}ms, request=$requestLabel")
                 return null
             }
             try {
                 Thread.sleep(retryDelay)
             } catch (_: InterruptedException) {
                 Thread.currentThread().interrupt()
-                logger.debug("event=interrupted request=$requestLabel")
+                logger.debug("请求被中断: request=$requestLabel")
                 return null
             }
             retryDelay *= RETRY_BACKOFF_MULTIPLIER

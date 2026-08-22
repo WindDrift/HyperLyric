@@ -210,18 +210,18 @@ internal class TtmlParser(private val logger: PluginLogger) {
             parser.setInput(StringReader(ttml))
             val doc = parseDocument(parser)
             if (doc.paragraphs.isEmpty()) {
-                logger.debug("TTML 解析未命中: reason=no_paragraph")
+                logger.debug("TTML 解析为空: 无歌词行")
                 return null
             }
             val lines = buildLines(doc.paragraphs, preferredLang, doc.itunesTranslations)
             if (lines.isEmpty()) {
-                logger.debug("TTML 解析未命中: reason=no_valid_line")
+                logger.debug("TTML 解析为空: 无有效行")
                 return null
             }
             logStats(lines)
             lines
         } catch (e: Exception) {
-            logger.debug("TTML 解析失败: type=${e.javaClass.simpleName}")
+            logger.debug("TTML 解析异常: type=${e.javaClass.simpleName}")
             null
         }
     }
@@ -608,7 +608,7 @@ internal class TtmlParser(private val logger: PluginLogger) {
      */
     private fun regularizeLines(lines: List<PluginLyricLine>): List<PluginLyricLine> {
         if (lines.size > MAX_LINES) {
-            logger.debug("TTML 解析未命中: reason=limit_exceeded, lines=${lines.size}")
+            logger.debug("TTML 行数超限: lines=${lines.size}")
             return emptyList()
         }
         val result = mutableListOf<PluginLyricLine>()
@@ -619,7 +619,7 @@ internal class TtmlParser(private val logger: PluginLogger) {
             totalWords += regularized.secondaryWords?.size ?: 0
             totalWords += regularized.translationWords?.size ?: 0
             if (totalWords > MAX_TOTAL_WORDS) {
-                logger.debug("TTML 解析未命中: reason=limit_exceeded, totalWords>$MAX_TOTAL_WORDS")
+                logger.debug("TTML 词数超限: totalWords>$MAX_TOTAL_WORDS")
                 return emptyList()
             }
             result.add(regularized)
@@ -636,7 +636,7 @@ internal class TtmlParser(private val logger: PluginLogger) {
             translationWordsCount > MAX_WORDS_PER_LINE
         ) {
             logger.debug(
-                "TTML 行词数超限丢弃: words=$wordsCount, secondary=$secondaryWordsCount, " +
+                "TTML 单行词数超限，丢弃该行: words=$wordsCount, secondary=$secondaryWordsCount, " +
                         "translation=$translationWordsCount"
             )
             return null
@@ -811,7 +811,7 @@ internal class TtmlParser(private val logger: PluginLogger) {
         val agentCount = lines.count { it.metadata?.values?.containsKey(METADATA_KEY_AGENT) == true }
         val translationCount = lines.count { !it.translation.isNullOrBlank() }
         logger.info(
-            "event=parse_done lines=${lines.size}, wordTiming=$wordTimingCount, " +
+            "TTML 解析完成: lines=${lines.size}, wordTiming=$wordTimingCount, " +
                     "bg=$bgCount, bgWordTiming=$bgWordTimingCount, " +
                     "agent=$agentCount, translation=$translationCount"
         )

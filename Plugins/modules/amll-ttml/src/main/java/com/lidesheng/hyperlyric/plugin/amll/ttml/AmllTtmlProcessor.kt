@@ -57,11 +57,11 @@ internal class AmllTtmlProcessor(
             processSongInternal(song, processingContext)
         } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
-            logger.debug("event=interrupted")
+            logger.debug("处理被中断")
             null
         } catch (error: Exception) {
             logger.warn(
-                "AMLL 处理异常: type=${error.javaClass.simpleName}, " +
+                "处理异常: type=${error.javaClass.simpleName}, " +
                         "msg=${error.message?.take(200)}",
                 null
             )
@@ -75,7 +75,7 @@ internal class AmllTtmlProcessor(
     ): PluginSongResult? {
         val config = AmllTtmlConfig.from(context.config)
         if (!config.enabled) {
-            logger.debug("event=skip reason=disabled, song=${song.name}")
+            logger.debug("跳过处理: 插件已禁用, song=${song.name}")
             return null
         }
 
@@ -94,10 +94,9 @@ internal class AmllTtmlProcessor(
         val sourcePackageName = mediaInfo?.sourcePackageName?.takeIf { it.isNotBlank() }
 
         logger.debug(
-            "AMLL 开始处理: song=\"${song.name.orEmpty()}\", " +
-                    "songIdPresent=${songId != null}, " +
-                    "sourcePackagePresent=${sourcePackageName != null}, " +
-                    "search=[title=${title ?: "-"}, artist=${artist ?: "-"}, album=${album ?: "-"}]"
+            "开始处理: song=\"${song.name.orEmpty()}\", songId=${songId ?: "null"}, " +
+                    "package=${sourcePackageName ?: "null"}, " +
+                    "title=${title ?: "null"}, artist=${artist ?: "null"}, album=${album ?: "null"}"
         )
 
         // 1. 平台探测：songId 非空、开关开启；包名直查无需 title/artist（平台已明确），
@@ -113,7 +112,7 @@ internal class AmllTtmlProcessor(
 
         // 2. 搜索回退：title 或 artist 至少一个可用（对齐 main：二者皆空不触发搜索）
         if (title == null && artist == null) {
-            logger.debug("AMLL 搜索未触发: reason=no_title_artist")
+            logger.debug("搜索未触发: 无标题与歌手")
             return null
         }
         val searchTtml = searchFallback(title, artist, album, budget) ?: return null
@@ -149,7 +148,7 @@ internal class AmllTtmlProcessor(
             mappedPlatform != null -> listOf(mappedPlatform)
             resolvedPlatform != null -> listOf(resolvedPlatform)
             else -> if (title == null && artist == null) {
-                logger.debug("AMLL 平台探测未触发: reason=no_title_artist")
+                logger.debug("平台探测未触发: 无标题与歌手")
                 return null
             } else {
                 AmllPlatformId.probeOrderFor(songId)
@@ -161,11 +160,11 @@ internal class AmllTtmlProcessor(
         val generation = cache.currentGeneration()
         for (platform in probeOrder) {
             if (Thread.currentThread().isInterrupted) {
-                logger.debug("event=interrupted")
+                logger.debug("处理被中断")
                 return null
             }
             if (budget.isExhausted()) {
-                logger.debug("event=budget_exhausted phase=probe")
+                logger.debug("预算耗尽: phase=平台探测")
                 return null
             }
 
@@ -173,29 +172,30 @@ internal class AmllTtmlProcessor(
             val exactKey = TtmlCache.exactKey(platform, songId)
             cache.get(exactKey)?.let { lookup ->
                 logger.debug(
-                    "event=cache_hit key=$exactKey, size=${lookup.ttml.toByteArray().size}B"
+                    "缓存命中: key=${TtmlCache.shortKey(exactKey)}, " +
+                            "size=${lookup.ttml.toByteArray().size}B"
                 )
                 return TtmlFetch(lookup.ttml, fromCache = true)
             }
-            logger.debug("event=cache_miss key=$exactKey")
+            logger.debug("缓存未命中: key=${TtmlCache.shortKey(exactKey)}")
 
             val item = client.fetchByPlatformId(platform, songId, budget)
             if (item == null) {
-                logger.debug("event=platform_probe platform=${platform.name} result=miss")
+                logger.debug("平台探测未命中: platform=${platform.name}")
                 continue
             }
             val ttml = item.lyrics
             if (ttml.isNullOrBlank()) {
-                logger.debug("event=platform_probe platform=${platform.name} result=miss")
+                logger.debug("平台探测歌词为空: platform=${platform.name}")
                 continue
             }
             if (requireVerification && !AmllMatch.isPlausibleMatch(item, title, artist)) {
                 // 跨平台 ID 撞号：条目与请求 title/artist 不匹配，拒绝并继续下一平台
-                logger.debug("event=platform_probe platform=${platform.name} result=rejected")
+                logger.debug("平台探测校验拒绝: platform=${platform.name}")
                 continue
             }
             logger.debug(
-                "event=platform_probe platform=${platform.name} result=hit, " +
+                "平台探测命中: platform=${platform.name}, " +
                         "id=${item.id}, size=${ttml.toByteArray().size}B"
             )
             cache.put(exactKey, ttml, title, artist, generation)
@@ -214,31 +214,34 @@ internal class AmllTtmlProcessor(
     ): TtmlFetch? {
         val searchKey = TtmlCache.searchKey(title.orEmpty(), artist.orEmpty())
         cache.get(searchKey)?.let { lookup ->
-            logger.debug("event=cache_hit key=$searchKey, size=${lookup.ttml.toByteArray().size}B")
+            logger.debug(
+                "缓存命中: key=${TtmlCache.shortKey(searchKey)}, " +
+                        "size=${lookup.ttml.toByteArray().size}B"
+            )
             return TtmlFetch(lookup.ttml, fromCache = true)
         }
-        logger.debug("event=cache_miss key=$searchKey")
+        logger.debug("缓存未命中: key=${TtmlCache.shortKey(searchKey)}")
 
         if (Thread.currentThread().isInterrupted) {
-            logger.debug("event=interrupted")
+            logger.debug("处理被中断")
             return null
         }
         if (budget.isExhausted()) {
-            logger.debug("event=budget_exhausted phase=search")
+            logger.debug("预算耗尽: phase=搜索")
             return null
         }
 
         val generation = cache.currentGeneration()
         val searchItem = client.searchByMetadata(title, artist, album, budget) ?: return null
         logger.debug(
-            "AMLL 搜索命中: id=${searchItem.id}, " +
+            "搜索命中: id=${searchItem.id}, " +
                     "music=${searchItem.musicNames?.joinToString("/")}, " +
                     "artist=${searchItem.artistNames?.joinToString("/")}"
         )
         val fullItem = searchItem.id?.let { client.fetchById(it, budget) } ?: return null
         val ttml = fullItem.lyrics
         if (ttml.isNullOrBlank()) return null
-        logger.debug("AMLL 搜索回退命中: size=${ttml.toByteArray().size}B")
+        logger.debug("搜索回退取回歌词: size=${ttml.toByteArray().size}B")
         // 展示元数据优先用 AMLL 条目自身的歌名/歌手（与缓存正文内容一致）
         cache.put(
             searchKey, ttml,
@@ -257,15 +260,15 @@ internal class AmllTtmlProcessor(
     private fun buildResult(song: PluginSong, ttml: String, fromCache: Boolean): PluginSongResult? {
         val lines = parser.parse(ttml)
         if (lines == null) {
-            logger.debug("AMLL 解析失败: fromCache=$fromCache")
+            logger.debug("解析失败: fromCache=$fromCache")
             return null
         }
         // 终检（宿主 REPLACE 校验等价）：解析器已规整，此处防御性复核并留下明确日志
         if (!LyricsValidator.isValidLyrics(lines)) {
-            logger.warn("AMLL 结果终检失败: reason=validation_failed, lines=${lines.size}", null)
+            logger.warn("终检失败，放弃替换: lines=${lines.size}", null)
             return null
         }
-        logger.debug("AMLL 命中，替换歌词: lines=${lines.size}, fromCache=$fromCache")
+        logger.debug("替换歌词: lines=${lines.size}, fromCache=$fromCache")
         return PluginSongResult(
             song = song.copy(lyrics = lines),
             changedFields = setOf(PluginSongField.LYRICS),
