@@ -110,9 +110,9 @@ Create results with `copy(...)`. Do not mutate inputs or retain host `Song`, Ren
 
 ## `PluginContext` and media information
 
-`PluginContext` provides `config`, `storage`, `cache`, and `logger`. `PluginProcessingContext.mediaInfo` contains the current title, artist, album, and duration for queries, cache keys, or request parameters.
+`PluginContext` provides `config`, `storage`, `cache`, and `logger`. `PluginProcessingContext.mediaInfo` contains the current title, artist, album, duration, and optional `sourcePackageName` for queries, cache keys, or request parameters. `sourcePackageName` comes only from the current lyric source's `LyricMediaMetadata.packageName`; it is `null` when the source did not provide it and is never inferred from MediaSession, MediaMetadataHelper, old Bridge state, or song text.
 
-It is not `MediaMetadataHelper` and contains no package name, session token, or Xposed object.
+It is not `MediaMetadataHelper` and contains no session token or Xposed object. `sourcePackageName` is lyric-source/player context, not an intrinsic `PluginSong` field, and does not authorize MediaSession or host API access.
 
 ## Settings Schema
 
@@ -153,3 +153,17 @@ API keys and other values that should not enter backups must use `backup: false`
 - `logger`: use `debug`, `info`, `warn`, and `error` instead of Android logging or a custom log file.
 
 If a cache entry is corrupt, unreadable, or too large, ignore or remove it and fall back to the network or no-result path. Do not clear the original lyrics. Cache reusable results that can be applied to the current song rather than an entire stale `PluginSong`.
+
+### Manageable cache
+
+To expose cache management in the App, declare a UI-framework-neutral Manifest scope:
+
+```json
+{
+  "cacheScopes": [
+    { "id": "translation", "title": "Translation cache", "summary": "Clear results" }
+  ]
+}
+```
+
+Register a same-ID `PluginCacheExtension` in `onLoad`. `listEntries()` should return at most the most recent 100 metadata-only `PluginCacheEntry` values; entry IDs are opaque to Core/App. The plugin owns entry-ID/key mapping, indexing, deletion, and serialization. `clearAll()` and `clearEntry()` may clear only `PluginCache`, never `PluginConfig` or `PluginStorage`. The App sends request-ID-matched operations with a one-time response token through RemotePreferences. Since the target-process preferences are read-only, SystemUI returns the bounded result through the App's guarded provider. For cache management of a disabled plugin, Runtime may still call `onLoad`, but never `onEnable` or activate lyric processors; `onLoad` must therefore only create state and register extensions, while playback-related or proactive work belongs in `onEnable`. Plugins never create Compose/Miuix screens or rerun the current song after a clear.

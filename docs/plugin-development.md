@@ -8,7 +8,7 @@
 
 它不是独立 App 的 MediaSession 或在线歌词源接口。独立 App 的媒体监听和歌词源仍由 App 自己管理；如果以后要给独立 App 接入新的歌词源，需要单独设计 App Runtime 和 `LyricSourceExtension`，不要把当前的 Processor API 硬套过去。
 
-插件只能使用 `Plugins/api` 暴露的类型，不能依赖 `:app`，也不能直接访问宿主的 `Song`、Renderer、Canvas、SystemUI View 或 Xposed 对象。
+插件只能使用 `Plugins/api` 暴露的类型，不能依赖 `:app`，也不能直接访问宿主的 `Song`、Renderer、Canvas、SystemUI View、MediaSession、`Context` 或 Xposed 对象。
 
 ## 插件是怎么工作的
 
@@ -58,7 +58,7 @@
 
 插件设置写在 Manifest 的 Settings Schema 中，由宿主生成设置页面。不要在插件里自己依赖 Compose、Miuix 或创建 Android 页面。API Key 等敏感值要声明 `backup: false`。
 
-设置、存储、缓存和日志的写法见[Plugin API 与配置参考](plugins/api.md)。
+设置、存储、缓存和日志的写法见[Plugin API 与配置参考](plugins/api.md)。需要缓存管理时，在 Manifest 使用 `cacheScopes` 声明 `id`、插件自定义的 `title` 和可选 `summary`，再以相同 `id` 注册 `PluginCacheExtension`。宿主以 `title` 生成入口与页面标题，`summary` 只是可选元数据，不保证显示。插件自己维护缓存索引、entryId 映射与条目展示元数据；宿主只通过带 requestId 和一次性 response token 的跨进程请求调用列表与清理，由 SystemUI 向 App 受控 Provider 回传有界结果，绝不解析插件缓存 JSON。缓存正文、API Key 和完整翻译不能放入 `PluginCacheEntry`。
 
 ### 5. 打包并验证
 

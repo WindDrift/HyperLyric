@@ -110,9 +110,11 @@ private class MyProcessor(
 
 ## `PluginContext` 和媒体信息
 
-`PluginContext` 提供 `config`、`storage`、`cache` 和 `logger`。处理函数收到的 `PluginProcessingContext.mediaInfo` 包含当前媒体的标题、艺术家、专辑和时长，可用于查询、缓存或请求参数。
+`PluginContext` 提供 `config`、`storage`、`cache` 和 `logger`。处理函数收到的 `PluginProcessingContext.mediaInfo` 包含当前媒体的标题、艺术家、专辑、时长和可选 `sourcePackageName`，可用于查询、缓存或请求参数。`sourcePackageName` 只来自本次歌词源的 `LyricMediaMetadata.packageName`；源没有提供时为 `null`，不会由 MediaSession、MediaMetadataHelper、旧 Bridge 状态或歌曲文本推断。
 
-它不是 `MediaMetadataHelper`，不包含包名、Session Token 或 Xposed 对象。
+它不是 `MediaMetadataHelper`，不包含 Session Token 或 Xposed 对象。
+
+`sourcePackageName` 是唯一的例外：它是歌词源声明的播放器上下文，不是 `PluginSong` 的固有字段，也不允许据此调用 MediaSession 或宿主 API。
 
 ## 设置 Schema
 
@@ -153,3 +155,17 @@ API Key 等不应进入备份的值必须声明 `backup: false`：
 - `logger`：使用 `debug`、`info`、`warn` 和 `error`，不要直接写 Android 日志或自定义日志文件。
 
 缓存损坏、读取失败或超限时，应忽略或删除当前条目，回退到网络或无结果路径，不要清空原始歌词。缓存不要保存整份可能过期的 `PluginSong`；应保存可以基于当前歌曲重新应用的结果。
+
+### 可管理缓存
+
+若需要 App 展示和清理缓存，在 Manifest 增加独立于 UI 框架的作用域：
+
+```json
+{
+  "cacheScopes": [
+    { "id": "translation", "title": "翻译缓存", "summary": "清理翻译结果" }
+  ]
+}
+```
+
+入口在 `onLoad` 中以相同 ID 注册 `PluginCacheExtension`。`listEntries()` 最多应返回最近的 100 条 `PluginCacheEntry`，只包含展示所需的元数据；`entryId` 对 Core/App 是不透明值。插件负责 entryId 与真实 cache key 的映射、索引、删除和全部清理，`clearAll()`/`clearEntry()` 只能影响 `PluginCache`，不能清除配置或 `PluginStorage`。App 通过 RemotePreferences 发送带 requestId 和一次性 response token 的请求；SystemUI Runtime 执行扩展后，将有界结果回传给 App 的受控 Provider，因为目标进程的 RemotePreferences 视图只读。禁用插件时，Runtime 仍可为了缓存管理调用 `onLoad`，但不会调用 `onEnable` 或启用歌词处理器；因此 `onLoad` 只能创建状态和注册扩展，播放相关或主动任务必须放在 `onEnable`。插件不会直接创建 Compose/Miuix 页面，也不应在清理后主动重跑当前歌曲。

@@ -10,7 +10,7 @@ HyperLyric 可以通过插件增加更多歌词功能。插件由 HyperLyric 统
 
 ## 插件处理边界
 
-插件收到的是独立的只读 `PluginSong` 快照，包含 `id`、`name`、`artist`、`album`、`duration`、`metadata` 和完整 `lyrics`。处理调用还会携带只读的 `PluginProcessingContext.mediaInfo`，用于网络搜索、缓存 key 或提示词。插件不能导入宿主内部 `Song`、`LyricMediaMetadata`、`MediaMetadataHelper`、`CurrentMediaInfoResolver`、`LyriconDataBridge`、Xposed 或 SystemUI 类型。
+插件收到的是独立的只读 `PluginSong` 快照，包含 `id`、`name`、`artist`、`album`、`duration`、`metadata` 和完整 `lyrics`。处理调用还会携带只读的 `PluginProcessingContext.mediaInfo`，用于网络搜索、缓存 key 或提示词。`mediaInfo.sourcePackageName` 只来自本次歌词源的 `LyricMediaMetadata.packageName`，歌词源未提供时就是 `null`；它绝不会由 MediaSession、标题/艺术家匹配、旧歌曲状态或 `MediaMetadataHelper` 推断。插件不能导入宿主内部 `Song`、`LyricMediaMetadata`、`MediaMetadataHelper`、`CurrentMediaInfoResolver`、`LyriconDataBridge`、Xposed 或 SystemUI 类型。
 
 处理器通过 `PluginSongResult` 返回候选结果。当前 API 版本仍为 `1`，Demo 阶段不升级版本号，也不处理正式发布后的兼容迁移：
 
@@ -31,7 +31,9 @@ Core 写回最终 Song 后会同步 `LyriconDataBridge.currentSong`、`currentSo
 
 插件通过 `PluginContext.cache` 使用 Core 提供的抽象缓存，支持 `getString`、`putString`、`getBytes`、`putBytes`、`contains`、`remove` 和 `clear`。插件负责缓存什么、key、序列化格式、schema 版本、TTL/失效逻辑和 cache hit 后的 `PluginSongResult`；Core 负责插件 ID 隔离、实际存储后端、大小限制和读写异常隔离。
 
-当前实现使用宿主运行时侧按插件隔离的 `SharedPreferences`，不是 `plugins/<id>/cache/` 文件目录，也不假设 Remote Files 能从 SystemUI 写回 HyperLyric App。插件看不到 Android Context、文件路径、SystemUI、Xposed 或 MediaSession。缓存损坏、解析失败、读取/写入失败不会影响原始歌词，插件可以删除当前条目并回退到网络请求。AI Translation 会先查缓存，命中后禁止网络请求，并基于当前 Song 重新生成只声明翻译字段的 PATCH；成功且校验通过后保存翻译结果条目，而不是整份 Song。API Key 不进入缓存 key。卸载插件时 App 会通过 Remote Preferences 发布一次性清理标记，SystemUI Core 清理对应宿主缓存；仅禁用插件不会删除缓存。
+当前实现使用 SystemUI 私有 `files/hyperlyric_plugin_cache/<pluginId>/` 目录，正文以不透明 key 哈希文件原子写入；单条上限 2 MiB、每插件总上限 64 MiB。旧版按插件隔离的 `SharedPreferences` 缓存会在插件下次读写对应 key 时按需迁入文件，插件仍看不到 Android Context、文件路径、SystemUI、Xposed 或 MediaSession。缓存损坏、解析失败、读取/写入失败不会影响原始歌词，插件可以删除当前条目并回退到网络请求。AI Translation 会先查缓存，命中后禁止网络请求，并基于当前 Song 重新生成只声明翻译字段的 PATCH；成功且校验通过后保存翻译结果条目，而不是整份 Song。API Key 不进入缓存 key。卸载插件时 App 会通过 Remote Preferences 发布一次性清理标记，SystemUI Core 清理对应宿主缓存；仅禁用插件不会删除缓存。
+
+如果需要让用户管理缓存，插件在 Manifest 的 `cacheScopes` 中声明语义化作用域，并通过 `PluginContext.registerExtension()` 注册同 ID 的 `PluginCacheExtension`。Extension 只返回 `PluginCacheEntry` 的展示元数据（标题、摘要、可选大小与更新时间），由插件负责不透明 `entryId` 到真实 key 的映射、索引和序列化；不能返回缓存正文、完整翻译或 API Key。App 通过带 requestId 和一次性 response token 的 RemotePreferences 请求让 SystemUI 调用 `listEntries`、`clearAll` 或 `clearEntry`；SystemUI 将有界结果提交到 App 的受控 Provider，不会直接持有插件对象或编辑只读 RemotePreferences。清理缓存不得清除 `PluginConfig` 或 `PluginStorage`，也不会自动重跑当前歌曲。拥有 Root 授权的 App 可在 Runtime 尚未重新加载时只读检查 SystemUI 私有缓存文件名和大小，但不会读取正文或绕过插件执行清理。
 
 ## 怎么使用
 
