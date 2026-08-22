@@ -65,7 +65,7 @@ Release 插件必须验证 R8 结果。至少保留：
 - `HyperLyricExtension.id`、`LyricProcessorExtension.stage` 和 `processResult`；
 - `PluginSong`、`PluginSongResult`、字段枚举、更新模式和其他协议 DTO。
 
-可以参考 `Plugins/modules/demo/proguard-rules.pro`，只保留协议需要的成员，不要把整个插件包都设为 keep。
+可以参考 `Plugins/modules/demo-logger/proguard-rules.pro`，只保留协议需要的成员，不要把整个插件包都设为 keep。
 
 插件 ZIP 通常包含：
 

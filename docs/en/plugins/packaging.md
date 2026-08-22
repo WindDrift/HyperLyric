@@ -63,7 +63,7 @@ Release plugins must be checked with R8. Keep at least:
 - `HyperLyricExtension.id`, `LyricProcessorExtension.stage`, and `processResult`;
 - `PluginSong`, `PluginSongResult`, field enums, update modes, and other protocol DTOs.
 
-Use `Plugins/modules/demo/proguard-rules.pro` as a reference. Keep only protocol members instead of keeping the whole plugin.
+Use `Plugins/modules/demo-logger/proguard-rules.pro` as a reference. Keep only protocol members instead of keeping the whole plugin.
 
 A plugin ZIP normally contains:
 

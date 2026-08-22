@@ -77,6 +77,6 @@ See [Packaging, installation, and validation](plugins/packaging.md) for commands
 ## Reference implementations
 
 - `Plugins/modules/ai-translation`: network requests, settings, caching, scheduling, and translation PATCH results.
-- `Plugins/modules/demo`: entry points, lifecycle, field merging, and word-level timing.
+- `Plugins/modules/demo-logger`: entry points, lifecycle, field merging, and word-level timing.
 
 Use them to understand the API, but keep new plugins dependent only on `Plugins/api` rather than copying host internals.

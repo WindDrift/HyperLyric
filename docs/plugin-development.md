@@ -77,6 +77,6 @@
 ## 参考实现
 
 - `Plugins/modules/ai-translation`：网络请求、配置、缓存、队列和翻译 PATCH 的完整示例。
-- `Plugins/modules/demo`：用于观察入口、生命周期、字段合并和逐字时间轴。
+- `Plugins/modules/demo-logger`：用于观察入口、生命周期、字段合并和逐字时间轴。
 
 这两个模块适合用来对照 API 用法，但新插件仍应只依赖 `Plugins/api`，不要复制宿主内部实现。
