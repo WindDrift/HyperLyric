@@ -19,7 +19,7 @@
         android:description="@string/app_description"
         android:supportsRtl="true"
         android:testOnly="false"
-        android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar"
+        android:theme="@android:style/Theme.DeviceDefault.NoActionBar"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round">
 
