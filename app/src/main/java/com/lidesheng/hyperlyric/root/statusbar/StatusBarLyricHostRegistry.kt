@@ -53,6 +53,7 @@ internal object StatusBarLyricHostRegistry {
         val host = StatusBarLyricHost(root, clock, parent, statusBarId, clockId)
         root.setTag(R.id.hyperlyric_status_bar_lyric_host, host)
         addIfMissing(host)
+        StatusBarNotificationIconPositionHooker.currentIcons(root)?.let(host::attachNotificationIconContainer)
         StatusBarLyricRenderer.onHostRegistered()
     }
 
@@ -87,6 +88,15 @@ internal object StatusBarLyricHostRegistry {
         liveHosts().forEach { host ->
             host.onNotificationIconContainerNativeVisibilityRequested(view, visibility)
         }
+    }
+
+    fun onNotificationIconLayoutUpdated(root: ViewGroup) {
+        val host = root.getTag(R.id.hyperlyric_status_bar_lyric_host) as? StatusBarLyricHost
+        host?.onNotificationIconLayoutUpdated()
+    }
+
+    fun refreshNotificationIconIslandBounds() {
+        liveHosts().forEach(StatusBarLyricHost::refreshNotificationIconIslandBounds)
     }
 
     fun enforceManagedClockVisibility(clock: View, systemVisibility: Int? = null) {

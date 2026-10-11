@@ -176,7 +176,7 @@ fun StatusBarLyricSettingsPage() {
                 RootConstants.DEFAULT_HOOK_STATUS_BAR_LYRIC_NOTIFICATION_ICON_HIDE_BEHAVIOR,
             ).coerceIn(
                 RootConstants.STATUS_BAR_LYRIC_NOTIFICATION_ICON_HIDE_NONE,
-                RootConstants.STATUS_BAR_LYRIC_NOTIFICATION_ICON_HIDE_WHILE_PLAYING,
+                RootConstants.STATUS_BAR_LYRIC_NOTIFICATION_ICON_MOVE_RIGHT_WHILE_PLAYING,
             )
         )
     }
@@ -720,6 +720,7 @@ private fun statusBarLyricVisibilitySections(
                 items = listOf(
                     stringResource(R.string.option_status_bar_lyric_notification_icon_hide_none),
                     stringResource(R.string.option_status_bar_lyric_notification_icon_hide_playing),
+                    stringResource(R.string.option_status_bar_lyric_notification_icon_move_right_playing),
                 ),
                 selectedIndex = notificationIconHideBehavior,
                 onSelectedIndexChange = onNotificationIconHideBehaviorChange,

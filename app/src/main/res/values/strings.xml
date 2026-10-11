@@ -131,6 +131,7 @@
     <string name="title_status_bar_lyric_notification_icon_hide_behavior">通知图标隐藏行为</string>
     <string name="option_status_bar_lyric_notification_icon_hide_none">不隐藏</string>
     <string name="option_status_bar_lyric_notification_icon_hide_playing">播放时隐藏</string>
+    <string name="option_status_bar_lyric_notification_icon_move_right_playing">播放时移到右侧</string>
     <string name="title_status_bar_lyric_island_hide_behavior">媒体岛隐藏行为</string>
     <string name="option_status_bar_lyric_island_hide_none">不隐藏</string>
     <string name="option_status_bar_lyric_island_hide_playing">播放时隐藏</string>

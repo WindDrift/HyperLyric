@@ -6,7 +6,7 @@ import android.os.Looper
 import android.view.Choreographer
 import com.lidesheng.hyperlyric.root.utils.HookLogger
 
-/** Coalesces the native SystemUI island-region stream into width-only lyric host updates. */
+/** Coalesces native island regions into lyric width, clock and notification placement updates. */
 internal object StatusBarLyricIslandRegionDispatcher {
     data class IslandBounds(
         val left: Int,
@@ -28,6 +28,7 @@ internal object StatusBarLyricIslandRegionDispatcher {
 
     private var widthRefreshPending = false
     private var clockRefreshPending = false
+    private var notificationRefreshPending = false
 
     private val widthRefreshFrame = Choreographer.FrameCallback {
         widthRefreshPending = false
@@ -36,7 +37,10 @@ internal object StatusBarLyricIslandRegionDispatcher {
 
     private val clockRefreshFrame = Choreographer.FrameCallback {
         clockRefreshPending = false
+        val refreshNotifications = notificationRefreshPending
+        notificationRefreshPending = false
         StatusBarLyricRenderer.onIslandPresenceChanged()
+        if (refreshNotifications) StatusBarLyricHostRegistry.refreshNotificationIconIslandBounds()
     }
 
     fun updateAdjustmentEnabled(enabled: Boolean) = runOnMain {
@@ -64,6 +68,7 @@ internal object StatusBarLyricIslandRegionDispatcher {
             scheduleClockVisibilityRefresh()
             if (previous == snapshot) return@runOnMain
             islandBounds = snapshot
+            notificationRefreshPending = true
             if ((previous == null) != (snapshot == null)) {
                 HookLogger.d(TAG, "SystemUI 原生超级岛状态变更: visible=${snapshot != null}")
             }
@@ -75,6 +80,9 @@ internal object StatusBarLyricIslandRegionDispatcher {
         if (adjustmentEnabled && lyricsVisible) islandBounds else null
 
     fun hasIsland(): Boolean = islandBounds != null
+
+    /** Notification placement must avoid the island even when lyric width adjustment is off. */
+    fun committedIslandBounds(): IslandBounds? = islandBounds
 
     private fun scheduleWidthRefresh() {
         if (Looper.myLooper() != Looper.getMainLooper()) {

@@ -256,6 +256,7 @@ internal object StatusBarLyricRenderer {
             StatusBarLyricHostRegistry.liveHosts().forEach { host ->
                 host.setClockHidden(false)
                 host.setNotificationIconContainerHidden(false)
+                host.setNotificationIconContainerMovedRight(false)
             }
             clearOnMain()
         }
@@ -276,6 +277,7 @@ internal object StatusBarLyricRenderer {
         StatusBarLyricHostRegistry.liveHosts().forEach { host ->
             host.setClockHidden(false)
             host.setNotificationIconContainerHidden(false)
+            host.setNotificationIconContainerMovedRight(false)
         }
         removeKeyguardStateListener()
         return StatusBarLyricHostRegistry.prepareForHotReload()
@@ -305,6 +307,7 @@ internal object StatusBarLyricRenderer {
         StatusBarLyricHostRegistry.liveHosts().forEach { host ->
             host.setClockHidden(false)
             host.setNotificationIconContainerHidden(false)
+            host.setNotificationIconContainerMovedRight(false)
         }
         removeKeyguardStateListener()
         StatusBarLyricHostRegistry.cleanupForHotReload()
@@ -394,15 +397,17 @@ internal object StatusBarLyricRenderer {
                 RootConstants.DEFAULT_HOOK_STATUS_BAR_LYRIC_NOTIFICATION_ICON_HIDE_BEHAVIOR,
             )?.coerceIn(
                 RootConstants.STATUS_BAR_LYRIC_NOTIFICATION_ICON_HIDE_NONE,
-                RootConstants.STATUS_BAR_LYRIC_NOTIFICATION_ICON_HIDE_WHILE_PLAYING,
+                RootConstants.STATUS_BAR_LYRIC_NOTIFICATION_ICON_MOVE_RIGHT_WHILE_PLAYING,
             ) ?: RootConstants.STATUS_BAR_LYRIC_NOTIFICATION_ICON_HIDE_NONE
-            val shouldHide = enabled &&
-                    behavior == RootConstants.STATUS_BAR_LYRIC_NOTIFICATION_ICON_HIDE_WHILE_PLAYING &&
+            val active = enabled &&
                     LyriconDataBridge.isPlaybackActive() &&
                     LyriconDataBridge.hasLyricsForPresentation() &&
                     !lyricTemporarilyHidden
             StatusBarLyricHostRegistry.liveHosts().forEach { host ->
-                host.setNotificationIconContainerHidden(shouldHide)
+                host.setNotificationIconContainerHidden(active &&
+                    behavior == RootConstants.STATUS_BAR_LYRIC_NOTIFICATION_ICON_HIDE_WHILE_PLAYING)
+                host.setNotificationIconContainerMovedRight(active &&
+                    behavior == RootConstants.STATUS_BAR_LYRIC_NOTIFICATION_ICON_MOVE_RIGHT_WHILE_PLAYING)
             }
         }
     }

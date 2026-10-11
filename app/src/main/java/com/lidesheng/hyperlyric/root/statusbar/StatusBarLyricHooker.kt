@@ -18,17 +18,18 @@ internal object StatusBarLyricHooker {
         "com.android.systemui.statusbar.phone.MiuiCollapsedStatusBarFragment"
 
     fun hook(module: XposedModule, classLoader: ClassLoader) {
-        runCatching {
+        val islandRegionAvailable = runCatching {
             StatusBarLyricIslandRegionHooker.hook(module, classLoader)
         }.onFailure { error ->
             HookLogger.w(
                 TAG,
                 "原生超级岛区域监听未安装: reason=${error.message}"
             )
-        }
+        }.isSuccess
         hookClockVisibility(module, classLoader)
         hookNotificationIconContainer(module, classLoader)
         hookNotificationIconVisibility(module, classLoader)
+        if (islandRegionAvailable) StatusBarNotificationIconPositionHooker.hook(module, classLoader)
 
         val method = runCatching {
             classLoader.loadClass(STATUS_BAR_VIEW_CLASS)
