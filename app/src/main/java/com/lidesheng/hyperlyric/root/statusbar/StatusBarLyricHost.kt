@@ -695,7 +695,8 @@ internal class StatusBarLyricHost(
 
     private fun findPadClock(root: ViewGroup): TextView? {
         val padClockId = root.resources.getIdentifier("pad_clock", "id", "com.android.systemui")
-        return if (padClockId == 0) null else root.findViewById(padClockId)
+        // Phone layouts keep pad_clock as a ViewStub; only Pad layouts inflate the TextView.
+        return if (padClockId == 0) null else root.findViewById<View>(padClockId) as? TextView
     }
 
     private fun directChildWithin(parent: ViewGroup, descendant: View): View? {
