@@ -1,6 +1,6 @@
 # This configuration is reserved for workflows that intentionally enable
-# GitHub-generated release notes, such as the upcoming Preview workflow.
-# manual-stable-release.yml deliberately creates a draft with manual notes.
+# GitHub-generated release notes. The current Preview and Stable workflows
+# generate commit lists directly and disable GitHub-generated notes.
 changelog:
   exclude:
     labels:
