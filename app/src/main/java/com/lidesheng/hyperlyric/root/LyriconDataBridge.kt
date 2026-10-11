@@ -516,7 +516,9 @@ object LyriconDataBridge {
         currentLyricLines = selectedLines
         currentLyricLine = foundLine
         currentNextLyricLine = if (!showPreludePlaceholder) {
-            selectedLines.lastOrNull()?.next
+            // An active long row's adjacent entry may already have finished. A future gap
+            // preview is itself the selected main row, so look beyond it rather than repeat it.
+            timingNavigator.findNextEntry(maxOf(position, selectedLines.lastOrNull()?.begin ?: position))
         } else {
             null
         }

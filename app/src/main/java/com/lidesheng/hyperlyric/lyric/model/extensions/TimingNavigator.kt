@@ -97,6 +97,9 @@ class TimingNavigator<T : ILyricTiming>(
         return if (idx >= 0) source[idx] else null
     }
 
+    /** First entry strictly after this position, regardless of which overlapping row is active. */
+    fun findNextEntry(position: Long): T? = source.getOrNull(findUpperBound(position) + 1)
+
     /**
      * 手动重置缓存，在手动跳进度或切换歌曲时使用。
      */

@@ -10,6 +10,7 @@ package com.lidesheng.hyperlyric.root.island.content
  * that is still being sung.
  */
 internal enum class LyricTransitionScope {
+    NONE,
     PROJECTION,
     MAIN_ROW,
     SECONDARY_ROW
@@ -29,6 +30,7 @@ internal fun resolveLyricTransitionScope(
     mainRowChanged: Boolean,
     secondaryRowChanged: Boolean
 ): LyricTransitionScope = when {
+    !mainRowChanged && !secondaryRowChanged -> LyricTransitionScope.NONE
     !secondaryIsIndependent -> LyricTransitionScope.PROJECTION
     mainRowChanged && !secondaryRowChanged -> LyricTransitionScope.MAIN_ROW
     !mainRowChanged && secondaryRowChanged -> LyricTransitionScope.SECONDARY_ROW

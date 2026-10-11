@@ -52,19 +52,22 @@ internal object IslandLyricViewController {
         view: View,
         position: Long,
         playbackSpeed: Float = 1f,
-        activeTimeMs: Long = position
+        activeTimeMs: Long = position,
+        onlyChangedRows: Boolean = false
     ) {
         when (view) {
             is RichLyricLineView -> view.synchronizePosition(
                 position,
                 playbackSpeed,
-                activeTimeMs
+                activeTimeMs,
+                onlyChangedRows
             )
 
             is SpaceGateRichLyricLineView -> view.synchronizePosition(
                 position,
                 playbackSpeed,
-                activeTimeMs
+                activeTimeMs,
+                onlyChangedRows
             )
         }
     }

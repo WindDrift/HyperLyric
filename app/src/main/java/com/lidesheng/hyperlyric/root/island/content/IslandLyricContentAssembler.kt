@@ -5,7 +5,6 @@ import android.text.TextPaint
 import android.view.View
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.common.lyric.LyricContentDisplayPolicy
-import com.lidesheng.hyperlyric.common.lyric.agentId
 import com.lidesheng.hyperlyric.common.lyric.METADATA_RESOLVED_SECONDARY_CONTENT
 import com.lidesheng.hyperlyric.common.lyric.LyricPresentation
 import com.lidesheng.hyperlyric.common.lyric.LyricPresentationResolver
@@ -18,6 +17,7 @@ import com.lidesheng.hyperlyric.lyric.model.lyricMetadataOf
 import com.lidesheng.hyperlyric.lyric.view.METADATA_NEXT_LINE_PREVIEW
 import com.lidesheng.hyperlyric.lyric.view.RichLyricLineView
 import com.lidesheng.hyperlyric.lyric.view.SpaceGateRichLyricLineView
+import com.lidesheng.hyperlyric.lyric.view.sameLyricRow
 import com.lidesheng.hyperlyric.lyric.view.isCountdownLine
 import com.lidesheng.hyperlyric.lyric.view.yoyo.YoYoPresets
 import com.lidesheng.hyperlyric.lyric.view.yoyo.YoYoAnimation
@@ -44,7 +44,7 @@ internal object IslandLyricContentAssembler {
         forceUnsplit: Boolean = false,
         forceNoLyricsPlaceholder: Boolean = false
     ): Boolean {
-        val resolvedPresentation = if (lineOverride != null || secondaryLineOverride != null) {
+        val targetPresentation = if (lineOverride != null || secondaryLineOverride != null) {
             LyricPresentation(lineOverride, secondaryLineOverride)
         } else if (forceUnsplit) {
             processedPresentation(
@@ -61,9 +61,6 @@ internal object IslandLyricContentAssembler {
                 isLeft = view.tag == IslandProbeUtils.LEFT_TEST_VIEW_TAG
             )
         }
-        // 主行钉在第一声部上:该声部此刻没有句子时**保持它最后唱的那一行**,不把另一声部正在唱
-        // 的行顶上来——否则每次起句两行都会对调(owner 2026-10-09 真机反馈)。
-        val targetPresentation = holdSilentMainLane(view, resolvedPresentation)
         val targetLine = targetPresentation.primary
         val nextLinePreviewEnabledForView =
             targetLine?.metadata?.getBoolean(METADATA_NEXT_LINE_PREVIEW) == true
@@ -89,7 +86,14 @@ internal object IslandLyricContentAssembler {
 
         val suppressContentAnimation = suppressAnimation || nextLinePreviewEnabledForView ||
                 view.parent == null || !view.isAttachedToWindow
-        val shouldAnimate = config.lyricAnimationEnabled && !suppressContentAnimation
+        val transitionScope = transitionScope(view, targetPresentation)
+        val shouldAnimate = config.lyricAnimationEnabled && !suppressContentAnimation &&
+                transitionScope != LyricTransitionScope.NONE
+        // Every replacement, including preview/direct/style updates, supersedes pending YoYo,
+        // promotion and width-preflight commits. Fast-path progress samples above keep them.
+        resetTransitionAnimations(view)
+        val lyricVersion = LyriconDataBridge.versionCounter.get()
+        val songAtSubmission = LyriconDataBridge.currentSong
         val applyLine: (View) -> Unit = { target ->
             // A non-animated creation/restoration owns the initial active state. Once a View is
             // live, playback callbacks remain authoritative; delayed line commits must never
@@ -118,13 +122,19 @@ internal object IslandLyricContentAssembler {
                     target,
                     clockAtCommit.positionMs,
                     clockAtCommit.playbackSpeed,
-                    clockAtCommit.activeTimeMs
+                    clockAtCommit.activeTimeMs,
+                    onlyChangedRows = true
                 )
                 if (config.lyricMarqueeEnabled) {
                     target.post {
-                        when (target) {
-                            is RichLyricLineView -> target.requestStartMarquee()
-                            is SpaceGateRichLyricLineView -> target.requestStartMarquee()
+                        if (LyriconDataBridge.versionCounter.get() == lyricVersion &&
+                            LyriconDataBridge.currentSong === songAtSubmission &&
+                            IslandSlotContentSignatureCache.get(target) == signature
+                        ) {
+                            when (target) {
+                                is RichLyricLineView -> target.requestStartMarquee()
+                                is SpaceGateRichLyricLineView -> target.requestStartMarquee()
+                            }
                         }
                     }
                 }
@@ -168,17 +178,26 @@ internal object IslandLyricContentAssembler {
             }
             when (view) {
                 is RichLyricLineView, is SpaceGateRichLyricLineView -> {
-                    // 上一次换行可能还在这块歌词或它的某一行上跑着:先退休它——被取消的动画
-                    // 绝不能提交它捕获的那一份内容,且空闲的歌词块不带任何变换。
-                    resetTransitionAnimations(view)
                     // 对唱行有自己的时间轴:它换行时另一行还在唱,整块一起播会把仍在唱的那一行
                     // 也淡出再淡入。只对**变了的那一行**播换行预设,另一行原样留在屏上。
-                    val transitionView = transitionRow(view, targetPresentation) ?: view
+                    val transitionView = when (transitionScope) {
+                        LyricTransitionScope.MAIN_ROW -> mainRowOf(view) ?: view
+                        LyricTransitionScope.SECONDARY_ROW -> secondaryRowOf(view) ?: view
+                        else -> view
+                    }
                     YoYoAnimation.switchContent(
                         transitionView,
                         scaledPreset.first,
                         scaledPreset.second
-                    ) { applyLine(view) }
+                    ) {
+                        if (LyriconDataBridge.versionCounter.get() == lyricVersion &&
+                            LyriconDataBridge.currentSong === songAtSubmission
+                        ) {
+                            applyLine(view)
+                        } else {
+                            resetTransitionAnimations(view)
+                        }
+                    }
                 }
 
                 else -> applyLine(view)
@@ -355,7 +374,8 @@ internal object IslandLyricContentAssembler {
             autoDuet = config?.autoDuet ?: prefs.getBoolean(
                 RootConstants.KEY_HOOK_LYRIC_AUTO_DUET,
                 RootConstants.DEFAULT_HOOK_LYRIC_AUTO_DUET
-            )
+            ),
+            position = LyriconDataBridge.currentPosition
         )
         val primaryLine = resolved.primary ?: return resolved
         val selectedContent = resolved.secondaryContent
@@ -413,13 +433,16 @@ internal object IslandLyricContentAssembler {
         playbackActive: Boolean,
         playbackClock: LyriconDataBridge.PlaybackClockReading
     ) {
-        IslandLyricViewController.applyPlaybackSnapshot(
+        // Identical content (notably A ending while B continues) is an ordinary time sample,
+        // not a reason to seek both renderers again.
+        IslandLyricViewController.synchronizePosition(
             view,
             playbackClock.positionMs,
             playbackClock.playbackSpeed,
             playbackClock.activeTimeMs,
-            playbackActive
+            onlyChangedRows = true
         )
+        IslandLyricViewController.setPlaybackActive(view, playbackActive)
     }
 
     private fun lineContentSignature(line: IRichLyricLine?): Int {
@@ -445,28 +468,12 @@ internal object IslandLyricContentAssembler {
         lineContentSignature(presentation.secondary)
     ).hashCode()
 
-    /**
-     * 主行声部空窗时的保持:呈现换到了另一声部、而**已应用的主行所属声部此刻没有行**时,
-     * 主行继续用已应用的那一行(另一声部在唱的行留在副行)。
-     */
-    private fun holdSilentMainLane(view: View, target: LyricPresentation): LyricPresentation {
-        val applied = appliedPresentation(view) ?: return target
-        val appliedLane = applied.primary?.agentId() ?: return target
-        if (target.primary?.agentId() == appliedLane) return target
-        val laneStillSinging = LyriconDataBridge.currentLyricLines.any { line ->
-            line.agentId() == appliedLane &&
-                (!line.text.isNullOrBlank() || !line.words.isNullOrEmpty())
-        }
-        if (laneStillSinging) return target
-        return target.copy(primary = applied.primary)
-    }
-
     private fun appliedLineSignature(view: View): Int? =
         appliedPresentation(view)?.let(::presentationSignature)
 
     private fun appliedPresentation(view: View): LyricPresentation? = when (view) {
-        is RichLyricLineView -> LyricPresentation(view.rawLine, view.rawSecondaryLine)
-        is SpaceGateRichLyricLineView -> LyricPresentation(view.rawLine, view.rawSecondaryLine)
+        is RichLyricLineView -> LyricPresentation(view.committedLine, view.committedSecondaryLine)
+        is SpaceGateRichLyricLineView -> LyricPresentation(view.committedLine, view.committedSecondaryLine)
         else -> null
     }
 
@@ -474,31 +481,26 @@ internal object IslandLyricContentAssembler {
      * 换行预设落在哪一行:并发行(独立行)只让它自己播,另一行原样留在屏上。整块一起播只在
      * 副行是主行的从属内容(翻译/罗马音/和声/下一句预览)或两行同时换了内容时才正确。
      */
-    private fun transitionRow(view: View, target: LyricPresentation): View? {
-        val applied = appliedPresentation(view) ?: return null
-        return when (
-            resolveLyricTransitionScope(
-                // 副行是独立行 ⟺ 这份呈现自带 second 行:从属内容由主行的字段现场装配,
-                // 呈现里的 secondary 只在 AMLL 对唱行(overlapping line)时非空。
-                secondaryIsIndependent = target.secondary != null,
-                // 同一行源内容 = 时间窗 + 显示文本;切分片段的词边界/元数据差异不算变化,
-                // 否则同一句会被判成"变了",另一行换行时本行照样重设+淡出(owner 真机 3:33)。
-                mainRowChanged = !isSameRowContent(applied.primary, target.primary),
-                secondaryRowChanged = !isSameRowContent(applied.secondary, target.secondary)
-            )
-        ) {
-            LyricTransitionScope.PROJECTION -> null
-            LyricTransitionScope.MAIN_ROW -> mainRowOf(view)
-            LyricTransitionScope.SECONDARY_ROW -> secondaryRowOf(view)
+    private fun transitionScope(view: View, target: LyricPresentation): LyricTransitionScope {
+        val applied = appliedPresentation(view) ?: return LyricTransitionScope.PROJECTION
+        val independent = applied.secondary != null || target.secondary != null
+        val secondaryChanged = if (independent) {
+            !sameLyricRow(applied.secondary, target.secondary, main = false)
+        } else {
+            derivedSecondarySignature(applied.primary) != derivedSecondarySignature(target.primary)
         }
+        return resolveLyricTransitionScope(
+            secondaryIsIndependent = independent,
+            mainRowChanged = !sameLyricRow(applied.primary, target.primary, main = true),
+            secondaryRowChanged = secondaryChanged
+        )
     }
 
-    /** 同一行源内容的判据:时间窗 + 显示文本。 */
-    private fun isSameRowContent(previous: IRichLyricLine?, next: IRichLyricLine?): Boolean {
-        if (previous == null || next == null) return previous === next
-        return previous.begin == next.begin && previous.end == next.end &&
-            previous.text == next.text
-    }
+    private fun derivedSecondarySignature(line: IRichLyricLine?): Int = listOf(
+        line?.secondary, line?.secondaryWords, line?.translation, line?.translationWords,
+        line?.roma, line?.metadata?.getString(METADATA_RESOLVED_SECONDARY_CONTENT),
+        line?.metadata?.getBoolean(METADATA_NEXT_LINE_PREVIEW)
+    ).hashCode()
 
     private fun mainRowOf(view: View): View? = when (view) {
         is RichLyricLineView -> view.main

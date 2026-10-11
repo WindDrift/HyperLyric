@@ -205,6 +205,11 @@ internal object IslandMetadataContentAssembler {
             return false
         }
 
+        // Switching away from lyrics must also retire row-level and deferred lyric commits.
+        when (view) {
+            is RichLyricLineView -> view.resetTransitionAnimations()
+            is SpaceGateRichLyricLineView -> view.resetTransitionAnimations()
+        }
         applyLine(view, newContent)
         applyMarquee(view, marquee)
         IslandSlotContentSignatureCache.set(view, signature)

@@ -37,7 +37,8 @@ internal object LyricPresentationResolver {
         nextLine: IRichLyricLine?,
         songLines: List<IRichLyricLine>?,
         settings: LyricContentDisplaySettings,
-        autoDuet: Boolean
+        autoDuet: Boolean,
+        position: Long? = null
     ): LyricPresentation {
         val alignedLines = alignAgents(
             lines = activeLines,
@@ -45,23 +46,44 @@ internal object LyricPresentationResolver {
             enabled = autoDuet
         )
         val visibleLines = alignedLines.filter { hasLyricContent(it) }
-        val primary = mainRowLine(visibleLines, songLines, autoDuet)
+        val currentPrimary = visibleLines.firstOrNull()
             ?: alignedLines.firstOrNull()
             ?: return LyricPresentation(null)
+        // Derive row ownership from this continuous overlap, not a View's previous frame or
+        // the first singer in the entire song. A completed main row may remain while its
+        // independently timed sibling is still singing. Gap/preview rows never enter this path.
+        val duetPrimary = if (autoDuet && settings.showOverlappingLine && position != null &&
+            visibleLines.any { it.begin <= position && position < it.end }
+        ) {
+            primaryInOverlap(songLines, position)?.let {
+                alignAgents(listOf(it), songLines, enabled = true).first()
+            }
+        } else {
+            null
+        }
+        var primary = duetPrimary ?: currentPrimary
         // A timing collision alone is ambiguous: ordinary sources commonly use
         // end == next.begin for adjacent lines. Only a pair with explicit,
         // distinct vocal identities may occupy the independent duet row.
-        val overlappingLine = visibleLines
-            .firstOrNull { candidate ->
-                candidate !== primary &&
-                    hasLyricContent(candidate) && hasDistinctVocalIdentities(primary, candidate)
-            }
-        val selectedContent = settings.preferredContentFor(
+        fun overlappingLineFor(line: IRichLyricLine) = visibleLines.firstOrNull {
+            hasDistinctVocalIdentities(line, it)
+        }
+        var overlappingLine = overlappingLineFor(primary)
+        var selectedContent = settings.preferredContentFor(
             line = primary,
             nextLine = nextLine,
             songLines = songLines,
             overlappingLine = overlappingLine
         )
+        // Retaining an ended row is meaningful only when the duet row actually wins the
+        // user's secondary-content policy. Otherwise render the current singer normally.
+        if (duetPrimary != null && position != null && position >= duetPrimary.end &&
+            selectedContent != LyricSecondaryContent.OVERLAPPING_LINE
+        ) {
+            primary = currentPrimary
+            overlappingLine = overlappingLineFor(primary)
+            selectedContent = settings.preferredContentFor(primary, nextLine, songLines, overlappingLine)
+        }
         return LyricPresentation(
             primary = primary,
             secondary = overlappingLine.takeIf {
@@ -135,25 +157,33 @@ internal object LyricPresentationResolver {
         }
     }
 
-    /**
-     * 主行归哪一个声部:与 [alignAgents] 的对齐口径一致——**整首歌的第一声部**恒占主行。
-     *
-     * 不能按"谁先起句"取(改动前就是 `visibleLines.firstOrNull()`,即最早开始的那一行):
-     * 对唱里任一声部起新句都会让另一声部**仍在唱的那一行**被顶到主行、新句落到副行,两行
-     * 内容整体对调(owner 2026-10-09 真机反馈,实测 3:32 / 3:34 各对调一次)。
-     */
-    private fun mainRowLine(
-        visibleLines: List<IRichLyricLine>,
+    /** Song lines are ordered by begin, as required by the shared timing navigator. */
+    private fun primaryInOverlap(
         songLines: List<IRichLyricLine>?,
-        autoDuet: Boolean
+        position: Long
     ): IRichLyricLine? {
-        if (!autoDuet) return visibleLines.firstOrNull()
-        val mainLane = laneOrder(songLines.orEmpty() + visibleLines).firstOrNull()
-            ?: return visibleLines.firstOrNull()
-        return visibleLines.firstOrNull { it.agentId() == mainLane } ?: visibleLines.firstOrNull()
+        var overlapEnd = Long.MIN_VALUE
+        var mainAgent: String? = null
+        var mainLine: IRichLyricLine? = null
+        var hasDuet = false
+        for (line in songLines.orEmpty()) {
+            if (line.begin > position) break
+            if (line.end <= line.begin || !hasLyricContent(line)) continue
+            val agent = line.agentId()
+            if (line.begin >= overlapEnd) {
+                mainAgent = agent
+                mainLine = line
+                hasDuet = false
+            } else if (mainAgent != null && agent != null && agent != mainAgent) {
+                hasDuet = true
+            }
+            if (agent == mainAgent) mainLine = line
+            overlapEnd = maxOf(overlapEnd, line.end)
+        }
+        return mainLine.takeIf { hasDuet && position < overlapEnd }
     }
 
-    /** Distinct vocal lanes in song order: the first entry is the singer that owns the main row. */
+    /** Distinct vocal identities in song order, used only for horizontal alignment. */
     private fun laneOrder(lines: List<IRichLyricLine>): List<String> = buildList {
         lines.forEach { line ->
             val agent = line.agentId() ?: return@forEach
