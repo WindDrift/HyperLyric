@@ -44,8 +44,9 @@ object PrefsBridge {
     }
 
     fun putFloat(key: String, value: Float) {
-        getPrefs().edit().putFloat(key, value).apply()
-        RootApplication.syncPreference(PreferenceKeys.PREF_NAME, key, value)
+        val normalized = FloatPreferencePolicy.normalizeStoredFloat(key, value) ?: value
+        getPrefs().edit().putFloat(key, normalized).apply()
+        RootApplication.syncPreference(PreferenceKeys.PREF_NAME, key, normalized)
     }
 
     fun putStringSet(key: String, value: Set<String>?) {

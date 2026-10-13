@@ -12,66 +12,33 @@ data class WordMotionPreferenceState(
 )
 
 object WordMotionPreferencePolicy {
-    fun isBoundedFloatKey(key: String): Boolean = when (key) {
-        RootConstants.KEY_HOOK_WORD_MOTION_CJK_LIFT,
-        RootConstants.KEY_HOOK_WORD_MOTION_CJK_WAVE,
-        RootConstants.KEY_HOOK_WORD_MOTION_LATIN_LIFT,
-        RootConstants.KEY_HOOK_WORD_MOTION_LATIN_WAVE -> true
-        else -> false
-    }
-
-    fun normalizeStoredFloat(key: String, value: Any?): Float? {
-        if (!isBoundedFloatKey(key)) return null
-        val raw = (value as? Number)?.toFloat() ?: value?.toString()?.toFloatOrNull()
-            ?: return null
-        return when (key) {
-            RootConstants.KEY_HOOK_WORD_MOTION_CJK_LIFT,
-            RootConstants.KEY_HOOK_WORD_MOTION_LATIN_LIFT -> normalizeLiftFactor(raw)
-            RootConstants.KEY_HOOK_WORD_MOTION_CJK_WAVE,
-            RootConstants.KEY_HOOK_WORD_MOTION_LATIN_WAVE -> normalizeWaveFactor(raw)
-            else -> null
-        }
-    }
-
     fun read(prefs: SharedPreferences): WordMotionPreferenceState = WordMotionPreferenceState(
         enabled = prefs.getBoolean(
             RootConstants.KEY_HOOK_WORD_MOTION_ENABLED,
             RootConstants.DEFAULT_HOOK_WORD_MOTION_ENABLED
         ),
-        cjkLiftFactor = normalizeLiftFactor(
-            getFloatCompat(
-                prefs,
-                RootConstants.KEY_HOOK_WORD_MOTION_CJK_LIFT,
-                RootConstants.DEFAULT_HOOK_WORD_MOTION_CJK_LIFT
-            ),
+        cjkLiftFactor = getFloatCompat(
+            prefs,
+            RootConstants.KEY_HOOK_WORD_MOTION_CJK_LIFT,
             RootConstants.DEFAULT_HOOK_WORD_MOTION_CJK_LIFT
         ),
-        cjkWaveFactor = normalizeWaveFactor(
-            getFloatCompat(
-                prefs,
-                RootConstants.KEY_HOOK_WORD_MOTION_CJK_WAVE,
-                RootConstants.DEFAULT_HOOK_WORD_MOTION_CJK_WAVE
-            ),
+        cjkWaveFactor = getFloatCompat(
+            prefs,
+            RootConstants.KEY_HOOK_WORD_MOTION_CJK_WAVE,
             RootConstants.DEFAULT_HOOK_WORD_MOTION_CJK_WAVE
         ),
         latinByCharacter = prefs.getBoolean(
             RootConstants.KEY_HOOK_WORD_MOTION_LATIN_BY_CHARACTER,
             RootConstants.DEFAULT_HOOK_WORD_MOTION_LATIN_BY_CHARACTER
         ),
-        latinLiftFactor = normalizeLiftFactor(
-            getFloatCompat(
-                prefs,
-                RootConstants.KEY_HOOK_WORD_MOTION_LATIN_LIFT,
-                RootConstants.DEFAULT_HOOK_WORD_MOTION_LATIN_LIFT
-            ),
+        latinLiftFactor = getFloatCompat(
+            prefs,
+            RootConstants.KEY_HOOK_WORD_MOTION_LATIN_LIFT,
             RootConstants.DEFAULT_HOOK_WORD_MOTION_LATIN_LIFT
         ),
-        latinWaveFactor = normalizeWaveFactor(
-            getFloatCompat(
-                prefs,
-                RootConstants.KEY_HOOK_WORD_MOTION_LATIN_WAVE,
-                RootConstants.DEFAULT_HOOK_WORD_MOTION_LATIN_WAVE
-            ),
+        latinWaveFactor = getFloatCompat(
+            prefs,
+            RootConstants.KEY_HOOK_WORD_MOTION_LATIN_WAVE,
             RootConstants.DEFAULT_HOOK_WORD_MOTION_LATIN_WAVE
         )
     )

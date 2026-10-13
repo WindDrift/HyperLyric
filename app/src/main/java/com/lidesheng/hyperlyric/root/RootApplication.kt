@@ -2,6 +2,7 @@ package com.lidesheng.hyperlyric.root
 
 import android.app.Application
 import android.content.Context
+import com.lidesheng.hyperlyric.common.FloatPreferencePolicy
 import com.lidesheng.hyperlyric.common.PrefsBridge
 import com.lidesheng.hyperlyric.common.SyllablePreferencePolicy
 import com.lidesheng.hyperlyric.common.UIConstants
@@ -20,6 +21,7 @@ class RootApplication : Application() {
         AppUtils.initPredictiveBackGesture(this)
         LogManager.init(this)
         PrefsBridge.init(this)
+        FloatPreferencePolicy.normalizeInPlace(PrefsBridge.getPrefs())
         SyllablePreferencePolicy.normalizeInPlace(PrefsBridge.getPrefs())
         appContext = this
 
@@ -80,6 +82,7 @@ class RootApplication : Application() {
             } ?: return false
 
             val localPrefs = context.getSharedPreferences(UIConstants.PREF_NAME, MODE_PRIVATE)
+            FloatPreferencePolicy.normalizeInPlace(localPrefs)
             SyllablePreferencePolicy.normalizeInPlace(localPrefs)
             val hostSynced = try {
                 val editor = remotePrefs.edit()

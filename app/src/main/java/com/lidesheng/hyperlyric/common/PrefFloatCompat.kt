@@ -2,22 +2,18 @@ package com.lidesheng.hyperlyric.common
 
 import android.content.SharedPreferences
 
-/**
- * 容错读取 float 偏好。
- *
- * SharedPreferencesImpl.getFloat 在键的存储类型不符(如被系统换机迁移、第三方备份恢复工具或
- * 手动改写成 Int/Long/String)时会直接抛出 ClassCastException 导致页面闪退;这里按
- * Number/String 逐级兼容取值,并在发现脏数据时回写为 Float 完成自愈。
- */
+/** 只读兼容浮点偏好；修复写入由 App 侧负责，Hook 侧远程偏好不可写。 */
 fun getFloatCompat(prefs: SharedPreferences, key: String, defValue: Float): Float {
-    if (!prefs.contains(key)) return defValue
-    return when (val raw = prefs.all[key]) {
-        null -> defValue
-        is Float -> raw
-        is Number -> raw.toFloat().also { normalized ->
-            runCatching { prefs.edit().putFloat(key, normalized).apply() }
+    val value = try {
+        prefs.getFloat(key, defValue)
+    } catch (_: ClassCastException) {
+        val raw = prefs.all[key]
+        FloatPreferencePolicy.normalizeStoredFloat(key, raw)?.let { return it }
+        when (raw) {
+            is Number -> raw.toFloat()
+            is String -> raw.toFloatOrNull() ?: defValue
+            else -> defValue
         }
-        is String -> raw.toFloatOrNull() ?: defValue
-        else -> defValue
     }
+    return FloatPreferencePolicy.normalizeReadFloat(key, value, defValue)
 }
