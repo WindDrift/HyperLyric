@@ -31,6 +31,8 @@ object RootConstants {
         "key_hook_status_bar_lyric_notification_icon_hide_behavior"
     const val KEY_HOOK_STATUS_BAR_LYRIC_ISLAND_HIDE_BEHAVIOR =
         "key_hook_status_bar_lyric_island_hide_behavior"
+    const val KEY_HOOK_STATUS_BAR_LYRIC_CONTENT_MODE =
+        "key_hook_status_bar_lyric_content_mode"
     const val KEY_HOOK_STATUS_BAR_LYRIC_ADJUST_WIDTH_FOR_SUPER_ISLAND =
         "key_hook_status_bar_lyric_adjust_width_for_super_island"
     const val KEY_HOOK_STATUS_BAR_LYRIC_HIDE_ON_LOCK_SCREEN =
@@ -389,6 +391,7 @@ object RootConstants {
     const val ISLAND_CONTENT_MODE_CUSTOM_MUSIC_INFO = 8
     const val DEFAULT_HOOK_ISLAND_CONTENT_LEFT = ISLAND_CONTENT_MODE_CUSTOM_MUSIC_INFO
     const val DEFAULT_HOOK_ISLAND_CONTENT_RIGHT = ISLAND_CONTENT_MODE_LYRIC
+    const val DEFAULT_HOOK_STATUS_BAR_LYRIC_CONTENT_MODE = ISLAND_CONTENT_MODE_LYRIC
     const val DEFAULT_HOOK_ISLAND_MUSIC_INFO_FIRST_LINE = "title"
     const val DEFAULT_HOOK_ISLAND_MUSIC_INFO_SECOND_LINE = "artist"
     const val DEFAULT_HOOK_ISLAND_MUSIC_INFO_SEPARATOR = "hyphen"

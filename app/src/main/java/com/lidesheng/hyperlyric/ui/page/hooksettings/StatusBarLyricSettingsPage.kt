@@ -192,6 +192,22 @@ fun StatusBarLyricSettingsPage() {
             )
         )
     }
+    var contentMode by remember(prefs) {
+        mutableIntStateOf(
+            prefs.getInt(
+                RootConstants.KEY_HOOK_STATUS_BAR_LYRIC_CONTENT_MODE,
+                RootConstants.DEFAULT_HOOK_STATUS_BAR_LYRIC_CONTENT_MODE,
+            )
+        )
+    }
+    val contentModeValues = listOf(
+        RootConstants.ISLAND_CONTENT_MODE_NONE,
+        RootConstants.ISLAND_CONTENT_MODE_CUSTOM_MUSIC_INFO,
+        RootConstants.ISLAND_CONTENT_MODE_LYRIC,
+    )
+    val contentModeIndex = contentModeValues.indexOf(contentMode)
+        .takeIf { it >= 0 }
+        ?: contentModeValues.indexOf(RootConstants.DEFAULT_HOOK_STATUS_BAR_LYRIC_CONTENT_MODE)
     var adjustWidthForSuperIsland by remember(prefs) {
         mutableStateOf(
             prefs.getBoolean(
@@ -384,6 +400,16 @@ fun StatusBarLyricSettingsPage() {
                         saveConfig(
                             RootConstants.KEY_HOOK_STATUS_BAR_LYRIC_ISLAND_HIDE_BEHAVIOR,
                             behavior,
+                        )
+                    },
+                    contentMode = contentMode,
+                    contentModeValues = contentModeValues,
+                    contentModeIndex = contentModeIndex,
+                    onContentModeChange = { mode ->
+                        contentMode = mode
+                        saveConfig(
+                            RootConstants.KEY_HOOK_STATUS_BAR_LYRIC_CONTENT_MODE,
+                            mode,
                         )
                     },
                     hideOnLockScreen = hideOnLockScreen,
@@ -749,10 +775,33 @@ private fun statusBarLyricVisibilitySections(
     onNotificationIconHideBehaviorChange: (Int) -> Unit,
     islandHideBehavior: Int,
     onIslandHideBehaviorChange: (Int) -> Unit,
+    contentMode: Int,
+    contentModeValues: List<Int>,
+    contentModeIndex: Int,
+    onContentModeChange: (Int) -> Unit,
     hideOnLockScreen: Boolean,
     onHideOnLockScreenChange: (Boolean) -> Unit,
 ) {
     SmallTitle(text = stringResource(R.string.title_status_bar_lyric_behavior))
+    Card(
+        modifier = Modifier
+            .padding(horizontal = 12.dp)
+            .padding(bottom = 12.dp)
+            .fillMaxWidth()
+    ) {
+        OverlayDropdownPreference(
+            title = stringResource(R.string.title_status_bar_lyric_content),
+            items = listOf(
+                stringResource(R.string.option_content_none),
+                stringResource(R.string.option_content_music_info),
+                stringResource(R.string.option_content_lyric),
+            ),
+            selectedIndex = contentModeIndex,
+            onSelectedIndexChange = { index ->
+                contentModeValues.getOrNull(index)?.let(onContentModeChange)
+            },
+        )
+    }
     Card(
         modifier = Modifier
             .padding(horizontal = 12.dp)
