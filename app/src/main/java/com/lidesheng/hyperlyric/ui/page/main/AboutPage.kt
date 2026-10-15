@@ -1,5 +1,8 @@
 package com.lidesheng.hyperlyric.ui.page.main
 
+import com.lidesheng.hyperlyric.ui.utils.rememberExternalLinkOpener
+import top.yukonga.miuix.kmp.basic.SnackbarHost
+import top.yukonga.miuix.kmp.basic.SnackbarHostState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
@@ -66,7 +69,10 @@ fun AboutPage(
         derivedStateOf { backdrop != null && scrollProgress == 1f }
     }
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    val onOpenLink = rememberExternalLinkOpener(snackbarHostState)
     Scaffold(
+        snackbarHost = { SnackbarHost(state = snackbarHostState) },
         topBar = {
             val barColor = if (blurActive) {
                 Color.Transparent
@@ -112,6 +118,7 @@ fun AboutPage(
                 ),
             ) {
                 aboutPageSections(
+                    onOpenLink = onOpenLink,
                     logoSpacerHeight = logoHeightDp + 218.dp,
                     contentBottomPadding = contentPadding.calculateBottomPadding(),
                     aboutDeviceModel = aboutDeviceModel,

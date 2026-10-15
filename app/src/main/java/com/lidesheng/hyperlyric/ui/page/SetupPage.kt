@@ -38,13 +38,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.edit
-import androidx.core.net.toUri
 import com.lidesheng.hyperlyric.R
 import com.lidesheng.hyperlyric.common.RootConstants
 import com.lidesheng.hyperlyric.common.UIConstants
 import com.lidesheng.hyperlyric.lyric.ConfigRepository
 import com.lidesheng.hyperlyric.lyric.commonMusicApps
 import com.lidesheng.hyperlyric.root.RootApplication
+import com.lidesheng.hyperlyric.ui.utils.rememberExternalLinkOpener
+import com.lidesheng.hyperlyric.ui.utils.tryStartExternalActivity
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -67,7 +69,6 @@ import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.PressFeedbackType
-import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 fun SetupPage(onNavigateToMain: () -> Unit) {
@@ -77,6 +78,7 @@ fun SetupPage(onNavigateToMain: () -> Unit) {
     val prefs =
         remember { context.getSharedPreferences(UIConstants.PREF_NAME, Context.MODE_PRIVATE) }
     val snackbarHostState = remember { SnackbarHostState() }
+    val onOpenLink = rememberExternalLinkOpener(snackbarHostState)
     val msgXposedNotActive = stringResource(R.string.toast_xposed_module_not_active)
 
     var workMode by remember {
@@ -166,8 +168,9 @@ fun SetupPage(onNavigateToMain: () -> Unit) {
                     }
                 )
 
-                1 -> if (workMode == 0) DisclaimerPage() else PermissionPage()
+                1 -> if (workMode == 0) DisclaimerPage() else PermissionPage(snackbarHostState)
                 2 -> if (workMode == 0) LyricSourceSelectionPage(
+                    onOpenLink = onOpenLink,
                     selectedSource = selectedSource,
                     onSourceSelected = { source ->
                         selectedSource = source
@@ -253,8 +256,15 @@ fun ModeSelectionPage(selectedMode: Int, onModeSelected: (Int) -> Unit) {
 }
 
 @Composable
-fun PermissionPage() {
+fun PermissionPage(snackbarHostState: SnackbarHostState) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val failedMessage = stringResource(R.string.open_system_settings_failed)
+    val openSettings: (Intent) -> Unit = { intent ->
+        if (!tryStartExternalActivity(context, intent)) {
+            scope.launch { snackbarHostState.showSnackbar(message = failedMessage) }
+        }
+    }
 
     val isNotificationGranted = remember { mutableStateOf(false) }
 
@@ -291,7 +301,7 @@ fun PermissionPage() {
                             R.string.summary_permission_listener
                         ),
                         onClick = {
-                            context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                            openSettings(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                         }
                     )
                     ArrowPreference(
@@ -301,7 +311,7 @@ fun PermissionPage() {
                             val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
                                 putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
                             }
-                            context.startActivity(intent)
+                            openSettings(intent)
                         }
                     )
                 }
@@ -386,8 +396,7 @@ fun WhitelistPage() {
 }
 
 @Composable
-fun LyricSourceSelectionPage(selectedSource: String, onSourceSelected: (String) -> Unit) {
-    val context = LocalContext.current
+fun LyricSourceSelectionPage(selectedSource: String, onSourceSelected: (String) -> Unit, onOpenLink: (String) -> Unit) {
     val sourceOptions = listOf(
         stringResource(R.string.lyric_source_lyricon),
         stringResource(R.string.lyric_source_superlyric),
@@ -430,24 +439,14 @@ fun LyricSourceSelectionPage(selectedSource: String, onSourceSelected: (String) 
                                 title = stringResource(R.string.setup_download_lyric_core),
                                 summary = stringResource(R.string.setup_download_lyric_core_summary),
                                 onClick = {
-                                    context.startActivity(
-                                        Intent(
-                                            Intent.ACTION_VIEW,
-                                            "https://github.com/tomakino/lyricon/releases/tag/core".toUri()
-                                        )
-                                    )
+                                    onOpenLink("https://github.com/tomakino/lyricon/releases/tag/core")
                                 }
                             )
                             ArrowPreference(
                                 title = stringResource(R.string.setup_download_provider),
                                 summary = stringResource(R.string.setup_download_provider_summary),
                                 onClick = {
-                                    context.startActivity(
-                                        Intent(
-                                            Intent.ACTION_VIEW,
-                                            "https://github.com/proify/LyricProvider/releases".toUri()
-                                        )
-                                    )
+                                    onOpenLink("https://github.com/proify/LyricProvider/releases")
                                 }
                             )
                         }
@@ -460,12 +459,7 @@ fun LyricSourceSelectionPage(selectedSource: String, onSourceSelected: (String) 
                             title = stringResource(R.string.setup_download_superlyric),
                             summary = stringResource(R.string.setup_download_superlyric_summary),
                             onClick = {
-                                context.startActivity(
-                                    Intent(
-                                        Intent.ACTION_VIEW,
-                                        "https://github.com/HChenX/SuperLyric".toUri()
-                                    )
-                                )
+                                onOpenLink("https://github.com/HChenX/SuperLyric")
                             }
                         )
                     }

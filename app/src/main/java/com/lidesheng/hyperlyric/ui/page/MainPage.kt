@@ -3,7 +3,6 @@
 package com.lidesheng.hyperlyric.ui.page
 
 import android.content.Context
-import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Build
 import androidx.activity.compose.BackHandler
@@ -45,7 +44,6 @@ import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.edit
 import androidx.core.content.pm.PackageInfoCompat
-import androidx.core.net.toUri
 import com.lidesheng.hyperlyric.R
 import com.lidesheng.hyperlyric.common.PrefsBridge
 import com.lidesheng.hyperlyric.common.RootConstants
@@ -61,7 +59,11 @@ import com.lidesheng.hyperlyric.ui.page.main.HomePage
 import com.lidesheng.hyperlyric.ui.page.main.rememberMainPagerState
 import com.lidesheng.hyperlyric.ui.utils.QuotesData
 import com.lidesheng.hyperlyric.ui.utils.rememberBlurBackdrop
+import com.lidesheng.hyperlyric.ui.utils.rememberExternalLinkOpener
 import com.lidesheng.hyperlyric.utils.MigrationData
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.time.LocalDate
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
@@ -88,9 +90,6 @@ import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.interfaces.ExperimentalScrollBarApi
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.window.WindowDialog
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.time.LocalDate
 
 @Composable
 fun MainPage() {
@@ -272,45 +271,48 @@ fun MainPage() {
     )
 
     // --- migration dialog ---
+    val migrationSnackbarHostState = remember { SnackbarHostState() }
+    val onOpenMigrationLink = rememberExternalLinkOpener(migrationSnackbarHostState)
     if (migrationNotes.isNotEmpty()) {
         WindowDialog(
             title = migrationTitle,
             show = migrationNotes.isNotEmpty(),
             onDismissRequest = {}
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column {
-                        migrationNotes.flatMap { it.items }.forEach { item ->
-                            if (item.url != null) {
-                                BasicComponent(
-                                    title = item.text,
-                                    summary = item.summary,
-                                    onClick = {
-                                        context.startActivity(
-                                            Intent(
-                                                Intent.ACTION_VIEW,
-                                                item.url.toUri()
-                                            )
-                                        )
-                                    }
-                                )
-                            } else {
-                                BasicComponent(title = item.text, summary = item.summary)
+            Box {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column {
+                            migrationNotes.flatMap { it.items }.forEach { item ->
+                                if (item.url != null) {
+                                    BasicComponent(
+                                        title = item.text,
+                                        summary = item.summary,
+                                        onClick = {
+                                            onOpenMigrationLink(item.url)
+                                        }
+                                    )
+                                } else {
+                                    BasicComponent(title = item.text, summary = item.summary)
+                                }
                             }
                         }
                     }
+                    TextButton(
+                        text = stringResource(R.string.confirm),
+                        colors = ButtonDefaults.textButtonColorsPrimary(),
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+                            val currentVersion = PackageInfoCompat.getLongVersionCode(pInfo)
+                            prefs.edit { putLong(UIConstants.KEY_LAST_SEEN_VERSION, currentVersion) }
+                            migrationNotes = emptyList()
+                        }
+                    )
                 }
-                TextButton(
-                    text = stringResource(R.string.confirm),
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
-                    modifier = Modifier.fillMaxWidth(),
-                    onClick = {
-                        val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-                        val currentVersion = PackageInfoCompat.getLongVersionCode(pInfo)
-                        prefs.edit { putLong(UIConstants.KEY_LAST_SEEN_VERSION, currentVersion) }
-                        migrationNotes = emptyList()
-                    }
+                SnackbarHost(
+                    state = migrationSnackbarHostState,
+                    modifier = Modifier.matchParentSize()
                 )
             }
         }

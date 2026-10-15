@@ -2,7 +2,6 @@
 
 package com.lidesheng.hyperlyric.ui.page
 
-import android.content.Intent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -23,23 +22,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 import com.lidesheng.hyperlyric.R
 import com.lidesheng.hyperlyric.ui.navigation.LocalNavigator
 import com.lidesheng.hyperlyric.ui.utils.BlurredBar
 import com.lidesheng.hyperlyric.ui.utils.ContributorsProvider
 import com.lidesheng.hyperlyric.ui.utils.pageScrollModifiers
 import com.lidesheng.hyperlyric.ui.utils.rememberBlurBackdrop
+import com.lidesheng.hyperlyric.ui.utils.rememberExternalLinkOpener
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.SnackbarHost
+import top.yukonga.miuix.kmp.basic.SnackbarHostState
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.VerticalScrollBar
 import top.yukonga.miuix.kmp.basic.rememberScrollBarAdapter
@@ -58,7 +58,10 @@ fun ContributorsPage() {
     val blurActive = backdrop != null
     val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
     val topAppBarScrollBehavior = MiuixScrollBehavior()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val onOpenLink = rememberExternalLinkOpener(snackbarHostState)
     Scaffold(
+        snackbarHost = { SnackbarHost(state = snackbarHostState) },
         topBar = {
             BlurredBar(backdrop, blurActive) {
                 TopAppBar(
@@ -94,7 +97,7 @@ fun ContributorsPage() {
                 modifier = Modifier.pageScrollModifiers(true, true, topAppBarScrollBehavior),
                 contentPadding = contentPadding,
             ) {
-                contributorsPageSections()
+                contributorsPageSections(onOpenLink)
             }
             VerticalScrollBar(
                 adapter = rememberScrollBarAdapter(lazyListState),
@@ -107,7 +110,7 @@ fun ContributorsPage() {
     }
 }
 
-private fun LazyListScope.contributorsPageSections() {
+private fun LazyListScope.contributorsPageSections(onOpenLink: (String) -> Unit) {
     item(key = "acknowledgments_card") {
         Card(
             modifier = Modifier
@@ -126,7 +129,6 @@ private fun LazyListScope.contributorsPageSections() {
         }
     }
     item(key = "contributors_card") {
-        val context = LocalContext.current
         Card(
             modifier = Modifier
                 .padding(horizontal = 12.dp)
@@ -152,9 +154,7 @@ private fun LazyListScope.contributorsPageSections() {
                         },
                         onClick = {
                             if (contributor.githubUrl.isNotEmpty()) {
-                                val intent =
-                                    Intent(Intent.ACTION_VIEW, contributor.githubUrl.toUri())
-                                context.startActivity(intent)
+                                onOpenLink(contributor.githubUrl)
                             }
                         }
                     )

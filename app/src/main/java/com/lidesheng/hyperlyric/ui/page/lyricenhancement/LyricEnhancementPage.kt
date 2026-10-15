@@ -1,7 +1,5 @@
 package com.lidesheng.hyperlyric.ui.page.lyricenhancement
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -15,7 +13,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -32,8 +29,10 @@ import com.lidesheng.hyperlyric.ui.component.TextInputDialog
 import com.lidesheng.hyperlyric.ui.navigation.LocalNavigator
 import com.lidesheng.hyperlyric.ui.navigation.Route
 import com.lidesheng.hyperlyric.ui.page.hooksettings.lyrics.common.XposedLyricSettingPage
+import com.lidesheng.hyperlyric.ui.utils.rememberExternalLinkOpener
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.SnackbarHostState
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
@@ -531,7 +530,8 @@ private fun AmllTtmlSettingsPage() {
     val prefs = rememberLyricEnhancementPrefs()
     val saveConfig = rememberLyricEnhancementConfigSaver(prefs)
     val navigator = LocalNavigator.current
-    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val onOpenLink = rememberExternalLinkOpener(snackbarHostState)
     var enabled by remember(prefs) {
         mutableStateOf(prefs.getBoolean(AMLL_KEY_ENABLED, false))
     }
@@ -556,7 +556,7 @@ private fun AmllTtmlSettingsPage() {
     }
     var showApiBaseUrlDialog by remember { mutableStateOf(false) }
 
-    XposedLyricSettingPage(title = stringResource(R.string.title_amll_ttml)) {
+    XposedLyricSettingPage(title = stringResource(R.string.title_amll_ttml), snackbarHostState = snackbarHostState) {
         item(key = "amll_enable") {
             Card(
                 modifier = Modifier
@@ -609,21 +609,13 @@ private fun AmllTtmlSettingsPage() {
                 ArrowPreference(
                     title = stringResource(R.string.title_amll_ready_playlist),
                     onClick = {
-                        runCatching {
-                            context.startActivity(
-                                Intent(Intent.ACTION_VIEW, Uri.parse(AMLL_READY_PLAYLIST_URL))
-                            )
-                        }
+                        onOpenLink(AMLL_READY_PLAYLIST_URL)
                     }
                 )
                 ArrowPreference(
                     title = stringResource(R.string.title_amll_ttml_database),
                     onClick = {
-                        runCatching {
-                            context.startActivity(
-                                Intent(Intent.ACTION_VIEW, Uri.parse(AMLL_TTML_DB_URL))
-                            )
-                        }
+                        onOpenLink(AMLL_TTML_DB_URL)
                     }
                 )
             }

@@ -731,4 +731,9 @@
 
     <!-- Media card layout debug -->
 
+    <string name="open_link_failed">Unable to open the link correctly. Please visit it manually.</string>
+    <string name="copy_link">Copy</string>
+
+    <string name="open_system_settings_failed">Unable to open system settings. Please open them manually.</string>
+
 </resources>

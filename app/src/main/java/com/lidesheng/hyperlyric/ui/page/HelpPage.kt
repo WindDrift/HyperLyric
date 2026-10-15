@@ -1,6 +1,6 @@
 package com.lidesheng.hyperlyric.ui.page
 
-import android.content.Intent
+import com.lidesheng.hyperlyric.ui.utils.rememberExternalLinkOpener
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,10 +20,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 import com.lidesheng.hyperlyric.R
 import com.lidesheng.hyperlyric.ui.component.TagComponent
 import com.lidesheng.hyperlyric.ui.navigation.LocalNavigator
@@ -38,6 +36,8 @@ import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.SnackbarHost
+import top.yukonga.miuix.kmp.basic.SnackbarHostState
 import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.basic.TabRowDefaults
 import top.yukonga.miuix.kmp.basic.TopAppBar
@@ -60,11 +60,14 @@ fun HelpPage() {
     )
     val pagerState = rememberPagerState { tabs.size }
     val coroutineScope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val onOpenDownloadLink = rememberExternalLinkOpener(snackbarHostState)
 
     val superIslandListState = rememberLazyListState()
     val dynamicIslandListState = rememberLazyListState()
 
     Scaffold(
+        snackbarHost = { SnackbarHost(state = snackbarHostState) },
         topBar = {
             BlurredBar(backdrop, blurActive) {
                 TopAppBar(
@@ -124,7 +127,7 @@ fun HelpPage() {
                     contentPadding = contentPadding,
                 ) {
                     when (page) {
-                        0 -> superIslandHelpSections()
+                        0 -> superIslandHelpSections(onOpenDownloadLink)
                         1 -> dynamicIslandHelpSections()
                     }
                 }
@@ -134,7 +137,7 @@ fun HelpPage() {
 }
 
 @OptIn(ExperimentalLayoutApi::class)
-private fun LazyListScope.superIslandHelpSections() {
+private fun LazyListScope.superIslandHelpSections(onOpenDownloadLink: (String) -> Unit) {
     // 1. 配置流程
     item(key = "config_steps_title") {
         SmallTitle(text = stringResource(R.string.title_help_config_steps))
@@ -160,7 +163,6 @@ private fun LazyListScope.superIslandHelpSections() {
         SmallTitle(text = stringResource(R.string.title_help_lyric_sources))
     }
     item(key = "source_lyricon") {
-        val context = LocalContext.current
         Card(
             modifier = Modifier
                 .padding(horizontal = 12.dp)
@@ -179,23 +181,13 @@ private fun LazyListScope.superIslandHelpSections() {
                     TagComponent(
                         text = stringResource(R.string.tag_download_lyricon),
                         onClick = {
-                            context.startActivity(
-                                Intent(
-                                    Intent.ACTION_VIEW,
-                                    "https://github.com/tomakino/lyricon/releases/tag/core".toUri()
-                                )
-                            )
+                            onOpenDownloadLink("https://github.com/tomakino/lyricon/releases/tag/core")
                         }
                     )
                     TagComponent(
                         text = stringResource(R.string.tag_download_providers),
                         onClick = {
-                            context.startActivity(
-                                Intent(
-                                    Intent.ACTION_VIEW,
-                                    "https://github.com/proify/LyricProvider/releases".toUri()
-                                )
-                            )
+                            onOpenDownloadLink("https://github.com/proify/LyricProvider/releases")
                         }
                     )
                 }
@@ -203,7 +195,6 @@ private fun LazyListScope.superIslandHelpSections() {
         }
     }
     item(key = "source_superlyric") {
-        val context = LocalContext.current
         Card(
             modifier = Modifier
                 .padding(horizontal = 12.dp)
@@ -222,12 +213,7 @@ private fun LazyListScope.superIslandHelpSections() {
                     TagComponent(
                         text = stringResource(R.string.tag_download_superlyric),
                         onClick = {
-                            context.startActivity(
-                                Intent(
-                                    Intent.ACTION_VIEW,
-                                    "https://github.com/HChenX/SuperLyric".toUri()
-                                )
-                            )
+                            onOpenDownloadLink("https://github.com/HChenX/SuperLyric")
                         }
                     )
                 }
@@ -235,7 +221,6 @@ private fun LazyListScope.superIslandHelpSections() {
         }
     }
     item(key = "source_lyricinfo") {
-        val context = LocalContext.current
         Card(
             modifier = Modifier
                 .padding(horizontal = 12.dp)
@@ -254,12 +239,7 @@ private fun LazyListScope.superIslandHelpSections() {
                     TagComponent(
                         text = stringResource(R.string.tag_download_lyricinfo),
                         onClick = {
-                            context.startActivity(
-                                Intent(
-                                    Intent.ACTION_VIEW,
-                                    "https://github.com/limczhh/LyricInfo".toUri()
-                                )
-                            )
+                            onOpenDownloadLink("https://github.com/limczhh/LyricInfo")
                         }
                     )
                 }

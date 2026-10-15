@@ -2,7 +2,6 @@
 
 package com.lidesheng.hyperlyric.ui.page
 
-import android.content.Intent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -16,21 +15,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 import com.lidesheng.hyperlyric.R
 import com.lidesheng.hyperlyric.ui.navigation.LocalNavigator
 import com.lidesheng.hyperlyric.ui.utils.BlurredBar
 import com.lidesheng.hyperlyric.ui.utils.LicenseProvider
 import com.lidesheng.hyperlyric.ui.utils.pageScrollModifiers
 import com.lidesheng.hyperlyric.ui.utils.rememberBlurBackdrop
+import com.lidesheng.hyperlyric.ui.utils.rememberExternalLinkOpener
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.SnackbarHost
+import top.yukonga.miuix.kmp.basic.SnackbarHostState
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.VerticalScrollBar
 import top.yukonga.miuix.kmp.basic.rememberScrollBarAdapter
@@ -54,7 +54,10 @@ fun LicensesPage() {
     val blurActive = backdrop != null
     val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
     val topAppBarScrollBehavior = MiuixScrollBehavior()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val onOpenLink = rememberExternalLinkOpener(snackbarHostState)
     Scaffold(
+        snackbarHost = { SnackbarHost(state = snackbarHostState) },
         topBar = {
             BlurredBar(backdrop, blurActive) {
                 TopAppBar(
@@ -90,7 +93,7 @@ fun LicensesPage() {
                 modifier = Modifier.pageScrollModifiers(true, true, topAppBarScrollBehavior),
                 contentPadding = contentPadding,
             ) {
-                licensesPageSections()
+                licensesPageSections(onOpenLink)
             }
             VerticalScrollBar(
                 adapter = rememberScrollBarAdapter(lazyListState),
@@ -103,10 +106,9 @@ fun LicensesPage() {
     }
 }
 
-private fun LazyListScope.licensesPageSections() {
+private fun LazyListScope.licensesPageSections(onOpenLink: (String) -> Unit) {
     val licenses = LicenseProvider.getLicenses()
     items(licenses.size, key = { licenses[it].url }) { index ->
-        val context = LocalContext.current
         val license = licenses[index]
         Card(
             modifier = Modifier
@@ -118,8 +120,7 @@ private fun LazyListScope.licensesPageSections() {
                 title = license.name,
                 summary = license.author,
                 onClick = {
-                    val intent = Intent(Intent.ACTION_VIEW, license.url.toUri())
-                    context.startActivity(intent)
+                    onOpenLink(license.url)
                 }
             )
         }

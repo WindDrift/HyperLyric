@@ -738,4 +738,9 @@
     <string name="title_amll_ttml_cache_detail">歌词详情</string>
     <string name="lyric_enhancement_cache_detail_empty">无详细信息</string>
 
+    <string name="open_link_failed">无法正确打开链接，请手动前往</string>
+    <string name="copy_link">复制</string>
+
+    <string name="open_system_settings_failed">无法打开系统设置，请手动前往</string>
+
 </resources>

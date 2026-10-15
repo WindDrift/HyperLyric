@@ -1,18 +1,18 @@
 package com.lidesheng.hyperlyric.ui.page.main
 
-import android.content.Intent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
@@ -21,9 +21,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -32,7 +30,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.net.toUri
 import com.lidesheng.hyperlyric.R
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
@@ -129,6 +126,7 @@ fun AboutHeader(
 }
 
 fun LazyListScope.aboutPageSections(
+    onOpenLink: (String) -> Unit,
     logoSpacerHeight: Dp,
     contentBottomPadding: Dp,
     aboutDeviceModel: String,
@@ -197,7 +195,6 @@ fun LazyListScope.aboutPageSections(
                 }
             }
 
-            val context = LocalContext.current
             Card(
                 modifier = Modifier
                     .padding(horizontal = 12.dp)
@@ -211,9 +208,7 @@ fun LazyListScope.aboutPageSections(
                 ArrowPreference(
                     title = stringResource(R.string.title_project),
                     onClick = {
-                        val uri = "https://github.com/limczhh/HyperLyric".toUri()
-                        val intent = Intent(Intent.ACTION_VIEW, uri)
-                        context.startActivity(intent)
+                        onOpenLink("https://github.com/limczhh/HyperLyric")
                     }
                 )
                 ArrowPreference(
