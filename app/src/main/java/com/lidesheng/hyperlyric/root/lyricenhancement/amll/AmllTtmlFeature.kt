@@ -198,6 +198,12 @@ internal class AmllTtmlFeature(
         }
         // 仅逐平台探测路径需要交叉校验（包名/resolve 已确定平台）
         val requireVerification = mappedPlatform == null && resolvedPlatform == null
+        // 换取第二候选只在确信 songId 属于 QQ 时进行：包名映射为 QQ、resolve 缓存已判定
+        // 为 QQ（与包名同等强度的证据）、或 songId 本身即 mid 格式。盲探纯数字 ID 属
+        // 跨平台猜测，QQ 的 songId 空间稠密自增，换来的很可能是另一首歌。
+        val canResolveQq = mappedPlatform == AmllPlatformIdField.QQ ||
+                resolvedPlatform == AmllPlatformIdField.QQ ||
+                AmllPlatformId.isQqMid(songId)
 
         val generation = cache.currentGeneration()
         for (platform in probeOrder) {
@@ -275,7 +281,7 @@ internal class AmllTtmlFeature(
                     null
                 } else {
                     secondResolved = true
-                    secondCandidate(platform, songId, songMid, mappedPlatform, cache, budget)
+                    secondCandidate(platform, songId, songMid, canResolveQq, cache, budget)
                 }
             }
         }
@@ -285,22 +291,19 @@ internal class AmllTtmlFeature(
     /**
      * 平台内第二候选标识符：QQ 音乐的查询键可能是数字 songId，也可能是 songmid。
      *
-     * 歌词源已透传 songMid 时直接采用，省去一次转换请求；否则在「包名映射为 QQ」
-     * 或「songId 本身即 mid 格式」时才换取——盲探纯数字 ID 属于跨平台猜测，
-     * 换来的可能是另一首歌。其余平台只有 songId 一种查询键。
+     * 歌词源已透传 songMid 时直接采用，省去一次转换请求；否则仅在 [canResolveQq]
+     * 确信 songId 属于 QQ 时才换取。其余平台只有 songId 一种查询键。
      */
     private fun secondCandidate(
         platform: AmllPlatformIdField,
         songId: String,
         songMid: String?,
-        mappedPlatform: AmllPlatformIdField?,
+        canResolveQq: Boolean,
         cache: TtmlCache,
         budget: ProcessingBudget,
     ): String? {
         if (platform != AmllPlatformIdField.QQ) return null
         songMid?.takeIf { it != songId }?.let { return it }
-        val canResolveQq = mappedPlatform == AmllPlatformIdField.QQ ||
-                AmllPlatformId.isQqMid(songId)
         if (!canResolveQq) return null
         return QqSongIdResolver.counterpart(songId, cache, budget)?.takeIf { it != songId }
     }
