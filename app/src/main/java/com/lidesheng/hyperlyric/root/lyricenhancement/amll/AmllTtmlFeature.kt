@@ -166,8 +166,10 @@ internal class AmllTtmlFeature(
      * 2. resolve 缓存快路径：上次探测已解析出平台（写入前已通过校验），仅查该平台；
      * 3. ID 格式预判逐平台探测：每平台命中须通过 title/artist 交叉校验
      *    （防跨平台 ID 撞号误匹配）；title/artist 皆空则不探测（无法验证即不冒险）。
-     *    QQ 平台先按数字 songId 查询，未命中才换 songmid 再查一次。
-     * 探测命中后缓存 exact 与 resolve 两个条目，二次播放零网络命中。
+     *    QQ 平台先按 songId 原样查询，未命中才换取另一形态的标识符再查一次。
+     * 探测命中后缓存 exact 与 resolve 两个条目。单标识符平台二次播放零网络命中；
+     * QQ 若靠第二候选命中，二次播放仍会为首个候选发一次未命中请求——exact 只缓存
+     * 命中结果，不写负缓存。
      */
     private fun probePlatforms(
         songId: String,
