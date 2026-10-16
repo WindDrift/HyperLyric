@@ -70,6 +70,15 @@ internal object QqSongIdResolver {
                 "QQ ID 转换网络错误: type=" + error.javaClass.simpleName + ", known=" + known
             )
             return null
+        } catch (error: Exception) {
+            // 本地异常（协议转换、反序列化等）同样不写缓存，只降级为单候选。
+            // 不能让它抛穿到 runFeature，否则整首歌的 AMLL 增强连搜索回退都跑不到
+            // （分支口径对齐 AmllTtmlClient.executeWithRetry）。
+            HookLogger.d(
+                LOG_TAG,
+                "QQ ID 转换异常: type=" + error.javaClass.simpleName + ", known=" + known
+            )
+            return null
         }
         if (result.cacheable) {
             cache.putQqCounterpart(
