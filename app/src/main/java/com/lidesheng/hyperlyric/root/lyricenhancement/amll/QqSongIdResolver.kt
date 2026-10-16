@@ -15,7 +15,8 @@ import java.net.URL
  *
  * - 单次尝试不重试：失败即降级为单候选，留给下次播放再试
  * - 网络层用裸 [HttpURLConnection]，root 模块无 Retrofit/OkHttp
- * - 确定性失败（无对应曲目）写负缓存，避免每次播放重复请求
+ * - 确定性结论（换到了、或确认无对应曲目）都写缓存，避免每次播放重复请求；
+ *   只有网络失败与意外异常不写，留给下次播放重试
  */
 internal object QqSongIdResolver {
 
@@ -161,7 +162,9 @@ internal object QqSongIdResolver {
         } else {
             mid
         }
-        // code=0 但 track_info.id 为空：同样是确定性换不到
-        return CounterpartResult(value, cacheable = value == null)
+        // 走到这里说明 code=0 且 track_info 存在，两个方向都属确定性结论：换到了就缓存
+        // 标识符，换不到（如 code=0 但 track_info.id 缺失）就缓存哨兵。只缓存失败会让
+        // mid-only 的歌曲每次播放都重发一次转换请求。
+        return CounterpartResult(value, cacheable = true)
     }
 }
