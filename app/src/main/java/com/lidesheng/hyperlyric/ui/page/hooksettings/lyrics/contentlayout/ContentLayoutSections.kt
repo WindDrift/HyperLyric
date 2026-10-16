@@ -34,6 +34,7 @@ import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Close
 import top.yukonga.miuix.kmp.icon.extended.Ok
@@ -150,6 +151,12 @@ internal fun LazyListScope.contentLayoutSections(
     onLyricAlignmentChange: (ContentLayoutAlignment) -> Unit,
     placeholderFormat: Int,
     onPlaceholderFormatChange: (Int) -> Unit,
+    noLyricsBehavior: Int,
+    onNoLyricsBehaviorChange: (Int) -> Unit,
+    tailTimeoutBehavior: Int,
+    onTailTimeoutBehaviorChange: (Int) -> Unit,
+    tailTimeoutDelaySeconds: Int,
+    onTailTimeoutDelayClick: () -> Unit,
     lyricPreviewEnabled: Boolean,
     onLyricPreviewEnabledChange: (Boolean) -> Unit,
     showLongInterludeCountdown: Boolean,
@@ -231,6 +238,11 @@ internal fun LazyListScope.contentLayoutSections(
             stringResource(id = R.string.option_placeholder_title),
             stringResource(id = R.string.option_placeholder_countdown)
         )
+        val lyricBehaviorOptions = listOf(
+            stringResource(id = R.string.option_lyric_behavior_keep),
+            stringResource(id = R.string.option_lyric_behavior_music_info),
+            stringResource(id = R.string.option_lyric_behavior_restore_default)
+        )
         Card(
             modifier = Modifier
                 .padding(horizontal = 12.dp)
@@ -258,6 +270,36 @@ internal fun LazyListScope.contentLayoutSections(
                         RootConstants.PLACEHOLDER_FORMAT_COUNTDOWN
                     ),
                     onSelectedIndexChange = onPlaceholderFormatChange
+                )
+                OverlayDropdownPreference(
+                    title = stringResource(id = R.string.title_no_lyrics_lyric_behavior),
+                    items = lyricBehaviorOptions,
+                    selectedIndex = noLyricsBehavior.coerceIn(
+                        RootConstants.NO_LYRICS_LYRIC_BEHAVIOR_KEEP,
+                        RootConstants.NO_LYRICS_LYRIC_BEHAVIOR_RESTORE_DEFAULT
+                    ),
+                    onSelectedIndexChange = onNoLyricsBehaviorChange
+                )
+                OverlayDropdownPreference(
+                    title = stringResource(id = R.string.title_tail_timeout_behavior),
+                    items = lyricBehaviorOptions,
+                    selectedIndex = tailTimeoutBehavior.coerceIn(
+                        RootConstants.TAIL_TIMEOUT_BEHAVIOR_KEEP,
+                        RootConstants.TAIL_TIMEOUT_BEHAVIOR_RESTORE_DEFAULT
+                    ),
+                    onSelectedIndexChange = onTailTimeoutBehaviorChange
+                )
+                ArrowPreference(
+                    title = stringResource(id = R.string.title_tail_timeout_delay),
+                    summary = stringResource(id = R.string.summary_tail_timeout_delay),
+                    endActions = {
+                        Text(
+                            "$tailTimeoutDelaySeconds",
+                            fontSize = MiuixTheme.textStyles.body2.fontSize,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantActions
+                        )
+                    },
+                    onClick = onTailTimeoutDelayClick
                 )
                 SwitchPreference(
                     title = stringResource(id = R.string.title_lyric_preview),

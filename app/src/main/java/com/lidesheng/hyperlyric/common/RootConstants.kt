@@ -75,8 +75,6 @@ object RootConstants {
     const val KEY_HOOK_ISLAND_DYNAMIC_WIDTH_BASIS = "key_hook_island_dynamic_width_basis"
     const val KEY_HOOK_ISLAND_DISABLE_WIDTH_LIMIT = "key_hook_island_disable_width_limit"
     const val KEY_HOOK_ISLAND_BEHAVIOR_AFTER_PAUSE = "key_hook_island_behavior_after_pause"
-    const val KEY_HOOK_ISLAND_BEHAVIOR_AFTER_NO_LYRICS =
-        "key_hook_island_behavior_after_no_lyrics"
     const val KEY_HOOK_ISLAND_LONG_PRESS_BEHAVIOR = "key_hook_island_long_press_behavior"
     const val KEY_HOOK_ISLAND_SWIPE_BEHAVIOR = "key_hook_island_swipe_behavior"
     const val KEY_HOOK_ISLAND_SWIPE_THRESHOLD_DP = "key_hook_island_swipe_threshold_dp"
@@ -222,6 +220,9 @@ object RootConstants {
     const val KEY_HOOK_LYRIC_PREVIEW = "key_hook_lyric_preview"
     const val KEY_HOOK_LYRIC_LONG_INTERLUDE_COUNTDOWN =
         "key_hook_lyric_long_interlude_countdown"
+    const val KEY_HOOK_NO_LYRICS_LYRIC_BEHAVIOR = "key_hook_no_lyrics_lyric_behavior"
+    const val KEY_HOOK_TAIL_TIMEOUT_BEHAVIOR = "key_hook_tail_timeout_behavior"
+    const val KEY_HOOK_TAIL_TIMEOUT_DELAY_SECONDS = "key_hook_tail_timeout_delay_seconds"
     const val KEY_HOOK_ISLAND_MUSIC_WAVE_STYLE = "key_hook_island_music_wave_style"
 
     // ================= ANIMATION & MARQUEE KEYS =================
@@ -411,10 +412,6 @@ object RootConstants {
     const val DEFAULT_HOOK_ISLAND_DYNAMIC_WIDTH_BASIS = ISLAND_DYNAMIC_WIDTH_BASIS_ALL
     const val DEFAULT_HOOK_ISLAND_DISABLE_WIDTH_LIMIT = false
     const val DEFAULT_HOOK_ISLAND_BEHAVIOR_AFTER_PAUSE = 0
-    const val ISLAND_NO_LYRICS_BEHAVIOR_DEFAULT = 0
-    const val ISLAND_NO_LYRICS_BEHAVIOR_MUSIC_INFO = 1
-    const val DEFAULT_HOOK_ISLAND_BEHAVIOR_AFTER_NO_LYRICS =
-        ISLAND_NO_LYRICS_BEHAVIOR_DEFAULT
     const val ISLAND_LONG_PRESS_BEHAVIOR_LYRIC_SHARE = 0
     const val ISLAND_LONG_PRESS_BEHAVIOR_TOGGLE_PLAYBACK = 1
     const val ISLAND_LONG_PRESS_BEHAVIOR_DEFAULT = 2
@@ -597,6 +594,50 @@ object RootConstants {
     const val DEFAULT_HOOK_PLACEHOLDER_FORMAT = PLACEHOLDER_FORMAT_COUNTDOWN
     const val DEFAULT_HOOK_LYRIC_PREVIEW = false
     const val DEFAULT_HOOK_LYRIC_LONG_INTERLUDE_COUNTDOWN = true
+
+    const val NO_LYRICS_LYRIC_BEHAVIOR_KEEP = 0
+    const val NO_LYRICS_LYRIC_BEHAVIOR_MUSIC_INFO = 1
+    const val NO_LYRICS_LYRIC_BEHAVIOR_RESTORE_DEFAULT = 2
+    const val DEFAULT_HOOK_NO_LYRICS_LYRIC_BEHAVIOR = NO_LYRICS_LYRIC_BEHAVIOR_KEEP
+
+    fun normalizeNoLyricsLyricBehavior(value: Int): Int {
+        return value.takeIf {
+            it in NO_LYRICS_LYRIC_BEHAVIOR_KEEP..NO_LYRICS_LYRIC_BEHAVIOR_RESTORE_DEFAULT
+        } ?: DEFAULT_HOOK_NO_LYRICS_LYRIC_BEHAVIOR
+    }
+
+    /**
+     * 尾奏超时行为：最后一句歌词越过后仍没有新内容时接管展示。
+     * 与"无歌词/纯音乐歌词行为"共用取值语义，但没有"替换为空"。
+     */
+    const val TAIL_TIMEOUT_BEHAVIOR_KEEP = 0
+    const val TAIL_TIMEOUT_BEHAVIOR_MUSIC_INFO = 1
+    const val TAIL_TIMEOUT_BEHAVIOR_RESTORE_DEFAULT = 2
+    const val DEFAULT_HOOK_TAIL_TIMEOUT_BEHAVIOR = TAIL_TIMEOUT_BEHAVIOR_KEEP
+
+    fun normalizeTailTimeoutBehavior(value: Int): Int {
+        return value.takeIf {
+            it in TAIL_TIMEOUT_BEHAVIOR_KEEP..TAIL_TIMEOUT_BEHAVIOR_RESTORE_DEFAULT
+        } ?: DEFAULT_HOOK_TAIL_TIMEOUT_BEHAVIOR
+    }
+
+    /**
+     * 尾奏超时时长（秒），记为 n：拥有结束时间的歌词在最后一句结束后 n 秒触发，
+     * 只有开始时间的歌词在最后一句开始后 n + [TAIL_TIMEOUT_BEGIN_ONLY_EXTRA_SECONDS] 秒触发。
+     */
+    const val DEFAULT_HOOK_TAIL_TIMEOUT_DELAY_SECONDS = 3
+    const val MIN_HOOK_TAIL_TIMEOUT_DELAY_SECONDS = 0
+    const val MAX_HOOK_TAIL_TIMEOUT_DELAY_SECONDS = 30
+
+    /** 只有开始时间的歌词，超时点相对"有结束时间"额外多等的秒数。 */
+    const val TAIL_TIMEOUT_BEGIN_ONLY_EXTRA_SECONDS = 5
+
+    fun normalizeTailTimeoutDelaySeconds(value: Int): Int =
+        value.coerceIn(
+            MIN_HOOK_TAIL_TIMEOUT_DELAY_SECONDS,
+            MAX_HOOK_TAIL_TIMEOUT_DELAY_SECONDS
+        )
+
     const val ISLAND_MUSIC_WAVE_STYLE_DEFAULT = 0
     const val ISLAND_MUSIC_WAVE_STYLE_COVER_COLOR = 1
     const val ISLAND_MUSIC_WAVE_STYLE_COVER_GRADIENT = 2

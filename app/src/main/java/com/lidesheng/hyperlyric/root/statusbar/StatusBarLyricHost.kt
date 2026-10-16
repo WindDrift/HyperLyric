@@ -382,7 +382,9 @@ internal class StatusBarLyricHost(
     private fun isDuetWidthLocked(): Boolean =
         autoDuetEnabled &&
                 contentMode == RootConstants.ISLAND_CONTENT_MODE_LYRIC &&
-                LyriconDataBridge.currentSongHasDuet
+                LyriconDataBridge.currentSongHasDuet &&
+                !LyriconDataBridge.isPureMusicLyricReplaced() &&
+                !LyriconDataBridge.isTailLyricReplaced()
 
     private fun readContentMode(prefs: SharedPreferences): Int =
         prefs.getInt(
