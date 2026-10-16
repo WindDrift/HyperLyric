@@ -59,6 +59,7 @@ internal object QqSongIdResolver {
             HookLogger.d(LOG_TAG, "QQ ID 转换标识符非法: known=" + known)
             return null
         }
+        val expectedGeneration = cache.currentGeneration()
         val result = try {
             requestCounterpart(param, known, knownIsMid)
         } catch (error: IOException) {
@@ -73,7 +74,7 @@ internal object QqSongIdResolver {
             cache.putQqCounterpart(
                 known = known,
                 value = result.value ?: NEGATIVE_SENTINEL,
-                expectedGeneration = cache.currentGeneration()
+                expectedGeneration = expectedGeneration
             )
         }
         val value = result.value
